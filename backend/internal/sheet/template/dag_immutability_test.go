@@ -159,7 +159,7 @@ func TestRecalculate_ConcurrentReaders(t *testing.T) {
 			for i := 0; i < iterations; i++ {
 				changed, err := dag.Recalculate(original, map[string]any{"stats.str": 16.0})
 				assert.NoError(t, err)
-				assert.Equal(t, wantBonus, changed["derived.bonus"])
+				assert.InDelta(t, wantBonus, changed["derived.bonus"], 1e-9)
 
 				assert.True(t, dag.HasNode("derived.bonus"))
 				node, ok := dag.GetNode("derived.bonus")
@@ -205,8 +205,8 @@ func TestNormalizeAndRecalculate_ConcurrentWithWriter(t *testing.T) {
 					map[string]any{"stats.str": 16.0},
 				)
 				assert.NoError(t, err)
-				assert.Equal(t, 16.0, normalized["stats.str"])
-				assert.Equal(t, 32.0, cascading["derived.bonus"])
+				assert.InDelta(t, 16.0, normalized["stats.str"], 1e-9)
+				assert.InDelta(t, 32.0, cascading["derived.bonus"], 1e-9)
 			}
 		}()
 	}

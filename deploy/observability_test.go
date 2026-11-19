@@ -97,62 +97,61 @@ type expectedAlert struct {
 	severity string
 	series   []string
 	reads    []string
-	req      string
 }
 
 var pipelineAlerts = []expectedAlert{
 	{
-		name: "EmailDeadLetterQueueHoldsMessages", severity: "critical", req: "OBS-01",
+		name: "EmailDeadLetterQueueHoldsMessages", severity: "critical",
 		series: []string{"rabbitmq_queue_messages_ready"},
 		reads:  []string{deadQueueSelector, `vhost="legnaris"`},
 	},
 	{
-		name: "EmailWorkQueueHasNoConsumer", severity: "critical", req: "OBS-02",
+		name: "EmailWorkQueueHasNoConsumer", severity: "critical",
 		series: []string{"rabbitmq_queue_consumers"},
 		reads:  []string{workQueueSelector, `vhost="legnaris"`},
 	},
 	{
-		name: "EmailOldestMessageTooOld", severity: "high", req: "OBS-03",
+		name: "EmailOldestMessageTooOld", severity: "high",
 		series: []string{"rabbitmq_queue_messages_ready", "rabbitmq_queue_consumers"},
 		reads:  []string{workQueueSelector, `vhost="legnaris"`, "min_over_time("},
 	},
 	{
-		name: "EmailPublicationBacklogTooLarge", severity: "high", req: "OBS-04",
+		name: "EmailPublicationBacklogTooLarge", severity: "high",
 		series: []string{"legnaris_email_outbox_backlog"},
 		reads:  []string{`job="legnaris-relay"`},
 	},
 	{
-		name: "EmailPublicationFailing", severity: "high", req: "OBS-05",
+		name: "EmailPublicationFailing", severity: "high",
 		series: []string{"legnaris_email_publish_total"},
 		reads:  []string{`job="legnaris-relay"`},
 	},
 	{
-		name: "EmailProviderRefusingSends", severity: "high", req: "OBS-06",
+		name: "EmailProviderRefusingSends", severity: "high",
 		series: []string{"legnaris_email_send_total"},
 		reads:  []string{`job="legnaris-worker"`, `result="retried"`},
 	},
 	{
-		name: "EmailDailyAllowanceReached", severity: "medium", req: "OBS-07",
+		name: "EmailDailyAllowanceReached", severity: "medium",
 		series: []string{"legnaris_auth_otp_cap_blocked_total"},
 		reads:  []string{`job="legnaris-app"`},
 	},
 	{
-		name: "EmailVerificationFailuresClimbing", severity: "medium", req: "OBS-08",
+		name: "EmailVerificationFailuresClimbing", severity: "medium",
 		series: []string{"legnaris_auth_otp_verify_total"},
 		reads:  []string{`job="legnaris-app"`, `result!="verified"`},
 	},
 	{
-		name: "EmailPipelineSeriesMissing", severity: "high", req: "OBS-16",
+		name: "EmailPipelineSeriesMissing", severity: "high",
 		series: []string{"rabbitmq_queue_consumers", "legnaris_email_outbox_backlog", "legnaris_email_dead_total", "up{"},
 		reads:  []string{"absent(", `legnaris-app`},
 	},
 	{
-		name: "EmailRegisterBurstTooLarge", severity: "medium", req: "LGN-159",
+		name: "EmailRegisterBurstTooLarge", severity: "medium",
 		series: []string{"legnaris_http_requests_total"},
 		reads:  []string{`job="legnaris-app"`, `method="POST"`, `path="/auth/register"`, `status="429"`, "[24h]"},
 	},
 	{
-		name: "EmailCapReachedEarly", severity: "medium", req: "LGN-159",
+		name: "EmailCapReachedEarly", severity: "medium",
 		series: []string{"legnaris_auth_otp_cap_blocked_total"},
 		reads:  []string{`job="legnaris-app"`, "count_over_time(", "offset 12h", "[7d:1d]"},
 	},
@@ -162,7 +161,7 @@ func TestAlertRulesExistAndAreComplete(t *testing.T) {
 	alerts := alertsByName(t)
 
 	for _, want := range pipelineAlerts {
-		t.Run("Happy path: "+want.name+" exists with its severity ("+want.req+")", func(t *testing.T) {
+		t.Run("Happy path: "+want.name+" exists with its severity", func(t *testing.T) {
 			rule, present := alerts[want.name]
 			require.Truef(t, present, "the alert %s must exist", want.name)
 			assert.Equal(t, want.severity, rule.Labels["severity"])
@@ -329,7 +328,7 @@ func TestMonitoringEvaluatesTheRules(t *testing.T) {
 		assert.Contains(t, string(conf), perObjectConf)
 	})
 
-	t.Run("Edge: no notification service is added to the stack (OBS-09)", func(t *testing.T) {
+	t.Run("Edge: no notification service is added to the stack", func(t *testing.T) {
 		assert.Nil(t, doc.Alerting, "the stack must not configure an alert manager")
 		for name := range readCompose(t).Services {
 			assert.NotContainsf(t, name, "alertmanager", "service %s", name)
@@ -343,7 +342,7 @@ func TestAlertRulesPassThePrometheusValidator(t *testing.T) {
 		t.Skip("promtool is not installed; run the quickstart's containerised check instead")
 	}
 
-	out, err := exec.Command(promtool, "check", "rules", rulesFile).CombinedOutput()
+	out, err := exec.CommandContext(t.Context(), promtool, "check", "rules", rulesFile).CombinedOutput()
 	assert.NoErrorf(t, err, "promtool rejected the rules:\n%s", out)
 }
 
@@ -406,23 +405,22 @@ func TestDashboardCoversThePipeline(t *testing.T) {
 	stages := []struct {
 		name   string
 		series string
-		req    string
 	}{
-		{name: "codes requested", series: "legnaris_auth_otp_issued_total", req: "OBS-11"},
-		{name: "codes verified", series: "legnaris_auth_otp_verify_total", req: "OBS-11"},
-		{name: "backlog of unpublished codes", series: "legnaris_email_outbox_backlog", req: "OBS-11"},
-		{name: "publication outcomes", series: "legnaris_email_publish_total", req: "OBS-11"},
-		{name: "delivery outcomes", series: "legnaris_email_send_total", req: "OBS-11"},
-		{name: "dead-lettered count", series: "legnaris_email_dead_total", req: "OBS-11"},
-		{name: "expired count", series: "legnaris_email_expired_total", req: "OBS-11"},
-		{name: "queue depth", series: "rabbitmq_queue_messages_ready", req: "OBS-12"},
-		{name: "consumers", series: "rabbitmq_queue_consumers", req: "OBS-12"},
-		{name: "work queue not draining", series: "min_over_time(rabbitmq_queue_messages_ready", req: "OBS-12"},
-		{name: "provider answer time", series: "legnaris_email_send_duration_seconds", req: "OBS-12"},
-		{name: "daily allowance", series: "legnaris_auth_otp_cap_blocked_total", req: "OBS-12"},
+		{name: "codes requested", series: "legnaris_auth_otp_issued_total"},
+		{name: "codes verified", series: "legnaris_auth_otp_verify_total"},
+		{name: "backlog of unpublished codes", series: "legnaris_email_outbox_backlog"},
+		{name: "publication outcomes", series: "legnaris_email_publish_total"},
+		{name: "delivery outcomes", series: "legnaris_email_send_total"},
+		{name: "dead-lettered count", series: "legnaris_email_dead_total"},
+		{name: "expired count", series: "legnaris_email_expired_total"},
+		{name: "queue depth", series: "rabbitmq_queue_messages_ready"},
+		{name: "consumers", series: "rabbitmq_queue_consumers"},
+		{name: "work queue not draining", series: "min_over_time(rabbitmq_queue_messages_ready"},
+		{name: "provider answer time", series: "legnaris_email_send_duration_seconds"},
+		{name: "daily allowance", series: "legnaris_auth_otp_cap_blocked_total"},
 	}
 	for _, stage := range stages {
-		t.Run("Happy path: a panel shows the "+stage.name+" ("+stage.req+")", func(t *testing.T) {
+		t.Run("Happy path: a panel shows the "+stage.name, func(t *testing.T) {
 			found := false
 			for _, panel := range dashboard.Panels {
 				for _, target := range panel.Targets {

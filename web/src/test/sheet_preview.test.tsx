@@ -33,8 +33,8 @@ function previewRequests(fake: ReturnType<typeof createFakeTransport>) {
   return fake.requests.filter((request) => request.url.endsWith('/preview'));
 }
 
-describe('sheet preview store (WSC-21 … WSC-25)', () => {
-  it('Edge: Preview with an empty delta issues no request (WSC-21)', async () => {
+describe('sheet preview store', () => {
+  it('Edge: Preview with an empty delta issues no request', async () => {
     const fake = createFakeTransport(successOutcome({}));
     const store = storeWith(fake.transport);
 
@@ -44,7 +44,7 @@ describe('sheet preview store (WSC-21 … WSC-25)', () => {
     expect(store.getState().previewError).toBeUndefined();
   });
 
-  it('Edge: a repeat preview with no new edit issues no request (WSC-21, WSC-24)', async () => {
+  it('Edge: a repeat preview with no new edit issues no request', async () => {
     const fake = createFakeTransport(successOutcome({ derived: { total: 5 } }));
     const store = storeWith(fake.transport);
 
@@ -56,7 +56,7 @@ describe('sheet preview store (WSC-21 … WSC-25)', () => {
     expect(canPreview(store.getState())).toBe(false);
   });
 
-  it('Edge: a failed preview keeps every edit, shows the mapped message and stays available (WSC-25)', async () => {
+  it('Edge: a failed preview keeps every edit, shows the mapped message and stays available', async () => {
     const fake = createFakeTransport(errorOutcome('INTERNAL_ERROR', 'boom', 500));
     const store = storeWith(fake.transport);
 
@@ -68,7 +68,7 @@ describe('sheet preview store (WSC-21 … WSC-25)', () => {
     expect(canPreview(store.getState())).toBe(true);
   });
 
-  it('Edge: an edit after a preview clears the marks and re-enables Preview (WSC-24)', async () => {
+  it('Edge: an edit after a preview clears the marks and re-enables Preview', async () => {
     const fake = createFakeTransport(successOutcome({ derived: { total: 5 } }));
     const store = storeWith(fake.transport);
 
@@ -82,7 +82,7 @@ describe('sheet preview store (WSC-21 … WSC-25)', () => {
     expect(canPreview(store.getState())).toBe(true);
   });
 
-  it('Happy path: Preview sends the delta, merges the cascade without advancing the baseline and publishes the marks (WSC-21, WSC-22, WSC-23)', async () => {
+  it('Happy path: Preview sends the delta, merges the cascade without advancing the baseline and publishes the marks', async () => {
     const fake = createFakeTransport(successOutcome({ derived: { total: 7 } }));
     const store = storeWith(fake.transport);
 
@@ -103,8 +103,8 @@ describe('sheet preview store (WSC-21 … WSC-25)', () => {
   });
 });
 
-describe('sheet preview marks on the screen (WSC-21, WSC-23, SC-009)', () => {
-  it('Happy path: Preview tints and labels the changed and recalculated rows through the engine seam (WSC-23, SC-009)', async () => {
+describe('sheet preview marks on the screen', () => {
+  it('Happy path: Preview tints and labels the changed and recalculated rows through the engine seam', async () => {
     const user = userEvent.setup();
     const fake = createFakeTransport(
       successOutcome(sheetPayload()),
@@ -128,7 +128,7 @@ describe('sheet preview marks on the screen (WSC-21, WSC-23, SC-009)', () => {
     expect(screen.getByRole('button', { name: message('sheet.preview') })).toBeDisabled();
   });
 
-  it('Edge: an edit after a preview clears the marks and re-enables Preview (WSC-24)', async () => {
+  it('Edge: an edit after a preview clears the marks and re-enables Preview', async () => {
     const user = userEvent.setup();
     const fake = createFakeTransport(
       successOutcome(sheetPayload()),
@@ -150,7 +150,7 @@ describe('sheet preview marks on the screen (WSC-21, WSC-23, SC-009)', () => {
     expect(screen.getByRole('button', { name: message('sheet.preview') })).toBeEnabled();
   });
 
-  it('Edge: a marked row whose value is empty still shows its label and tint (WSC-23)', async () => {
+  it('Edge: a marked row whose value is empty still shows its label and tint', async () => {
     const user = userEvent.setup();
     const fake = createFakeTransport(
       successOutcome(sheetPayload()),

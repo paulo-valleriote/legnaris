@@ -85,7 +85,7 @@ func TestPlanController_SheetUsage(t *testing.T) {
 			}
 
 			rec := httptest.NewRecorder()
-			e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/me/plan", nil))
+			e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/me/plan", nil))
 			require.Equal(t, tc.wantStatus, rec.Code, rec.Body.String())
 			if tc.wantStatus != http.StatusOK {
 				return

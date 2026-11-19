@@ -16,15 +16,104 @@ linters:
     - gocyclo        # cyclomatic complexity
     - dupl           # duplicated code blocks
     - goconst        # repeated string literals
+    - depguard       # import boundaries between layers
+    - gocritic       # ruleguard: project-specific rules
+    - forbidigo      # banned identifiers (idgen, shared json, logger)
+    - errorlint      # error wrapping, comparison and type assertions
+    - bodyclose      # unclosed HTTP response bodies
+    - noctx          # HTTP requests without a context
+    - testifylint    # testify usage
   settings:
+    depguard:
+      rules:
+        lower-layers-no-apperr:
+          files:
+            - ${base-path}/backend/internal/engine/*.go
+            - ${base-path}/backend/internal/engine/**/*.go
+            - ${base-path}/backend/internal/sheet/template/*.go
+            - ${base-path}/backend/internal/sheet/template/**/*.go
+            - ${base-path}/backend/internal/dice/*.go
+            - ${base-path}/backend/internal/dice/**/*.go
+            - ${base-path}/backend/shared/db/*.go
+            - ${base-path}/backend/shared/db/**/*.go
+            - ${base-path}/backend/shared/idgen/*.go
+            - ${base-path}/backend/shared/idgen/**/*.go
+          deny:
+            - pkg: legnaris/backend/shared/apperr
+              desc: "lower layers must not import apperr; return a typed error from this package instead and translate it with apperr.NewError at the service boundary"
+        dice-no-template:
+          files:
+            - ${base-path}/backend/internal/dice/*.go
+            - ${base-path}/backend/internal/dice/**/*.go
+          deny:
+            - pkg: legnaris/backend/internal/sheet/template
+              desc: "dice is a leaf grammar package and must not import sheet/template; template-dependent fitting belongs in backend/internal/sheet/template"
+        engine-allowlist:
+          files:
+            - ${base-path}/backend/internal/engine/*.go
+            - ${base-path}/backend/internal/engine/**/*.go
+          list-mode: strict
+          allow:
+            - $gostd
+            - github.com/expr-lang/expr
+            - github.com/stretchr/testify
+          deny:
+            - pkg: legnaris/backend/internal
+              desc: "engine is a lower layer and must not import services or app; declare an interface in engine and invert the dependency"
+            - pkg: legnaris/backend/shared
+              desc: "engine must stay a bare expr-lang wrapper: no logger, env or other shared helpers"
+        shared-no-internal:
+          files:
+            - ${base-path}/backend/shared/*.go
+            - ${base-path}/backend/shared/**/*.go
+          deny:
+            - pkg: legnaris/backend/internal
+              desc: "backend/shared is the lowest layer and must not import backend/internal; move the helper into backend/shared or invert the dependency"
+        no-package-log:
+          files:
+            - $all
+            - "!${base-path}/backend/shared/logger/*.go"
+            - "!${base-path}/backend/shared/logger/**/*.go"
+          deny:
+            - pkg: log$
+              desc: "use backend/shared/logger; the stdlib log package writes through a global stderr logger and bypasses structured logging"
+            - pkg: github.com/rs/zerolog/log
+              desc: "use backend/shared/logger; the zerolog/log global cannot be injected or asserted in tests"
+    gocritic:
+      disable-all: true
+      enabled-checks:
+        - ruleguard
+      settings:
+        ruleguard:
+          rules: ${base-path}/backend/tools/rules/rules.go
+          failOn: dsl,import
     gocyclo:
-      # Threshold for cyclomatic complexity (see AGENTS.md "PR Review Checklist").
+      # Threshold for cyclomatic complexity (see .opencode/AGENTS.md "Cyclomatic Complexity").
       min-complexity: 15
     dupl:
       threshold: 150
     goconst:
       min-len: 3
       min-occurrences: 3
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: '^uuid\.(New|NewString|Must)$'
+          msg: "use idgen.New"
+        - pattern: '^json\.(Unmarshal|NewDecoder)$'
+          msg: "decode through backend/shared/json"
+        - pattern: '^fmt\.Print(f|ln)?$'
+          msg: "log through backend/shared/logger"
+        - pattern: '^println$'
+          msg: "log through backend/shared/logger"
+    testifylint:
+      enable-all: false
+      enable:
+        - empty
+        - error-is-as
+        - expected-actual
+        - len
+        - require-error
   exclusions:
     # Skip generated files (mockery mocks carry "Code generated ... DO NOT EDIT.").
     generated: lax
@@ -39,6 +128,29 @@ linters:
           - dupl
           - gocyclo
           - goconst
+      # Tests may decode fixtures with encoding/json and print diagnostics.
+      - path: _test\.go
+        linters:
+          - forbidigo
+        text: decode through backend/shared/json
+      - path: _test\.go
+        linters:
+          - forbidigo
+        text: log through backend/shared/logger
+      # The two shared wrappers are the only places allowed to touch the raw APIs.
+      - path: backend/shared/idgen/
+        linters:
+          - forbidigo
+        text: use idgen\.New
+      - path: backend/shared/json/
+        linters:
+          - forbidigo
+        text: decode through backend/shared/json
+      # Entry points own stdout: structured logging starts behind backend/shared/logger.
+      - path: backend/cmd/
+        linters:
+          - forbidigo
+        text: log through backend/shared/logger
 
 formatters:
   enable:

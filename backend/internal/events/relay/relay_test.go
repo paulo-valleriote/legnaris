@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -302,6 +303,36 @@ func TestQueueOldestPending(t *testing.T) {
 			obs.EXPECT().OldestPending(relay.QueueName, tc.want).Once()
 			repo.EXPECT().Claim(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 				Return(nil, nil).Once()
+
+			require.NoError(t, runQueue(t, repo, pub, obs, testConfig()))
+		})
+	}
+}
+
+func TestQueueInvalidIdentity(t *testing.T) {
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{name: "Error: a malformed identity is dead on the first attempt", id: "not-a-uuid"},
+		{name: "Edge: an empty identity is dead on the first attempt", id: ""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := outboxmocks.NewMockRepository(t)
+			pub := relaymocks.NewMockPublisher(t)
+			obs := sweepermocks.NewMockObserver(t)
+			entry := newEntry(t, 0)
+			entry.ID = tc.id
+
+			expectPass(repo, obs)
+			obs.EXPECT().Failed(relay.QueueName).Once()
+			repo.EXPECT().Claim(mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+				Return([]outbox.Entry{entry}, nil).Once()
+			repo.EXPECT().MarkTerminal(mock.Anything, tc.id, fixedNow, mock.MatchedBy(func(reason string) bool {
+				return strings.Contains(reason, "invalid identity") && strings.Contains(reason, idgen.ErrInvalidID.Error())
+			})).Return(nil).Once()
 
 			require.NoError(t, runQueue(t, repo, pub, obs, testConfig()))
 		})

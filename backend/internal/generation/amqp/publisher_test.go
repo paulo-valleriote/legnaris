@@ -439,10 +439,10 @@ func TestPublisher_ConcurrentPublishes(t *testing.T) {
 			}
 			for i, id := range tc.jobs {
 				if refused[id] {
-					assert.ErrorIs(t, errs[i], ErrPublishRefused, "job %s", id)
+					require.ErrorIs(t, errs[i], ErrPublishRefused, "job %s", id)
 					continue
 				}
-				assert.NoError(t, errs[i], "job %s", id)
+				require.NoError(t, errs[i], "job %s", id)
 			}
 			assert.Equal(t, 1, *dials)
 			assert.Len(t, ch.published, len(tc.jobs))

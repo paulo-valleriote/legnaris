@@ -11,6 +11,7 @@ import (
 	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/sheettest"
 	"legnaris/backend/internal/sheet/template"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
@@ -88,7 +89,7 @@ func TestService_PartialUpdate_Dice(t *testing.T) {
 			ownerID:     ownerUserID,
 			sheetID:     missingSheetID,
 			dice:        full,
-			fetchErr:    sheet.ErrSheetNotFound,
+			fetchErr:    sheeterr.ErrSheetNotFound,
 			wantFetch:   true,
 			wantCode:    apperr.CodeNotFound,
 			wantMessage: "sheet not found",
@@ -206,7 +207,7 @@ func TestService_PartialUpdate_Dice(t *testing.T) {
 			sheetID:      fetchSheetID,
 			dice:         full,
 			stored:       layoutStoredSheet(ownerUserID),
-			updateErr:    sheet.ErrSheetNotFound,
+			updateErr:    sheeterr.ErrSheetNotFound,
 			wantFetch:    true,
 			wantTemplate: true,
 			wantUpdate:   true,
@@ -221,7 +222,7 @@ func TestService_PartialUpdate_Dice(t *testing.T) {
 			sheetID:      fetchSheetID,
 			dice:         full,
 			stored:       layoutStoredSheet(ownerUserID),
-			updateErr:    sheet.ErrVersionConflict,
+			updateErr:    sheeterr.ErrVersionConflict,
 			wantFetch:    true,
 			wantTemplate: true,
 			wantUpdate:   true,

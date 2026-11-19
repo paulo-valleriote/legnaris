@@ -10,6 +10,7 @@ import (
 
 	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/plan"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
@@ -117,7 +118,7 @@ func requireOwner(ownerID string) error {
 
 func checkOwnership(stored *Sheet, ownerID string) error {
 	if stored.OwnerID == "" || stored.OwnerID != ownerID {
-		return translateRepoErr("fetch", ErrSheetNotFound)
+		return translateRepoErr("fetch", sheeterr.ErrSheetNotFound)
 	}
 	return nil
 }
@@ -203,7 +204,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 }
 
 func translateCreateErr(err error, kind plan.SheetKind, limit int) error {
-	if errors.Is(err, ErrSheetLimitReached) {
+	if errors.Is(err, sheeterr.ErrSheetLimitReached) {
 		return sheetLimitError(kind, limit, err)
 	}
 	return translateRepoErr("create", err)
@@ -344,12 +345,12 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 		s.publishSheetUpdated(cmd.OwnerID, cmd.SheetID, changedKeysOf(cmd), newVersion)
 		return nestedCascadingEffects(result.cascade)
 	}
-	if !errors.Is(err, ErrVersionConflict) {
+	if !errors.Is(err, sheeterr.ErrVersionConflict) {
 		return nil, translateRepoErr("update", err)
 	}
 	s.log.Warn(ctx, "sheet patch version conflict",
 		patchLogFields(cmd.SheetID, cmd.RequestID, result.templateID, result.version, result.delta, result.cascade)...)
-	return nil, apperr.NewError(apperr.CodeConflict, MsgSheetConflict, ErrVersionConflict).
+	return nil, apperr.NewError(apperr.CodeConflict, MsgSheetConflict, sheeterr.ErrVersionConflict).
 		WithRetryAfter(conflictRetryAfter)
 }
 
@@ -575,6 +576,9 @@ func translateTemplateErr(err error) error {
 	if errors.Is(err, template.ErrTemplateIDNotProvided) || errors.Is(err, template.ErrTemplateIDInvalid) {
 		return apperr.NewError(apperr.CodeInvalidRequest, err.Error(), nil)
 	}
+	if errors.Is(err, template.ErrTemplateNotFound) {
+		return apperr.NewError(apperr.CodeNotFound, "template not found", err)
+	}
 	return apperr.NewError(apperr.CodeInternal, "failed to fetch template", err)
 }
 
@@ -621,7 +625,7 @@ func translateRepoErr(op string, err error) error {
 	if errors.As(err, &appErr) {
 		return err
 	}
-	if errors.Is(err, ErrSheetNotFound) {
+	if errors.Is(err, sheeterr.ErrSheetNotFound) {
 		return apperr.NewError(apperr.CodeNotFound, "sheet not found", err)
 	}
 	return apperr.NewError(apperr.CodeInternal, "failed to "+op+" sheet", err)

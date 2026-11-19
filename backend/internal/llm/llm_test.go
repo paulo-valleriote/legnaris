@@ -3,7 +3,6 @@ package llm_test
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"testing"
 
 	"legnaris/backend/internal/llm"
@@ -65,15 +64,15 @@ func TestRequestValidate(t *testing.T) {
 				return
 			}
 			require.Error(t, err)
-			assert.True(t, errors.Is(err, llm.ErrPermanent), "invalid requests are permanent: %v", err)
-			assert.False(t, errors.Is(err, llm.ErrTransient))
+			require.ErrorIs(t, err, llm.ErrPermanent, "invalid requests are permanent: %v", err)
+			assert.NotErrorIs(t, err, llm.ErrTransient)
 		})
 	}
 }
 
 func TestProviderUnavailableIsTransient(t *testing.T) {
-	assert.True(t, errors.Is(llm.ErrProviderUnavailable, llm.ErrTransient), "no eligible provider must be retried")
-	assert.False(t, errors.Is(llm.ErrProviderUnavailable, llm.ErrPermanent))
+	require.ErrorIs(t, llm.ErrProviderUnavailable, llm.ErrTransient, "no eligible provider must be retried")
+	assert.NotErrorIs(t, llm.ErrProviderUnavailable, llm.ErrPermanent)
 }
 
 func TestGenerationID(t *testing.T) {

@@ -189,7 +189,7 @@ No screen invents its own heading size; a smaller voice is a step of this list, 
   now joined by the `Notice` strip, the `Select` control, the state primitives
   (`EmptyState`/`ErrorState`/`LoadingState`), `PageHeader` and the one `icons` module — plus the
   focus trap (`focus_trap`). Every visual value comes from `--lg-*` tokens; no feature directory is
-  imported (`UIP-02`). The class convention is `lg-<block>__<element>--<modifier>`.
+  imported. The class convention is `lg-<block>__<element>--<modifier>`.
   **All buttons use `ui/Button`, all modals use `ui/Dialog`, and every icon comes from
   `ui/icons`.** A screen does not build its own button, overlay or glyph.
 - **Button.** Variants `primary` (accent fill with `--lg-color-accent-text`), `secondary`
@@ -454,7 +454,7 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   on a `--lg-size-control` target: `Help`, `Arrange` (pinning is part of Arrange mode). None is primary, because none is: Save stays the only one. On a narrow width the group
   wraps under the name. `Collapse all` is not a header action: it sits at the trailing edge of the
   sticky section strip, next to the links it acts on. There is no vitals strip and no card of pinned
-  numbers above the Sections (ADR 0002 amended): pinned Rows rise to the top of their own Section.
+  numbers above the Sections: pinned Rows rise to the top of their own Section.
 
   **Help.** The ghost `Help` button in the header group (`aria-expanded`) opens a quiet note under the
   heading: a hairline-bordered `--lg-radius-md` box on `--lg-color-surface` with two `--lg-type-13`

@@ -1,64 +1,16 @@
 # AGENTS.md — web/ (React PWA client)
 
-Development, security and architecture rules for the client under `web/`. The **visual** rules —
-principles, token architecture, colour, typography, spacing/layout, radius/border/elevation,
-motion, component specifications, accessibility, security posture, per-screen patterns, enforcement
-and anti-patterns — live in **[DESIGN.md](./DESIGN.md)**, which is the sole written source of the
-visual values and supersedes any visual statement elsewhere (UIF-33). Design values are made
+The client platform — shell, routing, theme, shared UI primitives, copy, typed API client, offline
+behaviour and security posture — is documented in
+[`../context/web-client.md`](../context/web-client.md). Visual rules — principles, token
+architecture, colour, typography, spacing/layout, radius/border/elevation, motion, component
+specifications, accessibility, per-screen patterns, enforcement and anti-patterns — live in
+**[DESIGN.md](./DESIGN.md)**, the sole written source of the visual values. Design values are made
 **once**, there, not per screen.
 
-## Visual rules
+Shared primitives live in `src/ui/`; screens compose them instead of re-implementing controls.
 
-Do not encode or restate visual values here or in a component. Read `DESIGN.md` for the token
-architecture and the token-addition workflow, and `src/theme/tokens.css` (mirrored in
-`src/theme/tokens.ts`) for the concrete values. Every component consumes `--lg-*` tokens only;
-`src/theme/` is the sanctioned exception where the literals are declared, and a source scan keeps
-the other directories literal-free.
-
-## Interaction wiring
-
-The keyboard model is centralised, not spread across screens: shortcuts live in one registry
-(`src/shell/shortcut_registry.ts`) as a plain action → key map, and the shell-level leave registry
-(`src/shell/leave_guard.ts`) is what a navigation asks before leaving a surface with unsaved work.
-The visual side of interaction — focus ring, hover, dialog avoidance, feedback — is specified in
-`DESIGN.md`.
-
-## Security rules (non-negotiable)
-
-- **No DOM injection sinks**: `dangerouslySetInnerHTML`, `innerHTML`, `eval`,
-  `new Function`, `document.write` are forbidden — ESLint fails the build on them
-  (FND-10, SEC-02). React escapes text automatically; keep data as text.
-- **No third-party scripts, styles, or fonts**: everything is self-hosted and
-  same-origin, so the strict production Content-Security-Policy
-  (`deploy/traefik/dynamic.yml`) holds without exceptions.
-- **No credentials in JavaScript-readable storage**: never put a token in
-  `localStorage`, `sessionStorage`, or IndexedDB. The refresh credential is an
-  `HttpOnly` cookie; the access token lives in memory only. (A display preference such as the
-  theme is not a credential and may persist.)
-- All identifiers, comments, and user-facing strings in **English** (UI strings go
-  through `src/l10n/`).
-
-## API client (`src/api/`)
-
-The typed network layer every screen mounts on. Its rules are non-negotiable.
-
-- **One transport seam.** Every request goes through the transport injected at
-  construction; no operation builds its own, and the transport is the single place a
-  credential will ever be attached. Requests carry `credentials: 'omit'` — no ambient
-  credential is attached implicitly, in any environment.
-- **No logging.** The module contains no `console.*` call and imports no logger; a request
-  body, a credential and an identifier-bearing URL never reach a log. A source scan
-  (`src/test/api_no_logging.test.ts`) enforces this.
-- **No user-facing literal.** Every message a person sees resolves through
-  `src/l10n/strings.ts`; the API module emits codes and failure kinds, never copy.
-- **Failures are classified, drift is distinct.** A refusal becomes a `DomainFailure` with
-  a `FailureKind`; an unreadable response stays a `DefensiveParseFailure`; a malformed
-  dotted path raises a `PathFailure`; an unusable base address raises a
-  `ConfigurationFailure` at construction. A new backend code must be given a kind in
-  `error_mapper.ts` — the mapping table is total over the codes the backend emits.
-- **Captures are never hand-edited.** `src/api/fixtures/` holds real responses written
-  verbatim by `capture.sh`; a capture that stops matching the models is a backend contract
-  change and the pinned suite is expected to go red on it.
+The sections below hold the working rules for the engine, the sheet cycle, dice and the Layout.
 
 ## UI engine (`src/engine/`)
 
@@ -79,7 +31,7 @@ no request, no mark. It mounts no screen; every case renders its modules directl
   renders one wrapper carrying `data-row-key` and `data-row-kind` (`normal` | `exclusive` |
   `table`). The row key comes from `rowKey(row)` in `field_grouping.ts`
   (`<path>`, `<parent path>#<groupId>`, `<group path>`; the same keys the backend validates a
-  layout against, ADR 0001): it depends only on the template, never on position or value, and is
+  layout against): it depends only on the template, never on position or value, and is
   unique across the sheet. A table Row is self-sufficient: it draws its own column header inside
   its wrapper, shared with the next Row only when that Row is the adjacent table Row with the same
   columns (`needsTableHeader`), judged on the Rows as drawn, so a pin that changes who neighbours
@@ -93,7 +45,7 @@ no request, no mark. It mounts no screen; every case renders its modules directl
   reset); each returns the same reference when it changes nothing. Both are stateless.
   `isNumberRow` names the lone `number` leaves (editable or derived, never a `config.*` switch).
   A pinned Row never leaves its Section.
-- `dependents.ts` / `dependent_readout.tsx` (sheet-object brief A12) — a derived value beside the
+- `dependents.ts` / `dependent_readout.tsx` — a derived value beside the
   input that drives it. `buildDependentsIndex` inverts `schema.dependsOn` over the Sections' leaves
   (direct edges only; a missing, external, empty, repeated or self dependency is dropped, so a cycle
   cannot recurse), `dependentsOf(index, source)` returns the dependents of an editable
@@ -119,9 +71,9 @@ receives none and keeps its `aria-label`.
 
 **One control source.** `SheetForm` takes exactly one: `data` + `onChanged`, or both
 `controlBuilder` and `exclusiveControlBuilder`. Any other combination throws rather than
-half-render (ENG-25). In builder mode the composition reads no value, so the caller owns
+half-render. In builder mode the composition reads no value, so the caller owns
 the per-field subscription and edit reporting through the seams (`controlBuilder`,
-`exclusiveControlBuilder`, optional `rowMarkBuilder`) — the web expression of `AD-001`.
+`exclusiveControlBuilder`, optional `rowMarkBuilder`).
 
 **Numeric guard.** The numeric input seeds from its stored value, holds its display text
 locally, and reports an edit only when the whole text resolves to a finite number: an
@@ -131,7 +83,7 @@ A sign or point typed so far (`-`, `.`, `-.`) is kept as display text and report
 `-3` can be typed key by key; `-0` reports `0`, never a negative zero. Leaving the field with
 only such a pending text restores the text of the last reported value. The iOS decimal pad has
 no minus key, so a focus-only sign toggle (`Toggle sign of <label>`, not a tab stop) flips the
-leading minus through the same path (ENG-12).
+leading minus through the same path.
 
 Phone editing is the same guard made faster. Focus selects the whole text (in a frame after focus,
 and only while the text is unchanged, so an early keystroke is never selected over; a tap on an
@@ -191,7 +143,7 @@ the F2 client and the F4 engine and owns no wire model.
 **One edit rebuilds one control.** A field control subscribes to its own dotted path
 (`store.subscribePath`) and reports edits back through the engine's `controlBuilder`/
 `exclusiveControlBuilder` seams; the screen subscribes only to the coarse signals it renders
-(footer, marks). This is the web expression of `AD-001`, obtained with
+(footer, marks). The per-path subscription is obtained with
 `useSyncExternalStore` — no state library is added.
 
 **Delta, never a snapshot.** A save and a preview send only the pending editable delta,
@@ -219,59 +171,11 @@ The one exception is an offline save or preview failure: the edit store writes t
 to the draft immediately (not on the 60 s cadence) and the footer says "kept on this device" only
 when that write landed; otherwise it says the changes could not be kept (`sheet.error.*OfflineUnkept`).
 
-## Dice expressions (`src/dice/`, ADR 0005)
+## Dice expressions (`src/dice/`)
 
-Pure TypeScript half of the Dice grammar: no React, no network, no dependency on the API models.
-The Go package `backend/internal/dice` validates; this module parses, resolves and rolls.
+Pure TypeScript parsing, resolution and rolling live in `src/dice/`; the Go package `backend/internal/dice` validates and `src/sheet/dice_*` owns the UI and pending work. The grammar, precedence, save contract and vectors are documented in [../context/dice.md](../context/dice.md); a grammar change starts in `testdata/dice/vectors.json` and moves both implementations together.
 
-- `parseDice` / `canonicalForm` (`parse.ts`), `validateRow` / `validateSection` / `fitsRow`
-  (`fit.ts`, against a `DiceSchema` path → kind), `resolveDice` (`resolve.ts`, the five-step
-  precedence), `rollExpression` / `performRoll` (`roll.ts`). Operations that can be refused return a
-  `DiceResult` carrying a `DiceError` whose `class` is the vocabulary of the shared vectors; they do
-  not throw (the one exception is a random source that never yields a usable word).
-- **`testdata/dice/vectors.json` is shared with Go.** `dice_*.test.ts` assert every vector; a grammar
-  change starts in the vectors and both implementations follow. `LIMITS` and the class strings are
-  part of that contract.
-- **Resolution** reads own keys only (`Object.hasOwn`): an absent key falls through, `null` is "no
-  dice", and the chosen expression is judged against the Row (parse, then fit). A Row it does not fit
-  is not rollable with it; no later step is tried.
-- **A Roll** reads the on-screen values, `draft` before saved (a path present in the draft wins even
-  when emptied), floors with `Math.floor`, and refuses a missing, `null`, non-finite or non-numeric
-  Field as `no_value`. Dice come from `crypto.getRandomValues` through `dieFromWords`, which redraws
-  words above the largest multiple of the face count (no modulo bias). Nothing is stored.
-- User-facing copy for a `DiceError` is the UI's job (LGN-166), by `class`, through `src/l10n/`.
-- **Validation mirrors the server.** The client refuses what the `dice` block of `PATCH /sheets/:id` would refuse
-  (same limits, grammar, Row fit and 64-entry cap) so a bad expression never reaches the wire; the
-  server stays the authority and its 400 `INVALID_REQUEST` is still mapped.
-- **A dice choice is pending work (ADR 0006).** The edit store (`sheet_edit.ts`) holds the saved and
-  the current block; `createDiceStore` (`src/sheet/dice_store.ts`) is the face the Dice controls use
-  over it: it runs the local check and, when accepted, records the choice with `setDice`. Nothing is
-  sent until Save (or `Ctrl+S`), which issues one `PATCH` carrying the delta and the whole block
-  (`patchSheet(id, delta, dice)`; an empty delta is left out). A choice counts for `isPending`,
-  `pendingCount`, the leave guard, `F5`, discard and the draft (`writeDraft(id, delta, dice)`);
-  setting it back to its saved value clears it. Both the saved block and a restored draft go through
-  `pruneStaleChoices` (`src/sheet/dice_view.ts`), which mirrors the server's save rules (unknown key,
-  Row expression that no longer fits, Section expression that fits none of its Rows), so a stale entry
-  never reaches the `PATCH`; the Section check while typing uses the same rule. It never
-  enables Preview (`canPreview` reads values only) and never resets the preview marks. A failed save
-  keeps it pending and shows the footer error. A pending Row is marked "Modified" through
-  `rowMarkBuilder(paths, rowKey)` (the preview mark wins when both apply); a pending Section choice
-  draws the same mark in the Section's title row.
-- **Where it shows.** A dice button (`src/sheet/dice_row.tsx`) appears only on a Row with an
-  applicable expression, or one switched off by "no dice" (on the Row or its Section). Tap rolls;
-  long-press (`LONG_PRESS_MS`, 500 ms) opens the Row's editor; the Edit button is the keyboard
-  alternative. Roll and Edit sit at the trailing edge of the Row's label in every Row kind (lone,
-  exclusive, table), right before the value. Editing a Row creates a Row override, which wins over the
-  Section. The Roll button names the dice it throws (`diceSummary`), Edit is a pencil icon (a struck die on a Row whose dice are off), and the Section's die icon button sits at the trailing edge of its title row. Everything is hidden
-  in Arrange mode. The editor is the shared `Dialog` (one at a time, Escape closes it and focus
-  returns to the button that opened it); the Section editor carries the `dice.sectionNote` note. The
-  Roll result (`src/sheet/dice_panel.tsx`) is a non-modal polite status that floats at the bottom of
-  the viewport, above the element marked `data-floating-floor` (the sheet footer). The provider
-  portals both to `document.body`, so neither reflows the sheet nor inherits a Row's container
-  query containment. Rendering helpers are in `src/sheet/dice_view.ts`; wire models in
-  `src/api/models/dice.ts`. Copy lives in `src/l10n/strings.ts`.
-
-## Layout and Arrange mode (ADR 0001)
+## Layout and Arrange mode
 
 The player's order of Sections and the pinned Rows form the sheet's `layout`
 (`{"section_order": [...], "pinned": [...]}`; `GET /sheets/:id` carries it only when set;
@@ -329,48 +233,3 @@ no recalculation). Only the lists that deviate from the Template are sent.
   Vite, self-hosted). It touches the DOM only through React props and CSSOM (`style.setProperty`),
   never `innerHTML` or a `<style>` element, so the production CSP (`style-src 'self'`, Trusted
   Types) needs no relaxing; it is mounted only while arranging, and only Sections are sortable.
-
-## Theme (`src/theme/`)
-
-- `theme.ts` — the theme store over injected seams (storage, media-query reader, root). The
-  resolution order, the live system follow while nothing is stored, and every swallowed
-  storage failure are specified in `DESIGN.md`; the accepted values are exactly `light` and
-  `dark` under `lg.theme`.
-- `use_theme.ts` — the `useSyncExternalStore` hook the control and any surface read.
-- `public/theme-init.js` — the same-origin classic head script that resolves the theme before
-  the first paint; no inline script and no policy hash (`UIF-20`).
-
-## Componentization
-
-- Extract a shared component only when all hold: **≥ 3 real usages**, same shape and
-  purpose, and the extraction does not leak schema-specific logic into it.
-- Never abstract the schema-driven UI Engine internals, screen-specific layouts,
-  one-off dialogs, or wireframe structures.
-- One sanctioned base layer at `web/src/ui/` holds the five primitives (`button`, `field`,
-  `checkbox`, `dialog`, `toast`) plus the focus trap; it imports no feature directory,
-  uses `lg-<block>__<element>--<modifier>` and keeps the `≥ 3 real usages` rule for every
-  other extraction (UIP-01, UIP-03, SC-007). No wrapper-for-wrapper's-sake elsewhere.
-
-## Dependencies
-
-- **No new package without strict necessity.** `@dnd-kit/{core,sortable,utilities}` is the
-  justified exception for Arrange mode (accessible keyboard, pointer and touch reordering of
-  Sections with screen-reader announcements is not worth hand-rolling). Design-system dependencies (font
-  packages, theme frameworks, component libraries) are prohibited — the tokens plus plain
-  CSS are sufficient, and the font is vendored, not depended on.
-- If a dependency is ever unavoidable, justify it in the PR description.
-
-## Standing decisions
-
-The per-feature deviation log lives in `docs/web-delivered-deviations.md`. These still bind:
-
-- Tests are flat in `src/test/` with a `*.test.ts(x)` suffix (feature prefixes such as
-  `engine_*`), because the Vitest setup and shared helpers serve every suite.
-- No state library: per-path subscriptions use `useSyncExternalStore` (`AD-001`).
-- The leave guard is a shell-level registry, not a router blocker; a browser-back gesture is
-  not intercepted, only in-app navigation.
-- Modal surfaces are accessible overlays (`role="dialog"`, `aria-modal`), not native
-  `<dialog>`, because jsdom does not implement `showModal`.
-- The access token is memory-only; `AuthSession.refresh()` is single-flight.
-- Captures in `src/api/fixtures/` are real responses; a credential in one is redacted
-  (`redacted-access-token`).

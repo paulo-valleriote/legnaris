@@ -51,7 +51,7 @@ function restatedTokenRows(markdown: string): string[] {
     );
 }
 
-describe('design guidelines (UIF-33, SC-006)', () => {
+describe('design guidelines', () => {
   it('Edge: a design document missing a mandatory section is reported', () => {
     expect(missingSections('## Principles\n\nText.\n', MANDATORY_SECTIONS)).toContain('Colour');
   });
@@ -71,7 +71,7 @@ describe('design guidelines (UIF-33, SC-006)', () => {
     expect(read(agentsPath)).toContain('DESIGN.md');
   });
 
-  it('Happy path: the shared layer is sanctioned in DESIGN.md and AGENTS.md (UIP-03)', () => {
+  it('Happy path: the shared layer is sanctioned in DESIGN.md and AGENTS.md', () => {
     const design = read(designPath);
     const agents = read(agentsPath);
     expect(design).toContain('src/ui/');

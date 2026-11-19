@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 #
-# Captures the real backend contract into pinned fixtures (API-35).
+# Captures the real backend contract into pinned fixtures.
 #
-# Run against the local stack (see README.md next to this script). Every file is
-# the server's own response body, or the request that produced it —
+# Run against the local stack (see "Pinned API captures" in the root README).
+# Every file is the server's own response body, or the request that produced it —
 # byte-faithful and never hand-edited: a shape change here is a backend contract
-# change and the suite is expected to go red on it (API-36). No credential is
+# change and the suite is expected to go red on it. No credential is
 # ever written: the throwaway access token stays in a temporary directory and a
 # credential request body is never recorded.
 #
@@ -21,7 +21,7 @@ OUT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TMP_DIR="$(mktemp -d)"
 
 # The database the stack writes its send intentions to; the code is read from
-# there, never from a log line (EML-10, EML-13).
+# there, never from a log line.
 DATABASE_NAME="${DATABASE_NAME:-legnaris}"
 
 # The capture removes the send intentions it recorded, so the day's allowance is
@@ -48,12 +48,14 @@ command -v jq >/dev/null 2>&1 || {
 
 # write_response <file> <operation> <request-json> <status> <body-file>
 write_response() {
+  redact_body "$5" >"$TMP_DIR/body.redacted"
+
   jq -n \
     --arg operation "$2" \
     --arg provenance "$PROVENANCE" \
     --argjson request "$3" \
     --argjson status "$4" \
-    --slurpfile response "$5" \
+    --slurpfile response "$TMP_DIR/body.redacted" \
     '{operation: $operation, provenance: $provenance, request: $request, response: {status: $status, body: $response[0]}}' \
     >"$OUT_DIR/$1.json"
 }
@@ -63,7 +65,7 @@ write_request() {
   jq -n \
     --arg operation "$2" \
     --arg provenance "$PROVENANCE" \
-    --argjson request "$3" \
+    --argjson request "$(printf '%s' "$3" | redact_json)" \
     '{operation: $operation, provenance: $provenance, request: $request}' \
     >"$OUT_DIR/$1.json"
 }
@@ -72,15 +74,38 @@ write_request() {
 # the secret is not.
 REDACTED_TOKEN='redacted-access-token'
 
+# Every credential-bearing field is replaced before a body can reach the
+# repository, so an operation that starts returning a token cannot commit one.
+REDACT_FILTER='
+  walk(
+    if type == "object" then
+      with_entries(
+        if (.key | test("^(access_token|accessToken|refresh_token|refreshToken|id_token|idToken|token|jwt|secret|api_key|apiKey|password|authorization|set_cookie|setCookie|cookie)$"))
+           and (.value | type) == "string"
+           and (.value | length) > 0
+        then .value = $placeholder
+        else .
+        end
+      )
+    else .
+    end
+  )
+'
+
+redact_body() {
+  jq --arg placeholder "$REDACTED_TOKEN" "$REDACT_FILTER" "$1"
+}
+
+redact_json() {
+  jq --arg placeholder "$REDACTED_TOKEN" "$REDACT_FILTER"
+}
+
 # write_response_redacted <file> <operation> <request-json> <status> <body-file>
 #
-# The verification answer carries an access token. The capture keeps the
-# response's own shape and drops the credential, so no token is ever written to
-# the repository (API-35).
+# The verification answer carries an access token. write_response already
+# replaces every credential field, so this name marks the case explicitly.
 write_response_redacted() {
-  jq --arg placeholder "$REDACTED_TOKEN" '.data.access_token = $placeholder' "$5" \
-    >"$TMP_DIR/redacted.out"
-  write_response "$1" "$2" "$3" "$4" "$TMP_DIR/redacted.out"
+  write_response "$@"
 }
 
 # send <method> <path> <body-or-empty> <body-file> -> prints the status
@@ -102,7 +127,7 @@ send() {
 # outbox_code <email> <purpose> -> prints the code the stack recorded for that send
 #
 # The code never reaches a log line or the sender's output, so the durable send
-# intention is the only place it can be read (EML-10, EML-13).
+# intention is the only place it can be read.
 outbox_code() {
   local email="$1" purpose="$2"
 

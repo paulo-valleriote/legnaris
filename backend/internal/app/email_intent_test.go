@@ -3,7 +3,6 @@ package app_test
 import (
 	"context"
 	"errors"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -197,7 +196,7 @@ func TestEmailIntent_DisclosureSweep(t *testing.T) {
 	adapter := app.NewEmailIntent(repo, log)
 	require.NoError(t, adapter.Record(ctx, "01900000-0000-7000-8000-0000000000ad", "a@b.co", auth.PurposeVerifyEmail, code, 10, now))
 
-	assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), log.text())
+	assert.NotRegexp(t, `\b\d{6}\b`, log.text())
 }
 
 func TestEmailIntent_ResendsSince(t *testing.T) {

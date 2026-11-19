@@ -13,6 +13,7 @@ import (
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/sheettest"
 	"legnaris/backend/internal/sheet/template"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
@@ -84,7 +85,7 @@ func TestErrorMapping_SheetNotExistsReturns404(t *testing.T) {
 	mockRepo := mocks.NewMockRepository(t)
 	mockRepo.EXPECT().
 		FetchByID(mock.Anything, missingSheetID).
-		Return(nil, sheet.ErrSheetNotFound).
+		Return(nil, sheeterr.ErrSheetNotFound).
 		Once()
 
 	h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
@@ -116,6 +117,44 @@ func TestErrorMapping_UnknownTemplateReturns404(t *testing.T) {
 	assert.Equal(t, "template not found", body.Error.Message)
 }
 
+func TestErrorMapping_UnknownTemplateFetchReturns404(t *testing.T) {
+	mockTemplateSvc := templatemocks.NewMockService(t)
+	mockTemplateSvc.EXPECT().
+		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown_template"}).
+		Return(nil, template.ErrTemplateNotFound).
+		Once()
+
+	e := echo.New()
+	e.HTTPErrorHandler = app.HTTPErrorHandler
+	app.NewTemplateController(mockTemplateSvc).RegisterRoutes(e.Group("/templates"))
+
+	rec := doRequest(t, e, http.MethodGet, "/templates/unknown_template", "")
+	require.Equal(t, http.StatusNotFound, rec.Code)
+
+	var body response.ErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "NOT_FOUND", body.Error.Code)
+	assert.Equal(t, "template not found", body.Error.Message)
+}
+
+func TestErrorMapping_SheetCreateUnknownTemplateReturns404(t *testing.T) {
+	mockRepo := mocks.NewMockRepository(t)
+
+	h, mockTemplateSvc := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
+	mockTemplateSvc.EXPECT().
+		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown_template"}).
+		Return(nil, template.ErrTemplateNotFound).
+		Once()
+
+	rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"unknown_template","kind":"character","sheet_name":"x"}`)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+
+	var body response.ErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "NOT_FOUND", body.Error.Code)
+	assert.Equal(t, "template not found", body.Error.Message)
+}
+
 func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 	storedSheet := func() *sheet.Sheet {
 		return &sheet.Sheet{
@@ -136,12 +175,12 @@ func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 		wantCode string
 	}{
 		{
-			name:     "unknown field returns 400 UNKNOWN_FIELD",
+			name:     "Error: unknown field returns 400 UNKNOWN_FIELD",
 			payload:  `{"data":{"stats":{"not_exists":1}}}`,
 			wantCode: "UNKNOWN_FIELD",
 		},
 		{
-			name:     "non-editable field returns 400 INVALID_REQUEST",
+			name:     "Error: non-editable field returns 400 INVALID_REQUEST",
 			payload:  `{"data":{"modifiers":{"dexterityMod":5}}}`,
 			wantCode: "INVALID_REQUEST",
 		},
@@ -174,17 +213,17 @@ func TestErrorMapping_InvalidBodyReturns400(t *testing.T) {
 		wantCode string
 	}{
 		{
-			name:     "invalid JSON returns 400 INVALID_JSON",
+			name:     "Error: invalid JSON returns 400 INVALID_JSON",
 			payload:  `{"template_id":`,
 			wantCode: "INVALID_JSON",
 		},
 		{
-			name:     "unknown field in body returns 400 INVALID_JSON",
+			name:     "Error: unknown field in body returns 400 INVALID_JSON",
 			payload:  `{"template_id":"fantasy_v1","kind":"character","sheet_name":"x","bogus":1}`,
 			wantCode: "INVALID_JSON",
 		},
 		{
-			name:     "trailing JSON returns 400 UNKNOWN_FIELD",
+			name:     "Error: trailing JSON returns 400 UNKNOWN_FIELD",
 			payload:  `{"template_id":"fantasy_v1","kind":"character","sheet_name":"x"} {}`,
 			wantCode: "UNKNOWN_FIELD",
 		},
@@ -214,12 +253,12 @@ func TestErrorMapping_MalformedSheetIDReturns400(t *testing.T) {
 		payload string
 	}{
 		{
-			name:   "GET with garbage ID returns 400",
+			name:   "Error: GET with garbage ID returns 400",
 			method: http.MethodGet,
 			path:   "/sheets/not-a-uuid",
 		},
 		{
-			name:    "PATCH with UUID v4 ID returns 400",
+			name:    "Error: PATCH with UUID v4 ID returns 400",
 			method:  http.MethodPatch,
 			path:    "/sheets/9f2c8a1b-3d4e-4f60-8a1b-2c3d4e5f6071",
 			payload: `{"data":{"stats":{"dexterity":12}}}`,
@@ -305,7 +344,7 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 
 		modifiers, ok := body.Data["modifiers"].(map[string]any)
 		require.True(t, ok)
-		assert.Equal(t, 4.0, modifiers["dexterityMod"])
+		assert.InDelta(t, 4.0, modifiers["dexterityMod"], 1e-9)
 		mockRepo.AssertNotCalled(t, "PartialUpdate")
 	})
 
@@ -325,7 +364,7 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 
 	t.Run("Error: missing sheet returns 404 NOT_FOUND", func(t *testing.T) {
 		mockRepo := mocks.NewMockRepository(t)
-		mockRepo.EXPECT().FetchByID(mock.Anything, missingSheetID).Return(nil, sheet.ErrSheetNotFound).Once()
+		mockRepo.EXPECT().FetchByID(mock.Anything, missingSheetID).Return(nil, sheeterr.ErrSheetNotFound).Once()
 
 		h, _ := newSheetErrorRouter(t, mockRepo, newPreviewErrorDAG(t))
 
@@ -358,17 +397,17 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 			wantCode string
 		}{
 			{
-				name:     "unknown field returns 400 UNKNOWN_FIELD",
+				name:     "Error: unknown field returns 400 UNKNOWN_FIELD",
 				payload:  `{"data":{"stats":{"not_exists":1}}}`,
 				wantCode: "UNKNOWN_FIELD",
 			},
 			{
-				name:     "derived field returns 400 INVALID_REQUEST",
+				name:     "Error: derived field returns 400 INVALID_REQUEST",
 				payload:  `{"data":{"modifiers":{"dexterityMod":5}}}`,
 				wantCode: "INVALID_REQUEST",
 			},
 			{
-				name:     "exclusive group conflict returns 400 INVALID_REQUEST",
+				name:     "Error: exclusive group conflict returns 400 INVALID_REQUEST",
 				payload:  `{"data":{"config":{"acUsesDex":1,"acUsesCon":1}}}`,
 				wantCode: "INVALID_REQUEST",
 			},
@@ -462,7 +501,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 		mod, ok := body.Data["mod"].(map[string]any)
 		require.True(t, ok)
-		assert.Equal(t, 4.0, mod["dexterityMod"])
+		assert.InDelta(t, 4.0, mod["dexterityMod"], 1e-9)
 		mockRepo.AssertNotCalled(t, "FetchByID")
 		mockRepo.AssertNotCalled(t, "PartialUpdate")
 	})
@@ -541,12 +580,12 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 			wantCode string
 		}{
 			{
-				name:     "unknown field returns 400 UNKNOWN_FIELD",
+				name:     "Error: unknown field returns 400 UNKNOWN_FIELD",
 				payload:  `{"data":{"stats":{"not_exists":1}}}`,
 				wantCode: "UNKNOWN_FIELD",
 			},
 			{
-				name:     "derived field returns 400 INVALID_REQUEST",
+				name:     "Error: derived field returns 400 INVALID_REQUEST",
 				payload:  `{"data":{"mod":{"dexterityMod":5}}}`,
 				wantCode: "INVALID_REQUEST",
 			},
@@ -592,7 +631,7 @@ func TestErrorMapping_PatchVersionConflictReturns409(t *testing.T) {
 	t.Run("Error: a lost race returns 409 CONFLICT with Retry-After and no internal retry", func(t *testing.T) {
 		mockRepo := mocks.NewMockRepository(t)
 		mockRepo.EXPECT().FetchByID(mock.Anything, sheetStubID).Return(storedSheet(0), nil).Once()
-		mockRepo.EXPECT().PartialUpdate(mock.Anything, sheetStubID, int64(0), mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
+		mockRepo.EXPECT().PartialUpdate(mock.Anything, sheetStubID, int64(0), mock.Anything).Return(0, sheeterr.ErrVersionConflict).Once()
 
 		h, _ := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 

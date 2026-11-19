@@ -4,7 +4,7 @@ import type { ApiClient } from '../api/client';
 import { DomainFailure } from '../api/errors';
 import { valueAtPath } from '../api/models/sheet';
 import type { Sheet } from '../api/models/sheet';
-import { createFetchTransport } from '../api/transport';
+import { browserFetch, createFetchTransport } from '../api/transport';
 import type { Transport } from '../api/transport';
 
 const configuredBaseUrl = process.env['API_BASE_URL'];
@@ -24,7 +24,7 @@ function requireBaseUrl(): string {
 }
 
 function transportWithCredential(token: string): Transport {
-  const base = createFetchTransport((input, init) => fetch(input, init));
+  const base = createFetchTransport(browserFetch);
 
   return (request) =>
     base({ ...request, headers: { ...request.headers, authorization: `Bearer ${token}` } });
@@ -35,14 +35,14 @@ async function authenticate(baseUrl: string): Promise<string> {
   const email = `live-${suffix}@example.test`;
   const password = 'live-suite-password-1';
 
-  const registered = await fetch(`${baseUrl}/auth/register`, {
+  const registered = await browserFetch(`${baseUrl}/auth/register`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, username: `live${suffix}`, password }),
   });
   expect(registered.status).toBe(201);
 
-  const loggedIn = await fetch(`${baseUrl}/auth/login`, {
+  const loggedIn = await browserFetch(`${baseUrl}/auth/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -54,13 +54,13 @@ async function authenticate(baseUrl: string): Promise<string> {
 }
 
 describe('live suite gating', () => {
-  it('Edge: with no base address the live flows step aside (API-37)', () => {
+  it('Edge: with no base address the live flows step aside', () => {
     expect(liveRunDecision(undefined)).toBe('skip');
     expect(liveRunDecision('')).toBe('skip');
     expect(liveRunDecision('   ')).toBe('skip');
   });
 
-  it('Edge: with a base address the live flows never step aside silently (API-37, API-39)', () => {
+  it('Edge: with a base address the live flows never step aside silently', () => {
     expect(liveRunDecision('http://localhost:8080')).toBe('run');
     expect(liveRunDecision('https://api.example.test')).toBe('run');
   });
@@ -81,21 +81,21 @@ live('live backend contract', () => {
     });
   });
 
-  it('Happy path: creating a sheet returns a created sheet with derived values (API-38)', () => {
+  it('Happy path: creating a sheet returns a created sheet with derived values', () => {
     expect(created.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     expect(created.templateId).toBe('fantasy_v1');
     expect(valueAtPath(created.data, 'modifiers.dexterityMod')).toBe(0);
     expect(typeof valueAtPath(created.data, 'derived.armorClass')).toBe('number');
   });
 
-  it('Happy path: updating an editable field returns only recalculated effects (API-38)', async () => {
+  it('Happy path: updating an editable field returns only recalculated effects', async () => {
     const effects = await client.patchSheet(created.id, { stats: { dexterity: 14 } });
 
     expect(valueAtPath(effects, 'modifiers.dexterityMod')).toBe(2);
     expect(effects).not.toHaveProperty('stats');
   });
 
-  it('Happy path: updating a derived field is refused as an invalid edit (API-38)', async () => {
+  it('Happy path: updating a derived field is refused as an invalid edit', async () => {
     const failure = await client
       .patchSheet(created.id, { modifiers: { dexterityMod: 5 } })
       .catch((error: unknown) => error);
@@ -105,7 +105,7 @@ live('live backend contract', () => {
     expect((failure as DomainFailure).code).toBe('INVALID_REQUEST');
   });
 
-  it('Happy path: updating an unknown field is refused as a render mismatch (API-38)', async () => {
+  it('Happy path: updating an unknown field is refused as a render mismatch', async () => {
     const failure = await client
       .patchSheet(created.id, { stats: { nonexistentAbility: 1 } })
       .catch((error: unknown) => error);
@@ -115,7 +115,7 @@ live('live backend contract', () => {
     expect((failure as DomainFailure).code).toBe('UNKNOWN_FIELD');
   });
 
-  it('Happy path: retrieving a sheet that does not exist reports it missing (API-38)', async () => {
+  it('Happy path: retrieving a sheet that does not exist reports it missing', async () => {
     const lastDigit = created.id.slice(-1);
     const absentId = `${created.id.slice(0, -1)}${lastDigit === 'a' ? 'b' : 'a'}`;
 

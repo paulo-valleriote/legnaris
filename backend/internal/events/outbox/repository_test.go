@@ -91,7 +91,7 @@ func TestRepositoryInsert(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			before := countEntries(t, mdb)
 			err := repo.Insert(ctx, tc.entry(t))
-			assert.ErrorIs(t, err, outbox.ErrInvalidEntry)
+			require.ErrorIs(t, err, outbox.ErrInvalidEntry)
 			assert.Equal(t, before, countEntries(t, mdb), "a rejected entry must not be written")
 		})
 	}
@@ -257,8 +257,8 @@ func TestRepositoryTransitions(t *testing.T) {
 		_, repo := newOutboxFixture(t)
 		ctx := context.Background()
 
-		assert.ErrorIs(t, repo.MarkPublished(ctx, "bad", now), outbox.ErrInvalidEntry)
-		assert.ErrorIs(t, repo.Reschedule(ctx, "bad", now, now, "x"), outbox.ErrInvalidEntry)
+		require.ErrorIs(t, repo.MarkPublished(ctx, "bad", now), outbox.ErrInvalidEntry)
+		require.ErrorIs(t, repo.Reschedule(ctx, "bad", now, now, "x"), outbox.ErrInvalidEntry)
 		assert.ErrorIs(t, repo.MarkTerminal(ctx, "bad", now, "x"), outbox.ErrInvalidEntry)
 	})
 
@@ -414,8 +414,8 @@ func TestRepositoryTransactions(t *testing.T) {
 			}
 			return errCrash
 		})
-		assert.ErrorIs(t, err, db.ErrTransactionAborted)
-		assert.ErrorIs(t, err, errCrash)
+		require.ErrorIs(t, err, db.ErrTransactionAborted)
+		require.ErrorIs(t, err, errCrash)
 		assert.Equal(t, int64(0), countEntries(t, mdb))
 	})
 
@@ -427,7 +427,7 @@ func TestRepositoryTransactions(t *testing.T) {
 			require.NoError(t, repo.Insert(context.Background(), newEntryFor(t, now)))
 			return errCrash
 		})
-		assert.ErrorIs(t, err, db.ErrTransactionAborted)
+		require.ErrorIs(t, err, db.ErrTransactionAborted)
 		assert.Equal(t, int64(1), countEntries(t, mdb), "a write outside the session context survives the rollback")
 	})
 

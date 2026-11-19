@@ -53,7 +53,7 @@ func (h *bcryptHasher) Hash(password string) (string, error) {
 
 func (h *bcryptHasher) Compare(hash, password string) error {
 	if err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)); err != nil {
-		return fmt.Errorf("%w: %v", ErrPasswordMismatch, err)
+		return fmt.Errorf("%w: %w", ErrPasswordMismatch, err)
 	}
 	return nil
 }

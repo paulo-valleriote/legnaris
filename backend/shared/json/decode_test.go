@@ -2,7 +2,6 @@ package json_test
 
 import (
 	"encoding/json"
-	"errors"
 	"strings"
 	"testing"
 
@@ -41,7 +40,7 @@ func TestDecodeBytes(t *testing.T) {
 
 			if tc.wantErr != nil {
 				require.Error(t, err)
-				assert.True(t, errors.Is(err, tc.wantErr), "got %v", err)
+				assert.ErrorIs(t, err, tc.wantErr, "got %v", err)
 				return
 			}
 			require.NoError(t, err)

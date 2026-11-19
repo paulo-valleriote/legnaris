@@ -11,7 +11,7 @@ function clientWith(fake: ReturnType<typeof createFakeTransport>) {
 }
 
 describe('failure states out of the client', () => {
-  it('Happy path: a failed response leaves the client with the mapped kind, status, code and message (API-21, API-24)', async () => {
+  it('Happy path: a failed response leaves the client with the mapped kind, status, code and message', async () => {
     const fake = createFakeTransport(errorOutcome('INVALID_REQUEST', 'the edit was refused', 400));
 
     const failure = await clientWith(fake)
@@ -27,8 +27,8 @@ describe('failure states out of the client', () => {
     });
   });
 
-  it('Edge: a failure with an unmapped code keeps the generic kind, the raw code and the message (API-21)', async () => {
-    const fake = createFakeTransport(errorOutcome('CYCLE_DETECTED', 'already exists', 409));
+  it('Edge: a failure with an unmapped code keeps the generic kind, the raw code and the message', async () => {
+    const fake = createFakeTransport(errorOutcome('SOMETHING_NEW', 'already exists', 409));
 
     const failure = await clientWith(fake)
       .getSheet('sheet-1')
@@ -38,12 +38,12 @@ describe('failure states out of the client', () => {
     expect(failure).toMatchObject({
       kind: 'unknown',
       status: 409,
-      code: 'CYCLE_DETECTED',
+      code: 'SOMETHING_NEW',
       message: 'already exists',
     });
   });
 
-  it('Happy path: a transport failure leaves the client offline with no status (API-20)', async () => {
+  it('Happy path: a transport failure leaves the client offline with no status', async () => {
     const fake = createFakeTransport({ failure: new Error('connection refused') });
 
     const failure = await clientWith(fake)
@@ -56,7 +56,7 @@ describe('failure states out of the client', () => {
     expect((failure as DomainFailure).code).toBeUndefined();
   });
 
-  it('Edge: the offline failure carries no identifier-bearing text from the transport (API-29)', async () => {
+  it('Edge: the offline failure carries no identifier-bearing text from the transport', async () => {
     const fake = createFakeTransport({
       failure: new Error(`request to ${baseUrl}/sheets/secret-id failed`),
     });
@@ -69,7 +69,7 @@ describe('failure states out of the client', () => {
     expect(failure.message).not.toContain(baseUrl);
   });
 
-  it('Happy path: the classification table is total over the codes the backend emits (API-15, API-16, API-17, API-18, API-19, API-21, WCS-11)', () => {
+  it('Happy path: the classification table is total over the codes the backend emits', () => {
     const codes = [
       'INVALID_JSON',
       'INVALID_REQUEST',

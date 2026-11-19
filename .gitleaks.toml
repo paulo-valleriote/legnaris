@@ -1,0 +1,14 @@
+title = "Legnaris secret scan"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Values that are committed test fixtures or domain-separation constants, not credentials."
+regexes = [
+  '''018f4a1e-5c6b-7d8e-9f01-23456789abcd''',
+  '''legnaris/(csrf|otp)/v1''',
+  '''legnaris-otp-v1''',
+  '''PROMPT-ECHO-SECRET-1234''',
+  '''0123456789abcdef0123456789abcdef''',
+]

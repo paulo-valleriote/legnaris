@@ -22,7 +22,7 @@ const sheetPayload = (extra: Record<string, unknown> = {}) => ({
   ...extra,
 });
 
-describe('patchSheet with a Dice block (ADR 0006)', () => {
+describe('patchSheet with a Dice block', () => {
   it('Happy path: PATCHes the delta and the block together and decodes the cascade', async () => {
     const fake = createFakeTransport(successOutcome({ attrs: { mod: 2 } }));
 

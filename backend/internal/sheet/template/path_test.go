@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"legnaris/backend/shared/maputils"
 )
 
@@ -14,32 +15,32 @@ func TestPath_String(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "Empty path",
+			name:     "Edge: Empty path",
 			path:     Path{},
 			expected: "",
 		},
 		{
-			name:     "Single segment",
+			name:     "Happy path: Single segment",
 			path:     Path{"stats"},
 			expected: "stats",
 		},
 		{
-			name:     "Two segments",
+			name:     "Happy path: Two segments",
 			path:     Path{"stats", "str"},
 			expected: "stats.str",
 		},
 		{
-			name:     "Three segments",
+			name:     "Happy path: Three segments",
 			path:     Path{"character", "attributes", "strength"},
 			expected: "character.attributes.strength",
 		},
 		{
-			name:     "With empty segment",
+			name:     "Edge: With empty segment",
 			path:     Path{"a", "", "b"},
 			expected: "a..b",
 		},
 		{
-			name:     "With dot in segment",
+			name:     "Edge: With dot in segment",
 			path:     Path{"stats.str", "dex"},
 			expected: "stats.str.dex",
 		},
@@ -60,37 +61,37 @@ func TestPath_EngineKey(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "Empty path",
+			name:     "Edge: Empty path",
 			path:     Path{},
 			expected: "",
 		},
 		{
-			name:     "Single segment",
+			name:     "Happy path: Single segment",
 			path:     Path{"stats"},
 			expected: "stats",
 		},
 		{
-			name:     "Two segments",
+			name:     "Happy path: Two segments",
 			path:     Path{"stats", "str"},
 			expected: "stats_str",
 		},
 		{
-			name:     "Three segments",
+			name:     "Happy path: Three segments",
 			path:     Path{"character", "attributes", "strength"},
 			expected: "character_attributes_strength",
 		},
 		{
-			name:     "With empty segment",
+			name:     "Edge: With empty segment",
 			path:     Path{"a", "", "b"},
 			expected: "a__b",
 		},
 		{
-			name:     "With underscore in segment",
+			name:     "Edge: With underscore in segment",
 			path:     Path{"stats_str", "dex"},
 			expected: "stats_str_dex",
 		},
 		{
-			name:     "With dot in segment",
+			name:     "Edge: With dot in segment",
 			path:     Path{"stats.str", "dex"},
 			expected: "stats.str_dex",
 		},
@@ -113,42 +114,42 @@ func TestPath_Get(t *testing.T) {
 		wantFound bool
 	}{
 		{
-			name:      "Exists at root",
+			name:      "Happy path: Exists at root",
 			nested:    map[string]any{"stats": 10.0},
 			path:      Path{"stats"},
 			wantVal:   10.0,
 			wantFound: true,
 		},
 		{
-			name:      "Exists nested",
+			name:      "Happy path: Exists nested",
 			nested:    map[string]any{"stats": map[string]any{"str": 16.0}},
 			path:      Path{"stats", "str"},
 			wantVal:   16.0,
 			wantFound: true,
 		},
 		{
-			name:      "Not found",
+			name:      "Error: Not found",
 			nested:    map[string]any{"stats": map[string]any{"str": 16.0}},
 			path:      Path{"stats", "dex"},
 			wantVal:   nil,
 			wantFound: false,
 		},
 		{
-			name:      "Nil map",
+			name:      "Edge: Nil map",
 			nested:    nil,
 			path:      Path{"stats"},
 			wantVal:   nil,
 			wantFound: false,
 		},
 		{
-			name:      "Empty path",
+			name:      "Edge: Empty path",
 			nested:    map[string]any{"stats": 10.0},
 			path:      Path{},
 			wantVal:   nil,
 			wantFound: false,
 		},
 		{
-			name:      "Intermediate not a map",
+			name:      "Error: Intermediate not a map",
 			nested:    map[string]any{"stats": "not a map"},
 			path:      Path{"stats", "str"},
 			wantVal:   nil,
@@ -177,35 +178,35 @@ func TestPath_Set(t *testing.T) {
 		wantErr    error
 	}{
 		{
-			name:       "Single level",
+			name:       "Happy path: Single level",
 			nested:     map[string]any{},
 			path:       Path{"stats"},
 			value:      10.0,
 			wantNested: map[string]any{"stats": 10.0},
 		},
 		{
-			name:       "Two levels - creates intermediate",
+			name:       "Happy path: Two levels - creates intermediate",
 			nested:     map[string]any{},
 			path:       Path{"stats", "str"},
 			value:      16.0,
 			wantNested: map[string]any{"stats": map[string]any{"str": 16.0}},
 		},
 		{
-			name:       "Three levels - creates all intermediates",
+			name:       "Happy path: Three levels - creates all intermediates",
 			nested:     map[string]any{},
 			path:       Path{"character", "attributes", "strength"},
 			value:      18.0,
 			wantNested: map[string]any{"character": map[string]any{"attributes": map[string]any{"strength": 18.0}}},
 		},
 		{
-			name:       "Existing intermediate - adds to it",
+			name:       "Happy path: Existing intermediate - adds to it",
 			nested:     map[string]any{"stats": map[string]any{"str": 10.0}},
 			path:       Path{"stats", "dex"},
 			value:      14.0,
 			wantNested: map[string]any{"stats": map[string]any{"str": 10.0, "dex": 14.0}},
 		},
 		{
-			name:       "Overwrites non-map intermediate",
+			name:       "Error: Overwrites non-map intermediate",
 			nested:     map[string]any{"stats": "not a map"},
 			path:       Path{"stats", "str"},
 			value:      16.0,
@@ -213,7 +214,7 @@ func TestPath_Set(t *testing.T) {
 			wantErr:    maputils.ErrNotMap,
 		},
 		{
-			name:       "Nil map - returns error",
+			name:       "Error: Nil map - returns error",
 			nested:     nil,
 			path:       Path{"stats"},
 			value:      10.0,
@@ -221,7 +222,7 @@ func TestPath_Set(t *testing.T) {
 			wantErr:    maputils.ErrNilMap,
 		},
 		{
-			name:       "Empty path - returns error",
+			name:       "Error: Empty path - returns error",
 			nested:     map[string]any{"a": 1.0},
 			path:       Path{},
 			value:      2.0,
@@ -229,7 +230,7 @@ func TestPath_Set(t *testing.T) {
 			wantErr:    maputils.ErrEmptyPath,
 		},
 		{
-			name:       "String value",
+			name:       "Happy path: String value",
 			nested:     map[string]any{},
 			path:       Path{"name"},
 			value:      "hero",
@@ -244,7 +245,7 @@ func TestPath_Set(t *testing.T) {
 			if tc.wantErr != nil {
 				assert.ErrorIs(t, err, tc.wantErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Equal(t, tc.wantNested, inputCopy)
 			}
 		})

@@ -358,25 +358,22 @@ func TestDeletionDeps_DeletingLinksEmitsNoUnlinkEvent(t *testing.T) {
 	}
 }
 
-type betweenBatchesTx struct {
-	inner      campaign.TransactionRunner
-	t          *testing.T
-	fixture    deletionFixture
-	campaignID string
-	committed  int
-	late       string
+type lateSheetAfterFirstBatchTx struct {
+	inner       campaign.TransactionRunner
+	t           *testing.T
+	fixture     deletionFixture
+	campaignID  string
+	committed   int
+	lateSheetID string
 }
 
-// The late sheet is written after the first batch commits, so the next batch snapshot sees it.
-// A link written inside a running batch is rejected by the campaign version write conflict,
-// because a link goes through campaign.Mutate and bumps the Campaign.
-func (r *betweenBatchesTx) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
+func (r *lateSheetAfterFirstBatchTx) WithTransaction(ctx context.Context, fn func(ctx context.Context) error) error {
 	if err := r.inner.WithTransaction(ctx, fn); err != nil {
 		return err
 	}
 	r.committed++
 	if r.committed == 1 {
-		r.late = r.fixture.insertSheet(r.t, r.campaignID)
+		r.lateSheetID = r.fixture.insertSheet(r.t, r.campaignID)
 	}
 	return nil
 }
@@ -385,14 +382,14 @@ func TestDeletionDeps_LateLinkIsUndoneBeforeRemoval(t *testing.T) {
 	f := newDeletionFixture(t)
 	c := f.insertDeleting(t, campaigntest.Now())
 	first := f.insertSheet(t, c.ID)
-	tx := &betweenBatchesTx{inner: f.tx, t: t, fixture: f, campaignID: c.ID}
+	tx := &lateSheetAfterFirstBatchTx{inner: f.tx, t: t, fixture: f, campaignID: c.ID}
 	pub := &recordingPublisher{}
 	deps := campaign.DeletionDeps{Store: f.store, Links: f.links, NpcLinks: f.npcLinks, Tx: tx, Publisher: pub, Now: campaigntest.Now}
 
 	require.NoError(t, deps.Handle(f.ctx, c))
 
-	require.NotEmpty(t, tx.late, "the late link must have been written between batches")
-	for _, id := range []string{first, tx.late} {
+	require.NotEmpty(t, tx.lateSheetID, "the late link must have been written between batches")
+	for _, id := range []string{first, tx.lateSheetID} {
 		var doc bson.M
 		require.NoError(t, f.sheets.FindOne(f.ctx, bson.D{{Key: "_id", Value: id}}).Decode(&doc))
 		assert.Nil(t, doc["campaign_id"], "every link written while deleting is undone before the campaign is removed")

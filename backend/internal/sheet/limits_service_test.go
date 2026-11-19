@@ -11,6 +11,7 @@ import (
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/sheettest"
 	"legnaris/backend/internal/sheet/template"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
@@ -132,7 +133,7 @@ func TestService_CreateEnforcesPlanLimit(t *testing.T) {
 		{name: "Happy path: a Free character under its allowance is created", plan: plan.Free, kind: plan.KindCharacter, wantLimit: 1, wantCreated: true},
 		{name: "Happy path: a Paid character reserves against the Paid allowance", plan: plan.Paid, kind: plan.KindCharacter, wantLimit: 10, wantCreated: true},
 		{name: "Happy path: a Paid enemy reserves against the enemy allowance", plan: plan.Paid, kind: plan.KindEnemy, wantLimit: 50, wantCreated: true},
-		{name: "Error: a Free character at its allowance is a 409 with no insert", plan: plan.Free, kind: plan.KindCharacter, wantLimit: 1, reserveErr: sheet.ErrSheetLimitReached, wantCode: apperr.CodeSheetLimitReached},
+		{name: "Error: a Free character at its allowance is a 409 with no insert", plan: plan.Free, kind: plan.KindCharacter, wantLimit: 1, reserveErr: sheeterr.ErrSheetLimitReached, wantCode: apperr.CodeSheetLimitReached},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

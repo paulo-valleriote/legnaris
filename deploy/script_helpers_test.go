@@ -66,7 +66,7 @@ func runScript(t *testing.T, script string, env []string, stdin string, args ...
 	t.Helper()
 	abs, err := filepath.Abs(script)
 	require.NoError(t, err)
-	cmd := exec.Command("bash", append([]string{abs}, args...)...)
+	cmd := exec.CommandContext(t.Context(), "bash", append([]string{abs}, args...)...)
 	cmd.Env = env
 	cmd.Stdin = strings.NewReader(stdin)
 	out, err := cmd.CombinedOutput()

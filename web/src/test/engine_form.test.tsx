@@ -60,8 +60,8 @@ const DATA: Record<string, unknown> = {
   ability: { stealth: 1, athletics: 0 },
 };
 
-describe('sheet form composition (ENG-24, ENG-25, ENG-26, SC-002)', () => {
-  it('Edge: passing both control sources is a construction error, not a half-rendered form (ENG-25)', () => {
+describe('sheet form composition', () => {
+  it('Edge: passing both control sources is a construction error, not a half-rendered form', () => {
     expect(() =>
       render(
         <SheetForm
@@ -75,15 +75,15 @@ describe('sheet form composition (ENG-24, ENG-25, ENG-26, SC-002)', () => {
     ).toThrow();
   });
 
-  it('Edge: passing neither control source is a construction error (ENG-25)', () => {
+  it('Edge: passing neither control source is a construction error', () => {
     expect(() => render(<SheetForm fields={FIELDS} />)).toThrow();
   });
 
-  it('Edge: passing only one builder is a construction error (ENG-25)', () => {
+  it('Edge: passing only one builder is a construction error', () => {
     expect(() => render(<SheetForm fields={FIELDS} controlBuilder={() => null} />)).toThrow();
   });
 
-  it('Happy path: a template with every field type renders one complete form, every label derived (SC-002)', () => {
+  it('Happy path: a template with every field type renders one complete form, every label derived', () => {
     const { container } = render(<SheetForm fields={FIELDS} data={DATA} onChanged={vi.fn()} />);
 
     expect(screen.getByRole('heading', { name: 'Identity' })).toBeInTheDocument();
@@ -109,7 +109,7 @@ describe('sheet form composition (ENG-24, ENG-25, ENG-26, SC-002)', () => {
     expect(container.textContent).not.toContain('characterName');
   });
 
-  it('Happy path: data mode resolves each value by dotted path and reports an edit as (path, value) (ENG-24)', () => {
+  it('Happy path: data mode resolves each value by dotted path and reports an edit as (path, value)', () => {
     const onChanged = vi.fn();
     render(<SheetForm fields={FIELDS} data={DATA} onChanged={onChanged} />);
 
@@ -124,14 +124,14 @@ describe('sheet form composition (ENG-24, ENG-25, ENG-26, SC-002)', () => {
     expect(onChanged).toHaveBeenCalledWith('identity.characterName', 'Boromir');
   });
 
-  it('Happy path: data mode shows the active exclusive member without independent toggles (ENG-14)', () => {
+  it('Happy path: data mode shows the active exclusive member without independent toggles', () => {
     render(<SheetForm fields={FIELDS} data={DATA} onChanged={vi.fn()} />);
 
     const select = screen.getByRole('combobox', { name: 'Ability' });
     expect(select).toHaveValue('ability.stealth');
   });
 
-  it('Happy path: builder mode consults the injected builders once per row and renders no default control (ENG-26)', () => {
+  it('Happy path: builder mode consults the injected builders once per row and renders no default control', () => {
     const controlBuilder = vi.fn((field: { path: string }) => (
       <span data-testid={`builder-${field.path}`} />
     ));
@@ -155,7 +155,7 @@ describe('sheet form composition (ENG-24, ENG-25, ENG-26, SC-002)', () => {
   });
 });
 
-describe('sheet form table rows (ENG-04, ENG-06)', () => {
+describe('sheet form table rows', () => {
   const tableFields: Record<string, FieldNode> = {
     stats: group(
       {
@@ -191,7 +191,7 @@ describe('sheet form table rows (ENG-04, ENG-06)', () => {
     expect(onToggle).toHaveBeenCalledWith('flags');
   });
 
-  it('Happy path: a declared-column group draws one row with a shared header and aligned cells (ENG-04, ENG-06)', () => {
+  it('Happy path: a declared-column group draws one row with a shared header and aligned cells', () => {
     const { container } = render(
       <SheetForm
         fields={tableFields}

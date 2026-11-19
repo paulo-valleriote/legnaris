@@ -75,19 +75,19 @@ func dialWith(dial dialer, url string, cfg Config) (*Broker, error) {
 
 	conn, err := dial(url, amqp.Config{Recovery: &amqp.Recovery{}})
 	if err != nil {
-		return nil, fmt.Errorf("%w: dial broker: %v", ErrBrokerUnavailable, err)
+		return nil, fmt.Errorf("%w: dial broker: %w", ErrBrokerUnavailable, err)
 	}
 
 	ch, err := conn.Channel()
 	if err != nil {
 		_ = conn.Close()
-		return nil, fmt.Errorf("%w: open channel: %v", ErrBrokerUnavailable, err)
+		return nil, fmt.Errorf("%w: open channel: %w", ErrBrokerUnavailable, err)
 	}
 
 	if err := ch.Confirm(false); err != nil {
 		_ = ch.Close()
 		_ = conn.Close()
-		return nil, fmt.Errorf("%w: enable publisher confirms: %v", ErrBrokerUnavailable, err)
+		return nil, fmt.Errorf("%w: enable publisher confirms: %w", ErrBrokerUnavailable, err)
 	}
 
 	confirmTimeout := cfg.ConfirmTimeout
@@ -130,7 +130,7 @@ func (b *Broker) DeclareTopology() error {
 func (b *Broker) Publish(ctx context.Context, msg email.Message) error {
 	body, err := json.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("%w: encode message: %v", email.ErrTransient, err)
+		return fmt.Errorf("%w: encode message: %w", email.ErrTransient, err)
 	}
 
 	props := provision(msg)
@@ -146,7 +146,7 @@ func (b *Broker) PublishTo(ctx context.Context, destination email.Destination, m
 
 	body, err := json.Marshal(msg)
 	if err != nil {
-		return fmt.Errorf("%w: encode message: %v", email.ErrTransient, err)
+		return fmt.Errorf("%w: encode message: %w", email.ErrTransient, err)
 	}
 
 	props := provision(msg)
@@ -162,7 +162,7 @@ func (b *Broker) PublishBodyTo(ctx context.Context, destination email.Destinatio
 
 	id, err := idgen.New()
 	if err != nil {
-		return fmt.Errorf("%w: %v", email.ErrTransient, err)
+		return fmt.Errorf("%w: %w", email.ErrTransient, err)
 	}
 
 	props := provision(email.Message{ID: id})
@@ -180,7 +180,7 @@ func (b *Broker) publish(ctx context.Context, exchange, key string, props amqp.P
 
 	pending, err := b.ch.PublishWithDeferredConfirmWithContext(ctx, exchange, key, true, false, props)
 	if err != nil {
-		return fmt.Errorf("%w: publish: %v", email.ErrTransient, err)
+		return fmt.Errorf("%w: publish: %w", email.ErrTransient, err)
 	}
 
 	confirmCtx, cancel := context.WithTimeout(ctx, b.confirmTimeout)
@@ -188,7 +188,7 @@ func (b *Broker) publish(ctx context.Context, exchange, key string, props amqp.P
 
 	acked, err := pending.WaitContext(confirmCtx)
 	if err != nil {
-		return fmt.Errorf("%w: confirm wait: %v", email.ErrTransient, err)
+		return fmt.Errorf("%w: confirm wait: %w", email.ErrTransient, err)
 	}
 	if !acked {
 		return fmt.Errorf("%w: broker nacked the message", email.ErrTransient)

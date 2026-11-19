@@ -33,8 +33,8 @@ function freshQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
 }
 
-describe('catalog query policy (WCT-02, WCT-07, WCT-08)', () => {
-  it('Happy path: the first mount issues exactly one request (WCT-02)', async () => {
+describe('catalog query policy', () => {
+  it('Happy path: the first mount issues exactly one request', async () => {
     const fake = createFakeTransport(successOutcome(TWO_TEMPLATES));
     renderApp('/', { client: clientWith(fake.transport) });
 
@@ -42,7 +42,7 @@ describe('catalog query policy (WCT-02, WCT-07, WCT-08)', () => {
     expect(fake.attempts).toBe(1);
   });
 
-  it('Edge: remounting the route and firing focus, visibility and reconnect issue no further request (WCT-02)', async () => {
+  it('Edge: remounting the route and firing focus, visibility and reconnect issue no further request', async () => {
     const fake = createFakeTransport(successOutcome(TWO_TEMPLATES));
     const client = clientWith(fake.transport);
     const queryClient = freshQueryClient();
@@ -64,7 +64,7 @@ describe('catalog query policy (WCT-02, WCT-07, WCT-08)', () => {
     expect(fake.attempts).toBe(1);
   });
 
-  it('Happy path: Retry from the error state issues exactly one further request (WCT-07)', async () => {
+  it('Happy path: Retry from the error state issues exactly one further request', async () => {
     const fake = createFakeTransport(
       errorOutcome('INTERNAL_ERROR', 'boom', 500),
       successOutcome(TWO_TEMPLATES),
@@ -83,7 +83,7 @@ describe('catalog query policy (WCT-02, WCT-07, WCT-08)', () => {
     expect(fake.attempts).toBe(2);
   });
 
-  it('Edge: a second trigger while a request is in flight is joined, not duplicated (WCT-08)', async () => {
+  it('Edge: a second trigger while a request is in flight is joined, not duplicated', async () => {
     const deferred = createDeferredTransport();
     const client = clientWith(deferred.transport);
     const queryClient = freshQueryClient();

@@ -9,7 +9,7 @@ function readJson(path: URL): unknown {
   return JSON.parse(readFileSync(path, 'utf8'));
 }
 
-describe('LLM consent disclosure (ADR 0008, LGN-228)', () => {
+describe('LLM consent disclosure (LGN-228)', () => {
   it('Happy path: the disclosure resolves the English locale with a version and an accept action', () => {
     const disclosure = consentDisclosure();
 

@@ -87,7 +87,7 @@ describe('translation catalog', () => {
     expect(keys.length).toBeGreaterThan(0);
   });
 
-  it('Happy path: every key resolves to non-empty copy through message() (API-23)', () => {
+  it('Happy path: every key resolves to non-empty copy through message()', () => {
     for (const key of keys) {
       expect(message(key).trim()).not.toBe('');
     }
@@ -99,11 +99,11 @@ describe('translation catalog', () => {
     }
   });
 
-  it('Edge: every failure kind owns distinct copy, so no two keys share text (API-23)', () => {
+  it('Edge: every failure kind owns distinct copy, so no two keys share text', () => {
     expect(withDistinctCopy(keys)).toEqual([]);
   });
 
-  it('Edge: the catalog covers every failure kind key the mapper needs (API-23)', () => {
+  it('Edge: the catalog covers every failure kind key the mapper needs', () => {
     expect(keys).toEqual(
       expect.arrayContaining([
         'api.error.clientFault',
@@ -122,7 +122,7 @@ describe('translation catalog', () => {
     );
   });
 
-  it('Happy path: every catalog and sheet copy key resolves to non-empty copy (WCT-26, WCT-29)', () => {
+  it('Happy path: every catalog and sheet copy key resolves to non-empty copy', () => {
     for (const key of catalogFeatureKeys) {
       expect(messages[key]).toBeDefined();
       expect(message(key).trim()).not.toBe('');
@@ -137,34 +137,34 @@ describe('translation catalog', () => {
     }
   });
 
-  it('Edge: the catalog and sheet copy keys own distinct copy, so none is a silent duplicate (WCT-26)', () => {
+  it('Edge: the catalog and sheet copy keys own distinct copy, so none is a silent duplicate', () => {
     expect(withDistinctCopy(catalogFeatureKeys)).toEqual([]);
   });
 
-  it('Happy path: every engine copy key resolves to non-empty copy (ENG-27, SC-003)', () => {
+  it('Happy path: every engine copy key resolves to non-empty copy', () => {
     for (const key of engineFeatureKeys) {
       expect(messages[key]).toBeDefined();
       expect(message(key).trim()).not.toBe('');
     }
   });
 
-  it('Edge: the engine copy keys own distinct copy, so none is a silent duplicate (ENG-27)', () => {
+  it('Edge: the engine copy keys own distinct copy, so none is a silent duplicate', () => {
     expect(withDistinctCopy(engineFeatureKeys)).toEqual([]);
   });
 
-  it('Happy path: every sheet-cycle copy key resolves to non-empty copy (WSC-32, SC-006)', () => {
+  it('Happy path: every sheet-cycle copy key resolves to non-empty copy', () => {
     for (const key of sheetCycleKeys) {
       expect(messages[key]).toBeDefined();
       expect(message(key).trim()).not.toBe('');
     }
   });
 
-  it('Edge: the sheet-cycle copy keys own distinct copy, so none is a silent duplicate (WSC-32)', () => {
+  it('Edge: the sheet-cycle copy keys own distinct copy, so none is a silent duplicate', () => {
     expect(withDistinctCopy(sheetCycleKeys)).toEqual([]);
   });
 });
 
-describe('the parameterized copy resolution (WCS-13)', () => {
+describe('the parameterized copy resolution', () => {
   it('Happy path: a parameterized entry resolves its placeholders from the given values', () => {
     expect(messageWith('auth.codeInstruction', { email: 'a@b.test', minutes: 10 })).toBe(
       'We sent a 6-digit code to a@b.test. It expires in 10 minutes.',
@@ -192,6 +192,7 @@ describe('the parameterized copy resolution (WCS-13)', () => {
           position: 2,
           count: 5,
           dice: 'd20',
+          rolls: '11',
           max: 6,
           name: 'Aragorn',
           total: 17,
@@ -217,7 +218,7 @@ function catalogSources(): string[] {
     .map((name) => path.join(catalogDir, name));
 }
 
-describe('catalog copy source scan (WCT-26, SC-003, SC-004)', () => {
+describe('catalog copy source scan', () => {
   it('Edge: the catalog source resolves every message key and authors no api.error literal', () => {
     const sources = catalogSources();
     expect(sources.length).toBeGreaterThan(0);
@@ -246,7 +247,7 @@ function engineSources(): string[] {
     .map((name) => path.join(engineDir, name));
 }
 
-describe('engine copy source scan (ENG-27, SC-003, SC-004)', () => {
+describe('engine copy source scan', () => {
   it('Edge: the engine source authors no user-facing literal and resolves every message key it renders', () => {
     const sources = engineSources();
     expect(sources.length).toBeGreaterThan(0);
@@ -304,7 +305,7 @@ function sheetCycleSources(): string[] {
   ];
 }
 
-describe('sheet-cycle copy source scan (WSC-32, SC-006)', () => {
+describe('sheet-cycle copy source scan', () => {
   it('Edge: the sheet cycle authors no user-facing literal and resolves every message key it renders', () => {
     const sources = sheetCycleSources();
     expect(sources.length).toBeGreaterThan(0);
@@ -427,7 +428,7 @@ const uiDir = path.resolve(here, '../ui');
 
 const uiFeatureKeys: readonly MessageKey[] = ['ui.dismiss'];
 
-describe('primitives-layer copy source scan (UIP-05, SC-004)', () => {
+describe('primitives-layer copy source scan', () => {
   it('Edge: the ui layer authors no user-facing literal and resolves its chrome key', () => {
     const sources = readdirSync(uiDir)
       .filter((n) => n.endsWith('.ts') || n.endsWith('.tsx'))
@@ -448,7 +449,7 @@ describe('primitives-layer copy source scan (UIP-05, SC-004)', () => {
     }
   });
 
-  it('Happy path: the ui chrome key resolves to non-empty copy (UIP-24)', () => {
+  it('Happy path: the ui chrome key resolves to non-empty copy', () => {
     for (const key of uiFeatureKeys) {
       expect(messages[key]).toBeDefined();
       expect(message(key).trim()).not.toBe('');
@@ -456,7 +457,7 @@ describe('primitives-layer copy source scan (UIP-05, SC-004)', () => {
   });
 });
 
-describe('auth copy keys and source scan (WAS-19, WAS-25, WAS-30, WAS-31)', () => {
+describe('auth copy keys and source scan', () => {
   it('Happy path: every auth and session copy key resolves to non-empty copy', () => {
     for (const key of authFeatureKeys) {
       expect(messages[key]).toBeDefined();

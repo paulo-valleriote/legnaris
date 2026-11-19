@@ -46,8 +46,8 @@ func TestSanitizeConcept(t *testing.T) {
 	})
 
 	t.Run("Edge: an empty concept stays empty", func(t *testing.T) {
-		assert.Equal(t, "", generation.SanitizeConcept(""))
-		assert.Equal(t, "", generation.SanitizeConcept("   "))
-		assert.Equal(t, "", generation.SanitizeConcept(strings.Repeat("\u200b", 50)))
+		assert.Empty(t, generation.SanitizeConcept(""))
+		assert.Empty(t, generation.SanitizeConcept("   "))
+		assert.Empty(t, generation.SanitizeConcept(strings.Repeat("\u200b", 50)))
 	})
 }

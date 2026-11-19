@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { message } from '../l10n/strings';
 import { Toast } from '../ui/toast';
 
-describe('notice primitive (UIP-23…UIP-26)', () => {
+describe('notice primitive', () => {
   it('Happy path: polite live region with message', () => {
     render(<Toast message="Saved" />);
     expect(screen.getByRole('status')).toHaveTextContent('Saved');

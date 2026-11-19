@@ -90,7 +90,7 @@ func TestTemplateToDTO_HappyPath_KeepsDependencyContents(t *testing.T) {
 	assert.Equal(t, original.Label, leaf.Label)
 	assert.Equal(t, original.Formula, leaf.Formula)
 	assert.Equal(t, original.IsEditable, leaf.IsEditable)
-	assert.Equal(t, original.Default, leaf.Default)
+	assert.InDelta(t, original.Default, leaf.Default, 1e-9)
 	assert.Equal(t, fantasyV1Template.ID, dto.ID)
 	assert.Equal(t, fantasyV1Template.Name, dto.Name)
 	assert.Equal(t, fantasyV1Template.Default, dto.Default)

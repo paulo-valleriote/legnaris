@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -102,11 +101,11 @@ func TestChallengeController_Verify(t *testing.T) {
 			body string
 			code apperr.Code
 		}{
-			{name: "invalid JSON", body: `{"challenge_id":`, code: apperr.CodeInvalidJSON},
-			{name: "unknown field", body: `{"challenge_id":"` + challengeID + `","code":"042917","purpose":"login_otp"}`, code: apperr.CodeInvalidJSON},
-			{name: "trailing value", body: `{"challenge_id":"` + challengeID + `","code":"042917"}{"extra":1}`, code: apperr.CodeUnknownField},
-			{name: "missing code", body: `{"challenge_id":"` + challengeID + `"}`, code: apperr.CodeInvalidRequest},
-			{name: "missing identity", body: `{"code":"042917"}`, code: apperr.CodeInvalidRequest},
+			{name: "Error: invalid JSON", body: `{"challenge_id":`, code: apperr.CodeInvalidJSON},
+			{name: "Error: unknown field", body: `{"challenge_id":"` + challengeID + `","code":"042917","purpose":"login_otp"}`, code: apperr.CodeInvalidJSON},
+			{name: "Error: trailing value", body: `{"challenge_id":"` + challengeID + `","code":"042917"}{"extra":1}`, code: apperr.CodeUnknownField},
+			{name: "Error: missing code", body: `{"challenge_id":"` + challengeID + `"}`, code: apperr.CodeInvalidRequest},
+			{name: "Error: missing identity", body: `{"code":"042917"}`, code: apperr.CodeInvalidRequest},
 		}
 
 		for _, tc := range tests {
@@ -148,7 +147,7 @@ func TestChallengeController_Resend(t *testing.T) {
 		var body response.Success[auth.ResendResult]
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 		assert.Equal(t, 60, body.Data.ResendAfter)
-		assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), rec.Body.String())
+		assert.NotRegexp(t, `\b\d{6}\b`, rec.Body.String())
 	})
 
 	t.Run("Error: a malformed body or missing identity is 400", func(t *testing.T) {
@@ -159,9 +158,9 @@ func TestChallengeController_Resend(t *testing.T) {
 			body string
 			code apperr.Code
 		}{
-			{name: "invalid JSON", body: `{"challenge_id":`, code: apperr.CodeInvalidJSON},
-			{name: "unknown field", body: `{"challenge_id":"` + challengeID + `","purpose":"x"}`, code: apperr.CodeInvalidJSON},
-			{name: "missing identity", body: `{}`, code: apperr.CodeInvalidRequest},
+			{name: "Error: invalid JSON", body: `{"challenge_id":`, code: apperr.CodeInvalidJSON},
+			{name: "Error: unknown field", body: `{"challenge_id":"` + challengeID + `","purpose":"x"}`, code: apperr.CodeInvalidJSON},
+			{name: "Error: missing identity", body: `{}`, code: apperr.CodeInvalidRequest},
 		} {
 			t.Run(tc.name, func(t *testing.T) {
 				rec := doRequest(t, newChallengeRouter(t, service, &countingObserver{}), http.MethodPost, resendRoute, tc.body)
@@ -257,7 +256,7 @@ func TestChallengeEndpoints_DisclosureSweep(t *testing.T) {
 		wantStatus int
 	}{
 		{
-			name: "unknown identity",
+			name: "Error: unknown identity",
 			body: `{"challenge_id":"` + challengeID + `","code":"` + code + `"}`,
 			wire: func(repo *authmocks.MockChallengeRepository) {
 				repo.EXPECT().ClaimAttempt(mock.Anything, challengeID, mock.Anything, mock.Anything).Return(nil, auth.ErrChallengeUnusable).Once()
@@ -266,13 +265,13 @@ func TestChallengeEndpoints_DisclosureSweep(t *testing.T) {
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name:       "malformed identity",
+			name:       "Error: malformed identity",
 			body:       `{"challenge_id":"not-a-uuid","code":"` + code + `"}`,
 			wire:       func(*authmocks.MockChallengeRepository) {},
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name: "expired challenge",
+			name: "Error: expired challenge",
 			body: `{"challenge_id":"` + challengeID + `","code":"` + code + `"}`,
 			wire: func(repo *authmocks.MockChallengeRepository) {
 				expired := row()
@@ -283,7 +282,7 @@ func TestChallengeEndpoints_DisclosureSweep(t *testing.T) {
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name: "exhausted challenge",
+			name: "Error: exhausted challenge",
 			body: `{"challenge_id":"` + challengeID + `","code":"` + code + `"}`,
 			wire: func(repo *authmocks.MockChallengeRepository) {
 				exhausted := row()
@@ -294,7 +293,7 @@ func TestChallengeEndpoints_DisclosureSweep(t *testing.T) {
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name: "consumed challenge",
+			name: "Error: consumed challenge",
 			body: `{"challenge_id":"` + challengeID + `","code":"` + code + `"}`,
 			wire: func(repo *authmocks.MockChallengeRepository) {
 				repo.EXPECT().ClaimAttempt(mock.Anything, challengeID, mock.Anything, mock.Anything).Return(row(), nil).Once()
@@ -304,7 +303,7 @@ func TestChallengeEndpoints_DisclosureSweep(t *testing.T) {
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name: "wrong code",
+			name: "Error: wrong code",
 			body: `{"challenge_id":"` + challengeID + `","code":"000000"}`,
 			wire: func(repo *authmocks.MockChallengeRepository) {
 				repo.EXPECT().ClaimAttempt(mock.Anything, challengeID, mock.Anything, mock.Anything).Return(row(), nil).Once()
@@ -329,14 +328,14 @@ func TestChallengeEndpoints_DisclosureSweep(t *testing.T) {
 
 			for key, values := range rec.Header() {
 				for _, value := range values {
-					assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), value, "header %s must carry no code", key)
+					assert.NotRegexp(t, `\b\d{6}\b`, value, "header %s must carry no code", key)
 					assert.NotContains(t, value, "@", "header %s must carry no address", key)
 				}
 			}
-			assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), rec.Body.String())
+			assert.NotRegexp(t, `\b\d{6}\b`, rec.Body.String())
 			assert.NotContains(t, rec.Body.String(), "@")
 
-			assert.NotRegexp(t, regexp.MustCompile(`\b\d{6}\b`), log.text())
+			assert.NotRegexp(t, `\b\d{6}\b`, log.text())
 			assert.NotContains(t, log.text(), "player@example.com")
 
 			bodies = append(bodies, rec.Body.Bytes())

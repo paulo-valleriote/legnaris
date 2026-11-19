@@ -54,8 +54,8 @@ async function renderCodeSurface(
   return { session, fake, ...view };
 }
 
-describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
-  it('Edge: the field is one editable input with a numeric mode and the one-time-code autofill (WCS-24)', async () => {
+describe('the code surface', () => {
+  it('Edge: the field is one editable input with a numeric mode and the one-time-code autofill', async () => {
     await renderCodeSurface();
 
     const field = screen.getByLabelText(message('auth.codeLabel'));
@@ -148,7 +148,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(session.getSnapshot().state).toBe('unauthenticated');
   });
 
-  it('Edge: a refused code keeps the entered code, keeps the focus on the field and shows the mapped copy (WCS-04, WCS-22)', async () => {
+  it('Edge: a refused code keeps the entered code, keeps the focus on the field and shows the mapped copy', async () => {
     const user = userEvent.setup();
     await renderCodeSurface([
       successOutcome(CHALLENGE_BODY),
@@ -168,7 +168,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(field.getAttribute('aria-describedby')).toContain('auth-code-refusal');
   });
 
-  it('Edge: the submit is disabled and shows progress while a verification is in flight, and a repeat activation issues one request (WCS-03)', async () => {
+  it('Edge: the submit is disabled and shows progress while a verification is in flight, and a repeat activation issues one request', async () => {
     const user = userEvent.setup();
     const deferred = createDeferredTransport();
     const session = createAuthSession({
@@ -204,7 +204,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(deferred.attempts).toBe(2);
   });
 
-  it('Edge: starting over clears the step, issues no request and returns to the credential form (WCS-06, WCS-21)', async () => {
+  it('Edge: starting over clears the step, issues no request and returns to the credential form', async () => {
     const user = userEvent.setup();
     const { session, fake } = await renderCodeSurface();
     const before = fake.attempts;
@@ -215,7 +215,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(fake.attempts).toBe(before);
   });
 
-  it('Edge: a corrected code can be submitted after a refused one (WCS-04)', async () => {
+  it('Edge: a corrected code can be submitted after a refused one', async () => {
     const user = userEvent.setup();
     const { fake, session } = await renderCodeSurface([
       successOutcome(CHALLENGE_BODY),
@@ -242,7 +242,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(screen.queryByTestId('code-refusal')).not.toBeInTheDocument();
   });
 
-  it('Edge: the instruction line describes the code field, so the address and the stated lifetime are read with it (WCS-22)', async () => {
+  it('Edge: the instruction line describes the code field, so the address and the stated lifetime are read with it', async () => {
     await renderCodeSurface();
 
     const field = screen.getByLabelText(message('auth.codeLabel'));
@@ -255,7 +255,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(field).toHaveAccessibleDescription(/10 minutes/);
   });
 
-  it('Edge: the six positions are hidden from assistive technology, so they are never the only way the code is read (WCS-24)', async () => {
+  it('Edge: the six positions are hidden from assistive technology, so they are never the only way the code is read', async () => {
     await renderCodeSurface();
 
     const positions = screen.getByTestId('code-slot-0').parentElement;
@@ -268,7 +268,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     }
   });
 
-  it('Edge: abandoning the surface clears the entered code, not only an empty field (WCS-06)', async () => {
+  it('Edge: abandoning the surface clears the entered code, not only an empty field', async () => {
     const user = userEvent.setup();
     const fake = createFakeTransport(
       errorOutcome('UNAUTHORIZED', 'no cookie', 401),
@@ -311,21 +311,22 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(fake.attempts).toBe(3);
   });
 
-  it('Security: the entered code is never persisted and never becomes the field name (WCS-05)', async () => {
+  it('Security: the entered code is never persisted and never becomes the field name', async () => {
     const user = userEvent.setup();
     await renderCodeSurface();
 
     const field = screen.getByLabelText(message('auth.codeLabel'));
+    const writes = vi.spyOn(Storage.prototype, 'setItem');
     await user.click(field);
     await user.paste('042917');
 
-    expect(window.localStorage.length).toBe(0);
-    expect(window.sessionStorage.length).toBe(0);
+    expect(writes).not.toHaveBeenCalled();
     expect(field).toHaveAccessibleName(message('auth.codeLabel'));
     expect(field.getAttribute('aria-label')).toBeNull();
+    writes.mockRestore();
   });
 
-  it('Happy path: the surface names the address, states the lifetime and takes the focus (WCS-19, WCS-20, WCS-22)', async () => {
+  it('Happy path: the surface names the address, states the lifetime and takes the focus', async () => {
     await renderCodeSurface();
 
     expect(screen.getByTestId('code-instruction')).toHaveTextContent('a@b.test');
@@ -333,7 +334,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(screen.getByLabelText(message('auth.codeLabel'))).toHaveFocus();
   });
 
-  it('Happy path: the origin line names the account mode the step started with (WCS-25)', async () => {
+  it('Happy path: the origin line names the account mode the step started with', async () => {
     await renderCodeSurface();
 
     expect(screen.getByTestId('code-origin')).toHaveTextContent(
@@ -341,7 +342,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     );
   });
 
-  it('Happy path: the six positions follow the field value, so a pasted code lands whole (WCS-24)', async () => {
+  it('Happy path: the six positions follow the field value, so a pasted code lands whole', async () => {
     const user = userEvent.setup();
     await renderCodeSurface();
 
@@ -358,7 +359,7 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
     expect(screen.getByTestId('code-slot-5')).toHaveTextContent('7');
   });
 
-  it('Happy path: the submitted code reaches the server exactly as typed, leading zeros included (WCS-03)', async () => {
+  it('Happy path: the submitted code reaches the server exactly as typed, leading zeros included', async () => {
     const user = userEvent.setup();
     const { fake } = await renderCodeSurface([
       successOutcome(CHALLENGE_BODY),
@@ -378,8 +379,8 @@ describe('the code surface (WCS-03, WCS-19, WCS-20, WCS-22, WCS-24)', () => {
   });
 });
 
-describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
-  it('Edge: the resend action is unavailable while the window runs and shows the remaining seconds (WCS-07)', async () => {
+describe('the resend row', () => {
+  it('Edge: the resend action is unavailable while the window runs and shows the remaining seconds', async () => {
     vi.useFakeTimers({
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
     });
@@ -395,7 +396,7 @@ describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
     }
   });
 
-  it('Edge: the action becomes available when the window elapses (WCS-07)', async () => {
+  it('Edge: the action becomes available when the window elapses', async () => {
     vi.useFakeTimers({
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
     });
@@ -414,7 +415,7 @@ describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
     }
   });
 
-  it('Edge: one activation issues one resend request, and a repeat activation issues none (WCS-08)', async () => {
+  it('Edge: one activation issues one resend request, and a repeat activation issues none', async () => {
     vi.useFakeTimers({
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
     });
@@ -445,7 +446,7 @@ describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
     }
   });
 
-  it('Edge: an unavailable send shows the mapped copy and re-arms the action for a window (WCS-09)', async () => {
+  it('Edge: an unavailable send shows the mapped copy and re-arms the action for a window', async () => {
     vi.useFakeTimers({
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
     });
@@ -476,7 +477,7 @@ describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
     }
   });
 
-  it('Edge: a resend never discards the entered code (WCS-10)', async () => {
+  it('Edge: a resend never discards the entered code', async () => {
     vi.useFakeTimers({
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
     });
@@ -505,7 +506,7 @@ describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
     }
   });
 
-  it('Edge: the stated lifetime elapses and the surface says the code expired (WCS-20)', async () => {
+  it('Edge: the stated lifetime elapses and the surface says the code expired', async () => {
     vi.useFakeTimers();
 
     try {
@@ -532,7 +533,7 @@ describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
     }
   });
 
-  it('Edge: the countdown is static text outside any live region, so a tick announces nothing (WCS-23)', async () => {
+  it('Edge: the countdown is static text outside any live region, so a tick announces nothing', async () => {
     vi.useFakeTimers({
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
     });
@@ -556,7 +557,7 @@ describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
     }
   });
 
-  it('Edge: the action stays reachable by keyboard while it is unavailable (WCS-07)', async () => {
+  it('Edge: the action stays reachable by keyboard while it is unavailable', async () => {
     await renderCodeSurface([successOutcome(CHALLENGE_BODY)]);
 
     const resend = screen.getByTestId('code-resend');
@@ -566,7 +567,7 @@ describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
     expect(resend).toHaveAccessibleName(message('auth.codeResend'));
   });
 
-  it('Edge: the change that makes the action available is announced once (WCS-23)', async () => {
+  it('Edge: the change that makes the action available is announced once', async () => {
     vi.useFakeTimers({
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
     });
@@ -586,7 +587,7 @@ describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
     }
   });
 
-  it('Happy path: a recorded resend is confirmed once, names both codes as valid, and replaces an earlier refusal (WCS-26)', async () => {
+  it('Happy path: a recorded resend is confirmed once, names both codes as valid, and replaces an earlier refusal', async () => {
     vi.useFakeTimers({
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'Date'],
     });
@@ -628,8 +629,8 @@ describe('the resend row (WCS-07, WCS-08, WCS-09, WCS-23, WCS-26)', () => {
   });
 });
 
-describe('the code surface composition (WCS-25)', () => {
-  it('Edge: the swap animates opacity and transform only, and no longer than the longest motion duration (WCS-25)', () => {
+describe('the code surface composition', () => {
+  it('Edge: the swap animates opacity and transform only, and no longer than the longest motion duration', () => {
     const styles = readFileSync(path.resolve(here, '../auth/auth.css'), 'utf8');
     const keyframes = styles.match(/@keyframes lg-auth-swap \{[\s\S]*?\n\}/)?.[0] ?? '';
     const properties = [...keyframes.matchAll(/^\s*([a-z-]+):/gm)].map((match) => match[1]);
@@ -638,7 +639,7 @@ describe('the code surface composition (WCS-25)', () => {
     expect(styles).toContain('animation: lg-auth-swap var(--lg-motion-240)');
   });
 
-  it('Edge: the swap is zeroed by the shared reduced-motion rule (WCS-25)', () => {
+  it('Edge: the swap is zeroed by the shared reduced-motion rule', () => {
     const styles = readFileSync(path.resolve(here, '../auth/auth.css'), 'utf8');
     const base = readFileSync(path.resolve(here, '../theme/base.css'), 'utf8');
 
@@ -648,7 +649,7 @@ describe('the code surface composition (WCS-25)', () => {
     );
   });
 
-  it('Edge: the refusal and the resend row hold their declared positions (WCS-25)', async () => {
+  it('Edge: the refusal and the resend row hold their declared positions', async () => {
     await renderCodeSurface([
       successOutcome(CHALLENGE_BODY),
       errorOutcome('OTP_INVALID', 'invalid or expired code', 401),
@@ -680,7 +681,7 @@ describe('the code surface composition (WCS-25)', () => {
     }
   });
 
-  it('Happy path: the blocks appear in the declared order and the mode switch is gone (WCS-25)', async () => {
+  it('Happy path: the blocks appear in the declared order and the mode switch is gone', async () => {
     await renderCodeSurface();
 
     expect(screen.queryByRole('group', { name: message('auth.modeGroupLabel') })).toBeNull();

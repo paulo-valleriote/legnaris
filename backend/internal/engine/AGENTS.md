@@ -1,14 +1,8 @@
 # AGENTS.md — backend/internal/engine (Formula Engine)
 
-## Responsibility
+## Rules
 
-- expr-lang wrapper providing `floor`, `max` functions
-- Normalized int/float coercion for `floor`/`max`
-- Pure evaluation logic — no side effects, no external deps
-
-## Conventions
-
-- Declare own typed errors — **do NOT import `apperr`**
-- Wrap errors with `fmt.Errorf("...: %w", err)`
-- Service layer translates to `apperr` at boundary
-- All identifiers, comments, logs in English
+- expr-lang wrapper providing `floor` and `max`, with normalized int/float coercion; pure evaluation only — no side effects, no external dependencies.
+- Declare own typed errors — **do NOT import `apperr`**.
+- Wrap errors with `fmt.Errorf("...: %w", err)`; the service layer translates them at the boundary.
+- All identifiers, comments and logs in English.

@@ -12,7 +12,7 @@ function uiSourceFiles(): string[] {
     .map((n) => path.join(uiDir, n));
 }
 
-describe('shared layer governance (UIP-01, UIP-02, UIP-03)', () => {
+describe('shared layer governance', () => {
   it('Edge: a module that imports a feature directory is reported', () => {
     const files = uiSourceFiles();
     for (const f of files) {

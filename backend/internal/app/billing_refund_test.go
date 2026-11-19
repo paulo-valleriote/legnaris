@@ -18,9 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func postRefund(e *echo.Echo) *httptest.ResponseRecorder {
+func postRefund(t *testing.T, e *echo.Echo) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/billing/refund", nil))
+	e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/billing/refund", nil))
 	return rec
 }
 
@@ -42,7 +42,7 @@ func TestBillingController_Refund(t *testing.T) {
 		store.EXPECT().RequestRefund(mock.Anything, sub.ID, billingNow).Return(true, nil)
 		e := billingEngine(t, billingService(store, billingtest.NewProvider()), billingUserID)
 
-		rec := postRefund(e)
+		rec := postRefund(t, e)
 		require.Equal(t, http.StatusAccepted, rec.Code, rec.Body.String())
 		var envelope struct {
 			Data struct {
@@ -57,7 +57,7 @@ func TestBillingController_Refund(t *testing.T) {
 		store := mocks.NewMockStore(t)
 		e := billingEngine(t, billingService(store, billingtest.NewProvider()), "")
 
-		rec := postRefund(e)
+		rec := postRefund(t, e)
 		assert.Equal(t, http.StatusUnauthorized, rec.Code)
 		assert.Equal(t, "UNAUTHORIZED", errorCodeOf(t, rec))
 	})
@@ -67,7 +67,7 @@ func TestBillingController_Refund(t *testing.T) {
 		store.EXPECT().FindLive(mock.Anything, billingUserID).Return(refundableSub(8*24*time.Hour), true, nil)
 		e := billingEngine(t, billingService(store, billingtest.NewProvider()), billingUserID)
 
-		rec := postRefund(e)
+		rec := postRefund(t, e)
 		assert.Equal(t, http.StatusConflict, rec.Code)
 		assert.Equal(t, "REFUND_NOT_ELIGIBLE", errorCodeOf(t, rec))
 		assert.Contains(t, rec.Body.String(), billing.ReasonWindowExpired)
@@ -80,7 +80,7 @@ func TestBillingController_Refund(t *testing.T) {
 		store.EXPECT().FindLive(mock.Anything, billingUserID).Return(sub, true, nil)
 		e := billingEngine(t, billingService(store, billingtest.NewProvider()), billingUserID)
 
-		rec := postRefund(e)
+		rec := postRefund(t, e)
 		assert.Equal(t, http.StatusConflict, rec.Code)
 		assert.Equal(t, "REFUND_NOT_ELIGIBLE", errorCodeOf(t, rec))
 	})
@@ -90,7 +90,7 @@ func TestBillingController_Refund(t *testing.T) {
 		store.EXPECT().FindLive(mock.Anything, billingUserID).Return(billing.Subscription{}, false, errors.New("store down"))
 		e := billingEngine(t, billingService(store, billingtest.NewProvider()), billingUserID)
 
-		rec := postRefund(e)
+		rec := postRefund(t, e)
 		assert.Equal(t, http.StatusInternalServerError, rec.Code)
 		assert.Equal(t, "INTERNAL_ERROR", errorCodeOf(t, rec))
 	})

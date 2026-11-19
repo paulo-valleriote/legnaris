@@ -165,6 +165,10 @@ func TestNewConfigValidation(t *testing.T) {
 	}
 }
 
+func TestErrFreeModelMessage(t *testing.T) {
+	assert.Equal(t, "openrouter: :free model variants are refused", openrouter.ErrFreeModel.Error())
+}
+
 func TestNewReasoningEffort(t *testing.T) {
 	type testCase struct {
 		name    string
@@ -270,8 +274,8 @@ func TestGenerateStatusClassification(t *testing.T) {
 			_, err := client.Generate(context.Background(), testRequest())
 
 			require.ErrorIs(t, err, tc.wantErr)
-			if tc.wantErr == llm.ErrPermanent {
-				assert.False(t, errors.Is(err, llm.ErrTransient))
+			if errors.Is(tc.wantErr, llm.ErrPermanent) {
+				assert.NotErrorIs(t, err, llm.ErrTransient)
 			}
 		})
 	}
@@ -345,7 +349,7 @@ func TestGenerateMalformedResponseIsPermanent(t *testing.T) {
 			_, err := client.Generate(context.Background(), testRequest())
 
 			require.ErrorIs(t, err, llm.ErrPermanent)
-			assert.False(t, errors.Is(err, llm.ErrTransient))
+			assert.NotErrorIs(t, err, llm.ErrTransient)
 		})
 	}
 }
@@ -440,8 +444,8 @@ func TestGenerateUnusableResponseLogsReason(t *testing.T) {
 			})
 
 			require.ErrorIs(t, generateErr, tc.wantErr)
-			if tc.wantErr == llm.ErrPermanent {
-				assert.False(t, errors.Is(generateErr, llm.ErrTransient))
+			if errors.Is(tc.wantErr, llm.ErrPermanent) {
+				assert.NotErrorIs(t, generateErr, llm.ErrTransient)
 			}
 
 			entry := findLogEntry(t, logs, "llm generation failed")
@@ -572,7 +576,7 @@ func TestGenerateNon2xxLogsUpstreamFailure(t *testing.T) {
 
 		entry := findLogEntry(t, logs, "llm generation failed")
 		got := logString(t, entry, "error_message")
-		assert.Equal(t, 300, len(got))
+		assert.Len(t, got, 300)
 		assert.True(t, utf8.ValidString(got))
 		assert.Equal(t, strings.Repeat("é", 150), got)
 	})
@@ -749,7 +753,7 @@ func TestGenerateHappyPathRequestShape(t *testing.T) {
 	assert.Equal(t, "Bearer "+testAPIKey, gotAuth)
 	assert.Equal(t, "application/json", gotCTType)
 	assert.Equal(t, testModel, gotBody["model"])
-	assert.Equal(t, float64(256), gotBody["max_tokens"])
+	assert.InDelta(t, float64(256), gotBody["max_tokens"], 1e-9)
 
 	messages, ok := gotBody["messages"].([]any)
 	require.True(t, ok)

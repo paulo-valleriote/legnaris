@@ -2,6 +2,7 @@ package generation
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"legnaris/backend/internal/plan"
@@ -27,6 +28,8 @@ type PublishStore interface {
 type Publisher interface {
 	Publish(ctx context.Context, msg Message) error
 }
+
+var ErrPublisherNotConfigured = errors.New("generation publisher is not configured")
 
 type ConsentGate interface {
 	Gate(ctx context.Context, userID string) error

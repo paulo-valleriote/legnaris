@@ -31,13 +31,13 @@ const FIELDS: Record<string, FieldNode> = {
   ),
 };
 
-describe('sheet marks (ENG-10, ENG-22, ENG-23)', () => {
-  it('Edge: markLabel yields the modified and recalculated copy (ENG-22)', () => {
+describe('sheet marks', () => {
+  it('Edge: markLabel yields the modified and recalculated copy', () => {
     expect(markLabel('modified')).toBe(message('engine.modified'));
     expect(markLabel('recalculated')).toBe(message('engine.recalculated'));
   });
 
-  it('Edge: a derived marked control drops the Calculated label and tints even when empty (ENG-10, ENG-22)', () => {
+  it('Edge: a derived marked control drops the Calculated label and tints even when empty', () => {
     const { container } = render(
       <SheetFieldControl
         path="derived.total"
@@ -51,7 +51,7 @@ describe('sheet marks (ENG-10, ENG-22, ENG-23)', () => {
     expect(screen.queryByText(message('engine.calculated'))).not.toBeInTheDocument();
   });
 
-  it('Edge: a derived control without a mark is still described as Calculated (ENG-10)', () => {
+  it('Edge: a derived control without a mark is still described as Calculated', () => {
     render(
       <SheetFieldControl
         path="derived.total"
@@ -65,7 +65,7 @@ describe('sheet marks (ENG-10, ENG-22, ENG-23)', () => {
     );
   });
 
-  it('Edge: an editable control marked recalculated tints an empty value (ENG-22)', () => {
+  it('Edge: an editable control marked recalculated tints an empty value', () => {
     render(
       <SheetFieldControl
         path="core.strength"
@@ -79,7 +79,7 @@ describe('sheet marks (ENG-10, ENG-22, ENG-23)', () => {
     expect(screen.getByRole('textbox', { name: 'Strength' })).toHaveClass(FIELD_MARKED_CLASS);
   });
 
-  it('Happy path: a marked exclusive control is tinted (ENG-22)', () => {
+  it('Happy path: a marked exclusive control is tinted', () => {
     const ability: SheetField = {
       path: 'core.stealth',
       schema: schema({ label: 'Stealth', exclusiveGroup: 'ability' }),
@@ -94,7 +94,7 @@ describe('sheet marks (ENG-10, ENG-22, ENG-23)', () => {
     expect(screen.getByRole('combobox')).toHaveClass(FIELD_MARKED_CLASS);
   });
 
-  it('Happy path: a marked row shows the matching label through the row mark seam (ENG-22, ENG-23)', () => {
+  it('Happy path: a marked row shows the matching label through the row mark seam', () => {
     render(
       <SheetForm
         fields={FIELDS}
@@ -107,7 +107,7 @@ describe('sheet marks (ENG-10, ENG-22, ENG-23)', () => {
     expect(screen.getAllByText(message('engine.modified'))).toHaveLength(2);
   });
 
-  it('Happy path: rowMarkBuilder receives the single leaf path and every exclusive member path, with the Row key (ENG-23)', () => {
+  it('Happy path: rowMarkBuilder receives the single leaf path and every exclusive member path, with the Row key', () => {
     const rowMarkBuilder = vi.fn(() => <span />);
 
     render(

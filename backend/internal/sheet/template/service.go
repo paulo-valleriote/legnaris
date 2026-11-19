@@ -3,8 +3,6 @@ package template
 import (
 	"context"
 	"regexp"
-
-	"legnaris/backend/shared/apperr"
 )
 
 type Service interface {
@@ -42,7 +40,7 @@ func (s *ServiceImpl) FetchTemplate(ctx context.Context, cmd *FetchTemplateByIDC
 
 	tmpl, ok := s.registry.FetchByID(cmd.ID)
 	if !ok {
-		return nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)
+		return nil, ErrTemplateNotFound
 	}
 
 	return tmpl, nil

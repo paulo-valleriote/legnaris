@@ -7,6 +7,7 @@ import (
 
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/response"
 
@@ -124,7 +125,7 @@ func TestErrorMapping_SetLayout(t *testing.T) {
 			method:      http.MethodPut,
 			path:        "/sheets/" + sheetStubID + "/layout",
 			body:        validBody,
-			fetchErr:    sheet.ErrSheetNotFound,
+			fetchErr:    sheeterr.ErrSheetNotFound,
 			wantFetch:   true,
 			wantStatus:  http.StatusNotFound,
 			wantCode:    "NOT_FOUND",

@@ -104,7 +104,7 @@ func TestRun_FailsFastOnBadBrokerURL(t *testing.T) {
 			err := run(context.Background(), cfg, deps)
 
 			require.Error(t, err)
-			assert.ErrorIs(t, err, amqp.ErrBrokerUnavailable)
+			require.ErrorIs(t, err, amqp.ErrBrokerUnavailable)
 			assert.False(t, dialed, "the broker must not be dialed on a bad URL")
 			assert.False(t, opened, "the database must not be opened on a bad URL")
 			assert.False(t, indexesEnsured, "the indexes must not be ensured on a bad URL")

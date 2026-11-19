@@ -65,7 +65,7 @@ func TestRepository_Create(t *testing.T) {
 
 		err := repo.Create(ctx, bad)
 		require.Error(t, err)
-		assert.ErrorIs(t, err, outbox.ErrInvalidIntentID)
+		require.ErrorIs(t, err, outbox.ErrInvalidIntentID)
 
 		count, countErr := collection.CountDocuments(ctx, bson.D{})
 		require.NoError(t, countErr)
@@ -330,7 +330,7 @@ func TestRepository_Clone(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.NotEqual(t, original.ID, cloned.ID, "the resend must not reuse the identity")
-		assert.NoError(t, idgen.Validate(cloned.ID), "the clone must carry a canonical UUID v7")
+		require.NoError(t, idgen.Validate(cloned.ID), "the clone must carry a canonical UUID v7")
 		assert.Equal(t, original.To, cloned.To)
 		assert.Equal(t, original.Template, cloned.Template)
 		assert.Equal(t, original.Payload, cloned.Payload)

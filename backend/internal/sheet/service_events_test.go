@@ -11,6 +11,7 @@ import (
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/sheettest"
 	"legnaris/backend/internal/sheet/template"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
@@ -72,7 +73,7 @@ func TestService_Create_EmitsSheetCreated(t *testing.T) {
 				Return(&template.Template{ID: eventsCreateTemplateID, Fields: fields, Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).Once()
 			switch {
 			case tc.ownerHasSheet:
-				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindCharacter, 1).Return(sheet.ErrSheetLimitReached).Once()
+				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindCharacter, 1).Return(sheeterr.ErrSheetLimitReached).Once()
 			default:
 				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindCharacter, 1).Return(nil).Once()
 				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(tc.createErr).Once()
@@ -140,7 +141,7 @@ func TestService_PartialUpdate_EmitsSheetUpdated(t *testing.T) {
 		{
 			name:       "Error: a version conflict emits nothing",
 			cmod:       func(cmd *sheet.PartialUpdateSheetCommand) {},
-			updateErr:  sheet.ErrVersionConflict,
+			updateErr:  sheeterr.ErrVersionConflict,
 			wantEvents: 0,
 		},
 		{
@@ -289,7 +290,7 @@ func TestService_Delete_MissingSheetEmitsNothing(t *testing.T) {
 	repo := mocks.NewMockRepository(t)
 	pub := eventsmocks.NewMockPublisher(t)
 
-	repo.EXPECT().FetchByID(ctx, missingSheetID).Return(nil, sheet.ErrSheetNotFound).Once()
+	repo.EXPECT().FetchByID(ctx, missingSheetID).Return(nil, sheeterr.ErrSheetNotFound).Once()
 
 	svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, pub)
 	err := svc.Delete(ctx, sheet.DeleteSheetCommand{SheetID: missingSheetID, OwnerID: ownerUserID})

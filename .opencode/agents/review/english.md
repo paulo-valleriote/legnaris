@@ -47,7 +47,6 @@ adds or changes.
 ## Category
 
 - Any Portuguese (pt-BR) added by the diff in: identifiers, comments, doc comments, log messages, user-facing strings, error messages, test names, workflow YAML, or commit-adjacent text in code files.
-- **Exception**: `docs/TDD.md` is a Portuguese design document and stays in pt-BR — never flag it.
 - Mixed-language strings (English label with a Portuguese fragment) count as violations.
 
 ## Rules

@@ -46,7 +46,7 @@ func appErrOf(t *testing.T, err error, code apperr.Code) *apperr.Error {
 	t.Helper()
 	require.Error(t, err)
 	var appErr *apperr.Error
-	require.True(t, errors.As(err, &appErr), "error must be an apperr, got %T: %v", err, err)
+	require.ErrorAs(t, err, &appErr, "error must be an apperr, got %T: %v", err, err)
 	require.Equal(t, code, appErr.Code)
 	return appErr
 }

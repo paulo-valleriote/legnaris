@@ -123,15 +123,15 @@ func (s *Sender) classify(err error) error {
 
 	var missingFields *resend.MissingRequiredFieldsError
 	if errors.As(err, &missingFields) {
-		return fmt.Errorf("%w: %v", email.ErrPermanent, err)
+		return fmt.Errorf("%w: %w", email.ErrPermanent, err)
 	}
 	if errors.Is(err, resend.ErrFailedToCreateEmailsSendRequest) {
-		return fmt.Errorf("%w: %v", email.ErrPermanent, err)
+		return fmt.Errorf("%w: %w", email.ErrPermanent, err)
 	}
 	if errors.Is(err, resend.ErrRateLimit) || isTimeout(err) {
-		return fmt.Errorf("%w: %v", email.ErrTransient, err)
+		return fmt.Errorf("%w: %w", email.ErrTransient, err)
 	}
-	return fmt.Errorf("%w: %v", email.ErrTransient, err)
+	return fmt.Errorf("%w: %w", email.ErrTransient, err)
 }
 
 func (s *Sender) classifyStatus(status *statusError) error {

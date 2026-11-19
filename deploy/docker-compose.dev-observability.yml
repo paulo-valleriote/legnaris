@@ -45,7 +45,7 @@ services:
     depends_on:
       - prometheus
 
-  # Replica set rs0 with a keyfile, as in production (ADR 0013). The keyfile turns
+  # Replica set rs0 with a keyfile, as in production. The keyfile turns
   # on authorization, so the load-test app connects as the development-only root
   # user. The password is public and nothing is published to the host.
   mongodb-keyfile:

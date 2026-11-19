@@ -4,7 +4,6 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"legnaris/backend/internal/email"
@@ -92,7 +91,7 @@ func TestVerifyEmail_HTMLSpecialCharacters(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Contains(t, rendered.HTML, tc.want)
-			assert.False(t, strings.Contains(rendered.HTML, "<script>"), "raw markup must not reach the HTML body")
+			assert.NotContains(t, rendered.HTML, "<script>", "raw markup must not reach the HTML body")
 			assert.Contains(t, rendered.Text, tc.code, "the text body is verbatim")
 		})
 	}

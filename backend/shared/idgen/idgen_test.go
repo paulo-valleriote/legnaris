@@ -75,3 +75,25 @@ func TestValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestValidate_WrapsTheParseCause(t *testing.T) {
+	tests := []struct {
+		name       string
+		id         string
+		wantCauses int
+	}{
+		{name: "Error: an unparsable ID wraps both the sentinel and the parser error", id: "not-a-uuid", wantCauses: 2},
+		{name: "Edge: an empty ID wraps both the sentinel and the parser error", id: "", wantCauses: 2},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := idgen.Validate(tc.id)
+
+			require.ErrorIs(t, err, idgen.ErrInvalidID)
+			multi, ok := err.(interface{ Unwrap() []error })
+			require.True(t, ok)
+			assert.Len(t, multi.Unwrap(), tc.wantCauses)
+		})
+	}
+}

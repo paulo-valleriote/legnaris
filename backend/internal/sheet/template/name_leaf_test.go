@@ -87,7 +87,7 @@ func TestFantasyV1_NameLeaf(t *testing.T) {
 	}
 	require.Equal(t, "fantasy_v1", fantasy.ID)
 	assert.Equal(t, "identity.characterName", fantasy.NameLeaf)
-	assert.NoError(t, ValidateNameLeaf(fantasy))
+	require.NoError(t, ValidateNameLeaf(fantasy))
 	assert.Equal(t, "Aragorn", fantasy.SuggestName(map[string]any{"identity": map[string]any{"characterName": "Aragorn"}}))
 }
 

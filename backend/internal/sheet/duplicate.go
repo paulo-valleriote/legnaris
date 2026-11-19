@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/plan"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
 	"legnaris/backend/shared/maputils"
@@ -71,7 +72,7 @@ func (s *ServiceImpl) Duplicate(ctx context.Context, cmd DuplicateSheetCommand) 
 		return s.repository.Create(txCtx, &copied)
 	})
 	if err != nil {
-		if errors.Is(err, ErrSheetLimitReached) {
+		if errors.Is(err, sheeterr.ErrSheetLimitReached) {
 			return nil, apperr.NewError(apperr.CodePlanLimitReached, MsgPlanLimitReached, err).
 				WithDetails(map[string]any{detailKindKey: string(stored.Kind), "limit": limit})
 		}

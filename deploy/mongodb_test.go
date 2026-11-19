@@ -37,14 +37,14 @@ type mongoStack struct {
 
 var mongoStacks = []mongoStack{
 	{
-		name:        "production",
+		name:        "Happy path: production",
 		file:        "docker-compose.yml",
 		member:      "mongodb:27017",
 		usersScript: true,
 		dependents:  []string{"app", "relay", "mongodb-exporter", "mongo-express"},
 	},
 	{
-		name:       "dev observability and load test",
+		name:       "Happy path: dev observability and load test",
 		file:       "docker-compose.dev-observability.yml",
 		member:     "mongodb:27017",
 		dependents: []string{"app"},
@@ -542,13 +542,6 @@ func TestShippedMongoURIsNameTheReplicaSetAndRetryableWrites(t *testing.T) {
 			assert.Contains(t, readFile(t, tc.file), tc.want)
 		})
 	}
-
-	t.Run("Error: the runbook no longer reports the replica-set URI as a gap", func(t *testing.T) {
-		runbook := readFile(t, "../docs/runbook-mongo-replica-set-rollout.md")
-		assert.NotContains(t, runbook, "was not in the branch")
-		assert.NotContains(t, runbook, "carry no `replicaSet` option")
-		assert.Contains(t, runbook, "replicaSet=rs0&retryWrites=true")
-	})
 }
 
 func TestKeyfileScriptProvisionsOnce(t *testing.T) {

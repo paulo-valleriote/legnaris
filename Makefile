@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: setup dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev
+.PHONY: setup dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev apperr-codes testnames nocomments mocks-check english hooks-test
 
 ## --- Development ------------------------------------------------------------
 
@@ -40,8 +40,14 @@ build:          ## Build the API binary
 test:           ## Run tests (integration tests self-skip without MongoDB)
 	@go test ./...
 
+apperr-codes:   ## Regenerate testdata/apperr/codes.json from the declared apperr.Code constants
+	@UPDATE=1 go test ./backend/shared/apperr -run TestCodesArtifactIsCurrent -count=1
+
 test-race:      ## Run tests with the race detector
 	@go test -race ./...
+
+testnames:      ## Verify table-driven test case names start with Happy path:, Edge: or Error:
+	@go run ./backend/cmd/testnames
 
 vet:            ## Run go vet
 	@go vet ./...
@@ -49,8 +55,18 @@ vet:            ## Run go vet
 lint:           ## Run golangci-lint
 	@golangci-lint run
 
+nocomments:     ## Fail when non-generated Go or TS/TSX sources carry comments
+	@go run ./backend/cmd/nocomments
+
 fmt:            ## Format code
 	@go fmt ./...
+
+english:        ## Fail when a Go, TS/TSX or web/src/l10n source holds non-English text
+	@go run ./backend/cmd/english-check
+
+hooks-test:     ## Exercise the versioned Claude Code hooks (secret guard, stop verification)
+	@scripts/hooks/guard-secrets_test.sh
+	@scripts/hooks/stop-verify_test.sh
 
 mod-check:      ## Verify go.mod/go.sum are tidy
 	@go mod tidy -diff
@@ -81,6 +97,11 @@ dev-observability-down: ## Stop the dev Prometheus + Grafana
 
 mocks:          ## Generate mocks (after interface changes)
 	@go tool mockery
+
+mocks-check:    ## Verify the generated mocks are current and live only under mocks/
+	@go run ./scripts/ci/cmd/mocks-check
+	@$(MAKE) --no-print-directory mocks
+	@git diff --exit-code -- ':(glob)**/mocks/**'
 
 migrate-emails: ## Repair legacy email addresses (dry run; ARGS="-apply" writes)
 	@go run ./backend/cmd/canonicalize-emails $(ARGS)
@@ -121,7 +142,7 @@ sec-scan:       ## Client security checks (local only): SCA, secret scan, lockfi
 	@cd web && npm audit signatures
 	@cd web && npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm
 	@if command -v gitleaks >/dev/null 2>&1; then \
-		gitleaks detect --no-banner --redact --source . ; \
+		gitleaks dir --no-banner --redact --config .gitleaks.toml . ; \
 	else \
 		echo "sec-scan: gitleaks not installed locally; skipping secret scan" ; \
 	fi

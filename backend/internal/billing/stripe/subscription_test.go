@@ -2,7 +2,6 @@ package stripe
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -123,7 +122,7 @@ func TestProvider_GetSubscription(t *testing.T) {
 
 		_, err := p.GetSubscription(t.Context(), "sub_weird")
 		require.Error(t, err)
-		assert.True(t, errors.Is(err, billing.ErrProviderRejected))
+		assert.ErrorIs(t, err, billing.ErrProviderRejected)
 	})
 }
 

@@ -101,8 +101,8 @@ func TestGenerationMetadata_CopiesDoNotAlias(t *testing.T) {
 	clonedStrength.GeneratableKinds[0] = plan.KindEnemy
 	dtoStrength.GeneratableKinds[0] = plan.KindEnemy
 
-	assert.Equal(t, 3.0, *strength.Min)
-	assert.Equal(t, 20.0, *strength.Max)
+	assert.InDelta(t, 3.0, *strength.Min, 1e-9)
+	assert.InDelta(t, 20.0, *strength.Max, 1e-9)
 	assert.Equal(t, 40, *name.MaxLength)
 	assert.Equal(t, []plan.SheetKind{plan.KindCharacter}, strength.GeneratableKinds)
 	assert.True(t, strength.PreferDefault)
@@ -135,7 +135,7 @@ func TestFantasyV1_GenerationMetadata(t *testing.T) {
 		case fieldTypeText:
 			require.NotNil(t, schema.MaxLength, "text leaf %s needs a max length", key)
 			assert.Nil(t, schema.Min, "text leaf %s must not carry a range", key)
-			assert.Greater(t, *schema.MaxLength, 0, "text leaf %s has a non-positive max length", key)
+			assert.Positive(t, *schema.MaxLength, "text leaf %s has a non-positive max length", key)
 		default:
 			t.Errorf("generatable leaf %s has unexpected type %q", key, schema.Type)
 		}
@@ -173,17 +173,17 @@ func TestFantasyV1_PreferDefault(t *testing.T) {
 
 	level := identity["level"].Schema
 	require.NotNil(t, level)
-	assert.Equal(t, 1.0, level.Default)
-	assert.Equal(t, 1.0, *level.Min)
-	assert.Equal(t, 20.0, *level.Max)
+	assert.InDelta(t, 1.0, level.Default, 1e-9)
+	assert.InDelta(t, 1.0, *level.Min, 1e-9)
+	assert.InDelta(t, 20.0, *level.Max, 1e-9)
 
 	xp := identity["xp"].Schema
 	require.NotNil(t, xp)
-	assert.Equal(t, 0.0, xp.Default)
+	assert.InDelta(t, 0.0, xp.Default, 1e-9)
 
 	proficiency := identity[fieldNameProficiencyBonus].Schema
 	require.NotNil(t, proficiency)
-	assert.Equal(t, 2.0, proficiency.Default)
+	assert.InDelta(t, 2.0, proficiency.Default, 1e-9)
 
 	characterName := identity["characterName"].Schema
 	require.NotNil(t, characterName)
@@ -205,15 +205,15 @@ func TestFantasyV1_GenerationMetadataPayload(t *testing.T) {
 
 	identity := payload.Fields["identity"].Children
 	assert.Equal(t, true, identity["characterName"].Schema["generatable"])
-	assert.Equal(t, float64(60), identity["characterName"].Schema["max_length"])
+	assert.InDelta(t, float64(60), identity["characterName"].Schema["max_length"], 1e-9)
 	assert.NotContains(t, identity["playerName"].Schema, "generatable")
 	assert.NotContains(t, identity["playerName"].Schema, "generatable_kinds")
 	assert.Equal(t, true, identity["level"].Schema["prefer_default"])
 	assert.Equal(t, true, identity["xp"].Schema["prefer_default"])
 	assert.Equal(t, true, identity[fieldNameProficiencyBonus].Schema["prefer_default"])
 	assert.NotContains(t, identity["characterName"].Schema, "prefer_default")
-	assert.Equal(t, float64(1), identity["level"].Schema["min"])
-	assert.Equal(t, float64(20), identity["level"].Schema["max"])
+	assert.InDelta(t, float64(1), identity["level"].Schema["min"], 1e-9)
+	assert.InDelta(t, float64(20), identity["level"].Schema["max"], 1e-9)
 
 	rulesTuning := payload.Fields["rules"].Children["modifierBase"].Schema
 	assert.NotContains(t, rulesTuning, "generatable")

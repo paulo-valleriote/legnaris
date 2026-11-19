@@ -53,7 +53,7 @@ function themeFiles(): string[] {
     .map((name) => path.join(themeDir, name));
 }
 
-describe('self-hosted font assets (UIF-14, UIF-15, UIF-16, SC-005)', () => {
+describe('self-hosted font assets', () => {
   it('Edge: a @font-face with a third-party url() is flagged', () => {
     const bad =
       "@font-face { font-family: 'Geist'; src: url('https://cdn.example.com/Geist.woff2') format('woff2'); }";

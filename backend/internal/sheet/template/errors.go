@@ -99,6 +99,8 @@ var (
 	ErrTemplateIDNotProvided = errors.New("template id not provided")
 
 	ErrTemplateIDInvalid = errors.New("template id is not a valid slug")
+
+	ErrTemplateNotFound = errors.New("template not found")
 )
 
 func NewFormulaCompileError(formula string, nodeID string, err error) error {

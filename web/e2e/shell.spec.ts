@@ -8,9 +8,7 @@ test.describe('application shell', () => {
     await seedSession(page);
   });
 
-  test('renders the navigation then the content, with no third region (UIF-24)', async ({
-    page,
-  }) => {
+  test('renders the navigation then the content, with no third region', async ({ page }) => {
     await page.goto('/');
 
     const nav = page.getByRole('navigation', { name: 'Primary' });
@@ -23,7 +21,7 @@ test.describe('application shell', () => {
     await expect(page.getByRole('row')).toHaveCount(0);
   });
 
-  test('keeps both regions and the navigation at a narrow viewport (UIF-25)', async ({ page }) => {
+  test('keeps both regions and the navigation at a narrow viewport', async ({ page }) => {
     await page.setViewportSize({ width: 600, height: 900 });
     await page.goto('/');
 

@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/campaign/campaigntest"
 	"legnaris/backend/internal/plan"
-	"legnaris/backend/internal/sheet"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/shared/apperr"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSetNpcRevealed(t *testing.T) {
@@ -138,7 +139,7 @@ func TestSetNpcRevealed(t *testing.T) {
 			if !memberRejected && !tc.deleting {
 				switch {
 				case tc.missingSheet:
-					h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(nil, sheet.ErrSheetNotFound).Once()
+					h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(nil, sheeterr.ErrSheetNotFound).Once()
 				case tc.sheetErr != nil:
 					h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(nil, tc.sheetErr).Once()
 				default:

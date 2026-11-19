@@ -64,7 +64,7 @@ func TestRepository_FetchByIDMissingIsNotFound(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := f.repo.FetchByID(f.ctx, tc.id)
-			assert.True(t, errors.Is(err, campaign.ErrNotFound))
+			assert.ErrorIs(t, err, campaign.ErrNotFound)
 		})
 	}
 }
@@ -89,7 +89,7 @@ func TestRepository_SaveRejectsStaleVersion(t *testing.T) {
 			current.UpdatedAt = current.UpdatedAt.Add(1)
 			err = f.repo.Save(f.ctx, current, tc.expected)
 			if tc.wantErr != nil {
-				assert.True(t, errors.Is(err, tc.wantErr), "got %v", err)
+				assert.ErrorIs(t, err, tc.wantErr, "got %v", err)
 				return
 			}
 			require.NoError(t, err)
@@ -267,7 +267,7 @@ func TestRepository_FetchByInviteCode(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			found, err := f.repo.FetchByInviteCode(f.ctx, tc.code)
 			if tc.wantErr != nil {
-				assert.True(t, errors.Is(err, tc.wantErr))
+				assert.ErrorIs(t, err, tc.wantErr)
 				return
 			}
 			require.NoError(t, err)
@@ -308,5 +308,5 @@ func TestRepository_SavePersistsInviteCodeAndPasswordHash(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, updated.PasswordHash, found.PasswordHash)
 	_, err = f.repo.FetchByInviteCode(f.ctx, c.InviteCode)
-	assert.True(t, errors.Is(err, campaign.ErrNotFound), "the old code must stop resolving after rotation")
+	assert.ErrorIs(t, err, campaign.ErrNotFound, "the old code must stop resolving after rotation")
 }

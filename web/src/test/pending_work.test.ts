@@ -17,7 +17,7 @@ describe('hasEntries', () => {
   });
 });
 
-describe('hasPendingWork (ADR 0006)', () => {
+describe('hasPendingWork', () => {
   it.each<[string, SheetDraft, boolean]>([
     ['Edge: an empty delta with no Dice block is no pending work', { delta: {} }, false],
     [

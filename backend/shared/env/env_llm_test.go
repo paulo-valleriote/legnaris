@@ -98,7 +98,10 @@ func TestEnvValidateRejectsFreeLLMModel(t *testing.T) {
 	e := newTestEnv()
 	e.Variables.LLMModel = "deepseek/deepseek-v4.1-flash:free"
 
-	require.Error(t, e.Validate(), "boot must fail when LLM_MODEL is a :free variant")
+	err := e.Validate()
+	require.Error(t, err, "boot must fail when LLM_MODEL is a :free variant")
+	assert.Contains(t, err.Error(), "LLM_MODEL must not be a :free model variant")
+	assert.NotContains(t, err.Error(), "ADR")
 
 	e.Variables.LLMModel = "deepseek/deepseek-v4.1-flash"
 	require.NoError(t, e.Validate())

@@ -36,8 +36,8 @@ function renderAuth(
   return { session, ...view };
 }
 
-describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
-  it('Edge: the password is a hidden-content control (WAS-09)', () => {
+describe('auth surface', () => {
+  it('Edge: the password is a hidden-content control', () => {
     const deferred = createDeferredTransport();
     renderAuth(deferred.transport);
 
@@ -47,7 +47,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     );
   });
 
-  it('Edge: a failed submit keeps the typed values and renders the mapped copy (WAS-07)', async () => {
+  it('Edge: a failed submit keeps the typed values and renders the mapped copy', async () => {
     const user = userEvent.setup();
     const fake = createDeferredTransport();
     renderAuth(fake.transport);
@@ -64,7 +64,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveValue('secret');
   });
 
-  it('Edge: a duplicate address names the conflict, and any other unmapped registration failure keeps the generic copy (WAS-10, WCS-11)', async () => {
+  it('Edge: a duplicate address names the conflict, and any other unmapped registration failure keeps the generic copy', async () => {
     const user = userEvent.setup();
     const duplicate = createDeferredTransport();
     const { unmount } = renderAuth(duplicate.transport);
@@ -96,7 +96,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByTestId('auth-error').textContent).toBe(message('api.error.unknown'));
   });
 
-  it('Edge: a server message carrying markup never becomes DOM (WAS-10, WAS-31)', async () => {
+  it('Edge: a server message carrying markup never becomes DOM', async () => {
     const user = userEvent.setup();
     const deferred = createDeferredTransport();
     const { container } = renderAuth(deferred.transport);
@@ -111,7 +111,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByTestId('auth-error')).toHaveTextContent(message('api.error.serverError'));
   });
 
-  it('Edge: switching mode clears a stale error but keeps the typed values (WAS-07)', async () => {
+  it('Edge: switching mode clears a stale error but keeps the typed values', async () => {
     const user = userEvent.setup();
     const fake = createDeferredTransport();
     renderAuth(fake.transport);
@@ -129,7 +129,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByLabelText(message('auth.passwordLabel'))).toHaveValue('secret');
   });
 
-  it('Edge: an unmapped refusal carries no offered action (WCS-12, WCS-27)', async () => {
+  it('Edge: an unmapped refusal carries no offered action', async () => {
     const user = userEvent.setup();
     const other = createDeferredTransport();
     renderAuth(other.transport);
@@ -144,7 +144,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.queryByTestId('auth-conflict-action')).not.toBeInTheDocument();
   });
 
-  it('Happy path: the login mode renders email and password, and the register mode adds a username (WAS-09)', async () => {
+  it('Happy path: the login mode renders email and password, and the register mode adds a username', async () => {
     const user = userEvent.setup();
     const deferred = createDeferredTransport();
     renderAuth(deferred.transport);
@@ -158,7 +158,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByLabelText(message('auth.usernameLabel'))).toBeInTheDocument();
   });
 
-  it('Happy path: the heading and supporting line follow the selected mode (WAS-09)', async () => {
+  it('Happy path: the heading and supporting line follow the selected mode', async () => {
     const user = userEvent.setup();
     renderAuth(createDeferredTransport().transport);
 
@@ -174,7 +174,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByText(message('auth.subtitleRegister'))).toBeInTheDocument();
   });
 
-  it('Happy path: the mode switch names its group and marks exactly one mode as selected (WAS-09)', () => {
+  it('Happy path: the mode switch names its group and marks exactly one mode as selected', () => {
     renderAuth(createDeferredTransport().transport);
 
     expect(
@@ -190,7 +190,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     );
   });
 
-  it('Happy path: the primary action disables and shows progress while a submit is in flight, and a repeat activation issues no second request (WAS-09)', async () => {
+  it('Happy path: the primary action disables and shows progress while a submit is in flight, and a repeat activation issues no second request', async () => {
     const user = userEvent.setup();
     const deferred = createDeferredTransport();
     renderAuth(deferred.transport);
@@ -210,7 +210,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     deferred.resolve(successOutcome(SESSION_BODY));
   });
 
-  it('Happy path: a form that comes back from an abandoned step keeps the address and the mode, and the password is empty (WCS-21, WCS-22)', () => {
+  it('Happy path: a form that comes back from an abandoned step keeps the address and the mode, and the password is empty', () => {
     renderAuth(createDeferredTransport().transport, () => undefined, {
       origin: 'register',
       email: 'a@b.test',
@@ -227,7 +227,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveFocus();
   });
 
-  it('Happy path: the duplicate-address refusal offers the sign-in it promises, keeping the typed values (WCS-11, WCS-27)', async () => {
+  it('Happy path: the duplicate-address refusal offers the sign-in it promises, keeping the typed values', async () => {
     const user = userEvent.setup();
     const duplicate = createDeferredTransport();
     renderAuth(duplicate.transport);
@@ -245,7 +245,7 @@ describe('auth surface (WAS-07, WAS-09, WAS-10, WAS-31)', () => {
     expect(screen.getByLabelText(message('auth.emailLabel'))).toHaveValue('a@b.test');
   });
 
-  it('Happy path: taking the offered action switches to sign-in, keeps the address and moves the focus to the password (WCS-27)', async () => {
+  it('Happy path: taking the offered action switches to sign-in, keeps the address and moves the focus to the password', async () => {
     const user = userEvent.setup();
     const duplicate = createDeferredTransport();
     renderAuth(duplicate.transport);
