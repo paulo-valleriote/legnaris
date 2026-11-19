@@ -30,7 +30,7 @@ function group(id: string, options: SheetField[]): SheetExclusiveGroup {
 }
 
 describe('sheet exclusive control', () => {
-  it('Edge: exclusiveValueIsOn treats only a non-zero number as on (ENG-16, ENG-18)', () => {
+  it('Edge: exclusiveValueIsOn treats only a non-zero number as on', () => {
     expect(exclusiveValueIsOn(1)).toBe(true);
     expect(exclusiveValueIsOn(-1)).toBe(true);
     expect(exclusiveValueIsOn(0)).toBe(false);
@@ -39,7 +39,7 @@ describe('sheet exclusive control', () => {
     expect(exclusiveValueIsOn('1')).toBe(false);
   });
 
-  it('Edge: a group whose members all default to 0 offers the none entry (ENG-16)', () => {
+  it('Edge: a group whose members all default to 0 offers the none entry', () => {
     render(
       <SheetExclusiveControl
         group={group('ability', [field('stats.stealth', { label: 'Stealth' })])}
@@ -51,7 +51,7 @@ describe('sheet exclusive control', () => {
     expect(none).toHaveAttribute('value', EXCLUSIVE_NONE_VALUE);
   });
 
-  it('Edge: a group with a non-zero default and no active member shows the none hint, not a blank (ENG-16)', () => {
+  it('Edge: a group with a non-zero default and no active member shows the none hint, not a blank', () => {
     render(
       <SheetExclusiveControl
         group={group('ability', [
@@ -73,7 +73,7 @@ describe('sheet exclusive control', () => {
     );
   });
 
-  it('Edge: a group with a non-zero default and an active member offers no none entry (ENG-16)', () => {
+  it('Edge: a group with a non-zero default and an active member offers no none entry', () => {
     render(
       <SheetExclusiveControl
         group={group('ability', [
@@ -89,7 +89,7 @@ describe('sheet exclusive control', () => {
     expect(within(select).queryByRole('option', { name: message('engine.none') })).toBeNull();
   });
 
-  it('Edge: with no selection handler the control is inert (ENG-17)', () => {
+  it('Edge: with no selection handler the control is inert', () => {
     render(
       <SheetExclusiveControl
         group={group('ability', [
@@ -102,7 +102,7 @@ describe('sheet exclusive control', () => {
     expect(screen.getByRole('combobox', { name: 'Ability' })).toBeDisabled();
   });
 
-  it('Edge: a marked group tints the control (ENG-22)', () => {
+  it('Edge: a marked group tints the control', () => {
     const { container } = render(
       <SheetExclusiveControl
         group={group('ability', [
@@ -117,7 +117,7 @@ describe('sheet exclusive control', () => {
     expect(container.querySelector(`.${FIELD_MARKED_CLASS}`)).not.toBeNull();
   });
 
-  it('Happy path: three members render one single-choice control, never independent toggles (ENG-14)', () => {
+  it('Happy path: three members render one single-choice control, never independent toggles', () => {
     render(
       <SheetExclusiveControl
         group={group('ability', [
@@ -135,7 +135,7 @@ describe('sheet exclusive control', () => {
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
   });
 
-  it('Happy path: an option is labeled by its optionLabel, else its display name (ENG-15)', () => {
+  it('Happy path: an option is labeled by its optionLabel, else its display name', () => {
     render(
       <SheetExclusiveControl
         group={group('ability', [
@@ -152,7 +152,7 @@ describe('sheet exclusive control', () => {
     expect(within(select).getByRole('option', { name: 'Athletics' })).toBeInTheDocument();
   });
 
-  it('Happy path: selecting a member reports that member dotted path (ENG-18)', async () => {
+  it('Happy path: selecting a member reports that member dotted path', async () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();
     render(
@@ -170,7 +170,7 @@ describe('sheet exclusive control', () => {
     expect(onSelect).toHaveBeenCalledWith('stats.athletics');
   });
 
-  it('Happy path: selecting the none entry reports the clear-group signal (ENG-18)', async () => {
+  it('Happy path: selecting the none entry reports the clear-group signal', async () => {
     const onSelect = vi.fn();
     const user = userEvent.setup();
     render(

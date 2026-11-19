@@ -5,7 +5,7 @@ import { message } from '../l10n/strings';
 import { renderApp } from './render';
 
 describe('shell keyboard access', () => {
-  it('Happy path: the first control is still the catalog link (FND-04)', async () => {
+  it('Happy path: the first control is still the catalog link', async () => {
     const user = userEvent.setup();
     renderApp('/');
 
@@ -14,7 +14,7 @@ describe('shell keyboard access', () => {
     expect(screen.getByRole('link', { name: message('nav.catalog') })).toHaveFocus();
   });
 
-  it('Happy path: the sign-out control is reachable in the navigation tab order (WAS-23)', async () => {
+  it('Happy path: the sign-out control is reachable in the navigation tab order', async () => {
     const user = userEvent.setup();
     renderApp('/');
     const control = screen.getByRole('button', { name: message('nav.logout') });
@@ -28,7 +28,7 @@ describe('shell keyboard access', () => {
     expect(reached).toBe(true);
   });
 
-  it('Edge: tabbing past the last control does not trap focus in the shell (FND-04)', async () => {
+  it('Edge: tabbing past the last control does not trap focus in the shell', async () => {
     const user = userEvent.setup();
     renderApp('/');
     const link = screen.getByRole('link', { name: message('nav.catalog') });
@@ -40,7 +40,7 @@ describe('shell keyboard access', () => {
     expect(link).not.toHaveFocus();
   });
 
-  it('Edge: the not-found screen keeps its link reachable by keyboard (FND-04)', async () => {
+  it('Edge: the not-found screen keeps its link reachable by keyboard', async () => {
     const user = userEvent.setup();
     renderApp('/unknown');
 

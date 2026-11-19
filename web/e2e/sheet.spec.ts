@@ -65,7 +65,7 @@ function criticalViolations(results: Awaited<ReturnType<AxeBuilder['analyze']>>)
   return results.violations.filter((violation) => violation.impact === 'critical');
 }
 
-test.describe('sheet accessibility (WSC-39, SC-010, AD-014)', () => {
+test.describe('sheet accessibility', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page);
     await page.route('**/templates/*', (route) => route.fulfill({ json: { data: DETAIL } }));

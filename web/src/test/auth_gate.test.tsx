@@ -46,8 +46,8 @@ function restoringSession(
   });
 }
 
-describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
-  it('Edge: a rejected cookie shows the sign-in form with no session (WAS-04)', async () => {
+describe('auth gate', () => {
+  it('Edge: a rejected cookie shows the sign-in form with no session', async () => {
     const fake = createDeferredTransport();
     const session = restoringSession(fake.transport);
 
@@ -62,7 +62,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     expect(screen.queryByTestId('catalog')).not.toBeInTheDocument();
   });
 
-  it('Edge: a transient restore failure shows the sign-in form and keeps the session-local data (WAS-05)', async () => {
+  it('Edge: a transient restore failure shows the sign-in form and keeps the session-local data', async () => {
     const fake = createDeferredTransport();
     const store = createMemorySheetStore();
     await store.putSheet(SHEET);
@@ -82,7 +82,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     expect(store.records()).toHaveLength(1);
   });
 
-  it('Edge: no session renders neither the catalog, the sheet nor the own-sheet surface (WAS-08)', async () => {
+  it('Edge: no session renders neither the catalog, the sheet nor the own-sheet surface', async () => {
     const fake = createDeferredTransport();
     const session = restoringSession(fake.transport);
 
@@ -98,7 +98,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     expect(screen.queryByRole('navigation', { name: 'Primary' })).not.toBeInTheDocument();
   });
 
-  it('Edge: a deep link while signed out carries the destination and after sign-in returns to the sheet (WAS-24)', async () => {
+  it('Edge: a deep link while signed out carries the destination and after sign-in returns to the sheet', async () => {
     const user = userEvent.setup();
     const sessionTransport = createDeferredTransport();
     const session = restoringSession(sessionTransport.transport);
@@ -157,7 +157,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     );
   });
 
-  it('Edge: a session answer never shows the code surface (WCS-01)', async () => {
+  it('Edge: a session answer never shows the code surface', async () => {
     const user = userEvent.setup();
     const sessionTransport = createDeferredTransport();
     const catalog = createDeferredTransport();
@@ -180,7 +180,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     expect(screen.queryByLabelText(message('auth.codeLabel'))).not.toBeInTheDocument();
   });
 
-  it('Happy path: a valid cookie restores through exactly one silent refresh, showing restoring until it settles (WAS-03)', async () => {
+  it('Happy path: a valid cookie restores through exactly one silent refresh, showing restoring until it settles', async () => {
     const deferred = createDeferredTransport();
     const session = restoringSession(deferred.transport);
 
@@ -203,7 +203,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     ).toHaveLength(1);
   });
 
-  it('Happy path: a code-step answer renders the code surface in place of the credential form and holds no session (WCS-01, WCS-02)', async () => {
+  it('Happy path: a code-step answer renders the code surface in place of the credential form and holds no session', async () => {
     const user = userEvent.setup();
     const sessionTransport = createDeferredTransport();
     const session = restoringSession(sessionTransport.transport);
@@ -230,7 +230,7 @@ describe('auth gate (WAS-03, WAS-04, WAS-05, WAS-08, WAS-24)', () => {
     expect(session.currentAccessToken()).toBeNull();
   });
 
-  it('Happy path: abandoning the step returns the form with the address and the mode, an empty password and the focus (WCS-21, WCS-22)', async () => {
+  it('Happy path: abandoning the step returns the form with the address and the mode, an empty password and the focus', async () => {
     const user = userEvent.setup();
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 202));
     const session = createAuthSession({

@@ -40,7 +40,7 @@ function credentialFree(records: readonly unknown[]): boolean {
   return !/token|password|secret|authorization|cookie|credential/i.test(text);
 }
 
-describe('sheet store: cache envelope (WSC-11, WSC-30, WSC-31)', () => {
+describe('sheet store: cache envelope', () => {
   it('Edge: readSheet resolves null for a missing key without throwing', async () => {
     const store = createMemorySheetStore();
 
@@ -85,7 +85,7 @@ describe('sheet store: cache envelope (WSC-11, WSC-30, WSC-31)', () => {
   });
 });
 
-describe('sheet store: draft envelope (WSC-26, WSC-30, WSC-31)', () => {
+describe('sheet store: draft envelope', () => {
   it('Edge: readDraft resolves null for a missing key, a malformed record, an unsupported version and a foreign id', async () => {
     const store = createMemorySheetStore();
 
@@ -115,7 +115,7 @@ describe('sheet store: draft envelope (WSC-26, WSC-30, WSC-31)', () => {
     });
   });
 
-  it('Happy path: a pending Dice block round-trips with the delta, null entries included (ADR 0006)', async () => {
+  it('Happy path: a pending Dice block round-trips with the delta, null entries included', async () => {
     const store = createMemorySheetStore();
     const dice = { section: { stats: null }, row: { 'stats.dexterity': '1d20 + @' } };
 
@@ -168,7 +168,7 @@ describe('sheet store: draft envelope (WSC-26, WSC-30, WSC-31)', () => {
     await expect(store.deleteDraft('missing')).resolves.toBeUndefined();
   });
 
-  it('Security: an inspection of every stored record finds no credential (WSC-31, SC-004)', async () => {
+  it('Security: an inspection of every stored record finds no credential', async () => {
     const store = createMemorySheetStore();
 
     await store.putSheet(SHEET);
@@ -178,7 +178,7 @@ describe('sheet store: draft envelope (WSC-26, WSC-30, WSC-31)', () => {
   });
 });
 
-describe('sheet store: session clear-all (WAS-21)', () => {
+describe('sheet store: session clear-all', () => {
   it('Happy path: the in-memory double empties both the sheets and the drafts', async () => {
     const store = createMemorySheetStore();
     await store.putSheet(SHEET);
@@ -219,7 +219,7 @@ describe('sheet store: session clear-all (WAS-21)', () => {
   });
 });
 
-describe('sheet store: idb adapter under fake-indexeddb (WSC-11, WSC-30)', () => {
+describe('sheet store: idb adapter under fake-indexeddb', () => {
   it('Happy path: round-trips a sheet and a draft', async () => {
     const { store } = await idbHarness();
 
@@ -260,7 +260,7 @@ describe('sheet store: idb adapter under fake-indexeddb (WSC-11, WSC-30)', () =>
     await expect(store.deleteDraft('missing')).resolves.toBeUndefined();
   });
 
-  it('Security: the stored records carry no credential (WSC-31, SC-004)', async () => {
+  it('Security: the stored records carry no credential', async () => {
     const { store, db } = await idbHarness();
 
     await store.putSheet(SHEET);

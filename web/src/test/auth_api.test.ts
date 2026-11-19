@@ -30,8 +30,8 @@ function authWith(
   return createAuthApi(options);
 }
 
-describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15)', () => {
-  it('Error: a malformed session body is a defensive parse failure (WAS-02)', async () => {
+describe('auth client operations', () => {
+  it('Error: a malformed session body is a defensive parse failure', async () => {
     const fake = createFakeTransport(successOutcome({ access_token: 'access-1' }));
 
     await expect(
@@ -39,7 +39,7 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     ).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 
-  it('Error: a 401 refusal surfaces as a classified unauthorized domain failure (WAS-04, WAS-30)', async () => {
+  it('Error: a 401 refusal surfaces as a classified unauthorized domain failure', async () => {
     const fake = createFakeTransport(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
 
     await expect(authWith(fake).refresh()).rejects.toMatchObject({
@@ -49,7 +49,7 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     });
   });
 
-  it('Edge: register issues no follow-up login, so exactly one request is sent (WAS-02)', async () => {
+  it('Edge: register issues no follow-up login, so exactly one request is sent', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY, 201));
 
     await authWith(fake).register({ email: 'a@b.test', username: 'aragorn', password: 'secret' });
@@ -58,7 +58,7 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     expect(fake.requests.some((request) => request.url.endsWith('/auth/login'))).toBe(false);
   });
 
-  it('Edge: register and login send no CSRF header (WAS-18, WCS-15)', async () => {
+  it('Edge: register and login send no CSRF header', async () => {
     const registerFake = createFakeTransport(successOutcome(SESSION_BODY, 201));
     const loginFake = createFakeTransport(successOutcome(SESSION_BODY));
 
@@ -73,7 +73,7 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     expect(loginFake.lastRequest?.headers?.['X-CSRF-Token']).toBeUndefined();
   });
 
-  it('Edge: an absent CSRF token on refresh sends no header (WAS-18)', async () => {
+  it('Edge: an absent CSRF token on refresh sends no header', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
 
     await authWith(fake, () => undefined).refresh();
@@ -81,7 +81,7 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     expect(fake.lastRequest?.headers?.['X-CSRF-Token']).toBeUndefined();
   });
 
-  it('Happy path: register posts one credentials-include request and decodes the session outcome (WAS-02, WAS-06, WCS-01)', async () => {
+  it('Happy path: register posts one credentials-include request and decodes the session outcome', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY, 201));
 
     const outcome = await authWith(fake).register({
@@ -103,7 +103,7 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     );
   });
 
-  it('Happy path: login posts one credentials-include request and decodes the session outcome (WAS-01, WAS-06, WCS-01)', async () => {
+  it('Happy path: login posts one credentials-include request and decodes the session outcome', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
 
     const outcome = await authWith(fake).login({ email: 'a@b.test', password: 'secret' });
@@ -151,7 +151,7 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     expect(fake.lastRequest?.headers?.['X-CSRF-Token']).toBeUndefined();
   });
 
-  it('Happy path: refresh echoes the CSRF cookie when present (WAS-18)', async () => {
+  it('Happy path: refresh echoes the CSRF cookie when present', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
 
     await authWith(fake, () => 'csrf-value').refresh();
@@ -162,7 +162,7 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
     expect(fake.lastRequest?.headers?.['X-CSRF-Token']).toBe('csrf-value');
   });
 
-  it('Happy path: logout accepts a 204 no-content response and echoes the CSRF token (WAS-18)', async () => {
+  it('Happy path: logout accepts a 204 no-content response and echoes the CSRF token', async () => {
     const fake = createFakeTransport({ status: 204, body: '' });
 
     await expect(authWith(fake, () => 'csrf-value').logout()).resolves.toBeUndefined();
@@ -174,8 +174,8 @@ describe('auth client operations (WAS-01, WAS-02, WAS-06, WAS-18, WCS-01, WCS-15
   });
 });
 
-describe('the credential answer carries either a session or a code step (WCS-01, WCS-03)', () => {
-  it('Error: an answer carrying both a session and a challenge is a defensive parse failure (WCS-01, R1)', async () => {
+describe('the credential answer carries either a session or a code step', () => {
+  it('Error: an answer carrying both a session and a challenge is a defensive parse failure', async () => {
     const fake = createFakeTransport(successOutcome({ ...SESSION_BODY, ...CHALLENGE_BODY }, 201));
 
     await expect(
@@ -183,7 +183,7 @@ describe('the credential answer carries either a session or a code step (WCS-01,
     ).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 
-  it('Error: an answer carrying neither a session nor a challenge is a defensive parse failure (WCS-01, R1)', async () => {
+  it('Error: an answer carrying neither a session nor a challenge is a defensive parse failure', async () => {
     const fake = createFakeTransport(successOutcome({ token_type: 'Bearer' }, 201));
 
     await expect(
@@ -191,7 +191,7 @@ describe('the credential answer carries either a session or a code step (WCS-01,
     ).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 
-  it('Error: a challenge answer without its resend window is a defensive parse failure (WCS-01)', async () => {
+  it('Error: a challenge answer without its resend window is a defensive parse failure', async () => {
     const fake = createFakeTransport(
       successOutcome({ challenge_id: CHALLENGE_BODY.challenge_id, expires_in: 600 }, 201),
     );
@@ -201,7 +201,7 @@ describe('the credential answer carries either a session or a code step (WCS-01,
     ).rejects.toBeInstanceOf(DefensiveParseFailure);
   });
 
-  it('Edge: the discrimination reads the payload shape, not the status, because registration answers 201 in both gate states (WCS-01, R1)', async () => {
+  it('Edge: the discrimination reads the payload shape, not the status, because registration answers 201 in both gate states', async () => {
     const sessionFake = createFakeTransport(successOutcome(SESSION_BODY, 201));
     const challengeFake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
 
@@ -216,7 +216,7 @@ describe('the credential answer carries either a session or a code step (WCS-01,
     expect(challenge.kind).toBe('challenge');
   });
 
-  it('Happy path: a challenge answer decodes as a code step and carries no credential (WCS-01)', async () => {
+  it('Happy path: a challenge answer decodes as a code step and carries no credential', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY, 201));
 
     const outcome = await authWith(fake).register({
@@ -237,8 +237,8 @@ describe('the credential answer carries either a session or a code step (WCS-01,
   });
 });
 
-describe('the challenge operations (WCS-03, WCS-08, WCS-15)', () => {
-  it('Error: a refused code surfaces as the invalid-code kind (WCS-11)', async () => {
+describe('the challenge operations', () => {
+  it('Error: a refused code surfaces as the invalid-code kind', async () => {
     const fake = createFakeTransport(errorOutcome('OTP_INVALID', 'invalid or expired code', 401));
 
     await expect(
@@ -246,7 +246,7 @@ describe('the challenge operations (WCS-03, WCS-08, WCS-15)', () => {
     ).rejects.toMatchObject({ name: 'DomainFailure', kind: 'invalidCode', status: 401 });
   });
 
-  it('Error: an unavailable send surfaces as the email-unavailable kind (WCS-11)', async () => {
+  it('Error: an unavailable send surfaces as the email-unavailable kind', async () => {
     const fake = createFakeTransport(
       errorOutcome('EMAIL_UNAVAILABLE', 'email delivery is temporarily unavailable', 503),
     );
@@ -256,7 +256,7 @@ describe('the challenge operations (WCS-03, WCS-08, WCS-15)', () => {
     ).rejects.toMatchObject({ name: 'DomainFailure', kind: 'emailUnavailable', status: 503 });
   });
 
-  it('Edge: a code with leading zeros reaches the server exactly as typed (WCS-03)', async () => {
+  it('Edge: a code with leading zeros reaches the server exactly as typed', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
 
     await authWith(fake).verifyChallenge({ challengeId: 'challenge-1', code: '042917' });
@@ -267,7 +267,7 @@ describe('the challenge operations (WCS-03, WCS-08, WCS-15)', () => {
     });
   });
 
-  it('Edge: neither challenge operation sends a CSRF header or a Bearer (WCS-15, R7)', async () => {
+  it('Edge: neither challenge operation sends a CSRF header or a Bearer', async () => {
     const verifyFake = createFakeTransport(successOutcome(SESSION_BODY));
     const resendFake = createFakeTransport(successOutcome({ resend_after: 60 }, 202));
 
@@ -283,7 +283,7 @@ describe('the challenge operations (WCS-03, WCS-08, WCS-15)', () => {
     }
   });
 
-  it('Edge: neither challenge operation triggers a refresh, so each issues exactly one request (WCS-15)', async () => {
+  it('Edge: neither challenge operation triggers a refresh, so each issues exactly one request', async () => {
     const verifyFake = createFakeTransport(successOutcome(SESSION_BODY));
     const resendFake = createFakeTransport(successOutcome({ resend_after: 60 }, 202));
 
@@ -296,7 +296,7 @@ describe('the challenge operations (WCS-03, WCS-08, WCS-15)', () => {
     }
   });
 
-  it('Happy path: the verification posts the handle and the code and decodes the session body (WCS-03)', async () => {
+  it('Happy path: the verification posts the handle and the code and decodes the session body', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
 
     const body = await authWith(fake).verifyChallenge({
@@ -313,7 +313,7 @@ describe('the challenge operations (WCS-03, WCS-08, WCS-15)', () => {
     );
   });
 
-  it('Happy path: the resend posts the handle alone and decodes the advertised window (WCS-08)', async () => {
+  it('Happy path: the resend posts the handle alone and decodes the advertised window', async () => {
     const fake = createFakeTransport(successOutcome({ resend_after: 60 }, 202));
 
     const result = await authWith(fake).resendChallenge({ challengeId: 'challenge-1' });

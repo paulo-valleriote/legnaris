@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Field } from '../ui/field';
 
-describe('field primitive (UIP-11…UIP-15)', () => {
+describe('field primitive', () => {
   it('Happy path: label is associated with control', () => {
     render(<Field label="Name" name="name" />);
     expect(screen.getByLabelText('Name')).toBeInTheDocument();

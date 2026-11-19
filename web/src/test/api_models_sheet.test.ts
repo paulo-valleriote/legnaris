@@ -19,7 +19,7 @@ function sheetPayload(overrides: Record<string, unknown> = {}) {
 }
 
 describe('sheet model', () => {
-  it('Happy path: decodes identity, template, name, data and both timestamps (API-10)', () => {
+  it('Happy path: decodes identity, template, name, data and both timestamps', () => {
     const decoded = parseSheet(sheetPayload());
 
     expect(decoded.id).toBe('01a0f967-f42b-710e-851f-8f293a634921');
@@ -29,14 +29,14 @@ describe('sheet model', () => {
     expect(decoded.updatedAt).toBe('2026-10-02T09:00:00.000Z');
   });
 
-  it('Happy path: keeps the nested dynamic shape of data as received (API-10)', () => {
+  it('Happy path: keeps the nested dynamic shape of data as received', () => {
     const decoded = parseSheet(sheetPayload());
 
     expect(decoded.data['stats']).toEqual({ dexterity: 16, strength: 15 });
     expect(Object.keys(decoded.data)).toEqual(['stats', 'combat']);
   });
 
-  it('Edge: a whole number stays whole and a fractional number stays fractional, with no coercion (API-11)', () => {
+  it('Edge: a whole number stays whole and a fractional number stays fractional, with no coercion', () => {
     const decoded = parseSheet(sheetPayload());
     const dexterity = valueAtPath(decoded.data, 'stats.dexterity');
     const hitPoints = valueAtPath(decoded.data, 'combat.hitPoints');
@@ -48,29 +48,29 @@ describe('sheet model', () => {
     expect(String(hitPoints)).toBe('10.5');
   });
 
-  it('Edge: a string that looks numeric is not coerced into a number (API-11)', () => {
+  it('Edge: a string that looks numeric is not coerced into a number', () => {
     const decoded = parseSheet(sheetPayload({ data: { stats: { dexterity: '16' } } }));
 
     expect(valueAtPath(decoded.data, 'stats.dexterity')).toBe('16');
   });
 
-  it('Edge: an empty data object is legitimate and decodes as an empty map (API-10)', () => {
+  it('Edge: an empty data object is legitimate and decodes as an empty map', () => {
     expect(parseSheet(sheetPayload({ data: {} })).data).toEqual({});
   });
 
-  it('Error: a missing identifier, template, name or timestamp is rejected by name (API-10)', () => {
+  it('Error: a missing identifier, template, name or timestamp is rejected by name', () => {
     for (const key of ['id', 'template_id', 'name', 'created_at', 'updated_at']) {
       expect(() => parseSheet(sheetPayload({ [key]: undefined }))).toThrow(DefensiveParseFailure);
     }
   });
 
-  it('Error: a data value that is neither an object nor null is rejected (API-10)', () => {
+  it('Error: a data value that is neither an object nor null is rejected', () => {
     for (const data of ['stats', 42, [1, 2]]) {
       expect(() => parseSheet(sheetPayload({ data }))).toThrow(DefensiveParseFailure);
     }
   });
 
-  it('Error: a non-object payload is rejected rather than coerced (API-10)', () => {
+  it('Error: a non-object payload is rejected rather than coerced', () => {
     for (const payload of [null, 'sheet', 7, []]) {
       expect(() => parseSheet(payload)).toThrow(DefensiveParseFailure);
     }
@@ -111,26 +111,26 @@ describe('dotted path accessor', () => {
     flags: { none: null },
   };
 
-  it('Happy path: a resolving path returns the value it points at (API-12)', () => {
+  it('Happy path: a resolving path returns the value it points at', () => {
     expect(valueAtPath(data, 'stats.dexterity')).toBe(16);
     expect(valueAtPath(data, 'identity.characterName')).toBe('Aragorn');
   });
 
-  it('Edge: a path whose segment is missing yields no value without raising (API-13)', () => {
+  it('Edge: a path whose segment is missing yields no value without raising', () => {
     expect(valueAtPath(data, 'stats.charisma')).toBeNull();
     expect(valueAtPath(data, 'absent.deep.deeper')).toBeNull();
   });
 
-  it('Edge: a path whose intermediate node is not an object yields no value without raising (API-13)', () => {
+  it('Edge: a path whose intermediate node is not an object yields no value without raising', () => {
     expect(valueAtPath(data, 'identity.characterName.first')).toBeNull();
     expect(valueAtPath(data, 'identity.level.ten')).toBeNull();
   });
 
-  it('Edge: an explicit null value is returned as null, like a missing one (API-13)', () => {
+  it('Edge: an explicit null value is returned as null, like a missing one', () => {
     expect(valueAtPath(data, 'flags.none')).toBeNull();
   });
 
-  it('Edge: a path never resolves through the prototype chain (API-13)', () => {
+  it('Edge: a path never resolves through the prototype chain', () => {
     expect(valueAtPath(data, 'toString')).toBeNull();
     expect(valueAtPath(data, 'constructor')).toBeNull();
     expect(valueAtPath(data, '__proto__')).toBeNull();
@@ -138,16 +138,16 @@ describe('dotted path accessor', () => {
     expect(valueAtPath(data, 'stats.hasOwnProperty')).toBeNull();
   });
 
-  it('Edge: an own property shadowing a prototype member is still data (API-12)', () => {
+  it('Edge: an own property shadowing a prototype member is still data', () => {
     expect(valueAtPath({ constructor: 'rendered' }, 'constructor')).toBe('rendered');
     expect(valueAtPath({ stats: { toString: 12 } }, 'stats.toString')).toBe(12);
   });
 
-  it('Edge: a single-segment path resolves against the top level (API-12)', () => {
+  it('Edge: a single-segment path resolves against the top level', () => {
     expect(valueAtPath(data, 'stats')).toEqual({ dexterity: 16 });
   });
 
-  it('Edge: the accessor never mutates the data it reads (API-13)', () => {
+  it('Edge: the accessor never mutates the data it reads', () => {
     const snapshot = JSON.stringify(data);
 
     valueAtPath(data, 'stats.dexterity');
@@ -156,17 +156,17 @@ describe('dotted path accessor', () => {
     expect(JSON.stringify(data)).toBe(snapshot);
   });
 
-  it('Error: an empty path is malformed, and says so (API-14)', () => {
+  it('Error: an empty path is malformed, and says so', () => {
     expect(() => valueAtPath(data, '')).toThrow(PathFailure);
   });
 
-  it('Error: a path with an empty segment is malformed, and says so (API-14)', () => {
+  it('Error: a path with an empty segment is malformed, and says so', () => {
     for (const path of ['stats..dexterity', '.stats', 'stats.']) {
       expect(() => valueAtPath(data, path)).toThrow(PathFailure);
     }
   });
 
-  it('Error: a malformed path is not confused with a missing one (API-13, API-14)', () => {
+  it('Error: a malformed path is not confused with a missing one', () => {
     let raised: unknown;
     try {
       valueAtPath(data, 'stats..dexterity');

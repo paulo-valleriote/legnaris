@@ -24,17 +24,17 @@ function group(
   return { kind: 'group', children, ...metadata };
 }
 
-describe('section derivation (ENG-01 … ENG-06)', () => {
-  it('Edge: an empty field tree yields no section and does not throw (ENG-02)', () => {
+describe('section derivation', () => {
+  it('Edge: an empty field tree yields no section and does not throw', () => {
     expect(buildSections({})).toEqual([]);
   });
 
-  it('Edge: a group with no leaf, and one whose only leaves sit under an empty sub-group, yield no section (ENG-02)', () => {
+  it('Edge: a group with no leaf, and one whose only leaves sit under an empty sub-group, yield no section', () => {
     expect(buildSections({ empty: group({}) })).toEqual([]);
     expect(buildSections({ outer: group({ inner: group({}) }) })).toEqual([]);
   });
 
-  it('Edge: a declared-column group none of whose columns resolve falls back to stacked rows (ENG-04)', () => {
+  it('Edge: a declared-column group none of whose columns resolve falls back to stacked rows', () => {
     const fields = {
       stats: group(
         { dexterity: leaf({ label: 'Dexterity' }), constitution: leaf({ label: 'Constitution' }) },
@@ -47,7 +47,7 @@ describe('section derivation (ENG-01 … ENG-06)', () => {
     expect(rows.map((row) => row.kind)).toEqual(['normal', 'normal']);
   });
 
-  it('Edge: an unknown column beside a known one is skipped (ENG-04)', () => {
+  it('Edge: an unknown column beside a known one is skipped', () => {
     const fields = {
       stats: group(
         { dexterity: leaf({ label: 'Dexterity' }), constitution: leaf({ label: 'Constitution' }) },
@@ -63,7 +63,7 @@ describe('section derivation (ENG-01 … ENG-06)', () => {
     }
   });
 
-  it('Edge: a single-member exclusive group is not collapsed (ENG-05)', () => {
+  it('Edge: a single-member exclusive group is not collapsed', () => {
     const fields = { ability: group({ stealth: leaf({ exclusiveGroup: 'ability' }) }) };
 
     const rows = buildSections(fields)[0].rows;
@@ -75,7 +75,7 @@ describe('section derivation (ENG-01 … ENG-06)', () => {
     }
   });
 
-  it('Edge: non-adjacent members of one exclusive group collapse at the first member position (ENG-05)', () => {
+  it('Edge: non-adjacent members of one exclusive group collapse at the first member position', () => {
     const fields = {
       stats: group({
         stealth: leaf({ label: 'Stealth', exclusiveGroup: 'ability' }),
@@ -98,7 +98,7 @@ describe('section derivation (ENG-01 … ENG-06)', () => {
     }
   });
 
-  it('Happy path: one labeled section per top-level key, in arrival order, and a top-level leaf is its own section (ENG-01, ENG-02)', () => {
+  it('Happy path: one labeled section per top-level key, in arrival order, and a top-level leaf is its own section', () => {
     const fields = {
       alpha: leaf({ label: 'Alpha' }),
       beta: group({ inner: leaf({ label: 'Inner' }) }, { label: 'Beta' }),
@@ -112,7 +112,7 @@ describe('section derivation (ENG-01 … ENG-06)', () => {
     expect(sections[1].leaves.map((field) => field.path)).toEqual(['beta.inner']);
   });
 
-  it('Happy path: a label is the non-empty source label, else a mechanical humanization of the key (ENG-03)', () => {
+  it('Happy path: a label is the non-empty source label, else a mechanical humanization of the key', () => {
     expect(fieldDisplayName('armorClassAbility', undefined)).toBe('Armor class ability');
     expect(fieldDisplayName('stats', schema({ label: 'Statistics' }))).toBe('Statistics');
     expect(fieldDisplayName('x', schema({ label: '   ' }))).toBe('X');
@@ -122,7 +122,7 @@ describe('section derivation (ENG-01 … ENG-06)', () => {
     expect(lastSegment('dexterity')).toBe('dexterity');
   });
 
-  it('Happy path: a table row holds one field per declared column, in declared order (ENG-04, ENG-06)', () => {
+  it('Happy path: a table row holds one field per declared column, in declared order', () => {
     const fields = {
       stats: group(
         { dexterity: leaf({ label: 'Dexterity' }), constitution: leaf({ label: 'Constitution' }) },
@@ -147,12 +147,12 @@ describe('section derivation (ENG-01 … ENG-06)', () => {
     ]);
   });
 
-  it('Happy path: a column label is the columnLabel when non-empty, else the display name (ENG-06)', () => {
+  it('Happy path: a column label is the columnLabel when non-empty, else the display name', () => {
     expect(fieldColumnName('ac', schema({ label: 'Armor Class', columnLabel: 'AC' }))).toBe('AC');
     expect(fieldColumnName('armorClassAbility', schema({ label: '' }))).toBe('Armor class ability');
   });
 
-  it('Happy path: a numeric column aligns right and every other column left (ENG-06)', () => {
+  it('Happy path: a numeric column aligns right and every other column left', () => {
     expect(fieldColumnAlign(schema({ type: 'number' }))).toBe('right');
     expect(fieldColumnAlign(schema({ type: 'text' }))).toBe('left');
     expect(fieldColumnAlign(schema({ type: 'bool' }))).toBe('left');

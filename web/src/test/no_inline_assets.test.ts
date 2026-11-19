@@ -10,14 +10,14 @@ function scriptTags(): string[] {
   return [...html.matchAll(/<script\b[^>]*>/gi)].map((match) => match[0]);
 }
 
-describe('served HTML asset policy (FND-10)', () => {
+describe('served HTML asset policy', () => {
   it('Happy path: the entry script is an external, same-origin module', () => {
     const entry = scriptTags().find((tag) => tag.includes('type="module"'));
     expect(entry).toBeDefined();
     expect(entry).toContain('/src/main.tsx');
   });
 
-  it('Happy path: the theme boot script is an external, same-origin classic script (UIF-20)', () => {
+  it('Happy path: the theme boot script is an external, same-origin classic script', () => {
     const boot = scriptTags().find((tag) => tag.includes('theme-init.js'));
     expect(boot).toBeDefined();
     expect(boot).not.toContain('type="module"');

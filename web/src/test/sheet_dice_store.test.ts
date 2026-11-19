@@ -49,7 +49,7 @@ function bodyOf(request: { body?: string | undefined } | undefined): unknown {
   return JSON.parse(request?.body ?? 'null');
 }
 
-describe('dice store: a choice is pending work (ADR 0006)', () => {
+describe('dice store: a choice is pending work', () => {
   it('Happy path: a Row expression is applied at once, pends, and sends nothing', () => {
     const fake = createFakeTransport(successOutcome({}));
     const { edit, dice } = setup(fake.transport);
@@ -178,7 +178,7 @@ describe('dice store: a choice is pending work (ADR 0006)', () => {
   });
 });
 
-describe('dice store: saved with the sheet (ADR 0006)', () => {
+describe('dice store: saved with the sheet', () => {
   it('Happy path: a dice-only save sends one PATCH carrying the whole block and no data', async () => {
     const fake = createFakeTransport(successOutcome({}));
     const { edit, dice } = setup(fake.transport, { section: { ability: null }, row: {} });
@@ -300,7 +300,7 @@ describe('dice store: saved with the sheet (ADR 0006)', () => {
   });
 });
 
-describe('dice store: a saved block the Template outgrew (ADR 0006)', () => {
+describe('dice store: a saved block the Template outgrew', () => {
   const stale: DiceBlock = {
     section: { identity: '1d20+identity.removed', retired: null },
     row: { 'identity.level': '1d20+identity.removed', 'ability#ability': '1d8' },
@@ -326,7 +326,7 @@ describe('dice store: a saved block the Template outgrew (ADR 0006)', () => {
   });
 });
 
-describe('dice store: the draft (ADR 0006)', () => {
+describe('dice store: the draft', () => {
   it('Happy path: restore brings back a pending block from the draft', async () => {
     const { edit, dice, sheetStore } = setup(createFakeTransport(successOutcome({})).transport);
     await sheetStore.writeDraft(SHEET_ID, {}, { section: { identity: '1d20' }, row: {} });

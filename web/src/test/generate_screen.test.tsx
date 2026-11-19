@@ -156,7 +156,7 @@ describe('generate concept step (LGN-196, LGN-177)', () => {
   });
 });
 
-describe('generate page landmarks (UIF-24)', () => {
+describe('generate page landmarks', () => {
   it('Happy path: the generate screen keeps the shell main as the only main landmark', async () => {
     renderGenerate({});
     await screen.findByLabelText('Describe your character');
@@ -497,7 +497,7 @@ describe('generate per Sheet kind (LGN-187)', () => {
   });
 });
 
-describe('generate consent (ADR 0008, LGN-196)', () => {
+describe('generate consent (LGN-196)', () => {
   it('Happy path: consent required opens the disclosure and sends nothing until accepted', async () => {
     const fake = renderGenerate({
       'GET /me/plan': ok(planWith({ llm_consent_required: true })),

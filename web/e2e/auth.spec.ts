@@ -22,7 +22,7 @@ function criticalViolations(results: Awaited<ReturnType<AxeBuilder['analyze']>>)
   return results.violations.filter((violation) => violation.impact === 'critical');
 }
 
-test.describe('auth surface, signed-in shell and own-sheet accessibility (SC-010, AD-014)', () => {
+test.describe('auth surface, signed-in shell and own-sheet accessibility', () => {
   test('the landing has no critical violations, names its landmarks and leads to the auth paths', async ({
     page,
   }) => {
@@ -95,7 +95,7 @@ test.describe('auth surface, signed-in shell and own-sheet accessibility (SC-010
     expect(criticalViolations(results)).toEqual([]);
   });
 
-  test('the code step renders the code surface, names the address and the lifetime, and completes (WCS-19, WCS-20, WCS-22, WCS-24)', async ({
+  test('the code step renders the code surface, names the address and the lifetime, and completes', async ({
     page,
   }) => {
     await page.route('**/auth/refresh', (route) =>

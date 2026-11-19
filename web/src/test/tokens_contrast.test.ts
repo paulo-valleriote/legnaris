@@ -26,7 +26,7 @@ function declaredSemantics(theme: ThemeName): Set<string> {
   return new Set(semanticTokenNames.filter((name) => declared.has(name)));
 }
 
-describe('design token contrast across both themes (UIF-02, UIF-28, UIF-31, SC-001)', () => {
+describe('design token contrast across both themes', () => {
   it('Edge: a token declared in one theme only is reported missing in the other', () => {
     expect(
       namesPresentInOneOnly(new Set(['--lg-only-light']), new Set(['--lg-only-dark'])),
@@ -77,7 +77,7 @@ describe('design token contrast across both themes (UIF-02, UIF-28, UIF-31, SC-0
   }
 });
 
-describe('reduced motion (UIF-13)', () => {
+describe('reduced motion', () => {
   it('Edge: a stylesheet with no reduced-motion block does not match the guard', () => {
     expect(/@media\s*\(prefers-reduced-motion:\s*reduce\)/.test('body { margin: 0; }')).toBe(false);
   });

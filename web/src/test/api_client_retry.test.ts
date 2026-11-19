@@ -28,7 +28,7 @@ describe('bounded attempts', () => {
     vi.useRealTimers();
   });
 
-  it('Happy path: a read failing at the transport is retried exactly once after the fixed delay (API-31)', async () => {
+  it('Happy path: a read failing at the transport is retried exactly once after the fixed delay', async () => {
     const fake = createFakeTransport(
       { failure: new Error('network') },
       successOutcome({ status: 'ok' }),
@@ -42,7 +42,7 @@ describe('bounded attempts', () => {
     expect(recorder.delays).toEqual([DEFAULT_RETRY_DELAY_MS]);
   });
 
-  it('Edge: a read failing twice ends as offline and is never attempted a third time (API-20, API-31)', async () => {
+  it('Edge: a read failing twice ends as offline and is never attempted a third time', async () => {
     const fake = createFakeTransport(
       { failure: new Error('network') },
       { failure: new Error('network') },
@@ -59,7 +59,7 @@ describe('bounded attempts', () => {
     expect(recorder.delays).toEqual([DEFAULT_RETRY_DELAY_MS]);
   });
 
-  it('Edge: a read answered with a failure status is attempted once and surfaced immediately (API-32)', async () => {
+  it('Edge: a read answered with a failure status is attempted once and surfaced immediately', async () => {
     const fake = createFakeTransport(errorOutcome('INTERNAL_ERROR', 'boom', 500));
     const recorder = recordingSleep();
 
@@ -72,7 +72,7 @@ describe('bounded attempts', () => {
     expect(recorder.delays).toEqual([]);
   });
 
-  it('Edge: a write failing at the transport is never retried (API-33)', async () => {
+  it('Edge: a write failing at the transport is never retried', async () => {
     const fake = createFakeTransport({ failure: new Error('network') });
     const recorder = recordingSleep();
 
@@ -85,7 +85,7 @@ describe('bounded attempts', () => {
     expect(recorder.delays).toEqual([]);
   });
 
-  it('Edge: a write answered with a failure status is never retried (API-33)', async () => {
+  it('Edge: a write answered with a failure status is never retried', async () => {
     const fake = createFakeTransport(errorOutcome('INVALID_REQUEST', 'refused', 400));
     const recorder = recordingSleep();
 
@@ -98,7 +98,7 @@ describe('bounded attempts', () => {
     expect(recorder.delays).toEqual([]);
   });
 
-  it('Edge: the retry delay is injectable and its value is asserted, not waited for (API-31)', async () => {
+  it('Edge: the retry delay is injectable and its value is asserted, not waited for', async () => {
     const fake = createFakeTransport(
       { failure: new Error('network') },
       successOutcome({ status: 'ok' }),
@@ -115,7 +115,7 @@ describe('bounded attempts', () => {
     expect(recorder.delays).toEqual([42]);
   });
 
-  it('Error: an unreadable response ends the attempt without retrying (API-32)', async () => {
+  it('Error: an unreadable response ends the attempt without retrying', async () => {
     const fake = createFakeTransport({ status: 200, body: 'not json' });
     const recorder = recordingSleep();
 
@@ -128,7 +128,7 @@ describe('bounded attempts', () => {
     expect(recorder.delays).toEqual([]);
   });
 
-  it('Edge: an attempt is aborted at the five-second default timeout (API-30)', async () => {
+  it('Edge: an attempt is aborted at the five-second default timeout', async () => {
     vi.useFakeTimers();
     const signals: AbortSignal[] = [];
     const transport: Transport = (request) => {
@@ -153,7 +153,7 @@ describe('bounded attempts', () => {
     expect(signals).toHaveLength(2);
   });
 
-  it('Edge: a custom timeout bounds each attempt instead of the default (API-30)', async () => {
+  it('Edge: a custom timeout bounds each attempt instead of the default', async () => {
     vi.useFakeTimers();
     const signals: AbortSignal[] = [];
     const transport: Transport = (request) => {
@@ -173,7 +173,7 @@ describe('bounded attempts', () => {
     expect(signals[0]?.aborted).toBe(true);
   });
 
-  it('Edge: the default timeout and retry delay are the contracted values (API-30, API-31)', () => {
+  it('Edge: the default timeout and retry delay are the contracted values', () => {
     expect(DEFAULT_REQUEST_TIMEOUT_MS).toBe(5000);
     expect(DEFAULT_RETRY_DELAY_MS).toBe(300);
   });

@@ -4,7 +4,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Dialog } from '../ui/dialog';
 
-describe('dialog primitive (UIP-18…UIP-21)', () => {
+describe('dialog primitive', () => {
   it('Happy path: exposes dialog role and title', () => {
     render(<Dialog open title="Confirm" onClose={() => {}} />);
     expect(screen.getByRole('dialog', { name: /Confirm/i })).toBeInTheDocument();
