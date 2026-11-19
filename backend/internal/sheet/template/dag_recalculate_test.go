@@ -452,30 +452,30 @@ func TestValidateRecalculateInputs(t *testing.T) {
 		wantErrText string
 	}{
 		{
-			name:        "nil originalData",
+			name:        "Error: nil originalData",
 			original:    nil,
 			updated:     map[string]any{"a": 1.0},
 			wantErrText: "original data is nil",
 		},
 		{
-			name:        "nil updatedData",
+			name:        "Error: nil updatedData",
 			original:    map[string]any{"a": 1.0},
 			updated:     nil,
 			wantErrText: "updated data is nil",
 		},
 		{
-			name:        "both nil",
+			name:        "Error: both nil",
 			original:    nil,
 			updated:     nil,
 			wantErrText: "original data is nil",
 		},
 		{
-			name:     "both valid - no error",
+			name:     "Happy path: both valid - no error",
 			original: map[string]any{"a": 1.0},
 			updated:  map[string]any{"a": 2.0},
 		},
 		{
-			name:     "empty maps - no error",
+			name:     "Edge: empty maps - no error",
 			original: map[string]any{},
 			updated:  map[string]any{},
 		},
@@ -507,55 +507,55 @@ func TestChangedUpdates(t *testing.T) {
 		want     map[string]bool
 	}{
 		{
-			name:     "changed leaf key is kept",
+			name:     "Happy path: changed leaf key is kept",
 			original: original,
 			updates:  map[string]any{"stats.str": 16.0},
 			want:     map[string]bool{"stats.str": true},
 		},
 		{
-			name:     "deep flat key is kept as a single key",
+			name:     "Happy path: deep flat key is kept as a single key",
 			original: map[string]any{"a": map[string]any{"b": map[string]any{"c": map[string]any{"d": 1.0}}}},
 			updates:  map[string]any{"a.b.c.d": 2.0},
 			want:     map[string]bool{"a.b.c.d": true},
 		},
 		{
-			name:     "unchanged leaf key is dropped",
+			name:     "Edge: unchanged leaf key is dropped",
 			original: original,
 			updates:  map[string]any{"stats.str": 10.0},
 			want:     map[string]bool{},
 		},
 		{
-			name:     "leaf key differing within epsilon is dropped",
+			name:     "Edge: leaf key differing within epsilon is dropped",
 			original: original,
 			updates:  map[string]any{"stats.str": 10.0 + 1e-10},
 			want:     map[string]bool{},
 		},
 		{
-			name:     "leaf key absent from original counts as a change",
+			name:     "Edge: leaf key absent from original counts as a change",
 			original: original,
 			updates:  map[string]any{"stats.dex": 14.0},
 			want:     map[string]bool{"stats.dex": true},
 		},
 		{
-			name:     "nil value for a key absent from original counts as a change",
+			name:     "Edge: nil value for a key absent from original counts as a change",
 			original: original,
 			updates:  map[string]any{"stats.bonus": nil},
 			want:     map[string]bool{"stats.bonus": true},
 		},
 		{
-			name:     "group key expands to changed leaf keys",
+			name:     "Happy path: group key expands to changed leaf keys",
 			original: original,
 			updates:  map[string]any{"stats": map[string]any{"str": 16.0}},
 			want:     map[string]bool{"stats.str": true},
 		},
 		{
-			name:     "group key with unchanged leaf is dropped",
+			name:     "Edge: group key with unchanged leaf is dropped",
 			original: original,
 			updates:  map[string]any{"stats": map[string]any{"str": 10.0}},
 			want:     map[string]bool{},
 		},
 		{
-			name:     "nested group key expands to full leaf path",
+			name:     "Happy path: nested group key expands to full leaf path",
 			original: original,
 			updates: map[string]any{
 				"outer": map[string]any{"inner": map[string]any{"str": 16.0}},
@@ -563,7 +563,7 @@ func TestChangedUpdates(t *testing.T) {
 			want: map[string]bool{"outer.inner.str": true},
 		},
 		{
-			name:     "mixed leaf and group keys are expanded independently",
+			name:     "Happy path: mixed leaf and group keys are expanded independently",
 			original: original,
 			updates: map[string]any{
 				"mod.str": 5.0,
@@ -575,13 +575,13 @@ func TestChangedUpdates(t *testing.T) {
 			},
 		},
 		{
-			name:     "empty original keeps every update",
+			name:     "Edge: empty original keeps every update",
 			original: map[string]any{},
 			updates:  map[string]any{"stats.str": 10.0},
 			want:     map[string]bool{"stats.str": true},
 		},
 		{
-			name:     "empty updates yield an empty set",
+			name:     "Edge: empty updates yield an empty set",
 			original: original,
 			updates:  map[string]any{},
 			want:     map[string]bool{},

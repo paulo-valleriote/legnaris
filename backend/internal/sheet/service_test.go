@@ -125,7 +125,7 @@ func TestService_PartialUpdate(t *testing.T) {
 		expectedCascades map[string]any
 	}{
 		{
-			name: "Happy Path: Update editable field triggers cascade",
+			name: "Happy path: Update editable field triggers cascade",
 			updates: map[string]any{
 				"stats": map[string]any{"dexterity": 18.0},
 			},
@@ -165,7 +165,7 @@ func TestService_PartialUpdate(t *testing.T) {
 			},
 		},
 		{
-			name: "Nested map with multiple groups (user example)",
+			name: "Happy path: Nested map with multiple groups (user example)",
 			updates: map[string]any{
 				"others": map[string]any{"proficiencyBonus": 4.0},
 				"stats":  map[string]any{"constitution": 14.0, "dexterity": 12.0},
@@ -262,7 +262,7 @@ func TestService_PartialUpdate(t *testing.T) {
 			expectedErr: "sheet not found",
 		},
 		{
-			name: "Multiple field updates with cascade",
+			name: "Happy path: Multiple field updates with cascade",
 			updates: map[string]any{
 				"stats": map[string]any{"dexterity": 16.0, "constitution": 14.0},
 			},

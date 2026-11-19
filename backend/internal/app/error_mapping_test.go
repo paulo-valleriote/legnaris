@@ -175,12 +175,12 @@ func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 		wantCode string
 	}{
 		{
-			name:     "unknown field returns 400 UNKNOWN_FIELD",
+			name:     "Error: unknown field returns 400 UNKNOWN_FIELD",
 			payload:  `{"data":{"stats":{"not_exists":1}}}`,
 			wantCode: "UNKNOWN_FIELD",
 		},
 		{
-			name:     "non-editable field returns 400 INVALID_REQUEST",
+			name:     "Error: non-editable field returns 400 INVALID_REQUEST",
 			payload:  `{"data":{"modifiers":{"dexterityMod":5}}}`,
 			wantCode: "INVALID_REQUEST",
 		},
@@ -213,17 +213,17 @@ func TestErrorMapping_InvalidBodyReturns400(t *testing.T) {
 		wantCode string
 	}{
 		{
-			name:     "invalid JSON returns 400 INVALID_JSON",
+			name:     "Error: invalid JSON returns 400 INVALID_JSON",
 			payload:  `{"template_id":`,
 			wantCode: "INVALID_JSON",
 		},
 		{
-			name:     "unknown field in body returns 400 INVALID_JSON",
+			name:     "Error: unknown field in body returns 400 INVALID_JSON",
 			payload:  `{"template_id":"fantasy_v1","kind":"character","sheet_name":"x","bogus":1}`,
 			wantCode: "INVALID_JSON",
 		},
 		{
-			name:     "trailing JSON returns 400 UNKNOWN_FIELD",
+			name:     "Error: trailing JSON returns 400 UNKNOWN_FIELD",
 			payload:  `{"template_id":"fantasy_v1","kind":"character","sheet_name":"x"} {}`,
 			wantCode: "UNKNOWN_FIELD",
 		},
@@ -253,12 +253,12 @@ func TestErrorMapping_MalformedSheetIDReturns400(t *testing.T) {
 		payload string
 	}{
 		{
-			name:   "GET with garbage ID returns 400",
+			name:   "Error: GET with garbage ID returns 400",
 			method: http.MethodGet,
 			path:   "/sheets/not-a-uuid",
 		},
 		{
-			name:    "PATCH with UUID v4 ID returns 400",
+			name:    "Error: PATCH with UUID v4 ID returns 400",
 			method:  http.MethodPatch,
 			path:    "/sheets/9f2c8a1b-3d4e-4f60-8a1b-2c3d4e5f6071",
 			payload: `{"data":{"stats":{"dexterity":12}}}`,
@@ -397,17 +397,17 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 			wantCode string
 		}{
 			{
-				name:     "unknown field returns 400 UNKNOWN_FIELD",
+				name:     "Error: unknown field returns 400 UNKNOWN_FIELD",
 				payload:  `{"data":{"stats":{"not_exists":1}}}`,
 				wantCode: "UNKNOWN_FIELD",
 			},
 			{
-				name:     "derived field returns 400 INVALID_REQUEST",
+				name:     "Error: derived field returns 400 INVALID_REQUEST",
 				payload:  `{"data":{"modifiers":{"dexterityMod":5}}}`,
 				wantCode: "INVALID_REQUEST",
 			},
 			{
-				name:     "exclusive group conflict returns 400 INVALID_REQUEST",
+				name:     "Error: exclusive group conflict returns 400 INVALID_REQUEST",
 				payload:  `{"data":{"config":{"acUsesDex":1,"acUsesCon":1}}}`,
 				wantCode: "INVALID_REQUEST",
 			},
@@ -580,12 +580,12 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 			wantCode string
 		}{
 			{
-				name:     "unknown field returns 400 UNKNOWN_FIELD",
+				name:     "Error: unknown field returns 400 UNKNOWN_FIELD",
 				payload:  `{"data":{"stats":{"not_exists":1}}}`,
 				wantCode: "UNKNOWN_FIELD",
 			},
 			{
-				name:     "derived field returns 400 INVALID_REQUEST",
+				name:     "Error: derived field returns 400 INVALID_REQUEST",
 				payload:  `{"data":{"mod":{"dexterityMod":5}}}`,
 				wantCode: "INVALID_REQUEST",
 			},

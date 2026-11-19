@@ -84,6 +84,9 @@ jobs:
       - name: go.mod is tidy
         run: go mod tidy -diff
 
+      - name: Test case names carry a Happy path:/Edge:/Error: prefix
+        run: go run ./backend/cmd/testnames
+
       # The VPS deploy script runs as root-equivalent on the host and the dev
       # scripts and hooks gate local work; shellcheck catches quoting and
       # word-splitting bugs before they reach the VPS.

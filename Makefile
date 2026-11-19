@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: setup dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev apperr-codes
+.PHONY: setup dev run relay worker build test test-race vet lint fmt mod-check mocks dev-db deploy-up deploy-down lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev apperr-codes testnames
 
 ## --- Development ------------------------------------------------------------
 
@@ -45,6 +45,9 @@ apperr-codes:   ## Regenerate testdata/apperr/codes.json from the declared apper
 
 test-race:      ## Run tests with the race detector
 	@go test -race ./...
+
+testnames:      ## Verify table-driven test case names start with Happy path:, Edge: or Error:
+	@go run ./backend/cmd/testnames
 
 vet:            ## Run go vet
 	@go vet ./...

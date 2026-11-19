@@ -17,7 +17,7 @@ func TestCompile(t *testing.T) {
 		assertErr func(t *testing.T, err error)
 	}{
 		{
-			name:    "Valid Formula",
+			name:    "Happy path: Valid Formula",
 			formula: "floor((stats_str - 10) / 2)",
 			mockEnv: map[string]any{"stats_str": 0.0},
 			assertErr: func(t *testing.T, err error) {
@@ -25,7 +25,7 @@ func TestCompile(t *testing.T) {
 			},
 		},
 		{
-			name:    "Empty string returns nil program",
+			name:    "Edge: Empty string returns nil program",
 			formula: "",
 			mockEnv: map[string]any{},
 			assertErr: func(t *testing.T, err error) {
@@ -33,7 +33,7 @@ func TestCompile(t *testing.T) {
 			},
 		},
 		{
-			name:    "Syntax Error triggers ErrCompile",
+			name:    "Error: Syntax Error triggers ErrCompile",
 			formula: "10 + * 2",
 			mockEnv: map[string]any{},
 			assertErr: func(t *testing.T, err error) {
@@ -41,7 +41,7 @@ func TestCompile(t *testing.T) {
 			},
 		},
 		{
-			name:    "Unknown variable triggers ErrCompile",
+			name:    "Error: Unknown variable triggers ErrCompile",
 			formula: "unknown_var + 10",
 			mockEnv: map[string]any{},
 			assertErr: func(t *testing.T, err error) {
@@ -74,28 +74,28 @@ func TestEvaluate(t *testing.T) {
 		assertErr func(t *testing.T, err error)
 	}{
 		{
-			name:      "Custom 'floor' with float64",
+			name:      "Happy path: Custom 'floor' with float64",
 			formula:   "floor(10.5)",
 			env:       map[string]any{},
 			expected:  10.0,
 			assertErr: func(t *testing.T, err error) { require.NoError(t, err) },
 		},
 		{
-			name:      " Custom 'floor' with int",
+			name:      "Happy path: Custom 'floor' with int",
 			formula:   "floor(10)",
 			env:       map[string]any{},
 			expected:  10.0,
 			assertErr: func(t *testing.T, err error) { require.NoError(t, err) },
 		},
 		{
-			name:      "Custom 'max' function",
+			name:      "Happy path: Custom 'max' function",
 			formula:   "max(stats_str, 15.0)",
 			env:       map[string]any{"stats_str": 12.0},
 			expected:  15.0,
 			assertErr: func(t *testing.T, err error) { require.NoError(t, err) },
 		},
 		{
-			name:     "floor with invalid type (string)",
+			name:     "Error: floor with invalid type (string)",
 			formula:  "floor(text)",
 			env:      map[string]any{"text": "not_a_number"},
 			expected: nil,
@@ -105,7 +105,7 @@ func TestEvaluate(t *testing.T) {
 			},
 		},
 		{
-			name:     "Max without enough arguments",
+			name:     "Error: Max without enough arguments",
 			formula:  "max(10.0)",
 			env:      map[string]any{},
 			expected: nil,
@@ -149,7 +149,7 @@ func TestEvaluateNumericCoercion(t *testing.T) {
 		assertErr func(t *testing.T, err error)
 	}{
 		{
-			name:     "floor accepts int32",
+			name:     "Happy path: floor accepts int32",
 			formula:  "floor(v)",
 			env:      map[string]any{"v": int32(10)},
 			expected: 10.0,
@@ -158,7 +158,7 @@ func TestEvaluateNumericCoercion(t *testing.T) {
 			},
 		},
 		{
-			name:     "floor accepts int64",
+			name:     "Happy path: floor accepts int64",
 			formula:  "floor(v)",
 			env:      map[string]any{"v": int64(10)},
 			expected: 10.0,
@@ -167,7 +167,7 @@ func TestEvaluateNumericCoercion(t *testing.T) {
 			},
 		},
 		{
-			name:     "floor accepts float32",
+			name:     "Happy path: floor accepts float32",
 			formula:  "floor(v)",
 			env:      map[string]any{"v": float32(10.5)},
 			expected: 10.0,
@@ -176,7 +176,7 @@ func TestEvaluateNumericCoercion(t *testing.T) {
 			},
 		},
 		{
-			name:     "max accepts int literals",
+			name:     "Happy path: max accepts int literals",
 			formula:  "max(v, 15)",
 			env:      map[string]any{"v": 12},
 			expected: 15.0,
@@ -185,7 +185,7 @@ func TestEvaluateNumericCoercion(t *testing.T) {
 			},
 		},
 		{
-			name:     "max accepts int32 and int64",
+			name:     "Happy path: max accepts int32 and int64",
 			formula:  "max(a, b)",
 			env:      map[string]any{"a": int32(12), "b": int64(15)},
 			expected: 15.0,
@@ -194,7 +194,7 @@ func TestEvaluateNumericCoercion(t *testing.T) {
 			},
 		},
 		{
-			name:     "floor rejects bool with typed error",
+			name:     "Error: floor rejects bool with typed error",
 			formula:  "floor(v)",
 			env:      map[string]any{"v": true},
 			expected: nil,
@@ -204,7 +204,7 @@ func TestEvaluateNumericCoercion(t *testing.T) {
 			},
 		},
 		{
-			name:     "max rejects string with typed error",
+			name:     "Error: max rejects string with typed error",
 			formula:  "max(v, 15)",
 			env:      map[string]any{"v": "12"},
 			expected: nil,
