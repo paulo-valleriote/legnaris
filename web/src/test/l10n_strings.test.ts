@@ -206,6 +206,8 @@ describe('the parameterized copy resolution', () => {
           modifier: '+2',
           climbing: '+5',
           carry: 105,
+          before: '3',
+          after: '4',
         }),
       ).not.toMatch(/\{(\w+)\}/);
     }

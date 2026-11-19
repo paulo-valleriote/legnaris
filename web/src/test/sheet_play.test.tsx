@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
@@ -10,7 +10,8 @@ import {
   fantasySheetPayload,
   fantasyTemplatePayload,
 } from './fantasy_fixtures';
-import { createFakeTransport, successOutcome } from './fake_transport';
+import type { FakeOutcome } from './fake_transport';
+import { createFakeTransport, errorOutcome, successOutcome } from './fake_transport';
 import { renderApp } from './render';
 import { SHEET_ID, sheetPayload, templateDetailPayload } from './sheet_fixtures';
 
@@ -19,13 +20,15 @@ const BASE_URL = 'http://api.test';
 interface OpenFantasyOptions {
   readonly data?: Record<string, unknown>;
   readonly template?: Record<string, unknown>;
+  readonly save?: FakeOutcome;
+  readonly preview?: FakeOutcome;
 }
 
 async function openFantasy(options: OpenFantasyOptions = {}) {
   const fake = createFakeTransport(
     successOutcome(fantasySheetPayload(options.data === undefined ? {} : { data: options.data })),
     successOutcome(fantasyTemplatePayload(options.template ?? {})),
-    successOutcome({}),
+    options.preview ?? options.save ?? successOutcome({}),
   );
   const user = userEvent.setup();
   renderApp(`/sheets/${FANTASY_SHEET_ID}`, {
@@ -59,6 +62,12 @@ async function save(user: ReturnType<typeof userEvent.setup>) {
 }
 
 const hero = () => screen.getByTestId('sheet-play-hero');
+
+const pendingCard = () => screen.queryByTestId('sheet-pending-card');
+
+function levelStep(name: 'increase' | 'decrease') {
+  return screen.getByRole('button', { name: messageWith(`engine.${name}`, { label: 'Level' }) });
+}
 
 describe('Play and Edit modes', () => {
   it('Edge: a template without a preset keeps the generic form and offers no mode toggle', async () => {
@@ -267,5 +276,189 @@ describe('the inline edit control', () => {
     );
     await save(user);
     await waitFor(() => expect(savedData(fake)).toEqual({ data: { identity: { level: 4 } } }));
+  });
+});
+
+describe('the pending changes card', () => {
+  it('Edge: a sheet with no edit draws no card and no table-sync slot', async () => {
+    await openFantasy();
+
+    expect(pendingCard()).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-pending-sync')).not.toBeInTheDocument();
+  });
+
+  it('Edge: the card is a polite status region', async () => {
+    const { user } = await openFantasy();
+
+    await user.click(levelStep('increase'));
+
+    const card = screen.getByTestId('sheet-pending-card');
+    expect(card).toHaveAttribute('role', 'status');
+    expect(card).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('Edge: editing a value back to its stored value removes the card', async () => {
+    const { fake, user } = await openFantasy();
+
+    await user.click(levelStep('increase'));
+    expect(pendingCard()).toBeInTheDocument();
+
+    await user.click(levelStep('decrease'));
+
+    expect(pendingCard()).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(savedData(fake)).toBeUndefined();
+  });
+
+  it('Edge: switching to Edit mode hides the card and keeps the edits pending', async () => {
+    const { user } = await openFantasy();
+    await user.click(levelStep('increase'));
+
+    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    expect(pendingCard()).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeEnabled();
+
+    await user.click(screen.getByRole('button', { name: message('sheet.mode.play') }));
+    expect(pendingCard()).toBeInTheDocument();
+    expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent('Level 3 → 4');
+  });
+
+  it('Edge: clearing a text field shows the empty value in the summary', async () => {
+    const { user } = await openFantasy();
+
+    await user.click(screen.getByRole('button', { name: 'Origin' }));
+    const input = screen.getByRole('textbox', { name: 'Origin' });
+    await user.clear(input);
+    await user.keyboard('{Enter}');
+
+    expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent(
+      `Origin Wanderer → ${message('sheet.pending.emptyValue')}`,
+    );
+  });
+
+  it('Error: a failed save keeps the card and shows the mapped error', async () => {
+    const { user } = await openFantasy({
+      save: errorOutcome('INTERNAL_ERROR', 'boom', 500),
+    });
+    await user.click(levelStep('increase'));
+
+    await user.click(
+      within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
+        name: message('sheet.pending.save'),
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('sheet-pending-card')).getByTestId('sheet-pending-error'),
+      ).toHaveTextContent(message('api.error.serverError')),
+    );
+    expect(pendingCard()).toBeInTheDocument();
+    expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent('Level 3 → 4');
+    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeEnabled();
+  });
+
+  it('Error: a failed preview keeps the card and shows the mapped error', async () => {
+    const { fake, user } = await openFantasy({
+      preview: errorOutcome('INTERNAL_ERROR', 'boom', 500),
+    });
+    await user.click(levelStep('increase'));
+
+    await user.click(
+      within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
+        name: message('sheet.pending.preview'),
+      }),
+    );
+
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId('sheet-pending-card')).getByTestId('sheet-pending-preview-error'),
+      ).toHaveTextContent(message('api.error.serverError')),
+    );
+    expect(pendingCard()).toBeInTheDocument();
+    expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent('Level 3 → 4');
+    expect(savedData(fake)).toBeUndefined();
+  });
+
+  it('Happy path: two edits list each field with its old and new value and the table-sync placeholder', async () => {
+    const { user } = await openFantasy();
+
+    await user.click(screen.getByRole('button', { name: 'Character name' }));
+    const input = screen.getByRole('textbox', { name: 'Character name' });
+    await user.clear(input);
+    await user.type(input, 'Brenna{Enter}');
+    await user.click(levelStep('increase'));
+
+    const card = screen.getByTestId('sheet-pending-card');
+    const changes = within(card).getByTestId('sheet-pending-changes');
+    expect(within(changes).getAllByRole('listitem')).toHaveLength(2);
+    expect(changes).toHaveTextContent('Character name Aria → Brenna');
+    expect(changes).toHaveTextContent('Level 3 → 4');
+    expect(
+      within(changes).getByRole('listitem', {
+        name: messageWith('sheet.pending.change', {
+          label: 'Level',
+          before: '3',
+          after: '4',
+        }),
+      }),
+    ).toBeInTheDocument();
+    expect(card).toHaveTextContent(message('sheet.pending.notSavedYet'));
+    expect(within(card).getByTestId('sheet-pending-sync')).toHaveTextContent(
+      message('sheet.pending.tableSync'),
+    );
+  });
+
+  it('Happy path: Discard restores the stored value and hides the card', async () => {
+    const { fake, user } = await openFantasy();
+    await user.click(levelStep('increase'));
+
+    await user.click(
+      within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
+        name: message('sheet.pending.discard'),
+      }),
+    );
+
+    expect(pendingCard()).not.toBeInTheDocument();
+    expect(screen.getByTestId('sheet-play-level')).toHaveTextContent(
+      messageWith('sheet.play.level', { count: 3 }),
+    );
+    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(savedData(fake)).toBeUndefined();
+  });
+
+  it('Happy path: Save sends the delta once and hides the card', async () => {
+    const { fake, user } = await openFantasy();
+    await user.click(levelStep('increase'));
+
+    await user.click(
+      within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
+        name: message('sheet.pending.save'),
+      }),
+    );
+
+    await waitFor(() => expect(savedData(fake)).toEqual({ data: { identity: { level: 4 } } }));
+    await waitFor(() => expect(pendingCard()).not.toBeInTheDocument());
+    expect(fake.requests.filter((request) => request.method === 'PATCH')).toHaveLength(1);
+  });
+
+  it('Happy path: Preview sends the delta and keeps the card unsaved', async () => {
+    const { fake, user } = await openFantasy();
+    await user.click(levelStep('increase'));
+
+    await user.click(
+      within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
+        name: message('sheet.pending.preview'),
+      }),
+    );
+
+    await waitFor(() =>
+      expect(fake.requests.some((request) => request.url.endsWith('/preview'))).toBe(true),
+    );
+    expect(pendingCard()).toBeInTheDocument();
+    expect(screen.getByTestId('sheet-pending-card')).toHaveTextContent(
+      message('sheet.pending.notSavedYet'),
+    );
+    expect(savedData(fake)).toBeUndefined();
   });
 });

@@ -1,3 +1,4 @@
+import { PendingChangesCard } from './pending_card';
 import type { SheetPreset } from './types';
 import './preset.css';
 
@@ -7,6 +8,7 @@ export function PresetPlayView({ preset }: { readonly preset: SheetPreset }) {
       {preset.sections.map(({ key, Component }) => (
         <Component key={key} />
       ))}
+      <PendingChangesCard />
     </div>
   );
 }
