@@ -6,10 +6,13 @@ import { FantasyHero } from './hero';
 import { FantasyTableRules } from './rules';
 import { FantasySaves, FantasySkills } from './saves_skills';
 import { FantasySpells } from './spells';
+import { FantasyStatBlock, StatBlockHeader } from './stat_block';
+import { isStatBlockKind } from './stat_block_data';
 
 export const fantasyPreset: SheetPreset = {
   templateId: 'fantasy_v1',
   Header: FantasyHero,
+  statBlock: { when: isStatBlockKind, Header: StatBlockHeader, Body: FantasyStatBlock },
   sections: [
     { key: 'combat', Component: CombatStrip },
     { key: 'attacks', Component: FantasyAttacks },

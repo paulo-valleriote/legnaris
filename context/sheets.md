@@ -226,8 +226,9 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 ### Play and Edit presentation
 
 A sheet whose template id has a preset opens in **Play**; every other template opens in **Edit**,
-today's form. The preset registry maps a template id to a header component and ordered section
-slots, so later gameplay surfaces are additions to the preset rather than branches in the screen.
+today's form. The preset registry maps a template id to a header component, an optional
+kind-selected stat block and ordered section slots, so later gameplay surfaces are additions to the
+preset rather than branches in the screen.
 The `fantasy_v1` preset currently draws the hero header, the combat strip, the attack cards, the
 ability medallions, the spellcasting panel and the table-rules disclosure. A preset declares an
 ordered body layout: full-width Section blocks and column blocks. The fantasy body draws the combat
@@ -345,6 +346,22 @@ returns the same pool. A level stays visible while its total is being edited, an
 total of zero is the stored value. `preset/fantasy/rules.tsx` draws the four `rules.*` leaves as a
 disclosure collapsed by default, editable through the same numeric guard when opened.
 
+An NPC or enemy sheet (`sheet.kind` `npc` / `enemy`) of `fantasy_v1` swaps the character preset for
+the compact stat block (`preset/fantasy/stat_block.tsx`): the preset carries an optional `statBlock`
+with a `when(kind)` predicate, a header and a body. The header is the same
+`identity.characterName` inline edit with the sheet name as fallback plus a kind tag (`NPC sheet` /
+`Enemy sheet`); the body reuses the armor class shield, the hit-points card over the pure `hit_points.ts`,
+the ability medallions, the attack cards and the spellcasting panel, and adds an initiative tile
+(rollable through the `combat.initiative` Row plus a pencil inline edit clamped to −5–20 by the pure
+`stat_block_data.ts`) and a compact proficiency card that draws only the proficient saving throws
+(ability abbreviation plus the rollable `saves.<ability>` total) and skills (template name, an
+inline-editable `skills.<skill>.bonus`, the rollable total) from the
+`config.save<A>Prof` / `config.skill<S>Prof` leaves; with none proficient the card is not drawn.
+Every value keeps its pending-delta path, so the stat block saves, previews and drafts like the full
+sheet. A character sheet, or a sheet with no kind, keeps the full preset. `stat_block.css` draws
+body text at `--lg-type-15` with every control on a `--lg-size-control` target, and folds the combat
+row to two columns with a full-width hit-points card on a phone.
+
 ### Web local records
 
 IndexedDB database `legnaris-sheets` (`SCHEMA_VERSION` 3) with stores `sheets`, `drafts` and
@@ -389,12 +406,15 @@ Web:
   throttle and restore; `save_retry.ts` — 409 retry.
 - `web/src/sheet/sheet_screen.tsx` — mounted screen, footer and guards; `layout_store.ts` —
   committed/staged layout, commit and backup.
-- `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, ordered
-  section slots and the responsive body layout); `fantasy/` — the hero, the combat strip, the attack
-  cards, the ability medallions, the saving-throw/skill rows, the spellcasting panel and the
-  table-rules disclosure, with the pure `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`,
-  `attacks_data.ts`, `slot_pips.ts` and `xp_progress.ts` helpers and the hero experience bar in
-  `xp_panel.tsx`;
+- `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
+  optional kind-selected `statBlock`, ordered section slots and the responsive body layout);
+  `fantasy/` — the hero, the combat strip, the attack cards, the ability medallions, the
+  saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
+  `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`, `attacks_data.ts`, `slot_pips.ts` and
+  `xp_progress.ts` helpers and the hero experience bar in `xp_panel.tsx`; `fantasy/stat_block.tsx` —
+  the compact NPC/enemy stat block that reuses the combat shield, hit-points card, ability medallions,
+  attack cards and spellcasting panel; `fantasy/stat_block_data.ts` — its kind selection and clamped
+  initiative parsing;
   `fantasy/combat_strip.tsx` — the combat strip container; `fantasy/ac_breakdown.tsx` — the armor
   class shield and its breakdown with the DEX/CON segmented exclusive choice;
   `fantasy/armor_class.ts` — the AC/speed paths, the exactly-one-ability selector and the clamped
@@ -449,8 +469,9 @@ Web:
 - Play mode presents the `fantasy_v1` hero header with its experience bar, the armor class shield,
   the initiative and speed tiles and the hit-points card in the combat strip, the attack cards, the
   ability medallions, the saving throws and skills, the spellcasting panel with its table-rules
-  disclosure, and the pending-changes card today. The stat block is added by a later ticket; a
-  template without a preset always keeps the generic form.
+  disclosure, and the pending-changes card today. An NPC or enemy sheet draws the compact stat
+  block instead of the character sections; a template without a preset always keeps the generic
+  form.
 - `GET /sheets` still returns one arbitrary owned sheet for the legacy `/your-sheet` surface; the
   catalog uses `GET /sheets/owned` with an explicit kind.
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are

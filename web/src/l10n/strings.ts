@@ -334,6 +334,8 @@ export const messages = {
   'sheet.play.proficiencyFor': 'Proficiency for {label}',
   'sheet.play.saves': 'Saving throws',
   'sheet.play.skills': 'Skills',
+  'sheet.play.kind.npc': 'NPC sheet',
+  'sheet.play.kind.enemy': 'Enemy sheet',
   'sheet.play.ability.strength': 'STR',
   'sheet.play.ability.dexterity': 'DEX',
   'sheet.play.ability.constitution': 'CON',
