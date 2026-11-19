@@ -164,7 +164,8 @@ func TestWebServiceReadsAdSenseAtRuntime(t *testing.T) {
 		require.NoErrorf(t, err, "read %s", envExampleFile)
 
 		for _, key := range keys {
-			assert.Containsf(t, string(raw), key+"=", "%s must be present in %s", key, envExampleFile)
+			assert.Containsf(t, string(raw), "\n# "+key+"=", "%s must be documented as optional in %s", key, envExampleFile)
+			assert.NotContainsf(t, string(raw), "\n"+key+"=", "%s must not be required by the CD key check", key)
 		}
 	})
 }
