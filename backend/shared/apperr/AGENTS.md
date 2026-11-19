@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Central error type for **services and controllers** only. Lower layers (repository, template, engine, backend/shared/db, etc.) **must NOT import this package**.
+Central error type for **services and controllers** only. Lower layers declare their own typed errors (depguard `lower-layers-no-apperr` enforces the import ban).
 
 ## Usage (Services & Controllers)
 
@@ -10,20 +10,13 @@ Central error type for **services and controllers** only. Lower layers (reposito
 // Create
 apperr.NewError(code, message, err)
 
-// Causes
-// - err = nil, or
-// - lower-layer typed error (repository/DAG/json/maputils/…)
-// - NEVER bare errors.New()
-// - NO package-level errors.New sentinels in backend/internal/app or backend/internal/sheet
 ```
+
+The cause is `nil` or a lower-layer typed error. Bare `errors.New` causes, `%w`-less `fmt.Errorf` causes and package-level sentinels in `app`/`sheet` fail lint (ruleguard rules in `backend/tools/rules/rules.go`); sheet sentinels live in `backend/internal/sheet/sheeterr`.
 
 ## Error Codes & HTTP Status Mapping
 
-Defined in `err.go`. When adding a new `apperr.Code`:
-
-1. Add HTTP status mapping in `apperr.NewError` — unmapped codes fall back to 500 via `HttpStatus()`
-2. Confirm `HTTPErrorHandler` (`backend/internal/app/router.go`) serializes it correctly
-3. Add test asserting the status mapping for the new error
+Defined in `err.go`. A new `apperr.Code` needs an explicit status mapping and a web `FailureKind`: `TestDeclaredCodesMapToExplicitStatus` and `TestCodesArtifactIsCurrent` (`make apperr-codes` regenerates `testdata/apperr/codes.json`) fail otherwise, and `web/src/test/api_error_mapper_codes.test.ts` checks the web side.
 
 ## Boundary Translation (Service Layer)
 

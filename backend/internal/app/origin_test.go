@@ -131,7 +131,7 @@ func TestRequireAllowedOrigin(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			e := newOriginRouter()
 
-			req := httptest.NewRequest(tc.method, tc.path, nil)
+			req := httptest.NewRequestWithContext(t.Context(), tc.method, tc.path, nil)
 			if tc.origin != "" {
 				req.Header.Set(echo.HeaderOrigin, tc.origin)
 			}

@@ -39,9 +39,9 @@ func billingEngine(t *testing.T, svc *billing.Service, userID string) *echo.Echo
 	return e
 }
 
-func postCheckout(e *echo.Echo) *httptest.ResponseRecorder {
+func postCheckout(t *testing.T, e *echo.Echo) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
-	e.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/billing/checkout", nil))
+	e.ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/billing/checkout", nil))
 	return rec
 }
 
@@ -64,7 +64,7 @@ func TestBillingController_Checkout(t *testing.T) {
 		provider := billingtest.NewProvider()
 		e := billingEngine(t, billingService(store, provider), billingUserID)
 
-		rec := postCheckout(e)
+		rec := postCheckout(t, e)
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		var envelope struct {
 			Data struct {
@@ -81,7 +81,7 @@ func TestBillingController_Checkout(t *testing.T) {
 		store := mocks.NewMockStore(t)
 		e := billingEngine(t, billingService(store, billingtest.NewProvider()), "")
 
-		rec := postCheckout(e)
+		rec := postCheckout(t, e)
 		assert.Equal(t, http.StatusUnauthorized, rec.Code)
 		assert.Equal(t, "UNAUTHORIZED", errorCodeOf(t, rec))
 	})
@@ -93,7 +93,7 @@ func TestBillingController_Checkout(t *testing.T) {
 		}, true, nil)
 		e := billingEngine(t, billingService(store, billingtest.NewProvider()), billingUserID)
 
-		rec := postCheckout(e)
+		rec := postCheckout(t, e)
 		assert.Equal(t, http.StatusConflict, rec.Code)
 		assert.Equal(t, "ALREADY_SUBSCRIBED", errorCodeOf(t, rec))
 	})
@@ -106,7 +106,7 @@ func TestBillingController_Checkout(t *testing.T) {
 		provider.Unavailable = true
 		e := billingEngine(t, billingService(store, provider), billingUserID)
 
-		rec := postCheckout(e)
+		rec := postCheckout(t, e)
 		assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
 		assert.Equal(t, "BILLING_UNAVAILABLE", errorCodeOf(t, rec))
 	})
@@ -117,7 +117,7 @@ func TestBillingController_Checkout(t *testing.T) {
 		store.EXPECT().InsertPending(mock.Anything, mock.Anything).Return(nil)
 		e := billingEngine(t, billingService(store, billing.UnconfiguredProvider{}), billingUserID)
 
-		rec := postCheckout(e)
+		rec := postCheckout(t, e)
 		assert.Equal(t, http.StatusServiceUnavailable, rec.Code)
 		assert.Equal(t, "BILLING_UNAVAILABLE", errorCodeOf(t, rec))
 	})

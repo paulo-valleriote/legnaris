@@ -32,7 +32,6 @@
 
 ## Template Errors
 
-- Declare own typed errors (sentinels or custom types) — **do NOT import `apperr`**
-- Wrap with `fmt.Errorf("...: %w", err)`
+- Declare own typed errors (sentinels or custom types); depguard bans `apperr` here and errorlint enforces `%w`
 - Service layer translates to `apperr` at boundary
 - `ErrTemplateIDNotProvided` (missing template ID) and `ErrTemplateIDInvalid` (malformed slug) are translated to 400s at the boundary: `backend/internal/app.templateError` handles the `/templates` routes and the sheet service's `translateTemplateErr` handles `POST /sheets` — the same boundary translation `backend/shared/json` decoding errors get

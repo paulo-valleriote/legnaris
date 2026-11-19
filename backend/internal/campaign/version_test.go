@@ -25,7 +25,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 	t.Helper()
 	return []campaignWrite{
 		{
-			name:         "request deletion",
+			name:         "Happy path: request deletion",
 			base:         campaigntest.Build(t, 0, 2),
 			markDeleting: true,
 			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
@@ -33,7 +33,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name:  "account leave",
+			name:  "Happy path: account leave",
 			base:  campaigntest.Build(t, 0, 2),
 			saves: 1,
 			prepare: func(h *harness, base campaign.Campaign) {
@@ -48,7 +48,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name:  "account owner hand-off then leave",
+			name:  "Happy path: account owner hand-off then leave",
 			base:  campaigntest.Build(t, 1, 0),
 			saves: 2,
 			prepare: func(h *harness, base campaign.Campaign) {
@@ -70,7 +70,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "join",
+			name: "Happy path: join",
 			base: campaigntest.Build(t, 0, 2),
 			run: func(ctx context.Context, h *harness, base campaign.Campaign) error {
 				_, err := campaign.JoinPlayer(ctx, h.tx, h.repo, base.ID, campaigntest.NewID(t), campaigntest.Now())
@@ -78,7 +78,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "leave",
+			name: "Happy path: leave",
 			base: campaigntest.Build(t, 0, 2),
 			prepare: func(h *harness, base campaign.Campaign) {
 				h.unlinker.EXPECT().UnlinkCharacter(mock.Anything, base.ID, campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]).Return(nil).Once()
@@ -89,7 +89,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "link",
+			name: "Happy path: link",
 			base: campaigntest.Build(t, 0, 2),
 			prepare: func(h *harness, base campaign.Campaign) {
 				player := campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]
@@ -106,7 +106,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "link npc",
+			name: "Happy path: link npc",
 			base: campaigntest.Build(t, 0, 1),
 			prepare: func(h *harness, base campaign.Campaign) {
 				owner := campaigntest.OwnerID(base)
@@ -130,7 +130,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "unlink npc",
+			name: "Happy path: unlink npc",
 			base: campaigntest.Build(t, 0, 1),
 			prepare: func(h *harness, base campaign.Campaign) {
 				owner := campaigntest.OwnerID(base)
@@ -150,7 +150,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "reveal npc",
+			name: "Happy path: reveal npc",
 			base: campaigntest.Build(t, 0, 1),
 			prepare: func(h *harness, base campaign.Campaign) {
 				owner := campaigntest.OwnerID(base)
@@ -174,7 +174,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "hide npc",
+			name: "Happy path: hide npc",
 			base: campaigntest.Build(t, 0, 1),
 			prepare: func(h *harness, base campaign.Campaign) {
 				owner := campaigntest.OwnerID(base)
@@ -198,7 +198,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "unlink",
+			name: "Happy path: unlink",
 			base: campaigntest.Build(t, 0, 2),
 			prepare: func(h *harness, base campaign.Campaign) {
 				player := campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]
@@ -211,7 +211,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "promote",
+			name: "Happy path: promote",
 			base: campaigntest.Build(t, 0, 2),
 			prepare: func(h *harness, base campaign.Campaign) {
 				h.unlinker.EXPECT().UnlinkCharacter(mock.Anything, base.ID, campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]).Return(nil).Once()
@@ -223,7 +223,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "demote",
+			name: "Happy path: demote",
 			base: campaigntest.Build(t, 1, 0),
 			prepare: func(h *harness, base campaign.Campaign) {
 				h.links.EXPECT().DeleteByOwner(mock.Anything, base.ID, campaigntest.MembersWithRole(base, campaign.RoleGM)[0]).Return(nil, nil).Once()
@@ -235,7 +235,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "join by code",
+			name: "Happy path: join by code",
 			base: withInvite(campaigntest.Build(t, 0, 2), testInviteCode),
 			prepare: func(h *harness, base campaign.Campaign) {
 				h.resolveCode(testInviteCode, base)
@@ -248,7 +248,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "rotate invite code",
+			name: "Happy path: rotate invite code",
 			base: withInvite(campaigntest.Build(t, 0, 2), testInviteCode),
 			prepare: func(h *harness, _ campaign.Campaign) {
 				h.withUsernames("", nil)
@@ -259,7 +259,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "set password",
+			name: "Happy path: set password",
 			base: withInvite(campaigntest.Build(t, 0, 2), testInviteCode),
 			prepare: func(h *harness, _ campaign.Campaign) {
 				h.withUsernames("", nil)
@@ -270,7 +270,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "clear password",
+			name: "Happy path: clear password",
 			base: withPassword(t, withInvite(campaigntest.Build(t, 0, 2), testInviteCode), "correct horse"),
 			prepare: func(h *harness, _ campaign.Campaign) {
 				h.withUsernames("", nil)
@@ -281,7 +281,7 @@ func successfulCampaignWrites(t *testing.T) []campaignWrite {
 			},
 		},
 		{
-			name: "remove",
+			name: "Happy path: remove",
 			base: campaigntest.Build(t, 0, 2),
 			prepare: func(h *harness, base campaign.Campaign) {
 				h.unlinker.EXPECT().UnlinkCharacter(mock.Anything, base.ID, campaigntest.MembersWithRole(base, campaign.RolePlayer)[0]).Return(nil).Once()
@@ -328,47 +328,47 @@ func TestCampaignWrites_FailedWritesPersistNothing(t *testing.T) {
 		run  func(ctx context.Context, h *harness) error
 	}{
 		{
-			name: "join by an existing member",
+			name: "Error: join by an existing member",
 			run: func(ctx context.Context, h *harness) error {
 				_, err := campaign.JoinPlayer(ctx, h.tx, h.repo, base.ID, player, campaigntest.Now())
 				return err
 			},
 		},
 		{
-			name: "owner leave",
+			name: "Error: owner leave",
 			run: func(ctx context.Context, h *harness) error {
 				return h.service().Leave(ctx, campaign.LeaveCommand{CampaignID: base.ID, UserID: owner})
 			},
 		},
 		{
-			name: "player promote",
+			name: "Error: player promote",
 			run: func(ctx context.Context, h *harness) error {
 				_, err := h.service().Promote(ctx, campaign.RoleCommand{CampaignID: base.ID, ActorID: player, TargetID: owner})
 				return err
 			},
 		},
 		{
-			name: "player demote",
+			name: "Error: player demote",
 			run: func(ctx context.Context, h *harness) error {
 				_, err := h.service().Demote(ctx, campaign.RoleCommand{CampaignID: base.ID, ActorID: player, TargetID: owner})
 				return err
 			},
 		},
 		{
-			name: "player request deletion",
+			name: "Error: player request deletion",
 			run: func(ctx context.Context, h *harness) error {
 				return h.service().Delete(ctx, campaign.DeleteCommand{CampaignID: base.ID, ActorID: player})
 			},
 		},
 		{
-			name: "player remove",
+			name: "Error: player remove",
 			run: func(ctx context.Context, h *harness) error {
 				_, err := h.service().Remove(ctx, campaign.RoleCommand{CampaignID: base.ID, ActorID: player, TargetID: owner})
 				return err
 			},
 		},
 		{
-			name: "link with a template mismatch",
+			name: "Error: link with a template mismatch",
 			run: func(ctx context.Context, h *harness) error {
 				sh := sheetOf(t, player, "other_template", plan.KindCharacter, nil)
 				h.sheetReturns(sh)
@@ -377,7 +377,7 @@ func TestCampaignWrites_FailedWritesPersistNothing(t *testing.T) {
 			},
 		},
 		{
-			name: "link lost the compare-and-set after unlinking the previous character",
+			name: "Error: link lost the compare-and-set after unlinking the previous character",
 			run: func(ctx context.Context, h *harness) error {
 				sh := sheetOf(t, player, base.TemplateID, plan.KindCharacter, nil)
 				h.sheetReturns(sh)
@@ -388,7 +388,7 @@ func TestCampaignWrites_FailedWritesPersistNothing(t *testing.T) {
 			},
 		},
 		{
-			name: "reveal by a player",
+			name: "Error: reveal by a player",
 			run: func(ctx context.Context, h *harness) error {
 				_, err := h.service().SetNpcRevealed(ctx, campaign.RevealNpcCommand{
 					CampaignID: base.ID,
@@ -400,7 +400,7 @@ func TestCampaignWrites_FailedWritesPersistNothing(t *testing.T) {
 			},
 		},
 		{
-			name: "reveal of a missing link",
+			name: "Error: reveal of a missing link",
 			run: func(ctx context.Context, h *harness) error {
 				sheetID := campaigntest.NewID(t)
 				sh := sheetOf(t, owner, base.TemplateID, plan.KindNPC, nil)

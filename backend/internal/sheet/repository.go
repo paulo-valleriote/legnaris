@@ -10,6 +10,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.mongodb.org/mongo-driver/v2/mongo/readpref"
 	"legnaris/backend/internal/plan"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/shared/logger"
 )
 
@@ -65,10 +66,6 @@ const (
 	inOperator         = "$in"
 )
 
-var ErrSheetNotFound = errors.New("sheet not found")
-
-var ErrVersionConflict = errors.New("sheet version conflict")
-
 func NewRepository(db *mongo.Database, log logger.StructuredLogger) Repository {
 	return &RepositoryImpl{
 		collection: db.Collection("sheets"),
@@ -90,7 +87,7 @@ func (r *RepositoryImpl) ReserveSlot(ctx context.Context, ownerID string, kind p
 		return fmt.Errorf("error reserving sheet slot: %w", err)
 	}
 	if result.MatchedCount == 0 {
-		return ErrSheetLimitReached
+		return sheeterr.ErrSheetLimitReached
 	}
 	return nil
 }
@@ -132,7 +129,7 @@ func (r *RepositoryImpl) FetchByID(ctx context.Context, id string) (*Sheet, erro
 	err := r.collection.FindOne(ctx, filter, opts).Decode(&result)
 	if err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, ErrSheetNotFound
+			return nil, sheeterr.ErrSheetNotFound
 		}
 		return nil, err
 	}
@@ -146,7 +143,7 @@ func (r *RepositoryImpl) FetchByOwnerID(ctx context.Context, ownerID string) (*S
 	filter := bson.D{{Key: ownerIDField, Value: ownerID}}
 	if err := r.collection.FindOne(ctx, filter).Decode(&result); err != nil {
 		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, ErrSheetNotFound
+			return nil, sheeterr.ErrSheetNotFound
 		}
 		return nil, err
 	}
@@ -196,9 +193,9 @@ func (r *RepositoryImpl) unmatchedUpdateErr(ctx context.Context, id string) erro
 		return fmt.Errorf("error checking sheet existence: %w", err)
 	}
 	if count == 0 {
-		return ErrSheetNotFound
+		return sheeterr.ErrSheetNotFound
 	}
-	return ErrVersionConflict
+	return sheeterr.ErrVersionConflict
 }
 
 func versionMatcher(expectedVersion int64) any {
@@ -220,7 +217,7 @@ func (r *RepositoryImpl) UpdateLayout(ctx context.Context, id string, layout *La
 		return fmt.Errorf("error updating sheet layout: %w", err)
 	}
 	if result.MatchedCount == 0 {
-		return ErrSheetNotFound
+		return sheeterr.ErrSheetNotFound
 	}
 	return nil
 }
@@ -233,7 +230,7 @@ func (r *RepositoryImpl) DeleteByID(ctx context.Context, id string) error {
 		return fmt.Errorf("error deleting sheet: %w", err)
 	}
 	if result.DeletedCount == 0 {
-		return ErrSheetNotFound
+		return sheeterr.ErrSheetNotFound
 	}
 	return nil
 }

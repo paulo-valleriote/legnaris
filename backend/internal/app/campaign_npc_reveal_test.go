@@ -35,7 +35,7 @@ func TestCampaignRoutes_RevealNpc(t *testing.T) {
 			OwnerName: "gm-one",
 		}, nil).Once()
 
-		rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPut, revealPath(), "")
+		rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPut, revealPath(), "")
 		require.Equal(t, http.StatusOK, rec.Code)
 		body := rec.Body.String()
 		assert.Contains(t, body, `"revealed":true`)
@@ -58,7 +58,7 @@ func TestCampaignRoutes_RevealNpc(t *testing.T) {
 			Revealed: false,
 		}, nil).Once()
 
-		rec := doCampaignRequest(newCampaignRouter(svc), http.MethodDelete, revealPath(), "")
+		rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodDelete, revealPath(), "")
 		require.Equal(t, http.StatusOK, rec.Code)
 		assert.Contains(t, rec.Body.String(), `"revealed":false`)
 	})
@@ -68,7 +68,7 @@ func TestCampaignRoutes_RevealNpc(t *testing.T) {
 		svc.EXPECT().SetNpcRevealed(mock.Anything, mock.Anything).
 			Return(campaign.NpcLinkView{ID: campaignTestSheetID, SheetID: campaignTestSheetID, Revealed: true}, nil).Once()
 
-		rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPut, revealPath(), "")
+		rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPut, revealPath(), "")
 		require.Equal(t, http.StatusOK, rec.Code)
 	})
 }
@@ -90,7 +90,7 @@ func TestCampaignRoutes_RevealNpcErrorsMapToHTTPStatus(t *testing.T) {
 			svc := campaignmocks.NewMockService(t)
 			svc.EXPECT().SetNpcRevealed(mock.Anything, mock.Anything).
 				Return(campaign.NpcLinkView{}, apperr.NewError(tc.code, "refused", nil)).Once()
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPut, revealPath(), "")
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPut, revealPath(), "")
 			assert.Equal(t, tc.status, rec.Code)
 			assert.Equal(t, string(tc.code), campaignErrorCode(t, rec))
 		})
@@ -99,6 +99,6 @@ func TestCampaignRoutes_RevealNpcErrorsMapToHTTPStatus(t *testing.T) {
 
 func TestCampaignRoutes_RevealNpcRejectsUnsupportedMethods(t *testing.T) {
 	svc := campaignmocks.NewMockService(t)
-	rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPost, revealPath(), "")
+	rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPost, revealPath(), "")
 	assert.Equal(t, http.StatusMethodNotAllowed, rec.Code)
 }

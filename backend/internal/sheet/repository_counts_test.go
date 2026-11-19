@@ -8,6 +8,7 @@ import (
 
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/shared/db"
 
 	"github.com/stretchr/testify/assert"
@@ -40,8 +41,8 @@ func TestRepository_ReserveSlot(t *testing.T) {
 	}{
 		{name: "Happy path: a reservation under the limit is counted", kind: plan.KindCharacter, limit: 1, reserves: 1, wantCount: 1},
 		{name: "Happy path: reservations up to the limit all succeed", kind: plan.KindNPC, limit: 2, reserves: 2, wantCount: 2},
-		{name: "Edge: a reservation at the limit is refused and not counted", kind: plan.KindCharacter, limit: 1, reserves: 2, wantCount: 1, wantErr: sheet.ErrSheetLimitReached},
-		{name: "Edge: a zero allowance refuses the first reservation", kind: plan.KindEnemy, limit: 0, reserves: 1, wantCount: 0, wantErr: sheet.ErrSheetLimitReached},
+		{name: "Edge: a reservation at the limit is refused and not counted", kind: plan.KindCharacter, limit: 1, reserves: 2, wantCount: 1, wantErr: sheeterr.ErrSheetLimitReached},
+		{name: "Edge: a zero allowance refuses the first reservation", kind: plan.KindEnemy, limit: 0, reserves: 1, wantCount: 0, wantErr: sheeterr.ErrSheetLimitReached},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -82,7 +83,7 @@ func TestRepository_ReserveSlotConcurrentAtLimit(t *testing.T) {
 			switch {
 			case err == nil:
 				granted++
-			case errors.Is(err, sheet.ErrSheetLimitReached):
+			case errors.Is(err, sheeterr.ErrSheetLimitReached):
 				refused++
 			default:
 				t.Errorf("unexpected reservation error: %v", err)

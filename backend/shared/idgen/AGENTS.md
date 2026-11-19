@@ -21,12 +21,11 @@ server generates is a canonical lowercase UUID v7 string** (RFC 9562).
   Call it at the **service boundary before any repository call** and map it to
   `apperr.CodeInvalidRequest` (400) so obviously invalid input fails fast
   instead of becoming a 404 lookup.
-- **Never** call `uuid.New()`/`uuid.NewString()` directly — they mint v4.
+- `uuid.New()`/`uuid.NewString()` mint v4; forbidigo bans them outside this package.
 
 ## Layering
 
-- Imports only `github.com/google/uuid`; this package must **NOT** import
-  `backend/shared/apperr` (low-layer rule). Services wrap `ErrInvalidID` into their
+- Imports only `github.com/google/uuid` (depguard bans `apperr`). Services wrap `ErrInvalidID` into their
   typed domain error with `apperr.NewError`.
 - `ErrInvalidID` is a plain sentinel: check with `errors.Is`.
 

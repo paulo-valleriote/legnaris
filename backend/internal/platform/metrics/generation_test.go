@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/labstack/echo/v5"
@@ -51,7 +50,7 @@ func TestGenerationCapMetrics(t *testing.T) {
 
 			body := scrapeMetrics(t, e)
 			for _, want := range tc.want {
-				assert.Truef(t, strings.Contains(body, want), "expected %q in /metrics output, got:\n%s", want, body)
+				assert.Containsf(t, body, want, "expected %q in /metrics output, got:\n%s", want, body)
 			}
 		})
 	}

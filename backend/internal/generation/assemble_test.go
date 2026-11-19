@@ -27,13 +27,13 @@ func TestAssemble(t *testing.T) {
 		require.NoError(t, err)
 
 		stats := data["stats"].(map[string]any)
-		assert.Equal(t, 15.0, stats["dexterity"])
-		assert.Equal(t, 12.0, stats["strength"])
+		assert.InDelta(t, 15.0, stats["dexterity"], 1e-9)
+		assert.InDelta(t, 12.0, stats["strength"], 1e-9)
 		assert.Equal(t, true, stats["hero"])
-		assert.Equal(t, 7.0, stats["luck"], "a leaf the model does not fill keeps its seed value")
+		assert.InDelta(t, 7.0, stats["luck"], 1e-9, "a leaf the model does not fill keeps its seed value")
 
 		modifiers := data["modifiers"].(map[string]any)
-		assert.Equal(t, 2.0, modifiers["dexterityMod"], "the derived leaf follows the generated dexterity")
+		assert.InDelta(t, 2.0, modifiers["dexterityMod"], 1e-9, "the derived leaf follows the generated dexterity")
 
 		assert.Equal(t, map[string]any{"acUsesDex": 0.0, "acUsesCon": 1.0}, data["config"])
 		assert.Equal(t, map[string]any{"base": 8.0}, data["rules"], "rules keep their seed value")
@@ -57,14 +57,14 @@ func TestAssemble(t *testing.T) {
 	t.Run("Edge: an empty value set keeps the whole seed and still derives the leaves", func(t *testing.T) {
 		data, err := generation.Assemble(tmpl, dag, plan.KindCharacter, map[string]any{})
 		require.NoError(t, err)
-		assert.Equal(t, 10.0, data["stats"].(map[string]any)["dexterity"])
-		assert.Equal(t, 0.0, data["modifiers"].(map[string]any)["dexterityMod"])
+		assert.InDelta(t, 10.0, data["stats"].(map[string]any)["dexterity"], 1e-9)
+		assert.InDelta(t, 0.0, data["modifiers"].(map[string]any)["dexterityMod"], 1e-9)
 	})
 
 	t.Run("Edge: a nil value set keeps the whole seed", func(t *testing.T) {
 		data, err := generation.Assemble(tmpl, dag, plan.KindCharacter, nil)
 		require.NoError(t, err)
-		assert.Equal(t, 10.0, data["stats"].(map[string]any)["dexterity"])
+		assert.InDelta(t, 10.0, data["stats"].(map[string]any)["dexterity"], 1e-9)
 	})
 
 	t.Run("Edge: a value filtered by kind is dropped and keeps its template default", func(t *testing.T) {
@@ -75,7 +75,7 @@ func TestAssemble(t *testing.T) {
 			"identity": map[string]any{"nickname": "Ana"},
 		})
 		require.NoError(t, err)
-		assert.Equal(t, "", data["identity"].(map[string]any)["nickname"])
+		assert.Empty(t, data["identity"].(map[string]any)["nickname"])
 	})
 
 	t.Run("Error: two active exclusive members name the group and both keys", func(t *testing.T) {
@@ -115,11 +115,11 @@ func TestAssemble(t *testing.T) {
 			"identity": map[string]any{"name": "Aria"},
 		})
 		require.Error(t, err)
-		assert.ErrorIs(t, err, generation.ErrAssembleFailed)
-		assert.ErrorIs(t, err, template.ErrFormulaEval)
+		require.ErrorIs(t, err, generation.ErrAssembleFailed)
+		require.ErrorIs(t, err, template.ErrFormulaEval)
 
 		var outputErr *generation.OutputError
-		assert.False(t, errors.As(err, &outputErr), "a formula failure is not model-correctable")
+		assert.NotErrorAs(t, err, &outputErr, "a formula failure is not model-correctable")
 	})
 
 	t.Run("Error: a nil template is refused", func(t *testing.T) {

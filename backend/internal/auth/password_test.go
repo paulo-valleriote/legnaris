@@ -1,7 +1,6 @@
 package auth_test
 
 import (
-	"strings"
 	"testing"
 
 	"legnaris/backend/internal/auth"
@@ -53,7 +52,7 @@ func TestPasswordHasher(t *testing.T) {
 		hash, err := hasher.Hash("plaintext-needle")
 		require.NoError(t, err)
 
-		assert.False(t, strings.Contains(hash, "plaintext-needle"))
+		assert.NotContains(t, hash, "plaintext-needle")
 	})
 }
 
@@ -80,7 +79,8 @@ func TestPasswordHasherDummyHash(t *testing.T) {
 		hasher, err := auth.NewPasswordHasher(12)
 		require.NoError(t, err)
 
-		assert.Equal(t, hasher.DummyHash(), hasher.DummyHash())
+		first := hasher.DummyHash()
+		assert.Equal(t, first, hasher.DummyHash())
 	})
 
 	t.Run("Edge: the dummy hash follows the cost and nothing else", func(t *testing.T) {
@@ -92,7 +92,7 @@ func TestPasswordHasherDummyHash(t *testing.T) {
 
 		assert.NotEqual(t, floor.DummyHash(), raised.DummyHash(),
 			"a different work factor must produce a different digest")
-		assert.Equal(t, len(floor.DummyHash()), len(raised.DummyHash()),
+		assert.Len(t, raised.DummyHash(), len(floor.DummyHash()),
 			"the digest must stay a well-formed bcrypt string")
 	})
 

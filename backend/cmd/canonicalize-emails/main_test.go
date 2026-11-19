@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -189,7 +188,7 @@ func TestRun(t *testing.T) {
 
 		code, out := runCLI(t, []string{"-apply=false"}, store)
 		require.Equal(t, 0, code, out)
-		assert.True(t, strings.Contains(out, "dry run: 1 changes not written\n"))
+		assert.Contains(t, out, "dry run: 1 changes not written\n")
 		assert.Empty(t, store.updates)
 	})
 }

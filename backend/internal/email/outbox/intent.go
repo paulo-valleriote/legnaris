@@ -73,7 +73,7 @@ func NewIntent(id, to, template string, payload Payload, now time.Time) (Intent,
 
 func validateIntentID(id string) error {
 	if err := idgen.Validate(id); err != nil {
-		return fmt.Errorf("%w: %v", ErrInvalidIntentID, err)
+		return fmt.Errorf("%w: %w", ErrInvalidIntentID, err)
 	}
 	return nil
 }

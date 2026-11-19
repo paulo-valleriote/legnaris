@@ -160,7 +160,7 @@ func TestMongoStore_RefundRules(t *testing.T) {
 			}
 		}
 		for err := range errs {
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		}
 		assert.Equal(t, 1, wins)
 	})

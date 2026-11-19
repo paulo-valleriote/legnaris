@@ -1128,7 +1128,7 @@ func TestVPSDeployScriptRejectsInvalidSHA(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cmd := exec.Command("bash", append([]string{"vps/deploy.sh"}, tc.args...)...)
+			cmd := exec.CommandContext(t.Context(), "bash", append([]string{"vps/deploy.sh"}, tc.args...)...)
 			err := cmd.Run()
 			var exitErr *exec.ExitError
 			require.ErrorAs(t, err, &exitErr)

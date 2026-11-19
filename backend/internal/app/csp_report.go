@@ -3,7 +3,6 @@ package app
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"io"
 	"mime"
 	"net/http"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/platform/ratelimit"
+	sharedjson "legnaris/backend/shared/json"
 	"legnaris/backend/shared/logger"
 
 	"github.com/labstack/echo/v5"
@@ -130,7 +130,7 @@ func decodeCSPReports(mediaType string, body []byte, at time.Time) ([]cspReport,
 
 	if mediaType == cspReportsMediaType || trimmed[0] == '[' {
 		var items []reportToItem
-		if err := json.Unmarshal(trimmed, &items); err == nil {
+		if err := sharedjson.DecodeBytes(trimmed, &items); err == nil {
 			return reportsFromReportTo(items, at), nil
 		} else if trimmed[0] == '[' {
 			return nil, err
@@ -138,7 +138,7 @@ func decodeCSPReports(mediaType string, body []byte, at time.Time) ([]cspReport,
 	}
 
 	var envelope cspReportEnvelope
-	if err := json.Unmarshal(trimmed, &envelope); err != nil {
+	if err := sharedjson.DecodeBytes(trimmed, &envelope); err != nil {
 		return nil, err
 	}
 	if !envelope.Report.empty() {
@@ -146,7 +146,7 @@ func decodeCSPReports(mediaType string, body []byte, at time.Time) ([]cspReport,
 	}
 
 	var single reportToItem
-	if err := json.Unmarshal(trimmed, &single); err == nil && !single.Body.empty() {
+	if err := sharedjson.DecodeBytes(trimmed, &single); err == nil && !single.Body.empty() {
 		return []cspReport{single.Body.normalized(at)}, nil
 	}
 

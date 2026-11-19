@@ -45,7 +45,7 @@ func TestErrorMapping_LegacyMonsterKindIsRejected(t *testing.T) {
 			if tc.body != "" {
 				body = strings.NewReader(tc.body)
 			}
-			req := httptest.NewRequest(tc.method, tc.target, body)
+			req := httptest.NewRequestWithContext(t.Context(), tc.method, tc.target, body)
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 			router.ServeHTTP(rec, req)

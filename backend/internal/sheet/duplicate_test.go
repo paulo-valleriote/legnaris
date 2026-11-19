@@ -5,18 +5,20 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"legnaris/backend/internal/events"
 	eventsmocks "legnaris/backend/internal/events/mocks"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/sheettest"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 const duplicateCampaignID = "01900000-0000-7000-8000-0000000000cc"
@@ -121,7 +123,7 @@ func TestService_Duplicate(t *testing.T) {
 			name:   "Error: duplicating over the per-kind limit is a plan limit refusal",
 			source: source,
 			setup: func(repo *mocks.MockRepository) {
-				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindNPC, 2).Return(sheet.ErrSheetLimitReached).Once()
+				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindNPC, 2).Return(sheeterr.ErrSheetLimitReached).Once()
 			},
 			wantCode:   apperr.CodePlanLimitReached,
 			wantStatus: 403,
@@ -168,7 +170,7 @@ func TestService_Duplicate(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := mocks.NewMockRepository(t)
 			if tc.name == "Error: a missing sheet is not found" {
-				repo.EXPECT().FetchByID(mock.Anything, updateSheetID).Return(nil, sheet.ErrSheetNotFound).Once()
+				repo.EXPECT().FetchByID(mock.Anything, updateSheetID).Return(nil, sheeterr.ErrSheetNotFound).Once()
 			} else {
 				repo.EXPECT().FetchByID(mock.Anything, updateSheetID).RunAndReturn(
 					func(context.Context, string) (*sheet.Sheet, error) {

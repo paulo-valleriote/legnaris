@@ -183,7 +183,7 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 			Row:     map[string]*string{"stats.strength": diceText("1d20 + @")},
 		}, got.Data.Dice)
 		stats, _ := got.Data.Data["stats"].(map[string]any)
-		assert.Equal(t, 18.0, stats["dexterity"])
+		assert.InDelta(t, 18.0, stats["dexterity"], 1e-9)
 	})
 
 	t.Run("Edge: a stale override for a row the template no longer has is returned on GET, not an error", func(t *testing.T) {

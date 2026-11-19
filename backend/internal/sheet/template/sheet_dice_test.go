@@ -1,6 +1,7 @@
 package template
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 
@@ -114,7 +115,8 @@ func TestValidateSheetDice(t *testing.T) {
 				return
 			}
 			require.Error(t, err)
-			if want, ok := tc.wantErr.(*InvalidDiceError); ok {
+			var want *InvalidDiceError
+			if errors.As(tc.wantErr, &want) {
 				var got *InvalidDiceError
 				require.ErrorAs(t, err, &got)
 				assert.Equal(t, want.Scope, got.Scope)

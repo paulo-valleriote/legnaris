@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createCaller } from '../api/request';
 import { createFetchTransport } from '../api/transport';
-import type { HttpRequest } from '../api/transport';
+import type { HttpRequest, HttpResponse } from '../api/transport';
 
 function request(overrides: Partial<HttpRequest> = {}): HttpRequest {
   return {
@@ -106,5 +107,22 @@ describe('native fetch transport Retry-After', () => {
     const response = await createFetchTransport(platformFetch)(request());
 
     expect('retryAfter' in response).toBe(false);
+  });
+});
+
+describe('transport credential default (API-29)', () => {
+  it('Security: an operation that names no credential still sends credentials: omit', async () => {
+    const sent: HttpRequest[] = [];
+    const transport = vi.fn(async (request: HttpRequest): Promise<HttpResponse> => {
+      sent.push(request);
+      return { status: 200, body: '{"data":{}}' };
+    });
+    const caller = createCaller({ baseUrl: 'https://api.example.com', transport });
+
+    await caller.call('GET', '/health', undefined, () => ({}));
+
+    expect(transport).toHaveBeenCalledTimes(1);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.credentials).toBe('omit');
   });
 });

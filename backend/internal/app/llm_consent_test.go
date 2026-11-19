@@ -40,7 +40,7 @@ func newLLMConsentHandler(t *testing.T, service llmconsent.Service, withUser boo
 func llmConsentRequest(t *testing.T, h http.Handler, method, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
-	req := httptest.NewRequest(method, "/me/llm-consent", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), method, "/me/llm-consent", strings.NewReader(body))
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}

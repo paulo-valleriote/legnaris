@@ -117,7 +117,7 @@ func TestCampaignRoutes_Join(t *testing.T) {
 			if tc.setup != nil {
 				tc.setup(svc)
 			}
-			rec := doCampaignRequest(newInviteRouter(svc, passThroughMiddleware), http.MethodPost, "/campaigns/join", tc.body)
+			rec := doCampaignRequest(t, newInviteRouter(svc, passThroughMiddleware), http.MethodPost, "/campaigns/join", tc.body)
 			assert.Equal(t, tc.wantCode, rec.Code)
 			if tc.errCode != "" {
 				assert.Equal(t, tc.errCode, campaignErrorCode(t, rec))
@@ -129,7 +129,7 @@ func TestCampaignRoutes_Join(t *testing.T) {
 
 func TestCampaignRoutes_JoinIsRateLimitedPerIPBeforeTheService(t *testing.T) {
 	svc := campaignmocks.NewMockService(t)
-	rec := doCampaignRequest(newInviteRouter(svc, rateLimitedMiddleware), http.MethodPost, "/campaigns/join", `{"code":"`+campaignInviteTestCode+`"}`)
+	rec := doCampaignRequest(t, newInviteRouter(svc, rateLimitedMiddleware), http.MethodPost, "/campaigns/join", `{"code":"`+campaignInviteTestCode+`"}`)
 	require.Equal(t, http.StatusTooManyRequests, rec.Code)
 	assert.Equal(t, "RATE_LIMITED", campaignErrorCode(t, rec))
 }
@@ -162,7 +162,7 @@ func TestCampaignRoutes_RotateInvite(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := campaignmocks.NewMockService(t)
 			tc.setup(svc)
-			rec := doCampaignRequest(newInviteRouter(svc, passThroughMiddleware), http.MethodPost, "/campaigns/"+campaignTestID+"/invite/rotate", "")
+			rec := doCampaignRequest(t, newInviteRouter(svc, passThroughMiddleware), http.MethodPost, "/campaigns/"+campaignTestID+"/invite/rotate", "")
 			assert.Equal(t, tc.wantCode, rec.Code)
 			if tc.errCode != "" {
 				assert.Equal(t, tc.errCode, campaignErrorCode(t, rec))
@@ -232,7 +232,7 @@ func TestCampaignRoutes_Password(t *testing.T) {
 			if tc.setup != nil {
 				tc.setup(svc)
 			}
-			req := httptest.NewRequest(tc.method, "/campaigns/"+campaignTestID+"/password", strings.NewReader(tc.body))
+			req := httptest.NewRequestWithContext(t.Context(), tc.method, "/campaigns/"+campaignTestID+"/password", strings.NewReader(tc.body))
 			req.Header.Set("Content-Type", "application/json")
 			rec := httptest.NewRecorder()
 			newInviteRouter(svc, passThroughMiddleware).ServeHTTP(rec, req)

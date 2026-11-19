@@ -117,7 +117,7 @@ func requireAppErr(t *testing.T, err error, code apperr.Code) {
 	t.Helper()
 	require.Error(t, err)
 	var appErr *apperr.Error
-	require.True(t, errors.As(err, &appErr), "want *apperr.Error, got %T: %v", err, err)
+	require.ErrorAs(t, err, &appErr, "want *apperr.Error, got %T: %v", err, err)
 	assert.Equal(t, code, appErr.Code)
 }
 

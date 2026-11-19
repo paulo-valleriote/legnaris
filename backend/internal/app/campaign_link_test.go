@@ -52,7 +52,7 @@ func TestCampaignRoutes_LinkErrorsMapToHTTPStatus(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := campaignmocks.NewMockService(t)
 			svc.EXPECT().Link(mock.Anything, mock.Anything).Return(campaign.View{}, apperr.NewError(tc.code, "refused", nil)).Once()
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPut, "/campaigns/"+campaignTestID+"/character", `{"sheet_id":"`+campaignTestSheetID+`"}`)
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPut, "/campaigns/"+campaignTestID+"/character", `{"sheet_id":"`+campaignTestSheetID+`"}`)
 			assert.Equal(t, tc.status, rec.Code)
 			assert.Equal(t, string(tc.code), campaignErrorCode(t, rec))
 		})
@@ -67,7 +67,7 @@ func TestCampaignRoutes_LinkPassesSheetAndCaller(t *testing.T) {
 		SheetID:    campaignTestSheetID,
 	}).Return(campaign.View{ID: campaignTestID, Version: 3}, nil).Once()
 
-	rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPut, "/campaigns/"+campaignTestID+"/character", `{"sheet_id":"`+campaignTestSheetID+`"}`)
+	rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPut, "/campaigns/"+campaignTestID+"/character", `{"sheet_id":"`+campaignTestSheetID+`"}`)
 	require.Equal(t, http.StatusOK, rec.Code)
 }
 
@@ -83,7 +83,7 @@ func TestCampaignRoutes_LinkRejectsMalformedBody(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			svc := campaignmocks.NewMockService(t)
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodPut, "/campaigns/"+campaignTestID+"/character", tc.body)
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPut, "/campaigns/"+campaignTestID+"/character", tc.body)
 			assert.Equal(t, http.StatusBadRequest, rec.Code)
 		})
 	}
@@ -96,7 +96,7 @@ func TestCampaignRoutes_Unlink(t *testing.T) {
 		UserID:     campaignTestUserID,
 	}).Return(campaign.View{ID: campaignTestID, Version: 2}, nil).Once()
 
-	rec := doCampaignRequest(newCampaignRouter(svc), http.MethodDelete, "/campaigns/"+campaignTestID+"/character", "")
+	rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodDelete, "/campaigns/"+campaignTestID+"/character", "")
 	assert.Equal(t, http.StatusOK, rec.Code)
 }
 
@@ -114,7 +114,7 @@ func TestCampaignRoutes_ListLinkedSheets(t *testing.T) {
 			svc := campaignmocks.NewMockService(t)
 			svc.EXPECT().ListLinkedSheets(mock.Anything, campaignTestID, campaignTestUserID).
 				Return([]campaign.LinkedSheetSummary{{ID: campaignTestSheetID, Name: "Aria"}}, tc.err).Once()
-			rec := doCampaignRequest(newCampaignRouter(svc), http.MethodGet, "/campaigns/"+campaignTestID+"/sheets", "")
+			rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodGet, "/campaigns/"+campaignTestID+"/sheets", "")
 			assert.Equal(t, tc.status, rec.Code)
 		})
 	}
@@ -128,7 +128,7 @@ func TestCampaignRoutes_FetchLinkedSheet(t *testing.T) {
 		svc := campaignmocks.NewMockService(t)
 		svc.EXPECT().ReadLinkedSheet(mock.Anything, mock.Anything).
 			Return(campaign.LinkedSheetResult{ETag: etag, Sheet: linkedSheetFixture()}, nil).Once()
-		rec := doCampaignRequest(newCampaignRouter(svc), http.MethodGet, path, "")
+		rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodGet, path, "")
 		require.Equal(t, http.StatusOK, rec.Code)
 		assert.Equal(t, etag, rec.Header().Get("ETag"))
 		assert.Contains(t, rec.Body.String(), `"campaign_id":"`+campaignTestID+`"`)
@@ -141,7 +141,7 @@ func TestCampaignRoutes_FetchLinkedSheet(t *testing.T) {
 		})).Return(campaign.LinkedSheetResult{ETag: etag, NotModified: true}, nil).Once()
 
 		req := newCampaignRouter(svc)
-		rec := doCampaignRequestWithHeader(req, path, "If-None-Match", etag)
+		rec := doCampaignRequestWithHeader(t, req, path, "If-None-Match", etag)
 		assert.Equal(t, http.StatusNotModified, rec.Code)
 		assert.Equal(t, etag, rec.Header().Get("ETag"))
 		assert.Empty(t, rec.Body.String())
@@ -151,7 +151,7 @@ func TestCampaignRoutes_FetchLinkedSheet(t *testing.T) {
 		svc := campaignmocks.NewMockService(t)
 		svc.EXPECT().ReadLinkedSheet(mock.Anything, mock.Anything).
 			Return(campaign.LinkedSheetResult{}, apperr.NewError(apperr.CodeCampaignNotFound, "campaign not found", nil)).Once()
-		rec := doCampaignRequestWithHeader(newCampaignRouter(svc), path, "If-None-Match", etag)
+		rec := doCampaignRequestWithHeader(t, newCampaignRouter(svc), path, "If-None-Match", etag)
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 		assert.Equal(t, "CAMPAIGN_NOT_FOUND", campaignErrorCode(t, rec))
 		assert.Empty(t, rec.Header().Get("ETag"))
@@ -161,13 +161,13 @@ func TestCampaignRoutes_FetchLinkedSheet(t *testing.T) {
 		svc := campaignmocks.NewMockService(t)
 		svc.EXPECT().ReadLinkedSheet(mock.Anything, mock.Anything).
 			Return(campaign.LinkedSheetResult{}, apperr.NewError(apperr.CodeCampaignForbidden, "forbidden", nil)).Once()
-		rec := doCampaignRequest(newCampaignRouter(svc), http.MethodGet, path, "")
+		rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodGet, path, "")
 		assert.Equal(t, http.StatusForbidden, rec.Code)
 	})
 }
 
-func doCampaignRequestWithHeader(h http.Handler, path, name, value string) *httptest.ResponseRecorder {
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+func doCampaignRequestWithHeader(t *testing.T, h http.Handler, path, name, value string) *httptest.ResponseRecorder {
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil)
 	req.Header.Set(name, value)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)

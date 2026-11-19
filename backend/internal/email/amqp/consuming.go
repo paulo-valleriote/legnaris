@@ -27,13 +27,13 @@ func (b *Broker) Consume(ctx context.Context) (<-chan worker.Delivery, error) {
 
 	ch, err := b.conn.Channel()
 	if err != nil {
-		return nil, fmt.Errorf("%w: open consumer channel: %v", ErrBrokerUnavailable, err)
+		return nil, fmt.Errorf("%w: open consumer channel: %w", ErrBrokerUnavailable, err)
 	}
 
 	if b.prefetch > 0 {
 		if err := ch.Qos(b.prefetch, 0, false); err != nil {
 			_ = ch.Close()
-			return nil, fmt.Errorf("%w: set prefetch: %v", ErrBrokerUnavailable, err)
+			return nil, fmt.Errorf("%w: set prefetch: %w", ErrBrokerUnavailable, err)
 		}
 	}
 
@@ -42,7 +42,7 @@ func (b *Broker) Consume(ctx context.Context) (<-chan worker.Delivery, error) {
 	deliveries, err := ch.Consume(queueWork, tag, false, false, false, false, nil)
 	if err != nil {
 		_ = ch.Close()
-		return nil, fmt.Errorf("%w: register consumer: %v", ErrBrokerUnavailable, err)
+		return nil, fmt.Errorf("%w: register consumer: %w", ErrBrokerUnavailable, err)
 	}
 	b.consumerCh = ch
 

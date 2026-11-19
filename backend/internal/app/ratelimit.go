@@ -2,7 +2,6 @@ package app
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
 	"math"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"legnaris/backend/internal/platform/ratelimit"
 	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/apperr"
+	sharedjson "legnaris/backend/shared/json"
 )
 
 const MsgRateLimited = "too many attempts; retry later"
@@ -107,7 +107,7 @@ func peekEmail(r *http.Request) string {
 	var payload struct {
 		Email string `json:"email"`
 	}
-	if err := json.Unmarshal(body, &payload); err != nil {
+	if err := sharedjson.DecodeBytes(body, &payload); err != nil {
 		return ""
 	}
 	return strings.TrimSpace(payload.Email)

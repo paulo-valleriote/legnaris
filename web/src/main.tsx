@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { AppRoutes } from './app/router';
 import { AppProviders } from './app/providers';
 import { loadApiConfiguration } from './api/runtime_config';
+import { browserFetch } from './api/transport';
 import { registerServiceWorker } from './pwa/register_sw';
 import { installTrustedTypesPolicy } from './pwa/trusted_types';
 import './theme/tokens.css';
@@ -27,7 +28,7 @@ function showConfigurationError(error: unknown): void {
 
 async function start(): Promise<void> {
   const config = await loadApiConfiguration({
-    fetcher: (input, init) => fetch(input, init),
+    fetcher: browserFetch,
     buildValue: import.meta.env.VITE_API_BASE_URL,
   });
 

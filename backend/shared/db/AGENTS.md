@@ -11,8 +11,7 @@
 ## Connection
 
 - `DATABASE_URI` must name the replica set and enable retryable writes:
-  `?replicaSet=rs0&retryWrites=true&authSource=<db>`. Every shipped URI does
-  (`.env.example`, `scripts/dev.sh`, `deploy/docker-compose*.yml`).
+  `?replicaSet=rs0&retryWrites=true&authSource=<db>`; a CI test checks every shipped URI.
 - `InitMongo` rejects a URI without `replicaSet` with `ErrMissingReplicaSet`
   (wraps `ErrInvalidConfig`), so a standalone URI fails at startup.
 - `InitMongo` also rejects a URI without username and password
@@ -65,7 +64,5 @@
 
 ## Conventions
 
-- Declare own typed errors — **do NOT import `apperr`**
-- Wrap errors with `fmt.Errorf("...: %w", err)`
+- Declare own typed errors (depguard bans `apperr`, errorlint enforces `%w`)
 - Service layer translates to `apperr` at boundary
-- All identifiers, comments, logs in English

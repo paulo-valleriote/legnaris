@@ -8,6 +8,7 @@ import (
 	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
 )
@@ -146,7 +147,7 @@ func (s *ServiceImpl) LinkNpc(ctx context.Context, cmd LinkNpcCommand) (NpcLinkV
 			return forbidden(MsgLinkGMOnly)
 		}
 		found, err := s.sheets.FetchByID(txCtx, cmd.SheetID)
-		if errors.Is(err, sheet.ErrSheetNotFound) {
+		if errors.Is(err, sheeterr.ErrSheetNotFound) {
 			return sheetNotFound()
 		}
 		if err != nil {
@@ -217,7 +218,7 @@ func (s *ServiceImpl) UnlinkNpc(ctx context.Context, cmd UnlinkNpcCommand) error
 			return forbidden(MsgLinkGMOnly)
 		}
 		found, err := s.sheets.FetchByID(txCtx, cmd.SheetID)
-		if errors.Is(err, sheet.ErrSheetNotFound) {
+		if errors.Is(err, sheeterr.ErrSheetNotFound) {
 			return sheetNotFound()
 		}
 		if err != nil {
@@ -279,7 +280,7 @@ func (s *ServiceImpl) ListNpcLinks(ctx context.Context, campaignID, viewerID str
 			continue
 		}
 		stored, err := s.sheets.FetchByID(ctx, link.SheetID)
-		if errors.Is(err, sheet.ErrSheetNotFound) {
+		if errors.Is(err, sheeterr.ErrSheetNotFound) {
 			continue
 		}
 		if err != nil {
@@ -339,7 +340,7 @@ func (s *ServiceImpl) applyNpcReveal(txCtx context.Context, c *Campaign, cmd Rev
 		return forbidden(MsgLinkGMOnly)
 	}
 	found, err := s.sheets.FetchByID(txCtx, cmd.SheetID)
-	if errors.Is(err, sheet.ErrSheetNotFound) {
+	if errors.Is(err, sheeterr.ErrSheetNotFound) {
 		return sheetNotFound()
 	}
 	if err != nil {
@@ -384,7 +385,7 @@ func (s *ServiceImpl) ReadNpcSheet(ctx context.Context, q ReadNpcSheetQuery) (Li
 		return LinkedSheetResult{}, linkNotFound()
 	}
 	stored, err := s.sheets.FetchByID(ctx, q.SheetID)
-	if errors.Is(err, sheet.ErrSheetNotFound) {
+	if errors.Is(err, sheeterr.ErrSheetNotFound) {
 		return LinkedSheetResult{}, sheetNotFound()
 	}
 	if err != nil {

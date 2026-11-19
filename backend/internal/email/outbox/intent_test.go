@@ -71,7 +71,7 @@ func TestNewIntent_RejectsNonCanonicalIdentity(t *testing.T) {
 			intent, err := outbox.NewIntent(tc.id, "player@example.com", "login_otp", samplePayload(), sampleNow())
 
 			require.Error(t, err)
-			assert.ErrorIs(t, err, outbox.ErrInvalidIntentID)
+			require.ErrorIs(t, err, outbox.ErrInvalidIntentID)
 			assert.Empty(t, intent.ID, "a rejected identity must not produce a row")
 		})
 	}

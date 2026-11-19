@@ -208,7 +208,7 @@ func upstreamCode(raw json.RawMessage) string {
 		return ""
 	}
 	var text string
-	if err := json.Unmarshal(raw, &text); err == nil {
+	if err := sharedjson.DecodeBytes(raw, &text); err == nil {
 		return logger.Truncate(text, maxErrorCode)
 	}
 	trimmed := strings.TrimSpace(string(raw))
