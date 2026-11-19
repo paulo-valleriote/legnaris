@@ -12,8 +12,7 @@ visual values and supersedes any visual statement elsewhere (UIF-33). Design val
 Do not encode or restate visual values here or in a component. Read `DESIGN.md` for the token
 architecture and the token-addition workflow, and `src/theme/tokens.css` (mirrored in
 `src/theme/tokens.ts`) for the concrete values. Every component consumes `--lg-*` tokens only;
-`src/theme/` is the sanctioned exception where the literals are declared, and a source scan keeps
-the other directories literal-free.
+`src/theme/` is the sanctioned exception (enforced by `src/test/tokens_used.test.tsx`).
 
 ## Interaction wiring
 
@@ -25,37 +24,28 @@ The visual side of interaction — focus ring, hover, dialog avoidance, feedback
 
 ## Security rules (non-negotiable)
 
-- **No DOM injection sinks**: `dangerouslySetInnerHTML`, `innerHTML`, `eval`,
-  `new Function`, `document.write` are forbidden — ESLint fails the build on them
-  (FND-10, SEC-02). React escapes text automatically; keep data as text.
-- **No third-party scripts, styles, or fonts**: everything is self-hosted and
-  same-origin, so the strict production Content-Security-Policy
-  (`deploy/traefik/dynamic.yml`) holds without exceptions.
-- **No credentials in JavaScript-readable storage**: never put a token in
-  `localStorage`, `sessionStorage`, or IndexedDB. The refresh credential is an
-  `HttpOnly` cookie; the access token lives in memory only. (A display preference such as the
-  theme is not a credential and may persist.)
-- All identifiers, comments, and user-facing strings in **English** (UI strings go
-  through `src/l10n/`).
+- **No DOM injection sinks** — enforced by ESLint (`react/no-danger`, `no-eval`, `no-new-func`, `no-unsanitized/*`). Keep data as text.
+- **No third-party scripts, styles, or fonts**, so the production CSP (`deploy/traefik/dynamic.yml`)
+  holds without exceptions — enforced by `self_hosted_assets.test.ts` and `no_inline_assets.test.ts`.
+- **No credentials in JavaScript-readable storage**: the refresh credential is an `HttpOnly`
+  cookie and the access token lives in memory only. ESLint confines storage to the theme and
+  view-state seams (`src/test/eslint_storage_seam.test.ts`).
+- UI copy goes through `src/l10n/` (`react/jsx-no-literals`).
 
 ## API client (`src/api/`)
 
 The typed network layer every screen mounts on. Its rules are non-negotiable.
 
-- **One transport seam.** Every request goes through the transport injected at
-  construction; no operation builds its own, and the transport is the single place a
-  credential will ever be attached. Requests carry `credentials: 'omit'` — no ambient
-  credential is attached implicitly, in any environment.
-- **No logging.** The module contains no `console.*` call and imports no logger; a request
-  body, a credential and an identifier-bearing URL never reach a log. A source scan
-  (`src/test/api_no_logging.test.ts`) enforces this.
-- **No user-facing literal.** Every message a person sees resolves through
-  `src/l10n/strings.ts`; the API module emits codes and failure kinds, never copy.
+- **One transport seam.** Every request goes through the injected transport, the single place
+  a credential is attached, with `credentials: 'omit'`. ESLint allows `fetch` only in
+  `transport.ts` (`src/test/eslint_network_seam.test.ts`, `api_transport.test.ts`).
+- **No logging** — enforced by `src/test/api_no_logging.test.ts`.
+- **No user-facing literal** — the API module emits codes and failure kinds, never copy.
 - **Failures are classified, drift is distinct.** A refusal becomes a `DomainFailure` with
   a `FailureKind`; an unreadable response stays a `DefensiveParseFailure`; a malformed
   dotted path raises a `PathFailure`; an unusable base address raises a
-  `ConfigurationFailure` at construction. A new backend code must be given a kind in
-  `error_mapper.ts` — the mapping table is total over the codes the backend emits.
+  `ConfigurationFailure` at construction. Every backend code needs a kind in
+  `error_mapper.ts` (`src/test/api_error_mapper_codes.test.ts` over `testdata/apperr/codes.json`).
 - **Captures are never hand-edited.** `src/api/fixtures/` holds real responses written
   verbatim by `capture.sh`; a capture that stops matching the models is a backend contract
   change and the pinned suite is expected to go red on it.
@@ -72,8 +62,7 @@ no request, no mark. It mounts no screen; every case renders its modules directl
   single-choice control per exclusive group.
 - `sheet_form.tsx` — the composition; `sheet_defaults.ts` — the draft seed/overlay/merge;
   `sheet_mark.ts` — the preview-mark contract; `engine.css` — token-only styles.
-- Every string resolves through `src/l10n/strings.ts`; every visual value is a `--lg-*`
-  token. Data is rendered as text; markup in a value or label stays literal (no DOM sink).
+- Data is rendered as text; markup in a value or label stays literal.
 - **Stable units for the Layout.** Every Section renders one `<section data-section-key>`
   (the top-level field key) holding its title and one `.lg-section__rows` container; every Row
   renders one wrapper carrying `data-row-key` and `data-row-kind` (`normal` | `exclusive` |
@@ -109,8 +98,8 @@ no request, no mark. It mounts no screen; every case renders its modules directl
   stored values, never stale. The list is a description, not a live region: the footer still owns the one
   announcement of a cascade.
 - `SheetForm` takes an optional resolved `arrangement`, replaceable structural `frames`
-  (`Root`, `Section`, `Row`), so a caller adds chrome without the engine knowing it. The engine
-  imports no drag library.
+  (`Root`, `Section`, `Row`), so a caller adds chrome without the engine knowing it. ESLint keeps
+  `@dnd-kit` out of the engine.
 
 **Row label ids.** `SheetForm` gives each lone Row's label an id (from `useId`, so two forms never
 collide) and passes it to the control source: `controlBuilder(field, labelId)` and
@@ -168,7 +157,7 @@ the F2 client and the F4 engine and owns no wire model.
   the sticky footer and the one guard modal.
 - `src/library/sheet_store.ts` — the `SheetStore` port, the versioned envelopes and the
   in-memory double every suite injects; `idb_sheet_store.ts` is the only module importing
-  `idb`; `sheet_library.ts` and `draft_backup.ts` hold the cache helpers and the injectable
+  `idb` (ESLint); `sheet_library.ts` and `draft_backup.ts` hold the cache helpers and the injectable
   draft cadence.
 - `src/sheet/layout_store.ts` — the layout store (Arrange mode), **separate from the
   edit store**: the committed arrangement, the staged one (defined only while arranging), the commit
@@ -325,8 +314,8 @@ no recalculation). Only the lists that deviate from the Template are sent.
   backed up on every staged change (`writeLayoutDraft`, best-effort, swallowed failures, no
   credential) and restored into Arrange mode on open. `SCHEMA_VERSION` is 3: older local records
   read as missing and are rebuilt, not migrated.
-- **`@dnd-kit` (core, sortable, utilities)** is the one drag dependency (exact pins, bundled by
-  Vite, self-hosted). It touches the DOM only through React props and CSSOM (`style.setProperty`),
+- **`@dnd-kit` (core, sortable, utilities)** is the one drag dependency (pinned in
+  `dependency-allowlist.json`, bundled by Vite). It touches the DOM only through React props and CSSOM (`style.setProperty`),
   never `innerHTML` or a `<style>` element, so the production CSP (`style-src 'self'`, Trusted
   Types) needs no relaxing; it is mounted only while arranging, and only Sections are sortable.
 
@@ -347,30 +336,28 @@ no recalculation). Only the lists that deviate from the Template are sent.
 - Never abstract the schema-driven UI Engine internals, screen-specific layouts,
   one-off dialogs, or wireframe structures.
 - One sanctioned base layer at `web/src/ui/` holds the five primitives (`button`, `field`,
-  `checkbox`, `dialog`, `toast`) plus the focus trap; it imports no feature directory,
-  uses `lg-<block>__<element>--<modifier>` and keeps the `≥ 3 real usages` rule for every
+  `checkbox`, `dialog`, `toast`) plus the focus trap; `ui_layer.test.ts` keeps it free of feature
+  imports and barrels; it uses `lg-<block>__<element>--<modifier>` and keeps the `≥ 3 real usages` rule for every
   other extraction (UIP-01, UIP-03, SC-007). No wrapper-for-wrapper's-sake elsewhere.
 
 ## Dependencies
 
-- **No new package without strict necessity.** `@dnd-kit/{core,sortable,utilities}` is the
-  justified exception for Arrange mode (accessible keyboard, pointer and touch reordering of
-  Sections with screen-reader announcements is not worth hand-rolling). Design-system dependencies (font
-  packages, theme frameworks, component libraries) are prohibited — the tokens plus plain
-  CSS are sufficient, and the font is vendored, not depended on.
-- If a dependency is ever unavoidable, justify it in the PR description.
+- **No new package without strict necessity.** Every package is exact-pinned in
+  `dependency-allowlist.json`, whose deny lists block state, component and font libraries
+  (`src/test/dependency_allowlist.test.ts`). Adding one means editing the allow-list and
+  justifying it in the PR description. `@dnd-kit` is the justified exception for Arrange mode.
 
 ## Standing decisions
 
 The per-feature deviation log lives in `docs/web-delivered-deviations.md`. These still bind:
 
-- Tests are flat in `src/test/` with a `*.test.ts(x)` suffix (feature prefixes such as
-  `engine_*`), because the Vitest setup and shared helpers serve every suite.
-- No state library: per-path subscriptions use `useSyncExternalStore` (`AD-001`).
+- Tests are flat in `src/test/` with a `*.test.ts(x)` suffix (Vitest `include` plus
+  `test_layout_guard.test.ts`).
+- No state library: per-path subscriptions use `useSyncExternalStore` (`AD-001`; deny-listed).
 - The leave guard is a shell-level registry, not a router blocker; a browser-back gesture is
   not intercepted, only in-app navigation.
-- Modal surfaces are accessible overlays (`role="dialog"`, `aria-modal`), not native
-  `<dialog>`, because jsdom does not implement `showModal`.
-- The access token is memory-only; `AuthSession.refresh()` is single-flight.
-- Captures in `src/api/fixtures/` are real responses; a credential in one is redacted
-  (`redacted-access-token`).
+- Modal surfaces are accessible overlays, not native `<dialog>` (jsdom lacks `showModal`;
+  ESLint bans the element).
+- `AuthSession.refresh()` is single-flight.
+- Captures in `src/api/fixtures/` are redacted by `capture.sh` and scanned by
+  `src/test/api_fixtures_secrets.test.ts`.
