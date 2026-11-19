@@ -8,6 +8,22 @@ import noUnsanitized from 'eslint-plugin-no-unsanitized';
 import security from 'eslint-plugin-security';
 import prettier from 'eslint-config-prettier';
 
+const STORAGE_MESSAGE =
+  'Credentials are memory-only; storage is allowed only in the theme/view-state seams';
+const IDB_MESSAGE = 'idb may be imported only by src/library/idb_sheet_store.ts.';
+
+const storageGlobals = ['localStorage', 'sessionStorage'].map((name) => ({
+  name,
+  message: STORAGE_MESSAGE,
+}));
+const storageProperties = ['window', 'self', 'globalThis'].flatMap((object) =>
+  ['localStorage', 'sessionStorage'].map((property) => ({
+    object,
+    property,
+    message: STORAGE_MESSAGE,
+  })),
+);
+
 export default tseslint.config(
   {
     ignores: [
@@ -59,6 +75,30 @@ export default tseslint.config(
   {
     files: ['**/*.test.{ts,tsx}', 'src/test/**/*.{ts,tsx}', 'e2e/**/*.{ts,tsx}'],
     languageOptions: { globals: { ...globals.node, ...globals.browser } },
+  },
+  {
+    files: ['src/**/*.{ts,tsx}', 'public/**/*.js'],
+    rules: {
+      'no-restricted-globals': ['error', ...storageGlobals],
+      'no-restricted-properties': ['error', ...storageProperties],
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [{ name: 'idb', message: IDB_MESSAGE }],
+        },
+      ],
+    },
+  },
+  {
+    files: ['src/theme/use_theme.ts', 'src/sheet/view_store.ts', 'public/theme-init.js'],
+    rules: {
+      'no-restricted-globals': 'off',
+      'no-restricted-properties': 'off',
+    },
+  },
+  {
+    files: ['src/library/idb_sheet_store.ts'],
+    rules: { 'no-restricted-imports': 'off' },
   },
   prettier,
 );

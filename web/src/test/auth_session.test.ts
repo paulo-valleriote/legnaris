@@ -145,13 +145,13 @@ describe('in-memory session (WAS-01, WAS-02, WAS-07, WAS-32)', () => {
   it('Security: login never writes the token to a script-readable store (WAS-32)', async () => {
     const fake = createFakeTransport(successOutcome(SESSION_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
+    const writes = vi.spyOn(Storage.prototype, 'setItem');
 
     await session.login({ email: 'a@b.test', password: 'secret' });
 
-    expect(window.localStorage.length).toBe(0);
-    expect(window.sessionStorage.length).toBe(0);
-    expect(JSON.stringify(window.localStorage)).not.toContain('access-1');
-    expect(JSON.stringify(window.sessionStorage)).not.toContain('access-1');
+    expect(writes).not.toHaveBeenCalled();
+    expect(JSON.stringify(writes.mock.calls)).not.toContain('access-1');
+    writes.mockRestore();
   });
 
   it('Happy path: login holds the token in memory and flips to authenticated (WAS-01)', async () => {
@@ -260,13 +260,13 @@ describe('the pending code step (WCS-01, WCS-02, WCS-03, WCS-04, WCS-06)', () =>
   it('Edge: a step never survives a reload, because nothing about it is persisted (WCS-02, R2)', async () => {
     const fake = createFakeTransport(successOutcome(CHALLENGE_BODY));
     const session = createAuthSession({ authApi: authApiWith(fake) });
+    const writes = vi.spyOn(Storage.prototype, 'setItem');
 
     await session.login({ email: 'a@b.test', password: 'secret' });
 
-    expect(window.localStorage.length).toBe(0);
-    expect(window.sessionStorage.length).toBe(0);
-    expect(JSON.stringify(window.localStorage)).not.toContain('challenge-1');
-    expect(JSON.stringify(window.sessionStorage)).not.toContain('challenge-1');
+    expect(writes).not.toHaveBeenCalled();
+    expect(JSON.stringify(writes.mock.calls)).not.toContain('challenge-1');
+    writes.mockRestore();
   });
 
   it('Edge: a second sign-in starts a new handle and supersedes the first (WCS-06)', async () => {

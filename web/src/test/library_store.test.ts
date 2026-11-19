@@ -1,7 +1,5 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import type { IDBPDatabase } from 'idb';
-import { wrap } from 'idb';
 import { IDBFactory as FDBFactory } from 'fake-indexeddb';
 import type { Sheet } from '../api/models/sheet';
 import { createIdbSheetStore, SHEET_DATABASE_NAME } from '../library/idb_sheet_store';
@@ -25,13 +23,37 @@ const OTHER_ID = '01a0f967-f42b-710e-851f-8f293a634922';
 
 interface AdapterHarness {
   readonly store: SheetStore;
-  readonly db: IDBPDatabase;
+  readonly db: IDBDatabase;
+}
+
+function openDatabase(factory: IDBFactory): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = factory.open(SHEET_DATABASE_NAME);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function records(db: IDBDatabase, store: string): Promise<unknown[]> {
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(store, 'readonly').objectStore(store).getAll();
+    request.onsuccess = () => resolve(request.result as unknown[]);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function writeRecord(db: IDBDatabase, store: string, value: unknown, key: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(store, 'readwrite').objectStore(store).put(value, key);
+    request.onsuccess = () => resolve();
+    request.onerror = () => reject(request.error);
+  });
 }
 
 async function idbHarness(): Promise<AdapterHarness> {
   const factory = new FDBFactory();
   const store = await createIdbSheetStore(factory);
-  const db = (await wrap(factory.open(SHEET_DATABASE_NAME, SCHEMA_VERSION))) as IDBPDatabase;
+  const db = await openDatabase(factory);
   return { store, db };
 }
 
@@ -204,8 +226,8 @@ describe('sheet store: session clear-all (WAS-21)', () => {
 
     await store.clearAll();
 
-    await expect(db.getAll('sheets')).resolves.toEqual([]);
-    await expect(db.getAll('drafts')).resolves.toEqual([]);
+    await expect(records(db, 'sheets')).resolves.toEqual([]);
+    await expect(records(db, 'drafts')).resolves.toEqual([]);
     await expect(store.readSheet(SHEET.id)).resolves.toBeNull();
     await expect(store.readDraft(SHEET.id)).resolves.toBeNull();
   });
@@ -214,8 +236,8 @@ describe('sheet store: session clear-all (WAS-21)', () => {
     const { store, db } = await idbHarness();
 
     await expect(store.clearAll()).resolves.toBeUndefined();
-    await expect(db.getAll('sheets')).resolves.toEqual([]);
-    await expect(db.getAll('drafts')).resolves.toEqual([]);
+    await expect(records(db, 'sheets')).resolves.toEqual([]);
+    await expect(records(db, 'drafts')).resolves.toEqual([]);
   });
 });
 
@@ -235,17 +257,19 @@ describe('sheet store: idb adapter under fake-indexeddb (WSC-11, WSC-30)', () =>
   it('Edge: reads a corrupt record, an unsupported version and a foreign id as null', async () => {
     const { store, db } = await idbHarness();
 
-    await db.put(
+    await writeRecord(
+      db,
       'sheets',
       { schemaVersion: SCHEMA_VERSION, id: SHEET.id, sheet: 'nope' },
       SHEET.id,
     );
     await expect(store.readSheet(SHEET.id)).resolves.toBeNull();
 
-    await db.put('sheets', { schemaVersion: 42, id: SHEET.id, sheet: SHEET }, SHEET.id);
+    await writeRecord(db, 'sheets', { schemaVersion: 42, id: SHEET.id, sheet: SHEET }, SHEET.id);
     await expect(store.readSheet(SHEET.id)).resolves.toBeNull();
 
-    await db.put(
+    await writeRecord(
+      db,
       'drafts',
       { schemaVersion: SCHEMA_VERSION, id: OTHER_ID, delta: { a: 1 } },
       SHEET.id,
@@ -266,8 +290,8 @@ describe('sheet store: idb adapter under fake-indexeddb (WSC-11, WSC-30)', () =>
     await store.putSheet(SHEET);
     await store.writeDraft(SHEET.id, { stats: { dexterity: 18 } });
 
-    const records = [...(await db.getAll('sheets')), ...(await db.getAll('drafts'))];
-    expect(credentialFree(records)).toBe(true);
+    const stored = [...(await records(db, 'sheets')), ...(await records(db, 'drafts'))];
+    expect(credentialFree(stored)).toBe(true);
   });
 });
 
@@ -366,14 +390,15 @@ describe('sheet store: cached layout and pending arrangement', () => {
     await expect(store.readLayoutDraft(SHEET.id)).resolves.toEqual({ layout: LAYOUT });
 
     await store.clearAll();
-    await expect(db.getAll('layoutDrafts')).resolves.toEqual([]);
+    await expect(records(db, 'layoutDrafts')).resolves.toEqual([]);
     await expect(store.readLayoutDraft(SHEET.id)).resolves.toBeNull();
   });
 
   it('Edge: the idb adapter reads a corrupt layout draft as null and holds no credential', async () => {
     const { store, db } = await idbHarness();
 
-    await db.put(
+    await writeRecord(
+      db,
       'layoutDrafts',
       { schemaVersion: SCHEMA_VERSION, id: SHEET.id, layout: 'x' },
       SHEET.id,
@@ -381,7 +406,7 @@ describe('sheet store: cached layout and pending arrangement', () => {
     await expect(store.readLayoutDraft(SHEET.id)).resolves.toBeNull();
 
     await store.writeLayoutDraft(SHEET.id, LAYOUT);
-    expect(credentialFree(await db.getAll('layoutDrafts'))).toBe(true);
+    expect(credentialFree(await records(db, 'layoutDrafts'))).toBe(true);
     await expect(store.deleteLayoutDraft('missing')).resolves.toBeUndefined();
   });
 });
