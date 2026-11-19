@@ -7,10 +7,11 @@ Architecture, layering, shared primitives and cross-cutting middleware:
 
 - Controllers in `backend/internal/app` call domain services; `bootstrap.go`
   is the API composition root; `email_intent.go` is the one controller-side
-  write to the e-mail outbox.
-- Keep the direction `app → domain service → template → engine`; repositories,
-  `engine`, `dice` and `backend/shared/*` never import upward. A domain package
-  may declare an interface that `platform` implements, never the reverse.
+  write to the email outbox.
+- Keep `app → domain service → template → engine`; domain packages may depend
+  on lower domain packages, but no domain package imports `app` and no shared
+  package imports a domain package. A domain package may declare an interface
+  that `platform` implements, never the reverse.
 - Generate every server ID with `idgen.New`; validate client ids with
   `idgen.Validate` before the first repository call; never call `uuid.New` or
   `uuid.NewString`.

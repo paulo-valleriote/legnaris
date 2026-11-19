@@ -4,8 +4,8 @@
 
 Legnaris is one Go module that builds three long-running processes from the
 same code — the HTTP API, a relay that publishes mail and sweeps pending work,
-and a worker that sends mail and runs generation — plus one-off migration
-commands. The backend is a modular monolith: domain packages under
+and a worker that sends mail and, when enabled, runs generation — plus one-off
+migration commands. The backend is a modular monolith: domain packages under
 `backend/internal/`, reusable primitives under `backend/shared/`, and every
 adapter built in one composition root. This file describes the layering, the
 wiring, the shared primitives and the cross-cutting middleware that every area
@@ -29,11 +29,11 @@ inherits.
   the DAGs are compiled once at startup and a sheet update reads no template
   collection; the cost is that changing a rule means a new template ID, and
   every old ID must stay readable while a sheet still references it.
-- **A replica set with transactions over standalone MongoDB and sagas**
-  because multi-document flows used to leave half-applied state on a crash or a
-  concurrent request; the cost is oplog disk, a replica set in every
-  environment and integration tests, plus the rule that a transaction spanning
-  an aggregate bumps its version.
+- **A single-member replica set with transactions over standalone MongoDB and
+  sagas** because flows write several documents and standalone cannot make them
+  atomic, while three members on one host would share its failure domain; the
+  cost is oplog disk, a replica set in every environment and integration tests,
+  plus the rule that transactions on one aggregate bump its version.
 - **Pending work on the entity plus one sweeper over events used as jobs**
   because the pending status is inspectable, retries and leases live next to
   the data, and a relay restart loses nothing; the cost is status, lease and
@@ -113,9 +113,10 @@ sequenceDiagram
     Relay-->>Relay: publish campaign.deleted
 ```
 
-A campaign deletion request only records the intent. The relay's `Sweeper`
-claims due work with a lease, runs the queue handler, and either marks the item
-done, reschedules it for the next pass, or marks it dead after the attempt cap.
+A campaign deletion request only records the intent and releases the owner's
+owned-campaign slot. The relay's `Sweeper` claims due work with a lease, runs
+the queue handler, and either marks the item done, reschedules it for the next
+pass, or marks it dead after the attempt cap.
 The same shape covers account deletion, campaign deletion, generation
 republish and reaping, refunds and the event outbox. `oldest_pending_seconds`
 and `failed_total`, labelled by queue, are the operational contract.
@@ -135,6 +136,11 @@ and `failed_total`, labelled by queue, are the operational contract.
   `main`/`run`: the API through `app.NewModules` and `app.NewRouter`, the relay
   and worker through their own dependency tables. It closes what it opened.
   There is no package-level singleton and no wiring in `init`.
+- **Browser boundary** — CORS uses an explicit origin allowlist with
+  credentials, allows `X-CSRF-Token`, exposes `X-Request-ID` and `ETag`, and
+  names every accepted method. The API and the web client are separate origins,
+  so cookie-bearing requests need an exact origin and an explicit preflight;
+  the cost is that a new verb or header is a deliberate edit on both sides.
 - **HTTP shape** — success is `{"data": ...}`; failure is
   `{"error": {"code", "message", "details?"}}`. Request bodies are capped at
   1 MiB, unknown fields and trailing data are rejected, and malformed JSON is
@@ -142,8 +148,8 @@ and `failed_total`, labelled by queue, are the operational contract.
 - **Errors** — services and controllers produce `apperr.Error` with a settled
   `Code`, a user-facing message and either no cause or a lower-layer typed
   error. The handler maps the code to the status, defaults an unmapped code to
-  500, and keeps `RetryAfter` on the response. Lower layers declare their own
-  sentinels and never import `apperr`.
+  500, and keeps `RetryAfter` on the response. Repositories, engine, json, db
+  and idgen declare their own sentinels and do not import `apperr`.
 - **IDs** — every server-generated ID is a canonical lowercase UUID v7 from
   `shared/idgen`. Client-provided ids pass `idgen.Validate` before the first
   repository call and map to a 400. Template IDs are code-defined slugs and
@@ -166,9 +172,10 @@ and `failed_total`, labelled by queue, are the operational contract.
   relay and worker serve separate metrics listeners. Health is a static
   `/health`; readiness is a Mongo ping with a timeout.
 - **Startup** — environment parsing is shared and warns on a missing or
-  malformed optional value; `DATABASE_URI`, `JWT_SECRET` and `EMAIL_CODE_SECRET`
-  are required. Mongo refuses a URI without a replica set or credentials. The
-  API and the relay ensure indexes before they serve.
+  malformed optional value; the deployment marks `DATABASE_URI`, `JWT_SECRET`
+  and `EMAIL_CODE_SECRET` required, and the API refuses to build without the
+  last two. Mongo refuses a URI without a replica set or credentials. The API
+  and the relay ensure indexes before they serve.
 
 ## Code map
 
@@ -177,7 +184,7 @@ and `failed_total`, labelled by queue, are the operational contract.
 | `backend/cmd/api.go` | API process: Mongo, indexes, registry, publishers, modules, router, graceful shutdown, and the `healthcheck` subcommand used by container probes. |
 | `backend/cmd/relay/main.go` | Relay process: email outbox publisher, event outbox relay, sweeper queues and billing reconciliation. |
 | `backend/cmd/worker/main.go` | Worker process: mail delivery consumer and, when enabled, the generation consumer. |
-| `backend/cmd/canonicalize-emails/main.go` | One-off migration that reports and optionally applies e-mail canonicalisation. |
+| `backend/cmd/canonicalize-emails/main.go` | One-off migration that reports and optionally applies email canonicalisation. |
 | `backend/cmd/migrate-sheet-kinds/main.go` | One-off migration for sheet kinds, pending event payloads and counters. |
 | `backend/internal/app/bootstrap.go` | Composition root that builds repositories, services, controllers, limiters and closers. |
 | `backend/internal/app/router.go` | Process-wide middleware, route groups, guards and the HTTP error handler. |
@@ -189,7 +196,7 @@ and `failed_total`, labelled by queue, are the operational contract.
 | `backend/internal/platform/metrics` | Prometheus registry, HTTP middleware and domain observer implementations. |
 | `backend/internal/platform/ratelimit` | `Allower`, in-process sliding window, Redis store and fail-open wrapper. |
 | `backend/internal/platform/clientip` | Resolves the real client address through trusted proxy ranges. |
-| `backend/internal/platform/breaker` | Provider circuit breaker used by generation. |
+| `backend/internal/platform/breaker` | Provider circuit breaker used by generation and email delivery. |
 | `backend/internal/sweeper/sweeper.go` | Queue contract, lease-based claim loop, attempt cap and `dead` transition. |
 | `backend/shared/apperr` | Typed error codes, status mapping and retry metadata. |
 | `backend/shared/idgen` | UUID v7 generation and canonical validation. |
@@ -211,7 +218,7 @@ and `failed_total`, labelled by queue, are the operational contract.
 - `prometheus/client_golang` for the per-process registries and HTTP metrics.
 - `google/uuid` for UUID v7, wrapped by `shared/idgen`.
 - `rabbitmq/amqp091-go` for confirmed publishing and consumption; Resend for
-  e-mail; Stripe for billing; expr-lang behind `internal/engine` for formulas.
+  email; Stripe for billing; expr-lang behind `internal/engine` for formulas.
 - `testify`, mockery and miniredis in tests; `yaml.v3` for the context map.
 
 ## Known limits
@@ -219,9 +226,9 @@ and `failed_total`, labelled by queue, are the operational contract.
 - MongoDB is a single-node replica set on one host. Transactions give
   multi-document atomicity, not high availability; losing the host loses the
   primary, the oplog and the data.
-- Snapshot isolation does not prevent write skew. Each aggregate must bump its
-  version in every transaction that changes its invariants; a missed bump is a
-  correctness bug that tests, not the database, catch.
+- Snapshot isolation does not prevent write skew. An aggregate whose invariants
+  span documents must bump its version in every such transaction; a missed bump
+  is a correctness bug that tests, not the database, catch.
 - A transaction is capped at 10 s and must not call an external provider. Work
   that needs an external effect is recorded on the entity and finished by the
   sweeper, so some flows are eventually consistent and refunds are asynchronous.
@@ -237,7 +244,7 @@ and `failed_total`, labelled by queue, are the operational contract.
   and one-off commands, not on a migration runner; a migration that must touch
   every document is manual and has no rollback.
 - The worker and relay share one image but not one lifecycle. A stuck relay
-  queue shows as a growing oldest-pending age, and a stuck worker shows in its
-  send counters; neither fails `/ready`.
+  queue shows as a growing oldest-pending age; the worker has no readiness
+  probe and shows only in its send counters.
 - Template IDs are permanent. Removing a template would strand sheets that
   still reference it, so the catalog only grows.

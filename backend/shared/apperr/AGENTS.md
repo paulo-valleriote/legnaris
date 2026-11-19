@@ -5,8 +5,8 @@ Why errors are typed and translated at the boundary:
 
 ## Working rules
 
-- Services and controllers may import this package; repositories, template,
-  engine, db and every other lower layer must not.
+- Services and controllers may import this package; repositories, engine, db,
+  json, idgen and other data-layer packages must not.
 - Create with `apperr.NewError(code, message, cause)`. The cause is `nil` or a
   lower-layer typed error, never a bare `errors.New`.
 - Do not declare `errors.New` sentinels in `backend/internal/app` or domain
