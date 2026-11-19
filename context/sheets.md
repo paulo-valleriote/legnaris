@@ -242,9 +242,9 @@ derived value is the large, read-only roll target (accent-coloured through `roll
 rolling the `stats.<ability>` Row through the Dice store and its sheet overrides), while the raw
 score sits in an `inline_edit.tsx` badge whose writes go to the pending delta; the two are separate
 targets. The `derived.passiveAwareness` pill closes the column. `RollableValue` and the `useRowRoll`
-hook it uses are the reusable roll surface for later gameplay sections. The spellcasting panel and
-the table-rules disclosure follow (see below). Edit keeps the generic form, Arrange and the pinned
-filter; Play ignores the layout and the view filters.
+hook it uses are the reusable roll surface for later gameplay sections. The saving throws, skills,
+spellcasting panel and table-rules disclosure follow (see below). Edit keeps the generic form,
+Arrange and the pinned filter; Play ignores the layout and the view filters.
 
 The combat strip (`fantasy/combat_strip.tsx`) is the container later gameplay cards extend; it
 holds the hit-points card (`fantasy/hp_card.tsx`) at the top of the Play view and is sticky on a
@@ -258,6 +258,19 @@ negative or unreadable amount changes nothing. The two writes go to the pending 
 `setPath` without a save; until the baseline advances the bar draws the difference as a hatched
 segment and the card reports `was <n>` / `temp was <n>`. `hit_points.ts` also owns the percentage
 and band helpers, and both the card and the math are exported for the NPC and enemy stat block.
+
+Saving throws and skills follow as two card sections (`saves_skills.tsx`). Each row draws a
+proficiency dot: one control-sized toggle with `aria-pressed` whose `setPath` writes 1 or 0 to the
+matching `config.save<A>Prof` / `config.skill<S>Prof` leaf and then asks the store for a preview, so
+the derived total updates without leaving Play mode (the Preview throttle and the pending card still
+apply). The save row shows the template label and a rollable `saves.<ability>` total over the
+`saves` Section dice; the skill row shows its name, its ability abbreviation, an inline-editable
+`skills.<skill>.bonus` and a rollable `skills.<skill>.total` over the `skills` Section dice. The
+skill name comes from the template group (falling back to the key). The config Section itself is
+never drawn in Play mode; the pure `saves_skills_data.ts` holds the skill-to-ability table, the path
+builders, the abbreviation keys and the bonus parser that clamps to the template range. Dot presses
+are the only edit that previews by itself, because the toggle's whole effect is a derived value.
+The row grammar `skills.<skill>` is the table Row key the Dice store resolves.
 
 The mode is component state for the open screen, local to the viewer, never persisted and never
 sent. Preset edits go through the same edit store (`setPath`), so Preview, Save, the draft cadence
@@ -335,13 +348,16 @@ Web:
   committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header` plus
   ordered section slots); `fantasy/` — the hero, the combat strip, the ability medallions, the
-  spellcasting panel and the table-rules disclosure, with the pure `hit_points.ts`,
-  `slot_pips.ts` and `xp_progress.ts` helpers and the hero experience bar in `xp_panel.tsx`;
-  `segmented_choice.tsx` — the reusable exclusive-group control that writes
-  through `setExclusive`; `rollable_value.tsx` — the reusable roll target (`useRowRoll` in
-  `dice_row.tsx`); `pending_card.tsx`, `pending_changes.ts` — the floating unsaved-delta card and its
-  pure summary; `mode_toggle.tsx` — the local Play/Edit switch; `inline_edit.tsx` — the reusable
-  single-path inline editor.
+- `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header` plus
+  ordered section slots); `fantasy/` — the hero, the combat strip, the ability medallions, the
+  saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
+  `hit_points.ts`, `saves_skills_data.ts`, `slot_pips.ts` and `xp_progress.ts` helpers and the hero
+  experience bar in `xp_panel.tsx`; `fantasy/combat_strip.tsx` — the combat strip container;
+  `fantasy/hp_card.tsx` — the hit-points card; `segmented_choice.tsx` — the reusable exclusive-group
+  control that writes through `setExclusive`; `rollable_value.tsx` — the reusable roll target
+  (`useRowRoll` in `dice_row.tsx`); `pending_card.tsx`, `pending_changes.ts` — the floating
+  unsaved-delta card and its pure summary; `mode_toggle.tsx` — the local Play/Edit switch;
+  `inline_edit.tsx` — the reusable single-path inline editor.
 - `web/src/sheet/view_store.ts`, `sheet_view.tsx`, `section_index.tsx` — local view state,
   collapse/filter and section strip; `dice_store.ts`, `dice_row.tsx`, `dice_panel.tsx`,
   `dice_view.ts` — Dice choices over the edit store (see [dice](dice.md)).
@@ -383,11 +399,11 @@ Web:
   there is no pin cap.
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
-- Play mode presents the `fantasy_v1` hero header with its experience bar, the ability medallions,
-  the hit-points card in the combat strip, the spellcasting panel with its table-rules disclosure,
-  and the pending-changes card today. Saves and skills, attacks, armor class, initiative, speed and
-  the stat block are added by later tickets; a template without a preset always keeps the generic
-  form.
+- Play mode presents the `fantasy_v1` hero header with its experience bar, the hit-points card in
+  the combat strip, the ability medallions, the saving throws and skills, the spellcasting panel with
+  its table-rules disclosure, and the pending-changes card today. Attacks, armor class, initiative,
+  speed and the stat block are added by later tickets; a template without a preset always keeps the
+  generic form.
 - `GET /sheets` still returns one arbitrary owned sheet for the legacy `/your-sheet` surface; the
   catalog uses `GET /sheets/owned` with an explicit kind.
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are

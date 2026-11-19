@@ -137,24 +137,29 @@ the F2 client and the F4 engine and owns no wire model.
   tabs) and its scrollspy, which announces through the sheet's polite live region.
 - `src/sheet/preset/` — the template-id registry and the `fantasy_v1` Play preset: a `Header`
   component plus ordered `sections` slots sharing one preset context over the edit store, Dice
-  context and decoded template. `fantasy/` holds the hero, the combat strip and the ability
-  medallions: the strip container later cards extend, holding the hit-points card
-  (`fantasy/hp_card.tsx`) over the pure `fantasy/hit_points.ts` (damage spends temporary points
+  context and decoded template. `fantasy/` holds the hero, the combat strip, the ability medallions
+  and the saving-throw/skill cards: the strip container later cards extend, holding the hit-points
+  card (`fantasy/hp_card.tsx`) over the pure `fantasy/hit_points.ts` (damage spends temporary points
   first, healing caps at the maximum, non-positive amounts are ignored), sticky on a desktop and
   static on a phone; the card writes `combat.hitPoints` and `combat.hitPointsTemp` to the pending
   delta and draws the unsaved difference as a hatched segment with `was <n>` until Save. The
   medallions pair a large `RollableValue` over the Dice store with an inline-editable score badge
-  and the passive-awareness pill; `rollable_value.tsx` with `useRowRoll` (`dice_row.tsx`) is the
-  reusable roll target later gameplay sections reuse. One file per Play section means a new panel
-  is one `sections` entry: `fantasy/spells.tsx` draws the spellcasting panel (the ability as
-  `segmented_choice.tsx`, a reusable exclusive-group control independent of the engine's native
-  select; the rollable spell attack through the Dice store with a preset row default; slot pips from
-  the pure `fantasy/slot_pips.ts`; totals through the engine's numeric guard) and `fantasy/rules.tsx`
-  the table-rules disclosure, collapsed by default. The hero also carries the experience bar in
+  and the passive-awareness pill; the saving-throw/skill rows carry an `aria-pressed` proficiency
+  dot that writes the matching `config.save<A>Prof` / `config.skill<S>Prof` leaf and previews so the
+  derived total follows, with inline-editable skill bonuses and totals rolling through the Section
+  dice (pure tables, path builders and the bonus clamp in `saves_skills_data.ts`).
+  `rollable_value.tsx` with `useRowRoll` (`dice_row.tsx`) is the reusable roll target later gameplay
+  sections reuse. One file per Play section means a new panel is one `sections` entry:
+  `fantasy/spells.tsx` draws the spellcasting panel (the ability as `segmented_choice.tsx`, a
+  reusable exclusive-group control independent of the engine's native select; the rollable spell
+  attack through the Dice store with a preset row default; slot pips from the pure
+  `fantasy/slot_pips.ts`; totals through the engine's numeric guard) and `fantasy/rules.tsx` the
+  table-rules disclosure, collapsed by default. The hero also carries the experience bar in
   `fantasy/xp_panel.tsx` over the pure `fantasy/xp_progress.ts` (the 5e level thresholds): a
   `progressbar` from the level floor to the next threshold whose disclosure adds a positive gain to
   `identity.xp` and offers `Level up to N?` at the threshold, while level 20 stays full with no
-  offer. A template without a preset keeps the generic form. `mode_toggle.tsx` is the Play/Edit switch, component state for the open screen (local to the
+  offer. A template without a preset keeps the generic form. `mode_toggle.tsx` is the Play/Edit
+  switch, component state for the open screen (local to the
   viewer, never persisted, never sent); Edit keeps the generic form, Arrange and the pinned filter,
   Play ignores the layout and view filters. `src/sheet/inline_edit.tsx` is the reusable one-path
   editor: click/Enter opens an input, Enter or blur commits, Escape cancels, an empty value shows

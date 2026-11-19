@@ -4,6 +4,114 @@ export const FANTASY_TEMPLATE_ID = 'fantasy_v1';
 
 export const FANTASY_SHEET_ID = '01a14236-21c9-7546-945e-40c46d1fcd2a';
 
+const FIXTURE_ABILITIES = [
+  { key: 'strength', label: 'Strength' },
+  { key: 'dexterity', label: 'Dexterity' },
+  { key: 'constitution', label: 'Constitution' },
+  { key: 'intelligence', label: 'Intelligence' },
+  { key: 'wisdom', label: 'Wisdom' },
+  { key: 'charisma', label: 'Charisma' },
+] as const;
+
+const FIXTURE_SKILLS = [
+  { key: 'athletics', label: 'Athletics' },
+  { key: 'acrobatics', label: 'Acrobatics' },
+  { key: 'stealth', label: 'Stealth' },
+  { key: 'perception', label: 'Perception' },
+  { key: 'insight', label: 'Insight' },
+  { key: 'survival', label: 'Survival' },
+  { key: 'persuasion', label: 'Persuasion' },
+  { key: 'deception', label: 'Deception' },
+  { key: 'intimidation', label: 'Intimidation' },
+  { key: 'knowledge', label: 'Knowledge' },
+  { key: 'analysis', label: 'Analysis' },
+  { key: 'craft', label: 'Craft' },
+] as const;
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function savesFieldGroup(): Record<string, unknown> {
+  return Object.fromEntries(
+    FIXTURE_ABILITIES.map((ability) => [
+      ability.key,
+      {
+        schema: {
+          type: 'number',
+          label: `${ability.label} save`,
+          is_editable: false,
+          default: 0,
+        },
+      },
+    ]),
+  );
+}
+
+function skillsFieldGroup(): Record<string, unknown> {
+  return Object.fromEntries(
+    FIXTURE_SKILLS.map((skill) => [
+      skill.key,
+      {
+        children: {
+          bonus: {
+            schema: {
+              type: 'number',
+              label: `${skill.label} bonus`,
+              is_editable: true,
+              default: 0,
+              min: -10,
+              max: 20,
+              column_label: 'Bonus',
+            },
+          },
+          total: {
+            schema: {
+              type: 'number',
+              label: `${skill.label} total`,
+              is_editable: false,
+              default: 0,
+              column_label: 'Total',
+            },
+          },
+        },
+        columns: ['bonus', 'total'],
+      },
+    ]),
+  );
+}
+
+function configFieldGroup(): Record<string, unknown> {
+  return Object.fromEntries([
+    ...FIXTURE_ABILITIES.map((ability) => [
+      `save${capitalize(ability.key)}Prof`,
+      {
+        schema: {
+          type: 'number',
+          label: `${ability.label} save proficiency`,
+          is_editable: true,
+          default: 0,
+          min: 0,
+          max: 1,
+        },
+      },
+    ]),
+    ...FIXTURE_SKILLS.map((skill) => [
+      `skill${capitalize(skill.key)}Prof`,
+      {
+        schema: {
+          type: 'number',
+          label: `${skill.label} proficiency`,
+          is_editable: true,
+          default: 0,
+          min: 0,
+          max: 1,
+        },
+      },
+    ]),
+  ]);
+}
+
 export function fantasyFieldTree(): Record<string, unknown> {
   return {
     identity: {
@@ -237,11 +345,62 @@ export function fantasyFieldTree(): Record<string, unknown> {
         },
       },
     },
+    saves: {
+      label: 'Saves',
+      children: savesFieldGroup(),
+    },
+    skills: {
+      label: 'Skills',
+      children: skillsFieldGroup(),
+    },
+    config: {
+      label: 'Config',
+      children: configFieldGroup(),
+    },
+  };
+}
+
+function savesData(): Record<string, unknown> {
+  return {
+    strength: 3,
+    dexterity: 4,
+    constitution: 1,
+    intelligence: 0,
+    wisdom: -1,
+    charisma: 1,
+  };
+}
+
+function skillsData(): Record<string, unknown> {
+  return {
+    athletics: { bonus: 0, total: 5 },
+    acrobatics: { bonus: 0, total: 2 },
+    stealth: { bonus: 1, total: 3 },
+    perception: { bonus: 2, total: 1 },
+    insight: { bonus: 0, total: -1 },
+    survival: { bonus: 0, total: -1 },
+    persuasion: { bonus: 0, total: 1 },
+    deception: { bonus: 0, total: 1 },
+    intimidation: { bonus: 0, total: 1 },
+    knowledge: { bonus: 0, total: 0 },
+    analysis: { bonus: 0, total: 0 },
+    craft: { bonus: 0, total: 0 },
+  };
+}
+
+function configData(): Record<string, unknown> {
+  return {
+    ...Object.fromEntries(
+      FIXTURE_ABILITIES.map((ability) => [`save${capitalize(ability.key)}Prof`, 0]),
+    ),
+    ...Object.fromEntries(FIXTURE_SKILLS.map((skill) => [`skill${capitalize(skill.key)}Prof`, 0])),
+    saveDexterityProf: 1,
+    skillAthleticsProf: 1,
   };
 }
 
 export function fantasySheetData(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  const { stats, modifiers, derived, combat, ...identity } = overrides;
+  const { stats, modifiers, derived, combat, saves, skills, config, ...identity } = overrides;
   return {
     identity: {
       characterName: 'Aria',
@@ -281,6 +440,9 @@ export function fantasySheetData(overrides: Record<string, unknown> = {}): Recor
       hitPointsTemp: 0,
       ...(combat as Record<string, unknown> | undefined),
     },
+    saves: { ...savesData(), ...(saves as Record<string, unknown> | undefined) },
+    skills: { ...skillsData(), ...(skills as Record<string, unknown> | undefined) },
+    config: { ...configData(), ...(config as Record<string, unknown> | undefined) },
   };
 }
 
