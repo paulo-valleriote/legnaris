@@ -244,7 +244,8 @@ Backend:
   `dice_defaults.go`, `name_leaf.go`, `generation_metadata.go`, `dto.go` — boot validators and
   JSON shape.
 - `backend/internal/sheet/service.go`, `create_values.go` — create, fetch, patch, preview,
-  layout, delete, seeding and `CreateWithValues` for generation.
+  layout, delete, seeding and `CreateWithValues` for generation, which drops derived (non-editable) leaves sent back from the
+  preview and recalculates them, while unknown keys are still refused.
 - `backend/internal/sheet/repository.go` — reads, CAS PATCH, layout write and plan counters;
   `duplicate.go`, `limits.go`, `migrate.go`, `dto.go`, `events.go` — duplicate rules, limits,
   migration, DTO and events.
