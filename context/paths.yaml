@@ -182,7 +182,7 @@ paths:
     context: platform
   - target: web/package.json
     kind: file
-    context: web-client
+    context: platform
 
 env:
   - key: APP_ENV
