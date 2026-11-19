@@ -475,7 +475,7 @@ func TestIntegration_AdminOptionsMask(t *testing.T) {
 		})
 
 		t.Run("Edge: a CORS preflight OPTIONS "+path+" is also a 404 mask", func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodOptions, path, nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodOptions, path, nil)
 			req.Header.Set("Origin", "http://localhost:5173")
 			req.Header.Set("Access-Control-Request-Method", http.MethodPost)
 			req.Header.Set("Access-Control-Request-Headers", "authorization,content-type")
@@ -495,7 +495,7 @@ func TestIntegration_AdminAuditRequestIDIsServerGenerated(t *testing.T) {
 
 	expires := time.Now().UTC().Add(48 * time.Hour).Format(time.RFC3339)
 	body := fmt.Sprintf(`{"planId":"paid","expiresAt":%q,"reason":"support"}`, expires)
-	req := httptest.NewRequest(http.MethodPost, "/admin/users/"+targetID+"/comp", strings.NewReader(body))
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/admin/users/"+targetID+"/comp", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+adminToken)
 	req.Header.Set("X-Request-Id", "client-chosen")

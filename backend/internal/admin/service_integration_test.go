@@ -136,7 +136,7 @@ func TestService_AuditAndTransactions(t *testing.T) {
 		assert.Equal(t, plan.IDPaid, stored.Payload["plan_id"])
 		assert.Equal(t, testMeta.RequestID, stored.RequestID)
 		assert.Equal(t, testMeta.ClientIP, stored.ClientIP)
-		assert.NotEqual(t, sub.ID, "")
+		assert.NotEmpty(t, sub.ID)
 
 		view, err := service.User(ctx, target.ID)
 		require.NoError(t, err)

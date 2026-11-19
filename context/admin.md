@@ -19,6 +19,10 @@ generation counter, queue a refund. Every write appends an `admin_audit` row.
   row is the only record of who moved a paying account, and a crash between the
   two writes would lie either way; cost: MongoDB transactions, and a failing audit
   aborts the operation.
+- **A dedicated mTLS host** (LGN-262) over IP allow-lists or a VPN because
+  operators move between networks and the edge already terminates TLS; the
+  public API host answers 404 for `/admin/*`. Cost: client certificates to
+  issue, and revocation is a CA rotation plus a deploy.
 - **The refund queue** over a synchronous provider call because refunds already
   retry and dead-letter; cost: `202 requested` is all the operator sees.
 
@@ -114,6 +118,11 @@ resolved client address. There is no update or delete path; boot indexes
   `backend/cmd/markdown-check`; the same command backs the Claude Code
   `PreToolUse` hook in `.claude/settings.json`.
 
+- `deploy/traefik/dynamic.yml` — the `admin` router and `admin-mtls` TLS options;
+  `deploy/traefik/admin-client-ca.pem` the public admin CA;
+  `deploy/admin/mtls.sh` issues and revokes client certificates
+  (`deploy/admin_mtls_test.go`).
+
 ## Tools & dependencies
 
 - MongoDB with replica-set transactions; one `db.Transactor` guards the entity
@@ -124,8 +133,10 @@ resolved client address. There is no update or delete path; boot indexes
 
 ## Known limits
 
-- Production exposure and per-admin step-up are still open (LGN-262, LGN-263):
-  treat `/admin/*` as reachable only from an operator network until both land.
+- Per-admin step-up is still open (LGN-263); the mTLS certificate and the
+  allow-list are the only factors beyond the session.
+- Traefik checks no revocation list: revoking a client certificate rotates the
+  admin CA, and the old certificate works until that rotation is deployed.
 - No role model, per-action permission or read auditing; the allow-list is
   all-or-nothing and only changes on restart.
 - The audit has no retention or rotation; it grows forever and is queryable only

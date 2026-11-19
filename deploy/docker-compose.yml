@@ -66,11 +66,13 @@ services:
       API_DOMAIN: ${API_DOMAIN}
       WEB_DOMAIN: ${WEB_DOMAIN}
       OPS_DOMAIN: ${OPS_DOMAIN}
+      ADMIN_DOMAIN: ${ADMIN_DOMAIN:-admin-api-legnaris.paulovalleriote.io}
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./traefik/dynamic.yml:/etc/traefik/dynamic/dynamic.yml:ro
+      - ./traefik/admin-client-ca.pem:/etc/traefik/admin-ca/admin-client-ca.pem:ro
       - letsencrypt:/letsencrypt
     networks:
       - edge
@@ -166,6 +168,9 @@ services:
       # Character generation gates (LGN-186). The API only reserves
       # jobs and enforces the kill-switch, the daily cap and the rate limits;
       # the LLM credentials live in the worker, which runs the jobs.
+      # Admin backoffice allow-list (LGN-189). Empty disables /admin; the edge
+      # serves it only on the mTLS ADMIN_DOMAIN (LGN-262).
+      ADMIN_USER_IDS: ${ADMIN_USER_IDS:-}
       GENERATION_ENABLED: ${GENERATION_ENABLED:-false}
       GENERATION_DAILY_CAP: ${GENERATION_DAILY_CAP:-200}
       GENERATION_CREATE_RATE_LIMIT_ATTEMPTS: ${GENERATION_CREATE_RATE_LIMIT_ATTEMPTS:-5}

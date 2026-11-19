@@ -563,11 +563,11 @@ func TestService_GrantComp(t *testing.T) {
 		r.expectNoLive(t, targetID)
 		r.subs.EXPECT().InsertSubscription(mock.Anything, mock.Anything).Return(nil).Once()
 		r.expectPlanSync()
-		r.expectAudit(t, admin.ActionCompGrant, strings.Repeat("é", admin.MaxReasonLength), nil)
+		r.expectAudit(t, admin.ActionCompGrant, strings.Repeat("\u00e9", admin.MaxReasonLength), nil)
 
 		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{
 			PlanID: plan.IDPaid,
-			Reason: strings.Repeat("é", admin.MaxReasonLength),
+			Reason: strings.Repeat("\u00e9", admin.MaxReasonLength),
 		}, testMeta)
 		require.NoError(t, err)
 	})
@@ -578,7 +578,7 @@ func TestService_GrantComp(t *testing.T) {
 
 		_, err := r.svc.GrantComp(context.Background(), actorID, targetID, admin.CompGrant{
 			PlanID: plan.IDPaid,
-			Reason: strings.Repeat("é", admin.MaxReasonLength+1),
+			Reason: strings.Repeat("\u00e9", admin.MaxReasonLength+1),
 		}, testMeta)
 		appErr := requireAppErr(t, err, apperr.CodeInvalidRequest, 400)
 		assert.Equal(t, admin.MsgReasonTooLong, appErr.Message)

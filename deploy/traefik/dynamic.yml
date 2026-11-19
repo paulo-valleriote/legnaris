@@ -3,6 +3,7 @@
 #   {{ env "API_DOMAIN" }}        public API hostname
 #   {{ env "WEB_DOMAIN" }}        public web client hostname
 #   {{ env "OPS_DOMAIN" }}        observability + OAuth hostname
+#   {{ env "ADMIN_DOMAIN" }}      admin backoffice hostname (mTLS only)
 # Every router uses the `websecure` entrypoint (TLS); the file provider is the
 # only provider, so no Docker socket is needed.
 
@@ -140,8 +141,10 @@ http:
     # deliberately excluded: Prometheus scrapes /metrics and the container
     # healthcheck probes /ready directly on the internal network (app:8080).
     # /ready pings the database, so it must not be reachable by anonymous clients.
+    # /admin is excluded too: the backoffice is reachable only on the mTLS host,
+    # so the public host answers 404 for it.
     app:
-      rule: 'Host(`{{ env "API_DOMAIN" }}`) && !PathPrefix(`/metrics`) && !PathPrefix(`/ready`)'
+      rule: 'Host(`{{ env "API_DOMAIN" }}`) && !PathPrefix(`/metrics`) && !PathPrefix(`/ready`) && !PathPrefix(`/admin`)'
       entryPoints: ['websecure']
       service: app
 
@@ -154,6 +157,20 @@ http:
       middlewares: ["probe-rate-limit"]
       priority: 1000
 
+    # Admin backoffice (LGN-262): its own host, and only /admin on it. The TLS
+    # handshake demands a client certificate signed by the admin CA; the API's
+    # ADMIN_USER_IDS allow-list stays as the second layer. Traefik answers 421
+    # when the SNI and the Host header disagree, so the public host's TLS
+    # options cannot be used to skip the client certificate.
+    admin:
+      rule: 'Host(`{{ env "ADMIN_DOMAIN" }}`) && PathPrefix(`/admin`)'
+      entryPoints: ['websecure']
+      service: app
+      middlewares: ["security-headers"]
+      tls:
+        certResolver: letsencrypt
+        options: admin-mtls
+
     # Public web client (no auth) on its own domain; it reaches the API cross
     # origin, which the API's CORS allowlist has to accept.
     web:
@@ -161,3 +178,13 @@ http:
       entryPoints: ['websecure']
       service: web
       middlewares: ["web-security-headers"]
+
+tls:
+  options:
+    admin-mtls:
+      minVersion: VersionTLS12
+      sniStrict: true
+      clientAuth:
+        caFiles:
+          - /etc/traefik/admin-ca/admin-client-ca.pem
+        clientAuthType: RequireAndVerifyClientCert

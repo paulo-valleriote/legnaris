@@ -5,10 +5,49 @@ operations for Plans, quotas and refunds under `/admin/*`. Every admin action is
 recorded in the append-only `admin_audit` collection in the same MongoDB
 transaction as the mutation it describes.
 
-> **Production exposure is not settled here.** LGN-262 covers serving `/admin/*`
-> behind the mTLS host, and LGN-263 covers OTP step-up for admins. Until both
-> land, treat these routes as operator-only and keep `ADMIN_USER_IDS` empty or
-> limited to a controlled account.
+> **Production exposure (LGN-262).** `/admin/*` is served only on
+> `ADMIN_DOMAIN` (default `admin-api-legnaris.paulovalleriote.io`), and the TLS
+> handshake there requires a client certificate signed by the admin CA. The
+> public API host answers `404` for `/admin/*`. OTP step-up for admins is
+> LGN-263; until it lands, keep `ADMIN_USER_IDS` limited to controlled accounts.
+
+## Client certificates (mTLS)
+
+The CA private key and every client key live only on the operator's machine,
+in `ADMIN_CA_DIR` (default `~/.config/legnaris/admin-ca`). Back that directory
+up offline. Only the public CA certificate is committed, as
+`deploy/traefik/admin-client-ca.pem`, and Traefik mounts it read-only.
+
+```bash
+deploy/admin/mtls.sh init-ca deploy/traefik/admin-client-ca.pem
+deploy/admin/mtls.sh issue alice 90
+deploy/admin/mtls.sh list
+```
+
+`issue` writes `clients/<name>/cert.pem` and `key.pem` (at most 365 days). Call
+the API with both:
+
+```bash
+curl --cert ~/.config/legnaris/admin-ca/clients/alice/cert.pem \
+     --key  ~/.config/legnaris/admin-ca/clients/alice/key.pem \
+     -H "Authorization: Bearer $TOKEN" \
+     https://admin-api-legnaris.paulovalleriote.io/admin/users?email=x@example.com
+```
+
+Traefik does not check revocation lists, so revoking rotates the CA:
+
+```bash
+deploy/admin/mtls.sh revoke alice deploy/traefik/admin-client-ca.pem
+```
+
+The revoked certificate keeps working until the new CA is deployed: commit the
+updated `admin-client-ca.pem`, merge to `main`, then hand each remaining
+operator their reissued `cert.pem` (keys are unchanged). Renewing an expired
+certificate is a `revoke` followed by an `issue` under the same name.
+
+Expected answers: no or unknown certificate fails the TLS handshake; a valid
+certificate on any path other than `/admin/*` is `404`; a request whose SNI is
+another host but whose `Host` is the admin host is `421`.
 
 ## Access control
 

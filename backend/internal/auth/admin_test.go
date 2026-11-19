@@ -93,7 +93,7 @@ func TestAdminOnly(t *testing.T) {
 				return c.NoContent(http.StatusOK)
 			}, auth.AdminOnly(tokens, tc.adminIDs))
 
-			req := httptest.NewRequest(http.MethodGet, "/admin/users/"+adminDeniedID, nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/users/"+adminDeniedID, nil)
 			if tc.authHeader != "" {
 				req.Header.Set("Authorization", tc.authHeader)
 			}
@@ -140,7 +140,7 @@ func TestAdminActive(t *testing.T) {
 
 		handled := false
 		e := newEcho(checker, true, &handled)
-		req := httptest.NewRequest(http.MethodGet, "/admin/users/"+adminDeniedID, nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/users/"+adminDeniedID, nil)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 
@@ -155,7 +155,7 @@ func TestAdminActive(t *testing.T) {
 
 		handled := false
 		e := newEcho(checker, true, &handled)
-		req := httptest.NewRequest(http.MethodGet, "/admin/users/"+adminDeniedID, nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/users/"+adminDeniedID, nil)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 
@@ -170,7 +170,7 @@ func TestAdminActive(t *testing.T) {
 		checker := mocks.NewMockService(t)
 		handled := false
 		e := newEcho(checker, false, &handled)
-		req := httptest.NewRequest(http.MethodGet, "/admin/users/"+adminDeniedID, nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/users/"+adminDeniedID, nil)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 
@@ -188,7 +188,7 @@ func TestAdminActive(t *testing.T) {
 
 		handled := false
 		e := newEcho(checker, true, &handled)
-		req := httptest.NewRequest(http.MethodGet, "/admin/users/"+adminDeniedID, nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/users/"+adminDeniedID, nil)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 
@@ -206,7 +206,7 @@ func TestAdminActive(t *testing.T) {
 
 		handled := false
 		e := newEcho(checker, true, &handled)
-		req := httptest.NewRequest(http.MethodGet, "/admin/users/"+adminDeniedID, nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/admin/users/"+adminDeniedID, nil)
 		rec := httptest.NewRecorder()
 		e.ServeHTTP(rec, req)
 
