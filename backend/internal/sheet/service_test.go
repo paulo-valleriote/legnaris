@@ -12,6 +12,7 @@ import (
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/sheettest"
 	"legnaris/backend/internal/sheet/template"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
@@ -255,7 +256,7 @@ func TestService_PartialUpdate(t *testing.T) {
 			setupMocks: func(m *mocks.MockRepository) {
 				m.EXPECT().
 					FetchByID(context.Background(), sheetID).
-					Return(nil, sheet.ErrSheetNotFound).
+					Return(nil, sheeterr.ErrSheetNotFound).
 					Once()
 			},
 			expectedErr: "sheet not found",
@@ -778,7 +779,7 @@ func TestService_Preview(t *testing.T) {
 
 	t.Run("Error: unknown sheet returns 404 NOT_FOUND", func(t *testing.T) {
 		mockRepo := mocks.NewMockRepository(t)
-		mockRepo.EXPECT().FetchByID(ctx, missingSheetID).Return(nil, sheet.ErrSheetNotFound).Once()
+		mockRepo.EXPECT().FetchByID(ctx, missingSheetID).Return(nil, sheeterr.ErrSheetNotFound).Once()
 
 		svc := sheet.NewService(mockRepo, templatemocks.NewMockService(t), dagCache, testLog, events.NoOp{}, limitOpts(t))
 
@@ -1006,7 +1007,7 @@ func TestService_PreviewTemplate(t *testing.T) {
 			{
 				name:       "Error: unknown template slug",
 				id:         "unknown_template",
-				fetchErr:   apperr.NewError(apperr.CodeNotFound, "template not found", nil),
+				fetchErr:   template.ErrTemplateNotFound,
 				wantCode:   apperr.CodeNotFound,
 				wantStatus: 404,
 				wantMsg:    "template not found",
@@ -1262,22 +1263,36 @@ func TestService_Create_SeedsTypedValues(t *testing.T) {
 
 func TestService_Create_TemplateIDErrors(t *testing.T) {
 	tests := []struct {
-		name     string
-		id       string
-		sentinel error
-		wantMsg  string
+		name       string
+		id         string
+		sentinel   error
+		wantCode   apperr.Code
+		wantStatus int
+		wantMsg    string
 	}{
 		{
-			name:     "Edge: empty template ID",
-			id:       "",
-			sentinel: template.ErrTemplateIDNotProvided,
-			wantMsg:  "template id not provided",
+			name:       "Edge: empty template ID",
+			id:         "",
+			sentinel:   template.ErrTemplateIDNotProvided,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "template id not provided",
 		},
 		{
-			name:     "Error: malformed template ID slug",
-			id:       "Fantasy-V1",
-			sentinel: template.ErrTemplateIDInvalid,
-			wantMsg:  "template id is not a valid slug",
+			name:       "Error: malformed template ID slug",
+			id:         "Fantasy-V1",
+			sentinel:   template.ErrTemplateIDInvalid,
+			wantCode:   apperr.CodeInvalidRequest,
+			wantStatus: 400,
+			wantMsg:    "template id is not a valid slug",
+		},
+		{
+			name:       "Error: unknown template slug",
+			id:         "unknown_template",
+			sentinel:   template.ErrTemplateNotFound,
+			wantCode:   apperr.CodeNotFound,
+			wantStatus: 404,
+			wantMsg:    "template not found",
 		},
 	}
 
@@ -1305,8 +1320,8 @@ func TestService_Create_TemplateIDErrors(t *testing.T) {
 
 			var appErr *apperr.Error
 			require.ErrorAs(t, err, &appErr)
-			assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
-			assert.Equal(t, 400, appErr.HttpStatus())
+			assert.Equal(t, tc.wantCode, appErr.Code)
+			assert.Equal(t, tc.wantStatus, appErr.HttpStatus())
 			assert.Equal(t, tc.wantMsg, appErr.Message)
 		})
 	}
@@ -1464,7 +1479,7 @@ func TestService_FetchByID(t *testing.T) {
 		{
 			name:       "Error: missing sheet maps ErrSheetNotFound to 404",
 			id:         missingSheetID,
-			repoErr:    sheet.ErrSheetNotFound,
+			repoErr:    sheeterr.ErrSheetNotFound,
 			callRepo:   true,
 			wantCode:   apperr.CodeNotFound,
 			wantStatus: 404,
@@ -1552,7 +1567,7 @@ func TestService_FetchMySheet(t *testing.T) {
 
 	t.Run("Error: an owner with no sheet is a 404 NOT_FOUND", func(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
-		repo.EXPECT().FetchByOwnerID(context.Background(), ownerUserID).Return(nil, sheet.ErrSheetNotFound).Once()
+		repo.EXPECT().FetchByOwnerID(context.Background(), ownerUserID).Return(nil, sheeterr.ErrSheetNotFound).Once()
 
 		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{}, limitOpts(t))
 
@@ -1773,7 +1788,7 @@ func TestService_Delete(t *testing.T) {
 
 	t.Run("Error: a second delete is a 404 and deletes nothing", func(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
-		repo.EXPECT().FetchByID(context.Background(), updateSheetID).Return(nil, sheet.ErrSheetNotFound).Once()
+		repo.EXPECT().FetchByID(context.Background(), updateSheetID).Return(nil, sheeterr.ErrSheetNotFound).Once()
 
 		svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{}, limitOpts(t))
 

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"legnaris/backend/internal/sheet"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/db/dbtest"
 	"legnaris/backend/shared/logger"
@@ -62,17 +63,17 @@ func TestRepository_OwnerScopedReadsAndWrites(t *testing.T) {
 	t.Run("Edge: an unknown owner has no sheet", func(t *testing.T) {
 		found, err := repo.FetchByOwnerID(ctx, "owner-nobody")
 		assert.Nil(t, found)
-		assert.ErrorIs(t, err, sheet.ErrSheetNotFound)
+		assert.ErrorIs(t, err, sheeterr.ErrSheetNotFound)
 	})
 
 	t.Run("Happy path: delete removes the owner's sheet and the second delete misses", func(t *testing.T) {
 		require.NoError(t, repo.DeleteByID(ctx, "01900000-0000-7000-8000-0000000000a1"))
 
 		_, err := repo.FetchByID(ctx, "01900000-0000-7000-8000-0000000000a1")
-		assert.ErrorIs(t, err, sheet.ErrSheetNotFound)
+		assert.ErrorIs(t, err, sheeterr.ErrSheetNotFound)
 
 		err = repo.DeleteByID(ctx, "01900000-0000-7000-8000-0000000000a1")
-		assert.ErrorIs(t, err, sheet.ErrSheetNotFound)
+		assert.ErrorIs(t, err, sheeterr.ErrSheetNotFound)
 	})
 }
 
@@ -109,7 +110,7 @@ func TestRepository_UpdateLayout(t *testing.T) {
 
 	t.Run("Error: an unknown sheet is ErrSheetNotFound", func(t *testing.T) {
 		err := repo.UpdateLayout(ctx, missingID, layoutA)
-		assert.ErrorIs(t, err, sheet.ErrSheetNotFound)
+		assert.ErrorIs(t, err, sheeterr.ErrSheetNotFound)
 	})
 
 	t.Run("Happy path: the layout round-trips and no other field changes", func(t *testing.T) {
@@ -249,7 +250,7 @@ func TestRepository_PartialUpdateVersion(t *testing.T) {
 		require.NoError(t, putErr(repo.PartialUpdate(ctx, sheetID, 0, dexterityUpdate(18))))
 
 		err := putErr(repo.PartialUpdate(ctx, sheetID, 0, dexterityUpdate(20)))
-		require.ErrorIs(t, err, sheet.ErrVersionConflict)
+		require.ErrorIs(t, err, sheeterr.ErrVersionConflict)
 
 		stored, err := repo.FetchByID(ctx, sheetID)
 		require.NoError(t, err)
@@ -263,20 +264,20 @@ func TestRepository_PartialUpdateVersion(t *testing.T) {
 		require.NoError(t, putErr(repo.PartialUpdate(ctx, sheetID, 1, dexterityUpdate(19))))
 
 		err := putErr(repo.PartialUpdate(ctx, sheetID, 1, dexterityUpdate(18)))
-		assert.ErrorIs(t, err, sheet.ErrVersionConflict)
+		assert.ErrorIs(t, err, sheeterr.ErrVersionConflict)
 	})
 
 	t.Run("Edge: a future expected version conflicts", func(t *testing.T) {
 		seed(t, sheetID)
 
 		err := putErr(repo.PartialUpdate(ctx, sheetID, 5, dexterityUpdate(18)))
-		assert.ErrorIs(t, err, sheet.ErrVersionConflict)
+		assert.ErrorIs(t, err, sheeterr.ErrVersionConflict)
 	})
 
 	t.Run("Edge: an unknown sheet reports ErrSheetNotFound, not a retryable conflict", func(t *testing.T) {
 		_, err := repo.PartialUpdate(ctx, missingID, 0, dexterityUpdate(18))
-		assert.ErrorIs(t, err, sheet.ErrSheetNotFound)
-		assert.NotErrorIs(t, err, sheet.ErrVersionConflict)
+		assert.ErrorIs(t, err, sheeterr.ErrSheetNotFound)
+		assert.NotErrorIs(t, err, sheeterr.ErrVersionConflict)
 	})
 
 	t.Run("Happy path: PartialUpdate returns the version it stored", func(t *testing.T) {
@@ -295,7 +296,7 @@ func TestRepository_PartialUpdateVersion(t *testing.T) {
 		seed(t, sheetID)
 
 		version, err := repo.PartialUpdate(ctx, sheetID, 7, dexterityUpdate(18))
-		require.ErrorIs(t, err, sheet.ErrVersionConflict)
+		require.ErrorIs(t, err, sheeterr.ErrVersionConflict)
 		assert.Equal(t, int64(0), version)
 	})
 
@@ -345,7 +346,7 @@ func TestRepository_PartialUpdateVersion(t *testing.T) {
 			switch {
 			case err == nil:
 				wins++
-			case errors.Is(err, sheet.ErrVersionConflict):
+			case errors.Is(err, sheeterr.ErrVersionConflict):
 				conflicts++
 			default:
 				t.Fatalf("unexpected error: %v", err)

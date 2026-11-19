@@ -7,6 +7,7 @@ import (
 
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
 )
@@ -67,7 +68,7 @@ const (
 type noCharacters struct{}
 
 func (noCharacters) FetchByID(context.Context, string) (*sheet.Sheet, error) {
-	return nil, sheet.ErrSheetNotFound
+	return nil, sheeterr.ErrSheetNotFound
 }
 
 func (noCharacters) LinkCampaign(context.Context, string, *string, string) (bool, error) {
@@ -139,7 +140,7 @@ func (s *ServiceImpl) Link(ctx context.Context, cmd LinkCommand) (View, error) {
 
 func (s *ServiceImpl) claimSheet(txCtx context.Context, c *Campaign, userID, sheetID string) (int64, error) {
 	stored, err := s.sheets.FetchByID(txCtx, sheetID)
-	if errors.Is(err, sheet.ErrSheetNotFound) {
+	if errors.Is(err, sheeterr.ErrSheetNotFound) {
 		return 0, sheetNotFound()
 	}
 	if err != nil {
@@ -267,7 +268,7 @@ func (s *ServiceImpl) ReadLinkedSheet(ctx context.Context, q ReadLinkedSheetQuer
 	}
 	member, _ := c.MemberOf(q.ViewerID)
 	stored, err := s.sheets.FetchByID(ctx, q.SheetID)
-	if errors.Is(err, sheet.ErrSheetNotFound) {
+	if errors.Is(err, sheeterr.ErrSheetNotFound) {
 		return LinkedSheetResult{}, sheetNotFound()
 	}
 	if err != nil {

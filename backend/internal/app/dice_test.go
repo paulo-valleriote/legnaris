@@ -8,6 +8,7 @@ import (
 
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/response"
 
@@ -83,7 +84,7 @@ func TestErrorMapping_PatchDice(t *testing.T) {
 		},
 		{
 			name: "Error: missing sheet is 404", method: http.MethodPatch, path: path, body: validBody,
-			fetchErr: sheet.ErrSheetNotFound, wantFetch: true,
+			fetchErr: sheeterr.ErrSheetNotFound, wantFetch: true,
 			wantStatus: http.StatusNotFound, wantCode: "NOT_FOUND", wantMessage: "sheet not found",
 		},
 		{

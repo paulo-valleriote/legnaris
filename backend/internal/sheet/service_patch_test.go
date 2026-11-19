@@ -11,6 +11,7 @@ import (
 	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/sheettest"
 	"legnaris/backend/internal/sheet/template"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
@@ -179,7 +180,7 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
 		log, lines := newPatchLogger(t)
 		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(patchSheet(3, "Aria", 14), nil).Once()
-		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).Return(0, sheet.ErrVersionConflict).Once()
+		repo.EXPECT().PartialUpdate(ctx, patchSheetID, int64(3), mock.Anything).Return(0, sheeterr.ErrVersionConflict).Once()
 
 		cascade, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, dexterityPatch(18))
 		require.Error(t, err)
@@ -189,7 +190,7 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		assert.Equal(t, apperr.CodeConflict, appErr.Code)
 		assert.Equal(t, 409, appErr.HttpStatus())
 		assert.Equal(t, time.Second, appErr.RetryAfter)
-		assert.ErrorIs(t, err, sheet.ErrVersionConflict)
+		assert.ErrorIs(t, err, sheeterr.ErrVersionConflict)
 
 		require.Len(t, *lines, 1)
 		assert.Equal(t, "Warn", (*lines)[0].level)

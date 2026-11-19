@@ -2,13 +2,10 @@ package sheet
 
 import (
 	"context"
-	"errors"
 
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/shared/apperr"
 )
-
-var ErrSheetLimitReached = errors.New("sheet limit reached")
 
 type PlanSource interface {
 	PlanOf(ctx context.Context, ownerID string) (plan.Plan, error)

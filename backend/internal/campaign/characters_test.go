@@ -5,14 +5,16 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/campaign/campaigntest"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
+	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/shared/apperr"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 func sheetOf(t *testing.T, owner string, template string, kind plan.SheetKind, linkedTo *string) sheet.Sheet {
@@ -201,7 +203,7 @@ func TestLink(t *testing.T) {
 					},
 				).Maybe()
 			} else {
-				h.sheets.EXPECT().FetchByID(mock.Anything, mock.Anything).Return(nil, sheet.ErrSheetNotFound).Maybe()
+				h.sheets.EXPECT().FetchByID(mock.Anything, mock.Anything).Return(nil, sheeterr.ErrSheetNotFound).Maybe()
 			}
 			if tc.extra != nil {
 				tc.extra(h)
@@ -425,7 +427,7 @@ func TestReadLinkedSheet(t *testing.T) {
 			h := newHarness(t)
 			h.loadAlways(base)
 			if tc.missingRow {
-				h.sheets.EXPECT().FetchByID(mock.Anything, linked.ID).Return(nil, sheet.ErrSheetNotFound).Maybe()
+				h.sheets.EXPECT().FetchByID(mock.Anything, linked.ID).Return(nil, sheeterr.ErrSheetNotFound).Maybe()
 			} else {
 				h.sheetReturns(tc.sheet)
 			}
