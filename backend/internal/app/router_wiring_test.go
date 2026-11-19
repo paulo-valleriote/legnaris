@@ -155,7 +155,7 @@ func TestRouterWiring_AuthRouteInventory(t *testing.T) {
 
 	for _, route := range got {
 		assert.NotContains(t, route, "purpose",
-			"the challenge purpose must never be part of the route contract (OTP-09)")
+			"the challenge purpose must never be part of the route contract")
 	}
 }
 

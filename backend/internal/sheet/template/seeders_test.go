@@ -286,7 +286,7 @@ func TestFantasyV1_Structure(t *testing.T) {
 	t.Run("Happy path: spells expose the header, nine slot pools and lists", func(t *testing.T) {
 		spells := fantasyV1Template.Fields[fieldNameSpells].Children
 		assert.NotContains(t, spells, "ability",
-			"EXC-19: the redundant spellcasting ability text leaf is gone")
+			"the redundant spellcasting ability text leaf is gone")
 		for _, name := range []string{"atWill", "list"} {
 			require.Equal(t, fieldTypeText, spells[name].Schema.Type, name)
 		}
