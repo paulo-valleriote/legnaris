@@ -43,10 +43,6 @@ func NewAccountSettler(repo Repository, tx TransactionRunner, ownership Ownershi
 	return &AccountSettler{repo: repo, tx: tx, ownership: ownership, unlinker: unlinker, publisher: publisher, now: now}, nil
 }
 
-// SettleAccount removes userID from every active Campaign it belongs to, before the account is deleted.
-// An Owner hands ownership to the longest-standing GM; when no GM can take it, the Campaign enters the
-// deleting state. Each Campaign is settled in its own transaction and every step re-reads the Campaign,
-// so a retry after a crash finds only what is still left to do.
 func (a *AccountSettler) SettleAccount(ctx context.Context, userID string) error {
 	if err := requireUser(userID); err != nil {
 		return err
@@ -179,8 +175,6 @@ func (a *AccountSettler) publishEvent(eventType, actorID string, c Campaign, dat
 	})
 }
 
-// successorCandidates lists the other GMs, longest-standing first. Ties on the join time go to the
-// smaller user id so every retry picks the same successor.
 func successorCandidates(c *Campaign, userID string) []string {
 	var gms []Member
 	for _, m := range c.Members {
@@ -188,17 +182,19 @@ func successorCandidates(c *Campaign, userID string) []string {
 			gms = append(gms, m)
 		}
 	}
-	slices.SortFunc(gms, func(a, b Member) int {
-		if order := a.JoinedAt.Compare(b.JoinedAt); order != 0 {
-			return order
-		}
-		return strings.Compare(a.UserID, b.UserID)
-	})
+	slices.SortFunc(gms, compareSuccessorSeniority)
 	ids := make([]string, 0, len(gms))
 	for _, m := range gms {
 		ids = append(ids, m.UserID)
 	}
 	return ids
+}
+
+func compareSuccessorSeniority(a, b Member) int {
+	if order := a.JoinedAt.Compare(b.JoinedAt); order != 0 {
+		return order
+	}
+	return strings.Compare(a.UserID, b.UserID)
 }
 
 func transferOwnership(c *Campaign, from, to string) error {
