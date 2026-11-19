@@ -32,14 +32,17 @@ func declaredCodes(t *testing.T) []string {
 	t.Helper()
 
 	fset := token.NewFileSet()
-	packages, err := parser.ParseDir(fset, ".", func(info os.FileInfo) bool {
-		return !strings.HasSuffix(info.Name(), "_test.go")
-	}, 0)
+	paths, err := filepath.Glob("*.go")
 	require.NoError(t, err)
 
 	seen := make(map[string]struct{})
-	for _, pkg := range packages {
-		for _, file := range pkg.Files {
+	for _, path := range paths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fset, path, nil, 0)
+		require.NoError(t, err)
+		{
 			for _, decl := range file.Decls {
 				gen, ok := decl.(*ast.GenDecl)
 				if !ok || gen.Tok != token.CONST {
