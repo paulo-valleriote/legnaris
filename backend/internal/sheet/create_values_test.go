@@ -30,6 +30,7 @@ func TestService_CreateWithValues(t *testing.T) {
 		wantCode    apperr.Code
 		wantStatus  int
 		wantDex     any
+		wantMod     any
 		wantHookRan bool
 	}{
 		{name: "Error: an empty owner is refused before any read", owner: "", kind: "character", wantCode: apperr.CodeUnauthorized, wantStatus: 401},
@@ -40,6 +41,9 @@ func TestService_CreateWithValues(t *testing.T) {
 		{name: "Error: a failing hook aborts the Sheet", owner: ownerUserID, kind: "character", hook: func(context.Context, *sheet.Sheet) error { return errHookRefused }, wantCreate: true, wantHookRan: true, wantCode: apperr.CodeInternal, wantStatus: 500},
 		{name: "Edge: an empty value set keeps the seeded defaults", owner: ownerUserID, kind: "character", wantCreate: true, wantDex: 10},
 		{name: "Edge: a nil hook is allowed", owner: ownerUserID, kind: "character", values: map[string]any{"stats": map[string]any{"dexterity": 14}}, wantCreate: true, wantDex: 14},
+		{name: "Edge: a derived value sent back with the editable ones is ignored and recalculated", owner: ownerUserID, kind: "character", values: map[string]any{"stats": map[string]any{"dexterity": 14}, "modifiers": map[string]any{"dexterityMod": 99}}, wantCreate: true, wantDex: 14, wantMod: 2},
+		{name: "Edge: only derived values keep the seeded defaults", owner: ownerUserID, kind: "character", values: map[string]any{"modifiers": map[string]any{"dexterityMod": 99}}, wantCreate: true, wantDex: 10, wantMod: 0},
+		{name: "Error: an unknown field next to a derived one is still rejected", owner: ownerUserID, kind: "character", values: map[string]any{"modifiers": map[string]any{"dexterityMod": 99, "nope": 1}}, wantCode: apperr.CodeUnknownField, wantStatus: 400},
 		{name: "Happy path: values are validated and merged, and the hook runs in the transaction", owner: ownerUserID, kind: "character", values: map[string]any{"stats": map[string]any{"dexterity": 14}}, hook: func(context.Context, *sheet.Sheet) error { return nil }, wantCreate: true, wantHookRan: true, wantDex: 14},
 	}
 
@@ -77,6 +81,9 @@ func TestService_CreateWithValues(t *testing.T) {
 				require.NotNil(t, created)
 				assert.NotEmpty(t, created.ID)
 				assert.EqualValues(t, tc.wantDex, created.Data["stats"].(map[string]any)["dexterity"])
+				if tc.wantMod != nil {
+					assert.EqualValues(t, tc.wantMod, created.Data["modifiers"].(map[string]any)["dexterityMod"])
+				}
 				return
 			}
 
