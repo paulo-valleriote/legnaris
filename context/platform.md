@@ -164,7 +164,8 @@ sender prints one-time codes, and every run starts from empty data.
 | `deploy/docker-compose.yml` | The production stack, networks, volumes and health checks. |
 | `deploy/docker-compose.vps.yml` | Override that swaps local builds for SHA-tagged GHCR images. |
 | `deploy/docker-compose.dev-observability.yml`, `deploy/docker-compose.loadtest.yml` | Dev Prometheus and Grafana, plus the throwaway load-test overlay. |
-| `deploy/traefik/` | Static flags, routes, middlewares, headers and the OAuth gate. |
+| `deploy/traefik/` | Static flags, routes, middlewares, headers and the OAuth gate; the `admin` router serves `/admin` only on `ADMIN_DOMAIN` behind the `admin-mtls` client-certificate options and the committed public `admin-client-ca.pem`. |
+| `deploy/admin/mtls.sh` | Admin CA and client certificates: issue, list, and revoke by rotating the CA. |
 | `deploy/mongodb/` | Keyfile, `rs0` initiation and user provisioning. |
 | `deploy/rabbitmq/` | Pinned broker image, Prometheus plugin, vhost and accounts. |
 | `deploy/prometheus/`, `deploy/grafana/`, `deploy/loki/`, `deploy/alloy/` | Scrape targets, alerts, dashboards, log store and Docker-log collector. |
@@ -175,7 +176,8 @@ sender prints one-time codes, and every run starts from empty data.
 | `Makefile`, `scripts/dev.sh`, `scripts/loadtest-dev.sh`, `loadtest/k6/` | Local entry points and the k6 scenarios. |
 | `.golangci.yml`, `.mockery.yaml`, `.githooks/pre-commit` | Linter set, mock targets and the local format hook. |
 | `web/vite.config.ts`, `web/playwright.config.ts`, `web/e2e/` | Vitest coverage gates and the browser suite. |
-| `backend/shared/env`, `backend/internal/platform`, `backend/internal/sweeper` | Configuration parsing, health, metrics, rate limiting, CORS, client IP and background cleanup. |
+| `backend/shared/env`, `backend/internal/platform`, `backend/internal/sweeper` | Configuration parsing (including the boot-validated `ADMIN_USER_IDS` allow-list), health, metrics, rate limiting, CORS, client IP and background cleanup. |
+| `backend/shared/db/indexes.go` | Every collection's indexes, including `admin_audit` (target, actor, action by time) and the expired-comp lookup on `subscriptions`. |
 | `.opencode/agents/review/`, `.opencode/commands/`, `.claude/skills/` | Review subagents, spec commands and the Jira skill. |
 
 ## Tools & dependencies

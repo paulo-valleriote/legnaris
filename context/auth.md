@@ -194,6 +194,7 @@ The bearer subject is the only identity: controllers copy `auth.UserID(c)` into 
 - `backend/internal/user/` — account record and DTO, canonical email, repository and unique-key translation, cached repository, deletion store.
 - `backend/internal/trial/` — gate that grants the free trial on first verification and caps accounts per client address.
 - `backend/internal/accountdeletion/` — deletion cascade and the `users_deleting` sweeper queue.
+- `backend/internal/auth/admin.go` — `AdminOnly` (bearer token plus the `ADMIN_USER_IDS` allow-list) and `AdminActive` gates for `/admin/*`; every failure is masked as `404 NOT_FOUND` (see `context/admin.md`).
 - `backend/internal/app/` — `auth.go` and `auth_challenge.go` (HTTP controllers and cookie handling), `router.go` (route wiring), `ratelimit.go` and `limiters.go`, `origin.go`, `trial.go`, `email_intent.go`.
 - `backend/shared/env/env.go` — keys and defaults; `backend/shared/db/indexes.go` — unique and TTL indexes; `backend/internal/platform/ratelimit/`, `clientip/`, `metrics/` — shared limiter, trusted-proxy client address, auth metrics.
 - `backend/internal/email/outbox/` and `backend/cmd/relay` — asynchronous delivery and the deletion sweeper; owned by `events-and-email`.

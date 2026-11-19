@@ -126,6 +126,7 @@ Output is parsed as strict JSON (1 MiB bound), rejected on unknown keys, checked
 
 ## Code map
 
+- `backend/internal/quota` — `ResetDaily` deletes today's UTC counter for one user (admin quota reset); idempotent, the lifetime trial is untouched.
 - `backend/internal/generation` — service, worker, prompt/schema/validation, assembly, Mongo store, lease reaper, republish queue and shared types.
 - `backend/internal/generation/amqp` — confirmed publisher and consumer (prefetch 4); declares the exchange, quorum queues and dead-letter topology.
 - `backend/internal/llm` — `Client` port, request/response types and transient/permanent/unavailable errors.

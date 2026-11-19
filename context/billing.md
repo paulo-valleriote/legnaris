@@ -170,6 +170,7 @@ Provider rejections on checkout or portal surface as `500 INTERNAL_ERROR`; timeo
 - `backend/internal/billing` — service, inbox, consumer, queues, reconciliation, deletion settlement, summaries, status derivation and Mongo stores.
 - `backend/internal/billing/stripe` — Stripe adapter: customers, Checkout, status mapping, webhook parsing, portal, cancel, refund and customer scrubbing.
 - `backend/internal/billing/billingtest` — fake provider and ledger.
+- `backend/internal/billing/comp_expiry.go`, `store_comp.go`, `plan_sync.go` — complimentary (`Provider: "comp"`) subscriptions granted by the admin backoffice: `DerivePlanID` and `Entitled` ignore a comp past `CurrentPeriodEnd` at read time, and the hourly `billing_comp_expiry` relay queue cancels it and re-syncs `users.plan` (see `context/admin.md`).
 - `backend/internal/plan` — Plan IDs and sheet and campaign limits.
 - `backend/internal/quota` — lifetime trial allowance, paid daily quota, reserve and refund.
 - `backend/internal/trial` — verification, disposable-domain and per-IP trial gate.
