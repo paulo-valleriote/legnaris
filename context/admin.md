@@ -128,6 +128,9 @@ resolved client address. There is no update or delete path; boot indexes
   treat `/admin/*` as reachable only from an operator network until both land.
 - No role model, per-action permission or read auditing; the allow-list is
   all-or-nothing and only changes on restart.
+- Raw database reads go through Mongo Express at `ops/mongo`, read-only on
+  `legnaris` as `legnaris_view` with admin mode off: no server stats and no
+  other databases (LGN-321).
 - The audit has no retention or rotation; it grows forever and is queryable only
   through the database.
 - The limiter can answer 429, the one gate failure not masked as 404.
