@@ -167,6 +167,16 @@ export function fantasyFieldTree(): Record<string, unknown> {
             max: 6,
           },
         },
+        xp: {
+          schema: {
+            type: 'number',
+            label: 'Experience points',
+            is_editable: true,
+            default: 0,
+            min: 0,
+            max: 355000,
+          },
+        },
       },
     },
     stats: {
@@ -463,6 +473,7 @@ export function fantasySheetData(overrides: Record<string, unknown> = {}): Recor
       origin: 'Wanderer',
       level: 3,
       proficiencyBonus: 2,
+      xp: 1400,
       ...identity,
     },
     stats: {

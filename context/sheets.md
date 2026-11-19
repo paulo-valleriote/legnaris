@@ -231,7 +231,12 @@ slots, so later gameplay surfaces are additions to the preset rather than branch
 The `fantasy_v1` preset currently draws the hero header, the combat strip, the ability medallions,
 the spellcasting panel and the table-rules disclosure. The title is `identity.characterName` with
 the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper,
-`played by <player>` and the proficiency badge. Under it the combat strip holds the armor class
+`played by <player>` and the proficiency badge. The hero also carries the experience bar
+(`fantasy/xp_panel.tsx` over the pure `fantasy/xp_progress.ts`): a `progressbar` running from the
+current level's floor to the next 5e threshold, whose disclosure shows the `identity.xp` total and
+adds a positive gain to it in the pending delta; when the total reaches the threshold it offers
+`Level up to N?`, which writes the next `identity.level` in the pending delta. Level 20 draws a
+full bar and never offers a level. Under it the combat strip holds the armor class
 shield, the initiative and speed tiles and the hit-points card (below), then the six
 `stats.<ability>` scores render as medallions: the `modifiers.<ability>Mod`
 derived value is the large, read-only roll target (accent-coloured through `rollable_value.tsx`,
@@ -359,15 +364,15 @@ Web:
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header` plus
   ordered section slots); `fantasy/` — the hero, the combat strip, the ability medallions, the
   saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
-  `hit_points.ts`, `saves_skills_data.ts` and `slot_pips.ts` helpers; `fantasy/combat_strip.tsx` —
-  the combat strip container; `fantasy/ac_breakdown.tsx` — the armor class shield and its breakdown
-  with the DEX/CON segmented exclusive choice; `fantasy/armor_class.ts` — the AC/speed paths, the
-  exactly-one-ability selector and the clamped parsing; `fantasy/hp_card.tsx` — the hit-points
-  card; `segmented_choice.tsx` — the reusable exclusive-group control that writes through
-  `setExclusive`; `rollable_value.tsx` — the reusable roll target (`useRowRoll` in `dice_row.tsx`);
-  `pending_card.tsx`, `pending_changes.ts` — the floating unsaved-delta card and its pure summary;
-  `mode_toggle.tsx` — the local Play/Edit switch; `inline_edit.tsx` — the reusable single-path
-  inline editor.
+  `hit_points.ts`, `saves_skills_data.ts`, `slot_pips.ts` and `xp_progress.ts` helpers and the hero
+  experience bar in `xp_panel.tsx`; `fantasy/combat_strip.tsx` — the combat strip container;
+  `fantasy/ac_breakdown.tsx` — the armor class shield and its breakdown with the DEX/CON segmented
+  exclusive choice; `fantasy/armor_class.ts` — the AC/speed paths, the exactly-one-ability selector
+  and the clamped parsing; `fantasy/hp_card.tsx` — the hit-points card; `segmented_choice.tsx` — the
+  reusable exclusive-group control that writes through `setExclusive`; `rollable_value.tsx` — the
+  reusable roll target (`useRowRoll` in `dice_row.tsx`); `pending_card.tsx`, `pending_changes.ts` —
+  the floating unsaved-delta card and its pure summary; `mode_toggle.tsx` — the local Play/Edit
+  switch; `inline_edit.tsx` — the reusable single-path inline editor.
 - `web/src/sheet/view_store.ts`, `sheet_view.tsx`, `section_index.tsx` — local view state,
   collapse/filter and section strip; `dice_store.ts`, `dice_row.tsx`, `dice_panel.tsx`,
   `dice_view.ts` — Dice choices over the edit store (see [dice](dice.md)).
@@ -409,12 +414,11 @@ Web:
   there is no pin cap.
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
-- Play mode presents the `fantasy_v1` hero header, the armor class shield, the initiative and speed
-  tiles and the hit-points card in the combat strip, the ability
+- Play mode presents the `fantasy_v1` hero header with its experience bar, the armor class shield,
+  the initiative and speed tiles and the hit-points card in the combat strip, the ability
   medallions, the saving throws and skills, the spellcasting panel with its table-rules
-  disclosure, and the pending-changes card today. XP, attacks and
-  the stat block are added by later tickets; a template without a preset always keeps the generic
-  form.
+  disclosure, and the pending-changes card today. Attacks and the stat block are added by later
+  tickets; a template without a preset always keeps the generic form.
 - `GET /sheets` still returns one arbitrary owned sheet for the legacy `/your-sheet` surface; the
   catalog uses `GET /sheets/owned` with an explicit kind.
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are

@@ -8,6 +8,7 @@ import {
   usePresetValue,
 } from '../preset_context';
 import { numberValue, textValue } from '../values';
+import { XpBar } from './xp_panel';
 
 const LEVEL_MIN = 1;
 const LEVEL_MAX = 20;
@@ -115,6 +116,7 @@ export function FantasyHero() {
           </span>
         )}
       </div>
+      <XpBar />
     </div>
   );
 }
