@@ -15,7 +15,7 @@ export $(APP_ENV_KEYS)
 # origin. `env -u` on every key leaves deploy/.env authoritative.
 COMPOSE_ENV_UNSET = $(foreach k,$(APP_ENV_KEYS),-u $(k))
 
-.PHONY: setup dev run relay worker build test test-race vet lint fmt english mod-check mocks dev-db deploy-up deploy-down lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev
+.PHONY: setup dev run relay worker build test test-race vet lint fmt english hooks-test mod-check mocks dev-db deploy-up deploy-down lint-web test-web sec-scan migrate-emails bench-dag loadtest loadtest-seed dev-observability dev-observability-down loadtest-dev
 
 ## --- Development ------------------------------------------------------------
 
@@ -54,6 +54,9 @@ fmt:            ## Format code
 
 english:        ## Fail when a Go, TS/TSX or web/src/l10n source holds non-English text
 	@go run ./backend/cmd/english-check
+
+hooks-test:     ## Exercise the versioned Claude Code hooks (Bash secret guard)
+	@scripts/hooks/guard-secrets_test.sh
 
 mod-check:      ## Verify go.mod/go.sum are tidy
 	@go mod tidy -diff
@@ -124,7 +127,7 @@ sec-scan:       ## Client security checks (local only): SCA, secret scan, lockfi
 	@cd web && npm audit signatures
 	@cd web && npx lockfile-lint --path package-lock.json --type npm --validate-https --allowed-hosts npm
 	@if command -v gitleaks >/dev/null 2>&1; then \
-		gitleaks detect --no-banner --redact --source . ; \
+		gitleaks dir --no-banner --redact --config .gitleaks.toml . ; \
 	else \
 		echo "sec-scan: gitleaks not installed locally; skipping secret scan" ; \
 	fi

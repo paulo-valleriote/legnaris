@@ -8,6 +8,20 @@ set -euo pipefail
 root=$(git rev-parse --show-toplevel)
 cd "$root"
 
+if command -v gitleaks >/dev/null 2>&1; then
+  if gitleaks help git >/dev/null 2>&1; then
+    staged_scan=(git --staged)
+  else
+    staged_scan=(protect --staged)
+  fi
+  if ! gitleaks "${staged_scan[@]}" --no-banner --redact --config .gitleaks.toml; then
+    echo "pre-commit: gitleaks found a secret in the staged changes; remove it before committing" >&2
+    exit 1
+  fi
+else
+  echo "pre-commit: gitleaks not installed locally; skipping the staged secret scan" >&2
+fi
+
 mapfile -d '' go_files < <(git diff --cached --name-only --diff-filter=ACMR -z -- '*.go')
 if ((${#go_files[@]})); then
   gofmt -w "${go_files[@]}"
