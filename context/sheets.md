@@ -249,13 +249,19 @@ whole XP and floor at zero, with no upper cap); when the total reaches the thres
 full bar and never offers a level. Under it the combat strip holds the armor class
 shield, the initiative and speed tiles and the hit-points card (below), then the six
 `stats.<ability>` scores render as medallions: the `modifiers.<ability>Mod`
-derived value is the large, read-only roll target (accent-coloured through `rollable_value.tsx`,
-rolling the `stats.<ability>` Row through the Dice store and its sheet overrides), while the raw
+derived value is the large, read-only roll target through `rollable_value.tsx`,
+rolling the `stats.<ability>` Row through the Dice store and its sheet overrides, while the raw
 score sits in an `inline_edit.tsx` badge whose writes go to the pending delta; the two are separate
 targets. The `derived.passiveAwareness` pill closes the column. `RollableValue` and the `useRowRoll`
-hook it uses are the reusable roll surface for later gameplay sections. The attack cards, saving
-throws, skills, spellcasting panel and table-rules disclosure follow (see below). Edit keeps the
-generic form, Arrange and the pinned filter; Play ignores the layout and the view filters.
+hook it uses are the reusable roll surface for later gameplay sections. Every rollable total shares
+one affordance: text colour, a dashed accent (`--lg-color-link`) underline, and an accent fill with
+on-accent text on hover or focus. Filled accent is reserved for the proficiency dot and the primary
+action, so "proficient" and "rollable" never look alike; the style follows the value rather than its
+sign, so a zero or negative modifier keeps it. No Play label falls below `--lg-type-11` on a desktop
+or `--lg-type-12` on a phone (hero badge, HP, AC and combat chips, spellcasting, ability and skill
+labels). The attack cards, saving throws, skills, spellcasting panel and table-rules disclosure
+follow (see below). Edit keeps the generic form, Arrange and the pinned filter; Play ignores the
+layout and the view filters.
 
 The combat strip (`fantasy/combat_strip.tsx`) is the container later gameplay cards extend; it
 holds the armor class shield, the initiative tile, the speed tile and the hit-points card
@@ -294,7 +300,8 @@ and band helpers, and both the card and the math are exported for the NPC and en
 
 Saving throws and skills follow as two card sections (`saves_skills.tsx`). Each row draws a
 proficiency dot: one control-sized toggle with `aria-pressed` whose `setPath` writes 1 or 0 to the
-matching `config.save<A>Prof` / `config.skill<S>Prof` leaf in the pending delta. Preview stays
+matching `config.save<A>Prof` / `config.skill<S>Prof` leaf in the pending delta. The toggle changes
+the filled dot only; the total's rollable style is independent of proficiency. Preview stays
 explicit: the toggle does not call it, so the derived total updates when the player asks for
 Preview (the Preview throttle and the pending card still apply). The save row shows the template label and a rollable `saves.<ability>` total over the
 `saves` Section dice; the skill row shows its name, its ability abbreviation, an inline-editable
@@ -346,7 +353,9 @@ paths. It shows the `spellcastingAbility` exclusive group as a segmented choice
 every sibling in one `setExclusive` call, so exactly one member is non-zero. The derived spell
 attack bonus carries the Row's dice action with the preset row default `1d20 + @`, so a roll shares
 the Dice store, pendings and result panel; the save DC is a plain derived readout. The at-will and
-prepared lists use the same one-path inline editor. One slot row is drawn per level whose total is
+prepared lists use the same one-path inline editor in its quiet variant: Play draws no dashed input
+edge until hover or focus, while Edit keeps the generic form's input affordance. One slot row is
+drawn per level whose total is
 non-zero: `total` pips with the remaining ones first, each a `--lg-size-control` target that writes
 `spells.slotN.expended` (a remaining pip spends one, a spent pip recovers one), and the total stays
 inline-editable through the engine's numeric guard. `preset/fantasy/slot_pips.ts` is pure
@@ -431,8 +440,8 @@ Web:
   `fantasy/armor_class.ts` — the AC/speed paths, the exactly-one-ability selector and the clamped
   parsing; `fantasy/hp_card.tsx` — the hit-points card; `fantasy/attacks.tsx` — the attack cards;
   `segmented_choice.tsx` — the reusable exclusive-group control that writes through `setExclusive`;
-  `rollable_value.tsx` — the
-  reusable roll target (`useRowRoll` in `dice_row.tsx`); `pending_card.tsx`, `pending_changes.ts` —
+  `rollable_value.tsx` — the reusable roll target and its one affordance style (`useRowRoll` in
+  `dice_row.tsx`); `pending_card.tsx`, `pending_changes.ts` —
   the floating unsaved-delta card and its pure summary; `mode_toggle.tsx` — the local Play/Edit
   switch; `inline_edit.tsx` — the reusable single-path inline editor (inline on a wide viewport, a
   schema-typed bottom sheet on a phone).

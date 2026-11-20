@@ -191,7 +191,7 @@
 
 .lg-stat-block .lg-ability__name {
   max-width: 100%;
-  font-size: 10px;
+  font-size: var(--lg-type-11);
   color: var(--lg-color-text-subtle);
 }
 
@@ -208,6 +208,12 @@
   border: 0;
   background: none;
   font-size: var(--lg-type-20);
+}
+
+.lg-stat-block .lg-ability .lg-ability__modifier:hover,
+.lg-stat-block .lg-ability .lg-ability__modifier:focus-visible {
+  background-color: var(--lg-color-accent);
+  color: var(--lg-color-accent-text);
 }
 
 .lg-stat-block .lg-ability .lg-ability__score {
@@ -235,6 +241,10 @@
 
   .lg-stat-block__hp {
     grid-column: 1 / -1;
+  }
+
+  .lg-stat-block .lg-ability__name {
+    font-size: var(--lg-type-12);
   }
 }
 

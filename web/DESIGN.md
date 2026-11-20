@@ -95,8 +95,9 @@ Rules:
 - `--lg-font-family` leads with `'Geist'` and falls back to the system stack, so text renders
   without the file and never breaks layout.
 - Loaded with `font-display: swap` and preloaded (`as="font"`, `crossorigin`).
-- **Scale:** `12 / 13 / 15 / 16 / 18 / 20 / 24 / 30` px (`--lg-type-*`). There is no upper cap
-  below the largest step; headings are allowed to exceed body size.
+- **Scale:** `11 / 12 / 13 / 15 / 16 / 18 / 20 / 24 / 30` px (`--lg-type-*`). There is no upper
+  cap below the largest step; headings are allowed to exceed body size. Eleven is the desktop floor
+  for a dense label; a phone label starts at twelve.
 - **Weights:** 400 regular, 500 medium, 600 semibold, 700 bold.
 - **Line height:** `--lg-line-tight` (1.2) for headings, `--lg-line-normal` (1.5) for body.
 - **Tabular figures** (`font-variant-numeric: tabular-nums`) on every numeric or derived column so
@@ -397,6 +398,12 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   unchanged, and the sheet's `Help` explains the recessed readout once. A marked readout carries the
   "Recalculated" pill instead and no description. A marked readout keeps the accent on its border and
   pill only; its value stays text colour. A derived row's label is muted.
+- **Rollable totals (Play).** A rollable total reads in `--lg-color-text` with a dashed
+  `--lg-color-link` underline; hover and focus fill it with `--lg-color-accent` and
+  `--lg-color-accent-text`. Filled accent stays for the proficiency dot and the primary action, so
+  "proficient" and "rollable" never share a shape. Read-only Play text (the at-will and prepared
+  spell lists) draws no input edge until hover or focus, while Edit keeps the generic input
+  affordance. No Play label renders below `--lg-type-11`, or below `--lg-type-12` on a phone.
 - **Derived beside its input.** An editable number Row whose value directly feeds one or two derived
   leaves (`schema.dependsOn`, direct edges only; none or three and more draw nothing; a `config.*`
   switch, a text or a table cell never does) carries a second line inside the same Row, under the

@@ -77,6 +77,33 @@ describe('design token contrast across both themes', () => {
   }
 });
 
+describe('sheet affordance contrast', () => {
+  function declaredPair(foregroundVar: string, backgroundVar: string): boolean {
+    return THEMES.every((theme) =>
+      contrastPairs.some(
+        (pair) =>
+          pair.theme === theme &&
+          pair.foregroundVar === foregroundVar &&
+          pair.backgroundVar === backgroundVar,
+      ),
+    );
+  }
+
+  it('Edge: subtle text is asserted on the surface layer in both themes', () => {
+    expect(declaredPair('--lg-color-text-subtle', '--lg-color-surface')).toBe(true);
+  });
+
+  it('Edge: the lava accent is asserted on the surface and raised layers in both themes', () => {
+    expect(declaredPair('--lg-color-accent', '--lg-color-surface')).toBe(true);
+    expect(declaredPair('--lg-color-accent', '--lg-color-raised')).toBe(true);
+  });
+
+  it('Edge: the rollable underline colour is asserted on both sheet layers in both themes', () => {
+    expect(declaredPair('--lg-color-link', '--lg-color-surface')).toBe(true);
+    expect(declaredPair('--lg-color-link', '--lg-color-raised')).toBe(true);
+  });
+});
+
 describe('reduced motion', () => {
   it('Edge: a stylesheet with no reduced-motion block does not match the guard', () => {
     expect(/@media\s*\(prefers-reduced-motion:\s*reduce\)/.test('body { margin: 0; }')).toBe(false);
