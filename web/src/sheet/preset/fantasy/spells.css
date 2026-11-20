@@ -38,7 +38,7 @@
 }
 
 .lg-spells__label {
-  font-size: var(--lg-type-11);
+  font-size: var(--lg-type-12);
   letter-spacing: var(--lg-tracking-wide);
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);
@@ -252,7 +252,7 @@
 .lg-spells__hidden-levels {
   margin: 0;
   padding-top: var(--lg-space-2);
-  font-size: var(--lg-type-11);
+  font-size: var(--lg-type-12);
   color: var(--lg-color-text-subtle);
 }
 

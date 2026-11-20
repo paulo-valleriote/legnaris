@@ -81,7 +81,9 @@
   border-radius: 0;
 }
 
-.lg-sheet__header-actions > .lg-button + .lg-button {
+.lg-sheet__header-actions > .lg-button + .lg-button,
+.lg-sheet__header-actions > .lg-button + .lg-mode-toggle > .lg-button:first-child,
+.lg-mode-toggle > .lg-button + .lg-button {
   border-inline-start: var(--lg-size-hairline) solid var(--lg-color-border);
 }
 
@@ -564,4 +566,8 @@
   .lg-settings__chevron {
     transition: none;
   }
+}
+
+.lg-mode-toggle {
+  display: contents;
 }

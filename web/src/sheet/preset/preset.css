@@ -213,7 +213,7 @@
 
 .lg-preset-hero__badge-label {
   margin-top: var(--lg-space-4);
-  font-size: var(--lg-type-11);
+  font-size: var(--lg-type-12);
   letter-spacing: var(--lg-tracking-widest);
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);
@@ -304,7 +304,7 @@
 }
 
 .lg-hp-card__label {
-  font-size: var(--lg-type-11);
+  font-size: var(--lg-type-12);
   letter-spacing: var(--lg-tracking-wide);
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);

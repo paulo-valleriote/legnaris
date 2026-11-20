@@ -43,6 +43,13 @@ const QUICK_ACTIONS = [
   },
 ] as const;
 
+function quickActionName(action: (typeof QUICK_ACTIONS)[number]) {
+  return messageWith(
+    action.kind === 'damage' ? 'sheet.play.damageAmount' : 'sheet.play.healAmount',
+    { count: action.count },
+  );
+}
+
 export function HitPointsCard() {
   const {
     points,
@@ -234,10 +241,8 @@ export function HitPointsCard() {
               variant="secondary"
               size="sm"
               className={action.className}
-              name={messageWith(
-                action.kind === 'damage' ? 'sheet.play.damageAmount' : 'sheet.play.healAmount',
-                { count: action.count },
-              )}
+              name={quickActionName(action)}
+              title={quickActionName(action)}
               onClick={() =>
                 commit(
                   action.kind === 'damage'
@@ -263,6 +268,7 @@ export function HitPointsCard() {
           <div className="lg-hp-card__amount">
             <Field
               label={message('sheet.play.amount')}
+              placeholder={message('sheet.play.amountPlaceholder')}
               type="number"
               inputMode="numeric"
               numeric

@@ -361,11 +361,11 @@ describe('the spell text edit affordance', () => {
 });
 
 describe('the rollable style contract', () => {
-  it('Edge: the base rule reads text colour with a dashed lava underline', () => {
+  it('Edge: the base rule reads text colour with a quiet dashed underline', () => {
     const body = ruleBody(rollableCss, '.lg-rollable--button');
     expect(body).toMatch(/color:\s*var\(--lg-color-text\)/);
     expect(body).toMatch(/text-decoration-style:\s*dashed/);
-    expect(body).toMatch(/text-decoration-color:\s*var\(--lg-color-link\)/);
+    expect(body).toMatch(/text-decoration-color:\s*var\(--lg-color-border-strong\)/);
     expect(body).not.toMatch(/--lg-lava/);
   });
 

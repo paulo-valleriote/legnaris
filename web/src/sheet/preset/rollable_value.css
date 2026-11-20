@@ -22,7 +22,7 @@
   font-weight: var(--lg-font-weight-bold);
   text-decoration-line: underline;
   text-decoration-style: dashed;
-  text-decoration-color: var(--lg-color-link);
+  text-decoration-color: var(--lg-color-border-strong);
   text-underline-offset: var(--lg-underline-offset);
   cursor: pointer;
   touch-action: manipulation;

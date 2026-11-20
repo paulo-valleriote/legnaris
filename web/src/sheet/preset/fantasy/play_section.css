@@ -31,7 +31,7 @@
   display: inline-flex;
   align-items: center;
   gap: var(--lg-space-4);
-  font-size: var(--lg-type-11);
+  font-size: var(--lg-type-12);
   font-weight: var(--lg-font-weight-regular);
   letter-spacing: normal;
   text-transform: none;

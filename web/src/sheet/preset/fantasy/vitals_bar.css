@@ -41,7 +41,7 @@ html:has(.lg-vitals-bar) {
 }
 
 .lg-vitals-bar__stat-label {
-  font-size: var(--lg-type-11);
+  font-size: var(--lg-type-12);
   letter-spacing: var(--lg-tracking-wide);
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);

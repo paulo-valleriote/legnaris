@@ -39,10 +39,10 @@
 .lg-ability__name {
   min-width: 0;
   overflow: hidden;
-  font-size: var(--lg-type-11);
+  font-size: var(--lg-type-12);
   font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
-  letter-spacing: var(--lg-tracking-wide);
+  letter-spacing: var(--lg-tracking-caps);
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;

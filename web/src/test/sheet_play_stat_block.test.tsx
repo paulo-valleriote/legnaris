@@ -957,8 +957,8 @@ describe('the stat block styles', () => {
     expect(css).toMatch(/\.lg-stat-block__stat\s*\{[^}]*flex-direction:\s*row/);
   });
 
-  it('Edge: the armour class label clears the 11px floor on a desktop and 12px on a phone', () => {
-    expect(css).toMatch(/\.lg-stat-block \.lg-ac__label\s*\{[^}]*font-size:\s*var\(--lg-type-11\)/);
+  it('Edge: the armour class label clears the 12px floor on a desktop and a phone', () => {
+    expect(css).toMatch(/\.lg-stat-block \.lg-ac__label\s*\{[^}]*font-size:\s*var\(--lg-type-12\)/);
     const mobile = css.slice(css.indexOf('@media (max-width: 40rem)'));
     expect(mobile).toMatch(
       /\.lg-stat-block \.lg-ac__label\s*\{[^}]*font-size:\s*var\(--lg-type-12\)/,

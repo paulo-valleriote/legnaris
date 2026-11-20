@@ -30,6 +30,31 @@ async function switchToEdit(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('the Play preset review surface', () => {
+  it('Happy path: the Play and Edit buttons sit in a labelled sheet mode group', async () => {
+    await openFantasy();
+
+    const group = screen.getByRole('group', { name: message('sheet.mode.group') });
+    expect(
+      within(group).getByRole('button', { name: message('sheet.mode.play') }),
+    ).toBeInTheDocument();
+    expect(
+      within(group).getByRole('button', { name: message('sheet.mode.edit') }),
+    ).toBeInTheDocument();
+  });
+
+  it('Edge: each quick hit point chip spells out its action as a tooltip', async () => {
+    await openFantasy();
+
+    const chip = screen.getByRole('button', {
+      name: messageWith('sheet.play.damageAmount', { count: 5 }),
+    });
+    expect(chip).toHaveAttribute('title', messageWith('sheet.play.damageAmount', { count: 5 }));
+    expect(screen.getByLabelText(message('sheet.play.amount'))).toHaveAttribute(
+      'placeholder',
+      message('sheet.play.amountPlaceholder'),
+    );
+  });
+
   it('Edge: Play mode draws no separate per-row d20 action button', async () => {
     const { user } = await openFantasy();
 
