@@ -218,6 +218,15 @@ describe('the responsive Play layout', () => {
     expect(presetCss).toMatch(/\.lg-preset__column[\s\S]*?min-width:\s*0/);
   });
 
+  it('Edge: the damage and heal buttons are 40px on a desktop and 44px on a phone', () => {
+    expect(presetCss).toMatch(
+      /\.lg-hp-card__actions > \.lg-button\s*\{[^}]*min-height:\s*var\(--lg-size-control-compact\)/,
+    );
+    expect(mobileCss(presetCss)).toMatch(
+      /\.lg-hp-card__actions > \.lg-button\s*\{[^}]*min-height:\s*var\(--lg-size-control\)/,
+    );
+  });
+
   it('Edge: reduced motion switches off the hit point and experience bar animations', () => {
     const reduced = presetCss.slice(presetCss.indexOf('@media (prefers-reduced-motion: reduce)'));
     expect(reduced).toMatch(/\.lg-hp-card__fill\s*\{[^}]*transition:\s*none/);

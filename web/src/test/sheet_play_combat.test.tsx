@@ -227,7 +227,7 @@ describe('damage and healing', () => {
     await apply(user, '10', 'damage');
 
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('0 / 20');
-    expect(screen.getByTestId('sheet-hp-was')).toHaveTextContent('was 2');
+    expect(screen.getByTestId('sheet-hp-change')).toHaveTextContent('2 → 0 (−2)');
   });
 
   it('Edge: damage fully absorbed by temporary points keeps the current value', async () => {
@@ -238,8 +238,8 @@ describe('damage and healing', () => {
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('10 / 20');
     expect(screen.getByTestId('sheet-hp-temp-value')).toHaveTextContent('+2 temp');
     expect(screen.getByTestId('sheet-hp-temp-pending')).toBeInTheDocument();
-    expect(screen.queryByTestId('sheet-hp-was')).not.toBeInTheDocument();
-    expect(screen.getByTestId('sheet-hp-temp-was')).toHaveTextContent('temp was 5');
+    expect(screen.queryByTestId('sheet-hp-change')).not.toBeInTheDocument();
+    expect(screen.getByTestId('sheet-hp-temp-change')).toHaveTextContent('temp 5 → 2 (−3)');
     expect(savePending(fake)).toHaveLength(0);
   });
 
@@ -253,6 +253,55 @@ describe('damage and healing', () => {
     expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
   });
 
+  it('Edge: Enter in the amount field applies damage', async () => {
+    const { user } = await openHealth();
+
+    await user.type(amountInput(), '4{Enter}');
+
+    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('6 / 20');
+    expect(screen.getByTestId('sheet-hp-change')).toHaveTextContent('10 → 6 (−4)');
+    expect(screen.getByTestId('sheet-hp-pending')).toHaveAttribute('data-tone', 'damage');
+    expect(amountInput()).toHaveValue(null);
+  });
+
+  it('Edge: Enter with an empty or zero amount writes nothing', async () => {
+    const { user } = await openHealth();
+
+    await user.click(amountInput());
+    await user.keyboard('{Enter}');
+    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('10 / 20');
+    expect(screen.queryByTestId('sheet-hp-pending')).not.toBeInTheDocument();
+
+    await user.type(amountInput(), '0{Enter}');
+    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('10 / 20');
+    expect(screen.queryByTestId('sheet-hp-pending')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(amountInput()).toHaveValue(0);
+  });
+
+  it('Edge: a pending heal draws the success hatch', async () => {
+    const { user } = await openHealth({ current: 10, max: 20, temp: 0 });
+
+    await apply(user, '5', 'heal');
+
+    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('15 / 20');
+    expect(screen.getByTestId('sheet-hp-pending')).toHaveAttribute('data-tone', 'heal');
+    expect(screen.getByTestId('sheet-hp-change')).toHaveTextContent('10 → 15 (+5)');
+  });
+
+  it('Edge: damage then healing back to the saved value clears the preview', async () => {
+    const { user } = await openHealth();
+
+    await apply(user, '4', 'damage');
+    await apply(user, '4', 'heal');
+
+    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('10 / 20');
+    expect(screen.queryByTestId('sheet-hp-pending')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-hp-change')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-pending-card')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+  });
+
   it('Edge: the amount clears once it is applied', async () => {
     const { user } = await openHealth();
 
@@ -261,7 +310,7 @@ describe('damage and healing', () => {
     expect(amountInput()).toHaveValue(null);
   });
 
-  it('Happy path: Damage writes the pending delta and shows the lost segment and what it was', async () => {
+  it('Happy path: Damage writes the pending delta and shows the lost segment and its change', async () => {
     const { fake, user } = await openHealth();
 
     await apply(user, '4', 'damage');
@@ -269,7 +318,8 @@ describe('damage and healing', () => {
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('6 / 20');
     expect(meter()).toHaveAttribute('aria-valuenow', '6');
     expect(screen.getByTestId('sheet-hp-pending')).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-hp-was')).toHaveTextContent('was 10');
+    expect(screen.getByTestId('sheet-hp-pending')).toHaveAttribute('data-tone', 'damage');
+    expect(screen.getByTestId('sheet-hp-change')).toHaveTextContent('10 → 6 (−4)');
     expect(screen.getByTestId('sheet-pending-card')).toHaveTextContent('Current hit points 10 → 6');
     expect(savePending(fake)).toHaveLength(0);
 
@@ -285,7 +335,7 @@ describe('damage and healing', () => {
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('7 / 20');
     expect(screen.queryByTestId('sheet-hp-temp-value')).not.toBeInTheDocument();
     expect(screen.getByTestId('sheet-hp-temp-pending')).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-hp-temp-was')).toHaveTextContent('temp was 5');
+    expect(screen.getByTestId('sheet-hp-temp-change')).toHaveTextContent('temp 5 → 0 (−5)');
     await user.click(screen.getByRole('button', { name: message('sheet.save') }));
     await waitFor(() =>
       expect(savedData(fake)).toEqual({
@@ -300,8 +350,9 @@ describe('damage and healing', () => {
     await apply(user, '5', 'heal');
 
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('20 / 20');
-    expect(screen.getByTestId('sheet-hp-was')).toHaveTextContent('was 19');
+    expect(screen.getByTestId('sheet-hp-change')).toHaveTextContent('19 → 20 (+1)');
     expect(screen.getByTestId('sheet-hp-pending')).toBeInTheDocument();
+    expect(screen.getByTestId('sheet-hp-pending')).toHaveAttribute('data-tone', 'heal');
     expect(savePending(fake)).toHaveLength(0);
 
     await user.click(screen.getByRole('button', { name: message('sheet.save') }));
@@ -317,7 +368,7 @@ describe('damage and healing', () => {
     await waitFor(() => expect(screen.queryByTestId('sheet-pending-card')).not.toBeInTheDocument());
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('6 / 20');
     expect(screen.queryByTestId('sheet-hp-pending')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('sheet-hp-was')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-hp-change')).not.toBeInTheDocument();
   });
 
   it('Happy path: Discard restores the stored hit points', async () => {

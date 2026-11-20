@@ -338,11 +338,19 @@
   opacity: 0.85;
 }
 
-.lg-hp-card__pending {
+.lg-hp-card__pending[data-tone='damage'] {
   background-image: repeating-linear-gradient(
     45deg,
     color-mix(in srgb, var(--lg-danger-400) 55%, transparent) 0 4px,
     color-mix(in srgb, var(--lg-danger-400) 25%, transparent) 4px 8px
+  );
+}
+
+.lg-hp-card__pending[data-tone='heal'] {
+  background-image: repeating-linear-gradient(
+    45deg,
+    color-mix(in srgb, var(--lg-success-400) 55%, transparent) 0 4px,
+    color-mix(in srgb, var(--lg-success-400) 25%, transparent) 4px 8px
   );
 }
 
@@ -355,7 +363,15 @@
   font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-normal);
   font-variant-numeric: tabular-nums;
-  color: var(--lg-lava-400);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-hp-card__change[data-tone='damage'] {
+  color: var(--lg-danger-400);
+}
+
+.lg-hp-card__change[data-tone='heal'] {
+  color: var(--lg-success-400);
 }
 
 .lg-hp-card__actions {
@@ -385,7 +401,7 @@
 }
 
 .lg-hp-card__actions > .lg-button {
-  min-height: var(--lg-size-control);
+  min-height: var(--lg-size-control-compact);
   border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
   background-color: transparent;
 }
@@ -430,6 +446,7 @@
 
   .lg-hp-card__actions > .lg-button {
     flex: none;
+    min-height: var(--lg-size-control);
   }
 
   .lg-hp-card__amount {
