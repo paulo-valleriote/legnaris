@@ -12,6 +12,44 @@ export interface RollPart {
   readonly label: string;
   readonly value: number;
   readonly rolls?: readonly number[];
+  readonly discarded?: readonly number[];
+}
+
+export type DiceKeep = 'highest' | 'lowest';
+
+export type RollMode = 'normal' | 'advantage' | 'disadvantage';
+
+export const D20_FACES = 20;
+
+export function keepForMode(mode: RollMode): DiceKeep | undefined {
+  switch (mode) {
+    case 'advantage':
+      return 'highest';
+    case 'disadvantage':
+      return 'lowest';
+    default:
+      return undefined;
+  }
+}
+
+export function rollsD20(expression: Expression): boolean {
+  return expression.terms.some((term) => term.kind === 'dice' && term.faces === D20_FACES);
+}
+
+export function keptIndices(
+  rolls: readonly number[],
+  count: number,
+  keep: DiceKeep,
+): readonly number[] {
+  const order = rolls.map((roll, index) => ({ roll, index }));
+  order.sort((left, right) => {
+    const byValue = keep === 'highest' ? right.roll - left.roll : left.roll - right.roll;
+    return byValue === 0 ? left.index - right.index : byValue;
+  });
+  return order
+    .slice(0, count)
+    .map((entry) => entry.index)
+    .sort((left, right) => left - right);
 }
 
 export interface RollResult {
@@ -26,6 +64,7 @@ export interface EvaluateContext {
   readonly values: Tree;
   readonly draft?: Tree;
   readonly roller: Roller;
+  readonly keep?: DiceKeep;
 }
 
 export interface RollContext extends Omit<EvaluateContext, 'roller'> {
@@ -76,9 +115,17 @@ function evaluateTerm(term: Term, context: EvaluateContext): DiceResult<RollPart
   const { sign } = term;
   switch (term.kind) {
     case 'dice': {
-      const rolls = Array.from({ length: term.count }, () => context.roller(term.faces));
-      const value = rolls.reduce((sum, roll) => sum + roll, 0);
-      return succeed({ sign, label: termLabel(term), value, rolls });
+      const keep = term.faces === D20_FACES ? context.keep : undefined;
+      const throws = term.count + (keep === undefined ? 0 : 1);
+      const rolls = Array.from({ length: throws }, () => context.roller(term.faces));
+      if (keep === undefined) {
+        const value = rolls.reduce((sum, roll) => sum + roll, 0);
+        return succeed({ sign, label: termLabel(term), value, rolls });
+      }
+      const kept = keptIndices(rolls, term.count, keep);
+      const value = kept.reduce((sum, index) => sum + rolls[index], 0);
+      const discarded = rolls.map((_, index) => index).filter((index) => !kept.includes(index));
+      return succeed({ sign, label: termLabel(term), value, rolls, discarded });
     }
     case 'number':
       return succeed({ sign, label: termLabel(term), value: term.value });
@@ -122,6 +169,7 @@ export function rollExpression(
     rowKey: context.rowKey,
     values: context.values,
     draft: context.draft,
+    keep: context.keep,
     roller: (faces) => dieFromWords(faces, words),
   });
 }

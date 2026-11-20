@@ -12,6 +12,7 @@
   --lg-font-family:
     'Geist', system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 
+  --lg-type-11: 11px;
   --lg-type-12: 12px;
   --lg-type-13: 13px;
   --lg-type-15: 15px;
@@ -58,6 +59,7 @@
   --lg-size-hairline: 1px;
   --lg-size-row: 32px;
   --lg-size-control: 44px;
+  --lg-size-control-compact: 40px;
   --lg-size-ad-slot: 90px;
   --lg-size-ad-slot-narrow: 100px;
   --lg-size-nav-min: 200px;

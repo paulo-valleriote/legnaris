@@ -54,7 +54,7 @@
 
 .lg-skill__ability {
   margin-inline-start: var(--lg-space-2);
-  font-size: 11px;
+  font-size: var(--lg-type-11);
   letter-spacing: var(--lg-tracking-wide);
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);
@@ -109,9 +109,14 @@
 }
 
 .lg-prof-dot[aria-pressed='true'] .lg-prof-dot__mark {
-  border-color: var(--lg-lava-500);
-  background-color: var(--lg-lava-500);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lg-lava-500) 18%, transparent);
+  border-color: var(--lg-color-accent);
+  background-color: var(--lg-color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lg-color-accent) 18%, transparent);
+}
+
+.lg-prof-dot__mark--on {
+  border-color: var(--lg-color-accent);
+  background-color: var(--lg-color-accent);
 }
 
 @media (max-width: 40rem) {
@@ -119,25 +124,48 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .lg-preset-saves__list,
+  .lg-preset-skills__list {
+    row-gap: var(--lg-space-8);
+  }
+
   .lg-save,
   .lg-skill {
-    min-height: var(--lg-size-control);
+    min-height: 36px;
   }
 
   .lg-prof-dot {
-    width: 36px;
-    height: 36px;
+    width: var(--lg-size-control);
+    height: var(--lg-size-control);
+    margin-block: calc(var(--lg-space-4) * -1);
   }
 
   .lg-save {
-    grid-template-columns: 36px minmax(0, 1fr) auto;
+    grid-template-columns: var(--lg-size-control) minmax(0, 1fr) auto;
   }
 
   .lg-skill {
-    grid-template-columns: 36px auto minmax(0, 1fr) auto auto;
+    grid-template-columns: var(--lg-size-control) auto minmax(0, 1fr) auto auto;
+  }
+
+  .lg-save__total,
+  .lg-skill__total {
+    min-inline-size: var(--lg-size-control);
+    min-block-size: var(--lg-size-control);
+    margin-block: calc(var(--lg-space-4) * -1);
   }
 
   .lg-skill .lg-skill__bonus {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-inline-size: var(--lg-size-control);
+    min-block-size: var(--lg-size-control);
+    margin-block: calc(var(--lg-space-4) * -1);
     opacity: 1;
+  }
+
+  .lg-skill__ability {
+    font-size: var(--lg-type-12);
   }
 }

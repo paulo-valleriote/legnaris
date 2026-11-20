@@ -18,17 +18,26 @@
   min-block-size: 32px;
   padding-inline: var(--lg-space-8);
   border-radius: var(--lg-radius-sm);
-  color: var(--lg-lava-400);
+  color: var(--lg-color-text);
   font-weight: var(--lg-font-weight-bold);
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: var(--lg-color-link);
+  text-underline-offset: var(--lg-underline-offset);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
   transition:
     color var(--lg-motion-120) var(--lg-ease-out),
     background-color var(--lg-motion-120) var(--lg-ease-out);
 }
 
-.lg-rollable--button:hover {
-  background-color: color-mix(in srgb, var(--lg-lava-500) 14%, transparent);
-  color: var(--lg-lava-400);
+.lg-rollable--button:hover,
+.lg-rollable--button:focus-visible {
+  background-color: var(--lg-color-accent);
+  color: var(--lg-color-accent-text);
+  text-decoration-color: currentColor;
 }
 
 @media (max-width: 40rem) {

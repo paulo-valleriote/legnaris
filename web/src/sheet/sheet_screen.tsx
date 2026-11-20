@@ -89,6 +89,20 @@ function useEditState(store: SheetEditStore): SheetEditState {
   return useSyncExternalStore(store.subscribe, store.getState);
 }
 
+function isTextEntry(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  if (target.isContentEditable) {
+    return true;
+  }
+  return target.matches('input, textarea, select');
+}
+
+function escapeBelongsToOverlay(): boolean {
+  return document.querySelector('[role="dialog"], .lg-dice-panel') !== null;
+}
+
 function rowMark(
   marks: PreviewMarks | undefined,
   pendingDice: PendingDiceKeys,
@@ -780,19 +794,37 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     onRefresh: requestRefresh,
   });
 
-  const StatBlockHeader =
-    playing && preset !== undefined && preset.statBlock?.when(sheet.kind)
-      ? preset.statBlock.Header
-      : undefined;
+  useEffect(() => {
+    if (!playing) {
+      return undefined;
+    }
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || event.defaultPrevented || isTextEntry(event.target)) {
+        return;
+      }
+      if (escapeBelongsToOverlay()) {
+        return;
+      }
+      const state = editStore.getState();
+      if (!isPending(state) || isBusy(state)) {
+        return;
+      }
+      event.preventDefault();
+      editStore.discard();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [playing, editStore]);
+
+  const statBlockActive =
+    playing && preset !== undefined && preset.statBlock?.when(sheet.kind) === true;
 
   return (
     <PresetProvider {...presetValue}>
       <header className="lg-sheet__header">
         <div className="lg-sheet__heading">
           <div className="lg-sheet__heading-text">
-            {StatBlockHeader !== undefined ? (
-              <StatBlockHeader />
-            ) : playing && preset !== undefined ? (
+            {statBlockActive ? null : playing && preset !== undefined ? (
               <preset.Header />
             ) : (
               <>
@@ -806,7 +838,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
             )}
           </div>
           {sections.length > 0 && (
-            <div className="lg-sheet__header-actions">
+            <div className="lg-sheet__header-actions" data-testid="sheet-header-actions">
               {isLinkableSheetKind(sheet.kind) && (
                 <Button
                   variant="ghost"
@@ -929,7 +961,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       )}
       {arranging ? (
         <ArrangeFooter store={layoutStore} />
-      ) : (
+      ) : playing ? null : (
         <SheetFooter store={editStore} reveal={view.reveal} playing={playing} />
       )}
       {confirmation !== null && (

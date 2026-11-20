@@ -60,7 +60,7 @@
 .lg-ac__label {
   position: relative;
   margin-top: var(--lg-space-2);
-  font-size: 10px;
+  font-size: var(--lg-type-11);
   letter-spacing: var(--lg-tracking-wide);
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);
@@ -73,7 +73,7 @@
   flex-direction: column-reverse;
   align-items: center;
   justify-content: center;
-  gap: var(--lg-space-2);
+  gap: var(--lg-space-4);
   width: 86px;
   padding: var(--lg-space-8) var(--lg-space-4);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
@@ -82,7 +82,7 @@
 }
 
 .lg-combat-stat__label {
-  font-size: 10px;
+  font-size: var(--lg-type-11);
   line-height: var(--lg-line-tight);
   letter-spacing: var(--lg-tracking-wide);
   text-transform: uppercase;
@@ -92,6 +92,7 @@
 
 .lg-combat-stat .lg-combat-stat__value {
   justify-content: center;
+  gap: var(--lg-space-4);
   min-block-size: 0;
   padding: 0 var(--lg-space-4);
   font-size: 26px;
@@ -99,6 +100,16 @@
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   text-align: center;
+}
+
+.lg-combat-stat .lg-combat-stat__value.lg-rollable {
+  text-underline-offset: var(--lg-space-4);
+}
+
+.lg-combat-stat .lg-combat-stat__value .lg-dice-icon {
+  inline-size: var(--lg-space-16);
+  block-size: var(--lg-space-16);
+  color: var(--lg-color-link);
 }
 
 .lg-combat-stat__value-row {
@@ -302,10 +313,24 @@
     min-height: 88px;
   }
 
+  .lg-ac__label {
+    font-size: var(--lg-type-12);
+  }
+
+  .lg-combat-stat__label {
+    font-size: var(--lg-type-12);
+  }
+
   .lg-combat-stat .lg-combat-stat__edit {
     opacity: 1;
-    inline-size: 36px;
-    block-size: 36px;
+    top: 0;
+    right: 0;
+    inline-size: var(--lg-size-control);
+    block-size: var(--lg-size-control);
+  }
+
+  .lg-ac-breakdown .lg-ac-breakdown__base {
+    min-inline-size: var(--lg-size-control);
   }
 
   .lg-ac-breakdown {

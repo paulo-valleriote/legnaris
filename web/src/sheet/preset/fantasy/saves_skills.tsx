@@ -130,7 +130,13 @@ export function FantasySaves() {
       aria-label={message('sheet.play.saves')}
       data-testid="sheet-play-saves"
     >
-      <h2 className="lg-play-section__title">{message('sheet.play.saves')}</h2>
+      <h2 className="lg-play-section__title lg-play-section__title--split">
+        <span>{message('sheet.play.saves')}</span>
+        <span className="lg-play-section__note" data-testid="sheet-saves-legend">
+          <span className="lg-prof-dot__mark lg-prof-dot__mark--on" aria-hidden="true" />
+          {message('sheet.play.proficient')}
+        </span>
+      </h2>
       <ul className="lg-preset-saves__list">
         {ABILITY_KEYS.map((ability) => (
           <SaveRow key={ability} ability={ability} />
@@ -147,7 +153,12 @@ export function FantasySkills() {
       aria-label={message('sheet.play.skills')}
       data-testid="sheet-play-skills"
     >
-      <h2 className="lg-play-section__title">{message('sheet.play.skills')}</h2>
+      <h2 className="lg-play-section__title lg-play-section__title--split">
+        <span>{message('sheet.play.skills')}</span>
+        <span className="lg-play-section__note" data-testid="sheet-skills-roll-hint">
+          {message('sheet.play.rollHint')}
+        </span>
+      </h2>
       <ul className="lg-preset-skills__list">
         {SKILL_KEYS.map((skill) => (
           <SkillRow key={skill} skill={skill} />
