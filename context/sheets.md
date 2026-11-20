@@ -305,8 +305,10 @@ move (a loss that stays inside them lists only that line). The pure `hitPointsPr
 each changed line and the overall direction, and `formatHitPointsDelta` writes the sign (`+5`,
 `−7`). Pressing Enter in the amount field applies damage, and an empty or zero amount does
 nothing. The Damage and Heal buttons sit on `--lg-size-control-compact` on a desktop and
-`--lg-size-control` at phone widths, in the combat strip and in the stat block alike.
-`hit_points.ts` also owns the percentage
+`--lg-size-control` at phone widths, in the combat strip and in the stat block alike. The stat
+block folds the card into one row (numbers, bar, then a 74px amount field with Damage and Heal,
+with any pending line across the full width), so the vitals band stays compact. `hit_points.ts`
+also owns the percentage
 and band helpers, and both the card and the math are exported for the NPC and enemy stat block.
 
 Saving throws and skills follow as two card sections (`saves_skills.tsx`). Each row draws a
@@ -387,18 +389,21 @@ borders, and the card's own header carries the name, a subtitle and the kind bad
 same `identity.characterName` inline edit with the sheet name as fallback; the subtitle joins the
 non-empty parts of `identity.ancestry`, `identity.origin` and `identity.level` (through the pure
 `statBlockSubtitleParts`) and disappears when all are empty; the badge reads `NPC` or `Enemy`
-(`kind.npc` / `kind.enemy`) and the enemy badge takes the danger role. The body reuses the armor
-class shield, the hit-points card over the pure `hit_points.ts`,
-the ability medallions, the attack cards and the spellcasting panel, and adds an initiative tile
-(rollable through the `combat.initiative` Row plus a pencil inline edit clamped to −5–20 by the pure
-`armor_class.ts` parser) and a compact proficiency card that draws only the proficient saving throws
+(`kind.npc` / `kind.enemy`) and the enemy badge takes the danger role. The body opens with one
+vitals band under the header: a compact 56px armor class shield that still opens its breakdown, the
+inline rollable initiative beside it (pencil inline edit clamped to −5–20 by `armor_class.ts`) and
+the one-row hit-points card (`hit_points.ts`), with its
+amount field and Damage and Heal actions on the same line. Below it the body reuses the ability
+medallions, the attack cards and the spellcasting panel, and adds a compact proficiency card that
+draws only the proficient saving throws
 (ability abbreviation plus the rollable `saves.<ability>` total) and skills (template name, an
 inline-editable `skills.<skill>.bonus`, the rollable total) from the
 `config.save<A>Prof` / `config.skill<S>Prof` leaves; with none proficient the card is not drawn.
 Every value keeps its pending-delta path, so the stat block saves, previews and drafts like the full
 sheet. A character sheet, or a sheet with no kind, keeps the full preset. `stat_block.css` draws
-body text at `--lg-type-15` with every control on a `--lg-size-control` target, and folds the combat
-row to two columns with a full-width hit-points card on a phone.
+body text at `--lg-type-15` with every control on a `--lg-size-control` target; on a phone the band
+puts armor class and initiative on one row with the full-width hit-points card below and
+control-sized 44px Damage and Heal actions.
 
 ### Web local records
 

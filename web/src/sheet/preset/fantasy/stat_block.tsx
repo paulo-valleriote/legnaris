@@ -237,7 +237,7 @@ export function FantasyStatBlock() {
   return (
     <div className="lg-stat-block" data-testid="sheet-stat-block">
       <StatBlockHeader />
-      <div className="lg-stat-block__combat">
+      <div className="lg-stat-block__combat" data-testid="sheet-stat-band">
         <ArmorClassShield />
         <InitiativeTile />
         <div className="lg-stat-block__hp">
