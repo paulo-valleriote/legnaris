@@ -8,15 +8,17 @@
 }
 
 .lg-nav {
+  background-color: var(--lg-color-surface);
+  border-right: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-nav__rail {
   display: flex;
   flex-direction: column;
   gap: var(--lg-space-24);
   padding: var(--lg-space-24) var(--lg-space-12) var(--lg-space-16);
-  background-color: var(--lg-color-surface);
-  border-right: var(--lg-size-hairline) solid var(--lg-color-border);
   position: sticky;
   top: 0;
-  align-self: start;
   height: 100dvh;
   overflow-y: auto;
 }
@@ -255,16 +257,17 @@
   }
 
   .lg-nav {
-    position: static;
-    align-self: stretch;
-    height: auto;
-    overflow-y: visible;
+    display: flex;
     flex-flow: row wrap;
     align-items: center;
     gap: var(--lg-space-4);
     padding: var(--lg-space-4) var(--lg-space-16);
     border-right: 0;
     border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
+  }
+
+  .lg-nav__rail {
+    display: contents;
   }
 
   .lg-nav__brand {

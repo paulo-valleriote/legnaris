@@ -233,13 +233,21 @@ kind-selected stat block and ordered section slots, so later gameplay surfaces a
 preset rather than branches in the screen.
 The `fantasy_v1` preset currently draws the hero header, the combat strip, the attack cards, the
 ability medallions, the spellcasting panel and the table-rules disclosure. A preset declares an
-ordered body layout: full-width Section blocks and column blocks. The fantasy body draws the combat
-strip across the top, then three columns (abilities / saving throws with skills / attacks with
-spells), then the table rules; the columns fall to two around 1100px and to one on a phone, without
-a horizontal scroll at 360px. The title is
+ordered body layout: full-width Section blocks and column blocks, plus an optional narrow layout. The
+fantasy body draws the combat strip across the top, then three columns (abilities / saving throws
+with skills / attacks with spells), then the table rules; the columns fall to two around 1100px and
+to one on a phone, without a horizontal scroll at 360px. In both narrower layouts an ability
+medallion stacks its name above the medal and lets the name wrap instead of ellipsising it, so no
+ability name is cut; the three-column desktop layout is unchanged. On a phone (`max-width: 40rem`,
+the same `NARROW_QUERY` as every preset media query) the narrow layout replaces the columns with a
+flat, mobile-first order — combat, attacks, spells, abilities, saves, skills, rules — so the DOM and
+the keyboard tab order follow the visual order; the 1440 and 1100 arrangements keep their columns.
+The narrow sections are wrapped in `data-preset-section` slots, and a Section that renders nothing
+(no spells, no attacks, no rules) leaves an empty slot that is not drawn. The title is
 `identity.characterName` with
-the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper,
-`played by <player>` and the proficiency badge (an inline edit clamped to 2–6 by the pure
+the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper and
+`played by <player>` on one wrapping line (they share the row at 390px, and long values wrap inside
+the line instead of overflowing), then the proficiency badge (an inline edit clamped to 2–6 by the pure
 `fantasy/identity.ts`). The hero also carries the experience bar
 (`fantasy/xp_panel.tsx` over the pure `fantasy/xp_progress.ts`): a `progressbar` running from the
 current level's floor to the next 5e threshold, whose disclosure shows the `identity.xp` total as an
@@ -425,7 +433,8 @@ Web:
 - `web/src/sheet/sheet_screen.tsx` — mounted screen, footer and guards; `layout_store.ts` —
   committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
-  optional kind-selected `statBlock`, ordered section slots and the responsive body layout);
+  optional kind-selected `statBlock`, ordered section slots, the wide column layout and the
+  mobile-first narrow layout);
   `fantasy/` — the hero, the combat strip, the attack cards, the ability medallions, the
   saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
   `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`, `attacks_data.ts`, `slot_pips.ts`,
