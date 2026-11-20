@@ -15,12 +15,6 @@ export interface AttackSlot {
   readonly bonusPath: string;
 }
 
-export interface AttackVisibility {
-  readonly shown: readonly number[];
-  readonly free: readonly number[];
-  readonly next: number | undefined;
-}
-
 export function attackSlot(slot: number): AttackSlot {
   const rowKey = `attacks.attack${slot}`;
   return {
@@ -39,26 +33,6 @@ export const ATTACK_SLOTS: readonly AttackSlot[] = Array.from(
 
 export function attackFilled(name: unknown): boolean {
   return typeof name === 'string' && name.trim() !== '';
-}
-
-export function attackVisibility(
-  names: readonly unknown[],
-  revealed: readonly number[],
-): AttackVisibility {
-  const shown: number[] = [];
-  const free: number[] = [];
-  for (let index = 0; index < names.length; index += 1) {
-    const slot = index + 1;
-    const filled = attackFilled(names[index]);
-    const isRevealed = revealed.includes(slot);
-    if (filled || isRevealed) {
-      shown.push(slot);
-    }
-    if (!filled && !isRevealed) {
-      free.push(slot);
-    }
-  }
-  return { shown, free, next: free[0] };
 }
 
 export function parseAttackBonus(text: string): number | undefined {

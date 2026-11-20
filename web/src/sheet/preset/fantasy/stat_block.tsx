@@ -255,7 +255,7 @@ export function FantasyStatBlock() {
       <FantasyAbilities showPassive={false} />
       <StatProse />
       <FantasyAttacks />
-      <FantasySpells />
+      <FantasySpells variant="compact" />
     </div>
   );
 }
