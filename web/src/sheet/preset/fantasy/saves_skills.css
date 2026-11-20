@@ -54,7 +54,7 @@
 
 .lg-skill__ability {
   margin-inline-start: var(--lg-space-2);
-  font-size: 11px;
+  font-size: var(--lg-type-11);
   letter-spacing: var(--lg-tracking-wide);
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);
@@ -109,9 +109,9 @@
 }
 
 .lg-prof-dot[aria-pressed='true'] .lg-prof-dot__mark {
-  border-color: var(--lg-lava-500);
-  background-color: var(--lg-lava-500);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lg-lava-500) 18%, transparent);
+  border-color: var(--lg-color-accent);
+  background-color: var(--lg-color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--lg-color-accent) 18%, transparent);
 }
 
 @media (max-width: 40rem) {
@@ -139,5 +139,9 @@
 
   .lg-skill .lg-skill__bonus {
     opacity: 1;
+  }
+
+  .lg-skill__ability {
+    font-size: var(--lg-type-12);
   }
 }

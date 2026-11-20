@@ -171,7 +171,7 @@ function SpellText({ path }: { readonly path: string }) {
     <div className="lg-spells__text" data-testid={`sheet-spell-${lastSegment(path)}`}>
       <span className="lg-spells__label">{label}</span>
       <InlineEdit
-        className="lg-spells__text-value"
+        className="lg-spells__text-value lg-inline-edit--quiet"
         label={label}
         path={path}
         schema={field.schema}

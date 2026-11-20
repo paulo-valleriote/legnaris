@@ -43,6 +43,7 @@ export function RollableValue({
     <button
       type="button"
       className={`${classes} lg-rollable--button`}
+      data-rollable="true"
       aria-label={rollAccessibleName(label, resolution)}
       onClick={roll}
     >

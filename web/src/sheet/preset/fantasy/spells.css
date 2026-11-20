@@ -5,7 +5,7 @@
 }
 
 .lg-spells__label {
-  font-size: 10px;
+  font-size: var(--lg-type-11);
   letter-spacing: var(--lg-tracking-wide);
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);
@@ -162,5 +162,9 @@
 
   .lg-spells__slot {
     grid-template-columns: 56px minmax(0, 1fr) auto;
+  }
+
+  .lg-spells__label {
+    font-size: var(--lg-type-12);
   }
 }
