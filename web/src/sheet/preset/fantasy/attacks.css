@@ -1,109 +1,170 @@
 .lg-attacks__list {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
-  gap: var(--lg-space-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .lg-attack-card {
-  display: flex;
-  flex-direction: column;
-  gap: var(--lg-space-8);
-  min-inline-size: 0;
-  padding: var(--lg-space-16);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--lg-space-8) var(--lg-space-12);
+  min-width: 0;
+  padding: var(--lg-space-8) var(--lg-space-12);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
   border-radius: var(--lg-radius-md);
-  background-color: var(--lg-color-raised);
+  background-color: var(--lg-color-bg);
+}
+
+.lg-attack-card__heading {
+  min-width: 0;
 }
 
 .lg-attack-card__name {
+  min-width: 0;
   margin: 0;
-  font-size: var(--lg-type-18);
+  overflow: hidden;
+  font-size: var(--lg-type-15);
   font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
-  color: var(--lg-color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.lg-attack-card__name-value {
-  justify-self: start;
-  text-align: start;
+.lg-attack-card__name .lg-inline-edit {
+  border-bottom-color: transparent;
+}
+
+.lg-attack-card__name .lg-inline-edit:hover {
+  border-bottom-color: var(--lg-color-border-strong);
+}
+
+.lg-attack-card__notes {
+  min-width: 0;
+  margin: var(--lg-space-2) 0 0;
+  overflow: hidden;
+  color: var(--lg-color-text-muted);
+  font-size: var(--lg-type-13);
+  line-height: var(--lg-line-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lg-attack-card__notes .lg-inline-edit {
+  border-bottom-color: transparent;
+}
+
+.lg-attack-card__notes .lg-inline-edit:hover {
+  border-bottom-color: var(--lg-color-border-strong);
 }
 
 .lg-attack-card__stats {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--lg-space-8) var(--lg-space-16);
+  align-items: center;
+  gap: var(--lg-space-8);
   margin: 0;
 }
 
 .lg-attack-card__stat {
-  display: flex;
-  flex: 1 1 8rem;
-  flex-direction: column;
-  gap: var(--lg-space-2);
-  min-inline-size: 0;
+  position: relative;
 }
 
 .lg-attack-card__label {
-  font-size: var(--lg-type-12);
-  font-weight: var(--lg-font-weight-medium);
-  line-height: var(--lg-line-normal);
-  letter-spacing: var(--lg-tracking-wide);
-  text-transform: uppercase;
-  color: var(--lg-color-text-muted);
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .lg-attack-card__value {
   display: flex;
   align-items: center;
-  gap: var(--lg-space-4);
-  min-inline-size: 0;
   margin: 0;
 }
 
-.lg-attack-card__value .lg-rollable {
-  font-size: var(--lg-type-20);
-  line-height: var(--lg-line-tight);
+.lg-attack-card .lg-attack-card__roll {
+  min-block-size: 30px;
+  padding-inline: var(--lg-space-12);
+  gap: var(--lg-space-4);
 }
 
-.lg-attack-card__value .lg-rollable--button {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.lg-attack-card .lg-attack-card__roll .lg-dice-icon {
+  inline-size: var(--lg-space-16);
+  block-size: var(--lg-space-16);
+  color: var(--lg-color-link);
 }
 
-.lg-attack-card__edit {
+.lg-attack-card .lg-attack-card__edit {
+  position: absolute;
+  top: -10px;
+  right: -8px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-inline-size: var(--lg-size-control);
-  min-block-size: var(--lg-size-control);
+  inline-size: 22px;
+  block-size: 22px;
   padding: 0;
-  border: 0;
-  border-radius: var(--lg-radius-sm);
-  background-color: transparent;
+  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-raised);
   color: var(--lg-color-text-muted);
+  opacity: 0;
   cursor: pointer;
+  transition: opacity var(--lg-motion-120) var(--lg-ease-standard);
 }
 
-.lg-attack-card__edit:hover {
-  background-color: var(--lg-color-surface-hover);
-  color: var(--lg-color-text);
+.lg-attack-card .lg-attack-card__edit.lg-inline-edit--input {
+  position: static;
+  inline-size: 6rem;
+  block-size: auto;
+  opacity: 1;
+  border-radius: var(--lg-radius-sm);
+}
+
+.lg-attack-card:hover .lg-attack-card__edit,
+.lg-attack-card .lg-attack-card__edit:focus-visible {
+  opacity: 1;
 }
 
 .lg-attack-card__pencil {
-  flex: none;
-  inline-size: var(--lg-space-16);
-  block-size: var(--lg-space-16);
+  inline-size: 11px;
+  block-size: 11px;
   fill: none;
   stroke: currentColor;
   stroke-width: var(--lg-space-2);
 }
 
+.lg-attacks .lg-attacks__add {
+  width: 100%;
+  border: var(--lg-size-hairline) dashed var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-md);
+  color: var(--lg-color-text-subtle);
+}
+
+.lg-attacks .lg-attacks__add:hover {
+  border-color: var(--lg-color-text-muted);
+  color: var(--lg-color-text);
+}
+
 @media (max-width: 40rem) {
-  .lg-attacks__list {
+  .lg-attack-card {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lg-attack-card .lg-attack-card__roll {
+    min-block-size: var(--lg-size-control);
+  }
+
+  .lg-attack-card .lg-attack-card__edit {
+    position: static;
+    opacity: 1;
+    inline-size: var(--lg-size-control);
+    block-size: var(--lg-size-control);
+    margin-inline-start: var(--lg-space-4);
   }
 }

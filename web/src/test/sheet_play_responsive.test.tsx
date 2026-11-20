@@ -27,6 +27,10 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const presetCss = readFileSync(path.resolve(here, '../sheet/preset/preset.css'), 'utf8');
 const diceCss = readFileSync(path.resolve(here, '../sheet/dice.css'), 'utf8');
 const xpCss = readFileSync(path.resolve(here, '../sheet/preset/fantasy/xp_progress.css'), 'utf8');
+const abilitiesCss = readFileSync(
+  path.resolve(here, '../sheet/preset/fantasy/abilities.css'),
+  'utf8',
+);
 const presetCssDir = path.resolve(here, '../sheet/preset');
 const presetNarrowCss = readdirSync(path.join(presetCssDir, 'fantasy'))
   .filter((name) => name.endsWith('.css'))
@@ -59,6 +63,32 @@ function mobileCss(css: string): string {
   return css.slice(css.indexOf('@media (max-width: 40rem)'));
 }
 
+function mediaBlock(css: string, query: string): string {
+  const start = css.indexOf(query);
+  const open = css.indexOf('{', start);
+  let depth = 0;
+  for (let index = open; index < css.length; index += 1) {
+    if (css[index] === '{') {
+      depth += 1;
+    } else if (css[index] === '}') {
+      depth -= 1;
+      if (depth === 0) {
+        return css.slice(start, index + 1);
+      }
+    }
+  }
+  throw new Error(`unclosed media block ${query}`);
+}
+
+function ruleBlock(css: string, selector: string): string {
+  const start = css.indexOf(`${selector} {`);
+  const end = css.indexOf('}', start);
+  if (start === -1 || end === -1) {
+    throw new Error(`no rule for ${selector}`);
+  }
+  return css.slice(start, end + 1);
+}
+
 describe('the Play editing surface', () => {
   it('Happy path: every editable leaf of the fantasy_v1 fixture has an editing control', async () => {
     const { user } = await openFantasy();
@@ -83,7 +113,7 @@ describe('the Play editing surface', () => {
     await user.click(editPath('identity.proficiencyBonus'));
     await user.clear(screen.getByRole('textbox', { name: 'Proficiency bonus' }));
     await user.type(screen.getByRole('textbox', { name: 'Proficiency bonus' }), '3{Enter}');
-    expect(editPath('identity.proficiencyBonus')).toHaveTextContent('Proficiency +3');
+    expect(editPath('identity.proficiencyBonus')).toHaveTextContent('+3Prof');
 
     await user.click(editPath('combat.hitPointsTemp'));
     const temp = screen.getByRole('textbox', { name: 'Temporary hit points' });
@@ -121,7 +151,7 @@ describe('inline editing on a narrow screen', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Character name' })).toHaveTextContent('Brenna');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeEnabled();
+    expect(screen.getByRole('button', { name: message('sheet.pending.save') })).toBeEnabled();
   });
 
   it('Happy path: a numeric edit opens a bottom sheet with a numeric input and commits', async () => {
@@ -151,7 +181,9 @@ describe('inline editing on a narrow screen', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ancestry' })).toHaveTextContent('Elf');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
   });
 
   it('Edge: the close button on the bottom sheet cancels the edit', async () => {
@@ -163,7 +195,9 @@ describe('inline editing on a narrow screen', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Origin' })).toHaveTextContent('Wanderer');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
   });
 
   it('Edge: a numeric bottom sheet strips the display plus sign from its value', async () => {
@@ -205,10 +239,10 @@ describe('the responsive Play layout', () => {
 
   it('Edge: the body is three columns, two near 1100px and one on a phone', () => {
     expect(presetCss).toMatch(
-      /\.lg-preset__columns\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/,
+      /\.lg-preset__columns\s*\{[^}]*grid-template-columns:\s*200px minmax\(0, 1fr\) minmax\(0, 1\.1fr\)/,
     );
     const twoColumn = presetCss.slice(presetCss.indexOf('@media (max-width: 68.75rem)'));
-    expect(twoColumn).toMatch(/grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+    expect(twoColumn).toMatch(/grid-template-columns:\s*180px minmax\(0, 1fr\)/);
     expect(mobileCss(presetCss)).toMatch(/grid-template-columns:\s*minmax\(0, 1fr\)/);
   });
 
@@ -216,6 +250,32 @@ describe('the responsive Play layout', () => {
     expect(presetCss).toMatch(/\.lg-preset\s*\{[^}]*max-width:\s*100%/);
     expect(presetCss).toMatch(/\.lg-preset__columns\s*\{[^}]*min-width:\s*0/);
     expect(presetCss).toMatch(/\.lg-preset__column[\s\S]*?min-width:\s*0/);
+  });
+
+  it('Edge: the damage and heal buttons are 40px on a desktop and 44px on a phone', () => {
+    expect(presetCss).toMatch(
+      /\.lg-hp-card__entry > \.lg-button\s*\{[^}]*min-height:\s*var\(--lg-size-control-compact\)/,
+    );
+    expect(mobileCss(presetCss)).toMatch(
+      /\.lg-hp-card__entry > \.lg-button\s*\{[^}]*min-height:\s*var\(--lg-size-control\)/,
+    );
+  });
+
+  it('Edge: the quick hit point actions keep a 44px touch target on a phone', () => {
+    expect(mobileCss(presetCss)).toMatch(
+      /\.lg-hp-card__quick > \.lg-button\s*\{[^}]*min-height:\s*var\(--lg-size-control\)/,
+    );
+    expect(mobileCss(presetCss)).toMatch(
+      /\.lg-hp-card__quick > \.lg-button\s*\{[^}]*min-width:\s*var\(--lg-size-control\)/,
+    );
+  });
+
+  it('Edge: the hit point actions wrap and stay inside the card on a phone', () => {
+    const mobile = mobileCss(presetCss);
+    expect(mobile).toMatch(
+      /\.lg-hp-card__actions\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/,
+    );
+    expect(mobile).toMatch(/\.lg-hp-card__actions\s*\{[^}]*justify-items:\s*stretch/);
   });
 
   it('Edge: reduced motion switches off the hit point and experience bar animations', () => {
@@ -231,6 +291,50 @@ describe('the responsive Play layout', () => {
     expect(diceCss).toMatch(
       /@media \(prefers-reduced-motion: reduce\)[\s\S]*?\.lg-dice-panel\s*\{[^}]*animation:\s*none/,
     );
+  });
+});
+
+describe('ability names at every Play width', () => {
+  const widths = [1440, 1100, 390, 360] as const;
+  const names = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
+
+  it.each(widths.map((width) => [width]))(
+    'Happy path: the six ability names are drawn whole at %ipx',
+    async (width) => {
+      await openFantasy(width);
+
+      const drawn = screen
+        .getAllByTestId(/^sheet-ability-/)
+        .map((item) => item.querySelector('.lg-ability__name')?.textContent);
+
+      expect(drawn).toEqual(names);
+    },
+  );
+
+  it('Edge: the 1440 layout keeps the name beside the medallion', () => {
+    expect(ruleBlock(abilitiesCss, '.lg-ability')).toMatch(
+      /grid-template-columns:\s*minmax\(0, 1fr\) auto/,
+    );
+    expect(ruleBlock(abilitiesCss, '.lg-ability__name')).toMatch(/white-space:\s*nowrap/);
+  });
+
+  it('Edge: at 1100, 390 and 360 the name moves above the medallion and never ellipsises', () => {
+    for (const width of [1100, 390, 360]) {
+      expect(width).toBeLessThanOrEqual(68.75 * 16);
+    }
+
+    const stacked = mediaBlock(abilitiesCss, '@media (max-width: 68.75rem)');
+    expect(stacked).toMatch(/\.lg-ability\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/);
+    const name = stacked.slice(stacked.indexOf('.lg-ability__name'));
+    expect(name).toMatch(/white-space:\s*normal/);
+    expect(name).toMatch(/overflow-wrap:\s*anywhere/);
+    expect(name).not.toMatch(/text-overflow:\s*ellipsis/);
+  });
+
+  it('Edge: an ability card can never widen the column or the page at 360px', () => {
+    expect(abilitiesCss).toMatch(/\.lg-ability\s*\{[^}]*min-width:\s*0/);
+    expect(abilitiesCss).toMatch(/\.lg-ability__name\s*\{[^}]*min-width:\s*0/);
+    expect(abilitiesCss).toMatch(/\.lg-ability__name\s*\{[^}]*white-space:\s*nowrap/);
   });
 });
 
@@ -273,19 +377,18 @@ describe('the new editing value parsers', () => {
 });
 
 describe('the inline edit breakpoint', () => {
-  it('Edge: the narrow query matches every 40rem breakpoint in the preset CSS', () => {
+  it('Edge: the only preset breakpoints are the phone query and the 1100 layout', () => {
     const narrowRem = NARROW_QUERY.match(/max-width:\s*([\d.]+rem)/)?.[1];
     expect(narrowRem).toBe('40rem');
     expect(presetCss).toContain(`@media (max-width: ${narrowRem})`);
 
-    let breakpoints = 0;
+    const breakpoints = new Set<string>();
     for (const file of presetNarrowCss) {
       const css = readFileSync(file, 'utf8');
       for (const query of css.matchAll(/@media \(max-width: ([\d.]+rem)\)/g)) {
-        breakpoints += 1;
-        expect(query[1]).toBe(narrowRem);
+        breakpoints.add(query[1]);
       }
     }
-    expect(breakpoints).toBeGreaterThan(0);
+    expect([...breakpoints].sort()).toEqual(['40rem', '68.75rem']);
   });
 });

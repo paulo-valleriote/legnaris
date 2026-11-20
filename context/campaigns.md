@@ -114,7 +114,7 @@ stateDiagram-v2
   end note
 ```
 
-The web list at `/campaigns` orders owned Campaigns first, then GM roles, then Player roles, shows the owned count against the Plan limit, and blocks creation at the limit with a link to the Plans screen. The detail screen grants Owner and GM panels by `viewer_role` and `viewer_owner`; a Player gets the character link form, the members list, leave and the revealed NPC list. `/join/:code` submits the code from the URL, reveals a password field only after `PASSWORD_REQUIRED`, and then reports the joined Campaign. The GM Sheet and NPC screens are read-only, poll every minute and offer a manual refresh.
+The web list at `/campaigns` orders owned Campaigns first, then GM roles, then Player roles, shows the owned count against the Plan limit, and blocks creation at the limit with a link to the Plans screen. The detail screen grants Owner and GM panels by `viewer_role` and `viewer_owner`; a Player gets the character link form, the members list, leave and the revealed NPC list. `/join/:code` submits the code from the URL, reveals a password field only after `PASSWORD_REQUIRED`, and then reports the joined Campaign. The GM Sheet and NPC screens are read-only, poll every minute and offer a manual refresh. NPC and Enemy kind labels on the detail screen use the shared `kind.npc` and `kind.enemy` copy that the sheet stat block header also uses.
 
 ## Contracts
 

@@ -1,11 +1,20 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { seedSession } from './auth_seed';
+import {
+  SHEET as FANTASY_SHEET,
+  SHEET_ID as FANTASY_SHEET_ID,
+  TEMPLATE as FANTASY_TEMPLATE,
+} from './fantasy_play';
+import { STAT_BLOCK_DETAIL, STAT_BLOCK_SHEET, STAT_BLOCK_SHEET_ID } from './stat_block_fixture';
 
 test.use({ serviceWorkers: 'block' });
 
 const TEMPLATE_ID = 'fantasy_v1';
 const SHEET_ID = '01a14236-21c9-7546-945e-40c46d1fcd1d';
 const CONTROL_HEIGHT = 44;
+const UNDERLINE_THICKNESS = 1.5;
+const UNDERLINE_CLEARANCE = 2;
 
 const CATALOG = [{ id: TEMPLATE_ID, name: 'Fantasy', default: true, fields: {} }];
 
@@ -48,6 +57,128 @@ const PHONES = [
   { name: 'a 390 px phone', width: 390, height: 844 },
 ];
 
+async function contentEdges(page: Page) {
+  return page.locator('.lg-sheet__header').evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      left: rect.left + Number.parseFloat(style.paddingLeft),
+      right: rect.right - Number.parseFloat(style.paddingRight),
+    };
+  });
+}
+
+interface DashedUnderline {
+  readonly text: string | null;
+  readonly textBox: { left: number; right: number; top: number; bottom: number } | null;
+  readonly underline: { left: number; right: number; top: number; bottom: number };
+}
+
+async function dashedUnderlines(page: Page): Promise<DashedUnderline[]> {
+  return page.getByTestId('sheet-stat-band').evaluate((band) => {
+    const textBoxOf = (element: Element) => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let text = '';
+      let left = Number.POSITIVE_INFINITY;
+      let right = Number.NEGATIVE_INFINITY;
+      let top = Number.POSITIVE_INFINITY;
+      let bottom = Number.NEGATIVE_INFINITY;
+      for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+        const content = node.textContent ?? '';
+        if (content.trim() === '') {
+          continue;
+        }
+        text += content;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const rect = range.getBoundingClientRect();
+        left = Math.min(left, rect.left);
+        right = Math.max(right, rect.right);
+        top = Math.min(top, rect.top);
+        bottom = Math.max(bottom, rect.bottom);
+      }
+      return text === '' ? null : { text, box: { left, right, top, bottom } };
+    };
+
+    const found: DashedUnderline[] = [];
+    for (const element of band.querySelectorAll('*')) {
+      const style = getComputedStyle(element);
+      const borderWidth = Number.parseFloat(style.borderBottomWidth);
+      const dashedBorder = style.borderBottomStyle === 'dashed' && borderWidth > 0;
+      const dashedText =
+        style.textDecorationStyle === 'dashed' && style.textDecorationLine.includes('underline');
+      if (!dashedBorder && !dashedText) {
+        continue;
+      }
+      const content = textBoxOf(element);
+      const rect = element.getBoundingClientRect();
+      if (dashedBorder) {
+        found.push({
+          text: content?.text ?? null,
+          textBox: content?.box ?? null,
+          underline: {
+            left: rect.left,
+            right: rect.right,
+            top: rect.bottom - borderWidth,
+            bottom: rect.bottom,
+          },
+        });
+        continue;
+      }
+      const context = document.createElement('canvas').getContext('2d')!;
+      context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const ascent = content === null ? 0 : context.measureText(content.text).fontBoundingBoxAscent;
+      const offset = Number.parseFloat(style.textUnderlineOffset) || 0;
+      const thickness = Number.parseFloat(style.textDecorationThickness) || 1;
+      const left = content?.box.left ?? rect.left;
+      const right = content?.box.right ?? rect.right;
+      const top = (content?.box.top ?? rect.top) + ascent + offset;
+      found.push({
+        text: content?.text ?? null,
+        textBox: content?.box ?? null,
+        underline: { left, right, top, bottom: top + thickness },
+      });
+    }
+    return found;
+  });
+}
+
+async function expectFullWidthModeSwitch(page: Page, segments: number) {
+  const group = page.getByTestId('sheet-header-actions');
+  const edges = await contentEdges(page);
+  const box = (await group.boundingBox())!;
+  expect(Math.abs(box.x - edges.left)).toBeLessThanOrEqual(1);
+  expect(Math.abs(box.x + box.width - edges.right)).toBeLessThanOrEqual(1);
+
+  const buttons = group.locator('.lg-button');
+  expect(await buttons.count()).toBe(segments);
+  const measured = await buttons.evaluateAll((elements) =>
+    elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    }),
+  );
+  for (const segment of measured) {
+    expect(Math.abs(segment.width - measured[0]!.width)).toBeLessThanOrEqual(1);
+    expect(segment.width).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
+    expect(segment.height).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
+  }
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(0);
+}
+
+async function expectTrailingModeSwitch(page: Page, segments: number) {
+  const group = page.getByTestId('sheet-header-actions');
+  const edges = await contentEdges(page);
+  const box = (await group.boundingBox())!;
+  expect(Math.abs(box.x + box.width - edges.right)).toBeLessThanOrEqual(1);
+  expect(box.width).toBeLessThan(edges.right - edges.left - 1);
+  expect(await group.locator('.lg-button').count()).toBe(segments);
+}
+
 test.describe('narrow viewport (the top bar and full-width content)', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page);
@@ -84,9 +215,7 @@ test.describe('narrow viewport (the top bar and full-width content)', () => {
       }
     });
 
-    test(`the navigation is a reachable top bar of full-height controls on ${phone.name}`, async ({
-      page,
-    }) => {
+    test(`the navigation collapses behind one menu button on ${phone.name}`, async ({ page }) => {
       await page.setViewportSize({ width: phone.width, height: phone.height });
       await page.goto('/');
 
@@ -96,16 +225,46 @@ test.describe('narrow viewport (the top bar and full-width content)', () => {
       expect(navBox!.width).toBe(phone.width);
       expect(navBox!.y + navBox!.height).toBeLessThanOrEqual(mainBox!.y);
 
+      const trigger = nav.getByRole('button', { name: 'Menu' });
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      const triggerBox = await trigger.boundingBox();
+      expect(triggerBox!.width).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
+      expect(triggerBox!.height).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
+      expect(triggerBox!.x + triggerBox!.width).toBeLessThanOrEqual(phone.width);
+
+      await trigger.click();
+      await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      const panelId = await trigger.getAttribute('aria-controls');
+      const panel = page.locator(`[id="${panelId}"]`);
       for (const control of [
-        nav.getByRole('link', { name: 'Catalog' }),
-        nav.getByRole('link', { name: 'Your sheet' }),
-        nav.getByRole('button', { name: 'Sign out' }),
+        panel.getByRole('link', { name: 'Catalog' }),
+        panel.getByRole('link', { name: 'Your sheet' }),
+        panel.getByRole('button', { name: 'Sign out' }),
       ]) {
+        await expect(control).toBeVisible();
         const box = await control.boundingBox();
-        expect(box).not.toBeNull();
         expect(box!.height).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
         expect(box!.x + box!.width).toBeLessThanOrEqual(phone.width);
       }
+
+      await page.keyboard.press('Escape');
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      await expect(trigger).toBeFocused();
+    });
+
+    test(`the sheet title starts within the first 80 px on ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await page.goto(`/sheets/${SHEET_ID}`);
+
+      const playTitle = await page.getByTestId('sheet-name').boundingBox();
+      expect(playTitle).not.toBeNull();
+      expect(playTitle!.y).toBeLessThanOrEqual(80);
+
+      await page.getByRole('button', { name: 'Edit mode' }).click();
+
+      const editTitle = await page.getByTestId('sheet-name').boundingBox();
+      expect(editTitle).not.toBeNull();
+      expect(editTitle!.y).toBeLessThanOrEqual(80);
     });
 
     test(`the creation dialog fits ${phone.name} with a clickable action`, async ({ page }) => {
@@ -152,6 +311,66 @@ test.describe('narrow viewport (the top bar and full-width content)', () => {
     const mainBox = await page.getByRole('main').boundingBox();
     expect(navBox!.width).toBeLessThanOrEqual(240);
     expect(mainBox!.x).toBeGreaterThanOrEqual(navBox!.x + navBox!.width);
+  });
+});
+
+const LONG_FIELDS = Object.fromEntries(
+  Array.from({ length: 30 }, (_, index) => [
+    `field${index}`,
+    {
+      schema: {
+        type: 'number',
+        label: `Field ${index}`,
+        is_editable: true,
+        default: 0,
+      },
+    },
+  ]),
+);
+
+const LONG_DETAIL = {
+  ...DETAIL,
+  fields: { long: { label: 'Long', children: LONG_FIELDS } },
+};
+
+const LONG_SHEET = { ...SHEET, data: { long: {} } };
+
+test.describe('the desktop navigation on a long page', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSession(page);
+    await page.route('**/me/plan', (route) => route.fulfill({ json: { data: FREE_PLAN } }));
+    await page.route('**/templates/*', (route) => route.fulfill({ json: { data: LONG_DETAIL } }));
+    await page.route('**/templates', (route) => route.fulfill({ json: { data: CATALOG } }));
+    await page.route('**/sheets/*', (route) =>
+      route.request().resourceType() === 'document'
+        ? route.fallback()
+        : route.fulfill({ json: { data: LONG_SHEET } }),
+    );
+  });
+
+  test('the navigation paints the full scroll height while Sign out stays pinned', async ({
+    page,
+  }) => {
+    const viewport = { width: 1440, height: 900 };
+    await page.setViewportSize(viewport);
+    await page.goto(`/sheets/${SHEET_ID}`);
+    await page.getByRole('button', { name: 'Edit mode' }).click();
+    await expect(page.locator('[data-row-key="long.field29"]')).toBeVisible();
+
+    const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+    expect(scrollHeight).toBeGreaterThan(viewport.height);
+
+    const navBox = (await page.getByRole('navigation', { name: 'Primary' }).boundingBox())!;
+    expect(navBox.y).toBe(0);
+    expect(navBox.height).toBeGreaterThanOrEqual(scrollHeight - 1);
+
+    await page.evaluate(() => window.scrollTo({ top: 300, behavior: 'instant' }));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300);
+
+    const signOut = (await page.getByRole('button', { name: 'Sign out' }).boundingBox())!;
+    expect(signOut.y).toBeGreaterThan(0);
+    expect(signOut.y + signOut.height).toBeGreaterThan(viewport.height - 64);
+    expect(signOut.y + signOut.height).toBeLessThanOrEqual(viewport.height);
   });
 });
 
@@ -340,6 +559,180 @@ test.describe('the footer after a Preview', () => {
   }
 });
 
+test.describe('the enemy stat block', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSession(page);
+    await page.route('**/me/plan', (route) =>
+      route.fulfill({
+        json: {
+          data: {
+            plan: 'free',
+            sheets: {
+              character: { used: 0, limit: 1 },
+              npc: { used: 0, limit: 2 },
+              enemy: { used: 0, limit: 2 },
+            },
+            owned_campaigns: { used: 0, limit: 1 },
+          },
+        },
+      }),
+    );
+    await page.route('**/templates/*', (route) =>
+      route.fulfill({ json: { data: STAT_BLOCK_DETAIL } }),
+    );
+    await page.route('**/templates', (route) =>
+      route.fulfill({
+        json: {
+          data: [
+            { id: STAT_BLOCK_DETAIL.id, name: STAT_BLOCK_DETAIL.name, default: true, fields: {} },
+          ],
+        },
+      }),
+    );
+    await page.route('**/sheets/*', (route) =>
+      route.request().resourceType() === 'document'
+        ? route.fallback()
+        : route.fulfill({ json: { data: STAT_BLOCK_SHEET } }),
+    );
+  });
+
+  async function openStatBlock(page: Page) {
+    await page.goto(`/sheets/${STAT_BLOCK_SHEET_ID}`);
+    const block = page.getByTestId('sheet-stat-block');
+    await expect(block).toBeVisible();
+    return block;
+  }
+
+  for (const viewport of [
+    { name: '1440', width: 1440, height: 900, budget: 900 },
+    { name: '390', width: 390, height: 844, budget: 1200 },
+  ]) {
+    test(`the stat block height fits its ${viewport.name} px budget`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      const block = await openStatBlock(page);
+
+      expect((await block.boundingBox())!.height).toBeLessThanOrEqual(viewport.budget);
+    });
+  }
+
+  test('a 390 px phone shows armor class, hit points and the first attack at a glance', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openStatBlock(page);
+
+    for (const testId of ['sheet-ac', 'sheet-hp-card', 'sheet-attack-1']) {
+      const box = (await page.getByTestId(testId).boundingBox())!;
+      expect(box.y + box.height).toBeLessThanOrEqual(844);
+    }
+
+    const label = page.getByTestId('sheet-ability-strength').locator('.lg-ability__name');
+    expect(await label.evaluate((element) => getComputedStyle(element).fontSize)).toBe('12px');
+
+    const grid = page.locator('.lg-ability-grid').first();
+    const columns = await grid.evaluate((element) => getComputedStyle(element).gridTemplateColumns);
+    expect(columns.split(' ')).toHaveLength(3);
+  });
+
+  test('the body splits into two columns from 1100 px and stacks below it', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await openStatBlock(page);
+
+    const wideCombat = (await page.getByTestId('sheet-stat-column-combat').boundingBox())!;
+    const wideTraits = (await page.getByTestId('sheet-stat-column-traits').boundingBox())!;
+    expect(wideTraits.x).toBeGreaterThanOrEqual(wideCombat.x + wideCombat.width);
+
+    await page.setViewportSize({ width: 1099, height: 900 });
+    await openStatBlock(page);
+
+    const narrowCombat = (await page.getByTestId('sheet-stat-column-combat').boundingBox())!;
+    const narrowTraits = (await page.getByTestId('sheet-stat-column-traits').boundingBox())!;
+    expect(narrowTraits.x).toBe(narrowCombat.x);
+    expect(narrowTraits.y).toBeGreaterThanOrEqual(narrowCombat.y + narrowCombat.height);
+  });
+
+  test('a 360 px phone keeps the stat block free of horizontal overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await openStatBlock(page);
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBe(0);
+  });
+
+  for (const phone of PHONES) {
+    test(`the header switch group spans the content width on ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await openStatBlock(page);
+
+      await expectFullWidthModeSwitch(page, 3);
+    });
+  }
+
+  test('a 1440 px viewport keeps the header switch group trailing and compact', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openStatBlock(page);
+
+    await expectTrailingModeSwitch(page, 3);
+  });
+
+  for (const viewport of [
+    { name: '1440', width: 1440, height: 900 },
+    { name: '1100', width: 1100, height: 900 },
+  ]) {
+    test(`no stat block ability name is cut at ${viewport.name} px`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await openStatBlock(page);
+
+      const names = page.locator('.lg-stat-block .lg-ability__name');
+      expect(await names.count()).toBe(6);
+      const measured = await names.evaluateAll((elements) =>
+        elements.map((element) => ({
+          text: element.textContent?.trim(),
+          scroll: element.scrollWidth,
+          client: element.clientWidth,
+        })),
+      );
+      for (const name of measured) {
+        expect(name.text).not.toBe('');
+        expect(name.scroll).toBeLessThanOrEqual(name.client);
+      }
+    });
+  }
+
+  for (const phone of PHONES) {
+    test(`every dashed underline hugs its value on ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await openStatBlock(page);
+
+      const underlines = await dashedUnderlines(page);
+      expect(new Set(underlines.map((entry) => entry.text?.trim()))).toEqual(
+        new Set(['+2', '26', '38', 'Temp']),
+      );
+
+      for (const entry of underlines) {
+        expect(entry.text).not.toBeNull();
+        const text = entry.textBox!;
+        expect(entry.underline.left).toBeLessThan(text.right);
+        expect(entry.underline.right).toBeGreaterThan(text.left);
+        expect(Math.abs(entry.underline.top - text.bottom)).toBeLessThanOrEqual(8);
+      }
+    });
+
+    test(`the hit point action rows share one left edge on ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await openStatBlock(page);
+
+      const quick = (await page.locator('.lg-hp-card__quick').boundingBox())!;
+      const entry = (await page.locator('.lg-hp-card__entry').boundingBox())!;
+      expect(Math.abs(quick.x - entry.x)).toBeLessThanOrEqual(1);
+    });
+  }
+});
+
 const dieField = (label: string) => ({
   schema: { type: 'number', label, is_editable: true, default: 0 },
 });
@@ -411,4 +804,116 @@ test.describe('dice controls keep the value column on one guide', () => {
       expect(overflow).toBe(0);
     });
   }
+});
+
+test.describe('the fantasy Play sheet at every width', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSession(page);
+    await page.route('**/templates/*', (route) =>
+      route.fulfill({ json: { data: FANTASY_TEMPLATE } }),
+    );
+    await page.route('**/templates', (route) =>
+      route.fulfill({ json: { data: [FANTASY_TEMPLATE] } }),
+    );
+    await page.route('**/sheets/*', (route) =>
+      route.request().resourceType() === 'document'
+        ? route.fallback()
+        : route.fulfill({ json: { data: FANTASY_SHEET } }),
+    );
+  });
+
+  async function openPlay(page: Page) {
+    await page.goto(`/sheets/${FANTASY_SHEET_ID}`);
+    await expect(page.getByTestId('sheet-hp-card')).toBeVisible();
+  }
+
+  for (const phone of PHONES) {
+    test(`every hit point control stays inside the card on ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await openPlay(page);
+
+      const card = page.getByTestId('sheet-hp-card');
+      const cardBox = (await card.boundingBox())!;
+      const controls = card.locator('button, input');
+      const count = await controls.count();
+      expect(count).toBeGreaterThanOrEqual(11);
+      for (let index = 0; index < count; index += 1) {
+        const control = controls.nth(index);
+        await expect(control).toBeVisible();
+        const box = (await control.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(cardBox.x - 0.5);
+        expect(box.x + box.width).toBeLessThanOrEqual(cardBox.x + cardBox.width + 0.5);
+        expect(box.y).toBeGreaterThanOrEqual(cardBox.y - 0.5);
+        expect(box.y + box.height).toBeLessThanOrEqual(cardBox.y + cardBox.height + 0.5);
+      }
+
+      for (const name of [
+        'Damage 5',
+        'Damage 1',
+        'Heal 1',
+        'Heal 5',
+        'Add temporary hit points',
+        'Damage',
+        'Heal',
+      ]) {
+        const box = (await card.getByRole('button', { name, exact: true }).boundingBox())!;
+        expect(box.width).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
+        expect(box.height).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
+      }
+    });
+  }
+
+  for (const viewport of [
+    { name: '1440', width: 1440, height: 900 },
+    { name: '390', width: 390, height: 844 },
+  ]) {
+    test(`the initiative underline sits clear of its label at ${viewport.name} px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await openPlay(page);
+
+      const geometry = await page.getByTestId('sheet-initiative').evaluate((element) => {
+        const value = element.querySelector('.lg-combat-stat__value')!;
+        const label = element.querySelector('.lg-combat-stat__label')!;
+        const text = [...value.childNodes].find(
+          (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== '',
+        )!;
+        const range = document.createRange();
+        range.selectNodeContents(text);
+        const textBox = range.getBoundingClientRect();
+        const style = getComputedStyle(value);
+        const context = document.createElement('canvas').getContext('2d')!;
+        context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        const metrics = context.measureText(text.textContent ?? '');
+        return {
+          underlineBottom:
+            textBox.top +
+            metrics.fontBoundingBoxAscent +
+            Number.parseFloat(style.textUnderlineOffset),
+          labelTop: label.getBoundingClientRect().top,
+        };
+      });
+
+      expect(geometry.underlineBottom + UNDERLINE_THICKNESS).toBeLessThanOrEqual(
+        geometry.labelTop - UNDERLINE_CLEARANCE,
+      );
+    });
+  }
+
+  for (const phone of PHONES) {
+    test(`the Play/Edit switch spans the content width on ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await openPlay(page);
+
+      await expectFullWidthModeSwitch(page, 2);
+    });
+  }
+
+  test('a 1440 px viewport keeps the Play/Edit switch trailing and compact', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openPlay(page);
+
+    await expectTrailingModeSwitch(page, 2);
+  });
 });

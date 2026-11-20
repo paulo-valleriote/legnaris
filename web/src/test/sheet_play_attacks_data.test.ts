@@ -55,7 +55,7 @@ describe('attack visibility', () => {
     });
   });
 
-  it('Edge: filled slots are shown and the remaining slots stay free', () => {
+  it('Happy path: filled slots are shown and the remaining slots stay free', () => {
     expect(attackVisibility(['Longsword', 'Dagger', '', ''], [])).toEqual({
       shown: [1, 2],
       free: [3, 4],

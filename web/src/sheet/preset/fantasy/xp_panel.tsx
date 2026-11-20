@@ -14,6 +14,12 @@ import { numberValue } from '../values';
 import { LEVEL_PATH, parseXpGain, parseXpTotal, XP_PATH, xpProgress } from './xp_progress';
 import './xp_progress.css';
 
+const XP_FORMAT = new Intl.NumberFormat('en-US');
+
+function formatXp(value: number): string {
+  return XP_FORMAT.format(value);
+}
+
 export function XpBar() {
   const [open, setOpen] = useState(false);
   const [gain, setGain] = useState('');
@@ -50,7 +56,12 @@ export function XpBar() {
         <span className="lg-xp__head">
           <span className="lg-xp__label">{message('sheet.play.experience')}</span>
           <span className="lg-xp__total">
-            {messageWith('sheet.play.xpTotal', { count: progress.xp })}
+            {progress.nextThreshold === null
+              ? messageWith('sheet.play.xpTotal', { count: formatXp(progress.xp) })
+              : messageWith('sheet.play.xpProgress', {
+                  count: formatXp(progress.xp),
+                  next: formatXp(progress.nextThreshold),
+                })}
           </span>
         </span>
         <span

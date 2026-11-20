@@ -1,6 +1,5 @@
 import { useCallback, useId, useMemo, useSyncExternalStore } from 'react';
 import { valueAtPath } from '../../../api/models/sheet';
-import { SheetFieldControl } from '../../../engine/field_control';
 import type { SheetField } from '../../../engine/field_grouping';
 import { fieldDisplayName, groupDisplayName, lastSegment } from '../../../engine/field_grouping';
 import { message, messageWith } from '../../../l10n/strings';
@@ -15,27 +14,24 @@ import {
   usePresetValue,
 } from '../preset_context';
 import { RollableValue } from '../rollable_value';
-import { SegmentedChoice } from '../segmented_choice';
-import type { SegmentedChoiceOption } from '../segmented_choice';
 import { numberValue, textValue } from '../values';
+import { formatLevelRanges } from './hidden_levels';
+import { parseClampedInt, UNBOUNDED } from './parse_number';
 import { recoverSlot, slotPips, slotPool, spendSlot } from './slot_pips';
 import type { SlotPool } from './slot_pips';
+import {
+  AT_WILL_PATH,
+  hasSpellCast,
+  LIST_PATH,
+  SLOT_LEVELS,
+  SPELL_ATTACK_DICE,
+  SPELL_ATTACK_PATH,
+  SPELL_SAVE_DC_PATH,
+  SPELLCASTING_ABILITY_GROUP,
+  slotPath,
+} from './spells_data';
 import './play_section.css';
 import './spells.css';
-
-const SPELLCASTING_ABILITY_GROUP = 'spellcastingAbility';
-
-const SPELL_ATTACK_PATH = 'spells.attackBonus';
-
-const SPELL_SAVE_DC_PATH = 'spells.saveDC';
-
-const SPELL_ATTACK_DICE = '1d20 + @';
-
-const SLOT_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
-
-function slotPath(level: number, leaf: 'total' | 'expended'): string {
-  return `spells.slot${level}.${leaf}`;
-}
 
 function numberOrMissing(value: unknown): string {
   const number = numberValue(value);
@@ -50,7 +46,12 @@ function signedValue(value: unknown): string {
   return number >= 0 ? `+${number}` : String(number);
 }
 
-function abilityOptions(fields: ReadonlyMap<string, SheetField>): SegmentedChoiceOption[] {
+interface AbilityOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+function abilityOptions(fields: ReadonlyMap<string, SheetField>): AbilityOption[] {
   return [...fields.values()]
     .filter((field) => field.schema.exclusiveGroup === SPELLCASTING_ABILITY_GROUP)
     .map((field) => ({
@@ -62,6 +63,7 @@ function abilityOptions(fields: ReadonlyMap<string, SheetField>): SegmentedChoic
 
 function SpellcastingAbility() {
   const { store, fields } = usePresetContext();
+  const selectId = useId();
   const options = useMemo(() => abilityOptions(fields), [fields]);
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
   const state = useSyncExternalStore(subscribe, store.getState);
@@ -74,21 +76,35 @@ function SpellcastingAbility() {
     const value = numberValue(valueAtPath(state.data, option.value));
     return value !== undefined && value !== 0;
   })?.value;
+  const label = groupDisplayName(SPELLCASTING_ABILITY_GROUP);
 
   return (
     <div className="lg-spells__ability">
-      <span className="lg-spells__label">{groupDisplayName(SPELLCASTING_ABILITY_GROUP)}</span>
-      <SegmentedChoice
-        label={groupDisplayName(SPELLCASTING_ABILITY_GROUP)}
-        options={options}
-        selected={selected}
-        onChange={(path) =>
+      <label className="lg-spells__label" htmlFor={selectId}>
+        {label}
+      </label>
+      <select
+        id={selectId}
+        className="lg-spells__ability-select"
+        value={selected ?? ''}
+        onChange={(event) =>
           store.setExclusive(
-            path,
+            event.target.value,
             options.map((option) => option.value),
           )
         }
-      />
+      >
+        {selected === undefined && (
+          <option value="" disabled>
+            {message('engine.none')}
+          </option>
+        )}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -138,7 +154,7 @@ function SpellStats() {
   }
 
   return (
-    <div className="lg-spells__stats">
+    <>
       {fields.has(SPELL_ATTACK_PATH) && (
         <div className="lg-spells__stat" data-testid="sheet-spell-attack">
           <span className="lg-spells__label">{attackLabel}</span>
@@ -153,7 +169,7 @@ function SpellStats() {
           <span className="lg-spells__number">{numberOrMissing(saveDC)}</span>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -171,13 +187,55 @@ function SpellText({ path }: { readonly path: string }) {
     <div className="lg-spells__text" data-testid={`sheet-spell-${lastSegment(path)}`}>
       <span className="lg-spells__label">{label}</span>
       <InlineEdit
-        className="lg-spells__text-value"
+        className="lg-spells__text-value lg-inline-edit--quiet"
         label={label}
         path={path}
         schema={field.schema}
         value={textValue(value)}
         onCommit={commit}
       />
+    </div>
+  );
+}
+
+function SpellProseLine({ path }: { readonly path: string }) {
+  const field = usePresetField(path);
+  const label = usePresetLabel(path);
+  const value = usePresetValue(path);
+  const commit = usePresetCommit(path);
+  const text = textValue(value);
+
+  if (field === undefined || text.trim() === '') {
+    return null;
+  }
+
+  return (
+    <p className="lg-spells__prose-line" data-testid={`sheet-spell-${lastSegment(path)}`}>
+      <span className="lg-spells__prose-term">{label}</span>{' '}
+      <InlineEdit
+        className="lg-spells__prose-value lg-inline-edit--quiet"
+        label={label}
+        path={path}
+        schema={field.schema}
+        value={text}
+        onCommit={commit}
+      />
+    </p>
+  );
+}
+
+function SpellProse() {
+  const atWill = textValue(usePresetValue(AT_WILL_PATH));
+  const list = textValue(usePresetValue(LIST_PATH));
+
+  if (atWill.trim() === '' && list.trim() === '') {
+    return null;
+  }
+
+  return (
+    <div className="lg-spells__prose" data-testid="sheet-spell-prose">
+      <SpellProseLine path={AT_WILL_PATH} />
+      <SpellProseLine path={LIST_PATH} />
     </div>
   );
 }
@@ -202,20 +260,13 @@ function SlotLevel({
   onTotal,
 }: SlotLevelProps) {
   const groupLabel = messageWith('sheet.play.slotGroup', { count: level });
+  const totalNumber = numberValue(totalValue);
 
   return (
     <li className="lg-spells__slot" data-testid={`sheet-slot-${level}`}>
-      <div className="lg-spells__slot-head">
-        <span className="lg-spells__slot-level">
-          {messageWith('sheet.play.level', { count: level })}
-        </span>
-        <span className="lg-spells__slot-remaining" data-testid={`sheet-slot-${level}-remaining`}>
-          {messageWith('sheet.play.slotsLeft', {
-            remaining: pool.remaining,
-            total: pool.total,
-          })}
-        </span>
-      </div>
+      <span className="lg-spells__slot-level">
+        {messageWith('sheet.play.level', { count: level })}
+      </span>
       <div className="lg-spells__pips" role="group" aria-label={groupLabel}>
         {slotPips(pool).map((pip) => (
           <button
@@ -233,95 +284,186 @@ function SlotLevel({
           />
         ))}
       </div>
-      <div className="lg-spells__slot-total">
-        <span className="lg-spells__label">{message('sheet.play.slotTotal')}</span>
-        <span className="lg-spells__slot-total-control" data-edit-path={slotPath(level, 'total')}>
-          <SheetFieldControl
-            path={totalSchema.path}
-            schema={totalSchema.schema}
-            value={totalValue}
-            onChanged={onTotal}
-          />
+      <span className="lg-spells__slot-count">
+        <span className="lg-spells__slot-remaining" data-testid={`sheet-slot-${level}-remaining`}>
+          <span className="lg-visually-hidden">
+            {messageWith('sheet.play.slotsLeft', {
+              remaining: pool.remaining,
+              total: pool.total,
+            })}
+          </span>
+          <span aria-hidden="true">{pool.remaining}</span>
         </span>
-      </div>
+        <span aria-hidden="true">/</span>
+        <InlineEdit
+          className="lg-spells__slot-total"
+          label={totalSchema.schema.label ?? message('sheet.play.slotTotal')}
+          path={totalSchema.path}
+          schema={totalSchema.schema}
+          value={totalNumber === undefined ? '' : String(totalNumber)}
+          inputMode="numeric"
+          onCommit={(text) => {
+            const next = parseClampedInt(text, 0, UNBOUNDED);
+            if (next !== undefined) {
+              onTotal(next);
+            }
+          }}
+        />
+      </span>
     </li>
   );
 }
 
-export function SpellSlots() {
+export function SpellSlots({ compact = false }: { readonly compact?: boolean }) {
   const { store, fields } = usePresetContext();
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
   const state = useSyncExternalStore(subscribe, store.getState);
-  const levels = useMemo(
-    () =>
-      SLOT_LEVELS.flatMap((level) => {
-        const totalField = fields.get(slotPath(level, 'total'));
-        if (totalField === undefined) {
-          return [];
-        }
-        const totalValue = valueAtPath(state.data, totalField.path);
-        const pooled = slotPool(totalValue, valueAtPath(state.data, slotPath(level, 'expended')));
-        const edited = state.editedPaths.has(totalField.path);
-        return pooled.total === 0 && !edited
-          ? []
-          : [{ level, field: totalField, pool: pooled, totalValue }];
-      }),
-    [fields, state.data, state.editedPaths],
-  );
+  const { rows, hidden } = useMemo(() => {
+    const drawn: { level: number; field: SheetField; pool: SlotPool; totalValue: unknown }[] = [];
+    const hiddenLevels: number[] = [];
+    for (const level of SLOT_LEVELS) {
+      const totalField = fields.get(slotPath(level, 'total'));
+      if (totalField === undefined) {
+        continue;
+      }
+      const totalValue = valueAtPath(state.data, totalField.path);
+      const pooled = slotPool(totalValue, valueAtPath(state.data, slotPath(level, 'expended')));
+      const edited = state.editedPaths.has(totalField.path);
+      if (pooled.total === 0 && !edited) {
+        hiddenLevels.push(level);
+      } else {
+        drawn.push({ level, field: totalField, pool: pooled, totalValue });
+      }
+    }
+    return { rows: drawn, hidden: hiddenLevels };
+  }, [fields, state.data, state.editedPaths]);
 
-  if (levels.length === 0) {
+  const hasRows = rows.length > 0;
+  const showHidden = hidden.length > 0 && (!compact || hasRows);
+
+  if (!hasRows && !showHidden) {
     return null;
   }
 
   return (
     <div className="lg-spells__slots" data-testid="sheet-spell-slots">
-      <h3 className="lg-spells__subtitle">{message('sheet.play.spellSlots')}</h3>
-      <ul className="lg-spells__slot-list">
-        {levels.map(({ level, field, pool, totalValue }) => (
-          <SlotLevel
-            key={level}
-            level={level}
-            pool={pool}
-            totalValue={totalValue}
-            totalSchema={field}
-            onSpend={() => store.setPath(slotPath(level, 'expended'), spendSlot(pool).expended)}
-            onRecover={() => store.setPath(slotPath(level, 'expended'), recoverSlot(pool).expended)}
-            onTotal={(value) => store.setPath(slotPath(level, 'total'), value)}
-          />
-        ))}
-      </ul>
+      {hasRows && (
+        <>
+          <h3 className="lg-spells__subtitle">{message('sheet.play.spellSlots')}</h3>
+          <ul className="lg-spells__slot-list">
+            {rows.map(({ level, field, pool, totalValue }) => (
+              <SlotLevel
+                key={level}
+                level={level}
+                pool={pool}
+                totalValue={totalValue}
+                totalSchema={field}
+                onSpend={() => store.setPath(slotPath(level, 'expended'), spendSlot(pool).expended)}
+                onRecover={() =>
+                  store.setPath(slotPath(level, 'expended'), recoverSlot(pool).expended)
+                }
+                onTotal={(value) => store.setPath(slotPath(level, 'total'), value)}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+      {showHidden && (
+        <p className="lg-spells__hidden-levels" data-testid="sheet-spell-hidden-levels">
+          {hidden.length === 1
+            ? messageWith('sheet.play.hiddenLevel', { levels: formatLevelRanges(hidden) })
+            : messageWith('sheet.play.hiddenLevels', { levels: formatLevelRanges(hidden) })}
+        </p>
+      )}
     </div>
   );
 }
 
-export function FantasySpells() {
-  const { fields } = usePresetContext();
-  const titleId = useId();
-  const hasSpells =
+function hasSpellFields(fields: ReadonlyMap<string, SheetField>): boolean {
+  return (
     fields.has(SPELL_ATTACK_PATH) ||
     fields.has(SPELL_SAVE_DC_PATH) ||
-    fields.has('spells.atWill') ||
-    fields.has('spells.list') ||
-    fields.has(slotPath(1, 'total'));
+    fields.has(AT_WILL_PATH) ||
+    fields.has(LIST_PATH) ||
+    fields.has(slotPath(1, 'total'))
+  );
+}
 
-  if (!hasSpells) {
-    return null;
-  }
+function SpellcastSection({
+  compact,
+  titleId,
+}: {
+  readonly compact: boolean;
+  readonly titleId: string;
+}) {
+  const variant = compact ? 'compact' : 'panel';
 
   return (
     <section
-      className="lg-play-section lg-spells"
+      className={
+        compact ? 'lg-play-section lg-spells lg-spells--compact' : 'lg-play-section lg-spells'
+      }
       data-testid="sheet-spells"
+      data-variant={variant}
       aria-labelledby={titleId}
     >
       <h2 id={titleId} className="lg-play-section__title">
         {message('sheet.play.spellcasting')}
       </h2>
-      <SpellcastingAbility />
-      <SpellStats />
-      <SpellText path="spells.atWill" />
-      <SpellText path="spells.list" />
-      <SpellSlots />
+      <div className="lg-spells__top" data-testid={compact ? 'sheet-spell-summary' : undefined}>
+        <SpellcastingAbility />
+        <SpellStats />
+      </div>
+      <SpellSlots compact={compact} />
+      {compact ? (
+        <SpellProse />
+      ) : (
+        <>
+          <SpellText path={AT_WILL_PATH} />
+          <SpellText path={LIST_PATH} />
+        </>
+      )}
     </section>
+  );
+}
+
+function PanelSpellcast({ titleId }: { readonly titleId: string }) {
+  const { fields } = usePresetContext();
+
+  if (!hasSpellFields(fields)) {
+    return null;
+  }
+
+  return <SpellcastSection compact={false} titleId={titleId} />;
+}
+
+function CompactSpellcast({ titleId }: { readonly titleId: string }) {
+  const { fields, store } = usePresetContext();
+  const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
+  const state = useSyncExternalStore(subscribe, store.getState);
+
+  if (
+    !hasSpellFields(fields) ||
+    !hasSpellCast({ data: state.data, fields, editedPaths: state.editedPaths })
+  ) {
+    return null;
+  }
+
+  return <SpellcastSection compact titleId={titleId} />;
+}
+
+export type SpellsVariant = 'panel' | 'compact';
+
+interface FantasySpellsProps {
+  readonly variant?: SpellsVariant;
+}
+
+export function FantasySpells({ variant = 'panel' }: FantasySpellsProps) {
+  const titleId = useId();
+
+  return variant === 'compact' ? (
+    <CompactSpellcast titleId={titleId} />
+  ) : (
+    <PanelSpellcast titleId={titleId} />
   );
 }

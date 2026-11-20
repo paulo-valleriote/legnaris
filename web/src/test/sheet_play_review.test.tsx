@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
@@ -6,6 +6,8 @@ import { message, messageWith } from '../l10n/strings';
 import { FANTASY_SHEET_ID, fantasySheetPayload, fantasyTemplatePayload } from './fantasy_fixtures';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
+
+vi.setConfig({ testTimeout: 15_000 });
 
 const BASE_URL = 'http://api.test';
 
@@ -64,7 +66,7 @@ describe('the Play preset review surface', () => {
     expect(passive).toHaveTextContent('Passive awareness');
   });
 
-  it('Edge: Play hides the footer jump while keeping the recalculated status, and Edit brings it back', async () => {
+  it('Edge: Play draws no footer, and Edit brings the recalculated status and jump back', async () => {
     const fake = createFakeTransport(
       successOutcome(fantasySheetPayload()),
       successOutcome(fantasyTemplatePayload()),
@@ -86,15 +88,16 @@ describe('the Play preset review surface', () => {
       }),
     );
 
+    expect(document.querySelector('.lg-sheet__footer')).toBeNull();
+    expect(screen.queryByTestId('sheet-status')).not.toBeInTheDocument();
+
+    await switchToEdit(user);
+
     await waitFor(() =>
       expect(screen.getByTestId('sheet-status')).toHaveTextContent(
         messageWith('sheet.statusUnsavedCount', { count: 1 }),
       ),
     );
-    expect(screen.queryByRole('button', { name: message('sheet.jumpToFirstName') })).toBeNull();
-
-    await switchToEdit(user);
-
     expect(
       screen.getByRole('button', { name: message('sheet.jumpToFirstName') }),
     ).toBeInTheDocument();

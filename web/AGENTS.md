@@ -141,7 +141,12 @@ the F2 client and the F4 engine and owns no wire model.
   shared edit store, Dice context and decoded template through `preset_context.tsx` and owns no wire
   model, state or request; one file per Play section, so a new panel is one `sections` entry; every
   string resolves through `src/l10n/strings.ts`, every visual value is a `--lg-*` token and data is
-  rendered as text; an NPC/enemy sheet may swap the body through the optional kind-selected
+  rendered as text; every rollable total draws through `rollable_value.tsx` (text colour, dashed
+  accent underline, accent hover/focus fill) and filled accent stays reserved for the proficiency
+  dot and the primary action; a d20 rollable takes advantage/disadvantage from Shift-click,
+  Alt-click, a long press or the Context Menu key / Shift+F10 through `src/sheet/roll_mode.tsx`, and
+  the result panel shows both dice with the kept one marked; an NPC/enemy sheet may swap the body
+  through the optional kind-selected
   `statBlock`. Section-by-section detail, the pure helpers and their tests live in
   [../context/sheets.md](../context/sheets.md).
 - `src/shell/shortcut_registry.ts` — the one action → key map (`Ctrl+S`/`Cmd+S` save, `F5`
@@ -183,7 +188,7 @@ when that write landed; otherwise it says the changes could not be kept (`sheet.
 
 ## Dice expressions (`src/dice/`)
 
-Pure TypeScript parsing, resolution and rolling live in `src/dice/`; the Go package `backend/internal/dice` validates and `src/sheet/dice_*` owns the UI and pending work. The grammar, precedence, save contract and vectors are documented in [../context/dice.md](../context/dice.md); a grammar change starts in `testdata/dice/vectors.json` and moves both implementations together.
+Pure TypeScript parsing, resolution and rolling live in `src/dice/`; the Go package `backend/internal/dice` validates and `src/sheet/dice_*` owns the UI and pending work. The grammar, precedence, save contract and vectors are documented in [../context/dice.md](../context/dice.md); a grammar change starts in `testdata/dice/vectors.json` and moves both implementations together. Advantage and disadvantage are a keep mode of the client Roll (`keep: 'highest' | 'lowest'`, only a d20 term throws one extra die), never grammar: the stored expression stays plain `NdM`.
 
 ## Layout and Arrange mode
 

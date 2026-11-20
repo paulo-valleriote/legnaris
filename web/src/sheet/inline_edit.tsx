@@ -32,6 +32,7 @@ export interface InlineEditProps {
   readonly schema?: FieldSchema;
   readonly path?: string;
   readonly display?: ReactNode;
+  readonly editLabel?: string;
 }
 
 function isNumericInput(
@@ -51,6 +52,7 @@ export function InlineEdit({
   schema,
   path,
   display,
+  editLabel,
 }: InlineEditProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -96,7 +98,7 @@ export function InlineEdit({
         <button
           type="button"
           className={classes}
-          aria-label={label}
+          aria-label={editLabel ?? label}
           data-edit-path={path}
           data-empty={value.trim() === '' && fallback === undefined ? '' : undefined}
           onClick={begin}
@@ -164,7 +166,7 @@ export function InlineEdit({
     <button
       type="button"
       className={classes}
-      aria-label={label}
+      aria-label={editLabel ?? label}
       data-edit-path={path}
       data-empty={value.trim() === '' && fallback === undefined ? '' : undefined}
       onClick={begin}

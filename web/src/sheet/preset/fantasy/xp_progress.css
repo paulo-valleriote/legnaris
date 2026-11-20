@@ -1,7 +1,6 @@
 .lg-xp {
-  display: flex;
-  flex-direction: column;
-  gap: var(--lg-space-8);
+  position: relative;
+  width: 15rem;
   min-width: 0;
 }
 
@@ -10,58 +9,69 @@
   flex-direction: column;
   gap: var(--lg-space-4);
   width: 100%;
-  min-height: var(--lg-size-control);
-  padding: var(--lg-space-8);
-  border: var(--lg-size-hairline) solid var(--lg-color-border);
-  border-radius: var(--lg-radius-md);
-  background-color: var(--lg-color-surface);
+  padding: var(--lg-space-4) 0;
+  border: 0;
+  background: transparent;
   color: var(--lg-color-text);
   text-align: left;
   cursor: pointer;
 }
 
-.lg-xp__trigger:hover {
-  background-color: var(--lg-color-surface-hover);
-}
-
 .lg-xp__head {
   display: flex;
-  flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: var(--lg-space-4) var(--lg-space-12);
-  font-size: var(--lg-type-13);
+  gap: var(--lg-space-12);
+  font-size: var(--lg-type-12);
   line-height: var(--lg-line-normal);
 }
 
+.lg-xp__label,
+.lg-xp__total {
+  white-space: nowrap;
+}
+
 .lg-xp__label {
-  color: var(--lg-color-text-muted);
+  letter-spacing: var(--lg-tracking-wide);
+  text-transform: uppercase;
+  color: var(--lg-color-text-subtle);
 }
 
 .lg-xp__total,
 .lg-xp__panel-total {
   font-variant-numeric: tabular-nums;
-  font-weight: var(--lg-font-weight-medium);
+  font-weight: var(--lg-font-weight-semibold);
+  color: var(--lg-color-text-muted);
 }
 
 .lg-xp__bar {
   position: relative;
   display: block;
-  height: var(--lg-space-8);
+  height: 6px;
   border-radius: var(--lg-radius-pill);
-  background-color: var(--lg-color-inset);
+  background-color: var(--lg-color-raised);
   overflow: hidden;
+}
+
+.lg-xp__trigger:hover .lg-xp__bar {
+  outline: var(--lg-size-hairline) solid var(--lg-color-border-strong);
 }
 
 .lg-xp__fill {
   display: block;
   height: 100%;
   border-radius: var(--lg-radius-pill);
-  background-color: var(--lg-color-accent);
+  background-color: var(--lg-lava-500);
   transition: width var(--lg-motion-240) var(--lg-ease-standard);
 }
 
 .lg-xp__panel {
+  position: absolute;
+  top: calc(100% + var(--lg-space-8));
+  right: 0;
+  z-index: 20;
+  width: 18rem;
+  box-shadow: var(--lg-shadow-3);
   display: flex;
   flex-direction: column;
   gap: var(--lg-space-12);
@@ -103,6 +113,18 @@
 
 .lg-xp__level-up {
   align-self: flex-start;
+}
+
+@media (max-width: 40rem) {
+  .lg-xp {
+    flex: 1;
+    width: auto;
+  }
+
+  .lg-xp__panel {
+    left: 0;
+    width: auto;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

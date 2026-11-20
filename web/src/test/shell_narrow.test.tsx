@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import { renderApp } from './render';
 import { setViewportWidth } from './match_media';
 
@@ -60,19 +60,22 @@ describe('narrow shell: the navigation becomes a compact top bar', () => {
     expect(grid).not.toContain('--lg-size-nav-min');
   });
 
-  it('Edge: the navigation is a wrapping row on 16 px gutters, never an overlay', () => {
+  it('Edge: the navigation is one bar on 16 px gutters with the menu trigger at the trailing edge', () => {
     const nav = rule(narrow, '.lg-nav');
 
-    expect(nav).toContain('flex-flow: row wrap');
     expect(nav).toContain('var(--lg-space-16)');
-    expect(nav).not.toMatch(/position:\s*(fixed|absolute)/);
-    expect(narrow).not.toMatch(/transform|translate|z-index/);
+    expect(nav).toContain('position: relative');
+    expect(nav).not.toContain('flex-flow: row wrap');
   });
 
-  it('Edge: every navigation control keeps the control height in the bar', () => {
-    const controls = rule(narrow, '.lg-nav__link,\n  .lg-nav__action');
+  it('Edge: the navigation destinations sit behind the menu trigger, not in the bar', () => {
+    expect(rule(narrow, '.lg-nav__menu')).toContain('position: absolute');
+    expect(rule(narrow, '.lg-nav__menu-toggle')).toContain('margin-left: auto');
+  });
 
-    expect(controls).toContain('min-height: var(--lg-size-control)');
+  it('Edge: every navigation control keeps the control height', () => {
+    expect(rule(shellCss, '.lg-nav__link')).toContain('min-height: var(--lg-size-control)');
+    expect(rule(shellCss, '.lg-nav__action')).toContain('min-height: var(--lg-size-control)');
   });
 
   it('Edge: the content takes the full width on 16 px gutters', () => {
@@ -82,14 +85,11 @@ describe('narrow shell: the navigation becomes a compact top bar', () => {
     expect(content).not.toContain('var(--lg-space-48)');
   });
 
-  it('Edge: the current item is marked beyond colour once the icons are hidden', () => {
-    expect(rule(narrow, ".lg-nav__link[aria-current='page']")).toContain('var(--lg-color-accent)');
-    expect(
-      rule(
-        narrow,
-        '.lg-nav__brand-text,\n  .lg-nav__group-label,\n  .lg-nav__icon,\n  .lg-nav__chevron',
-      ),
-    ).toContain('display: none');
+  it('Edge: the top bar hides only the brand copy, so every menu entry keeps its label', () => {
+    expect(rule(narrow, '.lg-nav__brand-text')).toContain('display: none');
+    expect(narrow).not.toMatch(
+      /\.lg-nav__group-label,[^}]*\.lg-nav__icon,[^}]*\.lg-nav__chevron[^}]*display: none/,
+    );
   });
 
   it('Edge: the desktop grid keeps the 200-240 px navigation and the 320 px content minimum', () => {
@@ -116,7 +116,7 @@ describe('narrow shell: the navigation becomes a compact top bar', () => {
 
       expect(nav.compareDocumentPosition(main) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
       expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
-      expect(screen.getByRole('link', { name: 'Catalog' })).toBeInTheDocument();
+      expect(within(nav).getByRole('button', { name: 'Menu' })).toBeInTheDocument();
     },
   );
 });

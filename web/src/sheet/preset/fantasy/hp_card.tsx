@@ -1,39 +1,74 @@
-import { useCallback, useState, useSyncExternalStore } from 'react';
 import { message, messageWith } from '../../../l10n/strings';
 import { Button } from '../../../ui/button';
 import { Field } from '../../../ui/field';
 import { InlineEdit } from '../../inline_edit';
-import {
-  usePresetCommit,
-  usePresetContext,
-  usePresetLabel,
-  usePresetSchema,
-} from '../preset_context';
+import { usePresetCommit, usePresetLabel, usePresetSchema } from '../preset_context';
 import {
   applyDamage,
   applyHeal,
+  formatHitPointsDelta,
   HIT_POINTS_CURRENT,
   HIT_POINTS_MAX,
   HIT_POINTS_TEMP,
-  hitPointsBand,
-  hitPointsFrom,
-  hitPointsPercent,
-  parseHitPointsAmount,
   parseHitPointsCurrent,
   parseHitPointsMaximum,
   parseHitPointsTemp,
 } from './hit_points';
-import type { HitPointsChange } from './hit_points';
+import { lineTone, useHitPointsView, withinRange } from './hit_points_view';
 
-function withinRange(value: number, max: number): number {
-  return Math.min(max, Math.max(0, value));
-}
+const QUICK_ACTIONS = [
+  {
+    kind: 'damage',
+    count: 5,
+    short: 'sheet.play.damage5Short',
+    className: 'lg-hp-card__quick-damage',
+  },
+  {
+    kind: 'damage',
+    count: 1,
+    short: 'sheet.play.damage1Short',
+    className: 'lg-hp-card__quick-damage',
+  },
+  {
+    kind: 'heal',
+    count: 1,
+    short: 'sheet.play.heal1Short',
+    className: 'lg-hp-card__quick-heal',
+  },
+  {
+    kind: 'heal',
+    count: 5,
+    short: 'sheet.play.heal5Short',
+    className: 'lg-hp-card__quick-heal',
+  },
+] as const;
 
 export function HitPointsCard() {
-  const { store } = usePresetContext();
-  const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
-  const state = useSyncExternalStore(subscribe, store.getState);
-  const [amount, setAmount] = useState('');
+  const {
+    points,
+    current,
+    currentValue,
+    max,
+    maxValue,
+    temp,
+    band,
+    percent,
+    tempPercent,
+    preview,
+    currentChange,
+    tempChange,
+    pendingLeft,
+    pendingWidth,
+    tempPendingLeft,
+    tempPendingWidth,
+    amount,
+    setAmount,
+    amountValue,
+    commit,
+    applyDamageAmount,
+    applyHealAmount,
+    applyTempAmount,
+  } = useHitPointsView();
   const currentLabel = usePresetLabel(HIT_POINTS_CURRENT);
   const maxLabel = usePresetLabel(HIT_POINTS_MAX);
   const tempLabel = usePresetLabel(HIT_POINTS_TEMP);
@@ -43,50 +78,6 @@ export function HitPointsCard() {
   const commitCurrent = usePresetCommit(HIT_POINTS_CURRENT);
   const commitMax = usePresetCommit(HIT_POINTS_MAX);
   const commitTemp = usePresetCommit(HIT_POINTS_TEMP);
-
-  const hitPoints = hitPointsFrom(state.data);
-  const stored = hitPointsFrom(state.defaults);
-  const max = Math.max(0, hitPoints.max);
-  const current = withinRange(hitPoints.current, max);
-  const storedCurrent = withinRange(stored.current, max);
-  const temp = Math.max(0, hitPoints.temp);
-  const storedTemp = Math.max(0, stored.temp);
-  const points = { current, max, temp };
-
-  const percent = hitPointsPercent(current, max);
-  const storedPercent = hitPointsPercent(storedCurrent, max);
-  const tempPercent = hitPointsPercent(temp, max);
-  const storedTempPercent = hitPointsPercent(storedTemp, max);
-
-  const currentPending = current !== storedCurrent;
-  const tempPending = temp !== storedTemp;
-  const pendingLeft = Math.min(percent, storedPercent);
-  const pendingWidth = Math.abs(percent - storedPercent);
-  const currentEnd = Math.max(percent, storedPercent);
-  const tempEnd = Math.min(100, percent + tempPercent);
-  const storedTempEnd = Math.min(100, storedPercent + storedTempPercent);
-  const tempPendingLeft = Math.min(
-    100,
-    Math.max(
-      currentEnd,
-      Math.min(percent, storedPercent) + Math.min(tempPercent, storedTempPercent),
-    ),
-  );
-  const tempPendingWidth = Math.min(
-    100 - tempPendingLeft,
-    Math.max(0, Math.max(tempEnd, storedTempEnd) - tempPendingLeft),
-  );
-
-  const commit = (change: HitPointsChange | undefined) => {
-    if (change === undefined) {
-      return;
-    }
-    store.setPath(HIT_POINTS_CURRENT, change.current);
-    store.setPath(HIT_POINTS_TEMP, change.temp);
-    setAmount('');
-  };
-
-  const amountValue = parseHitPointsAmount(amount);
 
   return (
     <div className="lg-hp-card" data-testid="sheet-hp-card">
@@ -116,14 +107,14 @@ export function HitPointsCard() {
               label={maxLabel}
               path={HIT_POINTS_MAX}
               schema={maxSchema}
-              value={String(hitPoints.max)}
+              value={String(maxValue)}
               inputMode="numeric"
               onCommit={(text) => {
                 const next = parseHitPointsMaximum(text);
                 if (next !== undefined) {
                   commitMax(next);
-                  const clamped = withinRange(hitPoints.current, next);
-                  if (clamped !== hitPoints.current) {
+                  const clamped = withinRange(currentValue, next);
+                  if (clamped !== currentValue) {
                     commitCurrent(clamped);
                   }
                 }
@@ -170,7 +161,7 @@ export function HitPointsCard() {
       <div
         className="lg-hp-card__bar"
         data-testid="sheet-hp-meter"
-        data-band={hitPointsBand(percent)}
+        data-band={band}
         role="meter"
         aria-label={message('sheet.play.hitPoints')}
         aria-valuemin={0}
@@ -186,64 +177,118 @@ export function HitPointsCard() {
             aria-hidden="true"
           />
         )}
-        {currentPending && pendingWidth > 0 && (
+        {currentChange !== undefined && pendingWidth > 0 && (
           <span
-            className="lg-hp-card__pending"
+            className="lg-hp-card__pending lg-pending-stripe"
             data-testid="sheet-hp-pending"
+            data-tone={lineTone(currentChange.delta)}
             style={{ left: `${pendingLeft}%`, width: `${pendingWidth}%` }}
             aria-hidden="true"
           />
         )}
-        {tempPending && tempPendingWidth > 0 && (
+        {tempChange !== undefined && tempPendingWidth > 0 && (
           <span
-            className="lg-hp-card__pending lg-hp-card__pending--temp"
+            className="lg-hp-card__pending lg-hp-card__pending--temp lg-pending-stripe"
             data-testid="sheet-hp-temp-pending"
+            data-tone={lineTone(tempChange.delta)}
             style={{ left: `${tempPendingLeft}%`, width: `${tempPendingWidth}%` }}
             aria-hidden="true"
           />
         )}
       </div>
-      {(currentPending || tempPending) && (
-        <p className="lg-hp-card__pending-notes">
-          {currentPending && (
-            <span className="lg-hp-card__was" data-testid="sheet-hp-was">
-              {messageWith('sheet.play.was', { count: storedCurrent })}
+      {preview !== undefined && (
+        <p className="lg-hp-card__pending-notes" data-direction={preview.direction}>
+          {currentChange !== undefined && (
+            <span
+              className="lg-hp-card__change"
+              data-tone={lineTone(currentChange.delta)}
+              data-testid="sheet-hp-change"
+            >
+              {messageWith('sheet.play.change', {
+                before: currentChange.before,
+                after: currentChange.after,
+                delta: formatHitPointsDelta(currentChange.delta),
+              })}
             </span>
           )}
-          {tempPending && (
-            <span className="lg-hp-card__was" data-testid="sheet-hp-temp-was">
-              {messageWith('sheet.play.tempWas', { count: storedTemp })}
+          {tempChange !== undefined && (
+            <span
+              className="lg-hp-card__change"
+              data-tone={lineTone(tempChange.delta)}
+              data-testid="sheet-hp-temp-change"
+            >
+              {messageWith('sheet.play.tempChange', {
+                before: tempChange.before,
+                after: tempChange.after,
+                delta: formatHitPointsDelta(tempChange.delta),
+              })}
             </span>
           )}
         </p>
       )}
       <div className="lg-hp-card__actions">
-        <div className="lg-hp-card__amount">
-          <Field
-            label={message('sheet.play.amount')}
-            type="number"
-            inputMode="numeric"
-            numeric
-            value={amount}
-            onChange={setAmount}
+        <div className="lg-hp-card__quick">
+          {QUICK_ACTIONS.map((action) => (
+            <Button
+              key={`${action.kind}-${action.count}`}
+              variant="secondary"
+              size="sm"
+              className={action.className}
+              name={messageWith(
+                action.kind === 'damage' ? 'sheet.play.damageAmount' : 'sheet.play.healAmount',
+                { count: action.count },
+              )}
+              onClick={() =>
+                commit(
+                  action.kind === 'damage'
+                    ? applyDamage(points, action.count)
+                    : applyHeal(points, action.count),
+                )
+              }
+            >
+              {message(action.short)}
+            </Button>
+          ))}
+          <Button
+            variant="secondary"
+            size="sm"
+            name={message('sheet.play.addTemp')}
+            disabled={amountValue === undefined}
+            onClick={applyTempAmount}
+          >
+            {message('sheet.play.tempAddShort')}
+          </Button>
+        </div>
+        <div className="lg-hp-card__entry">
+          <div className="lg-hp-card__amount">
+            <Field
+              label={message('sheet.play.amount')}
+              type="number"
+              inputMode="numeric"
+              numeric
+              value={amount}
+              onChange={setAmount}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  applyDamageAmount();
+                }
+              }}
+            />
+          </div>
+          <Button
+            variant="danger"
+            size="sm"
+            label={message('sheet.play.damage')}
+            onClick={applyDamageAmount}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            label={message('sheet.play.heal')}
+            onClick={applyHealAmount}
           />
         </div>
-        <Button
-          variant="danger"
-          size="sm"
-          label={message('sheet.play.damage')}
-          onClick={() =>
-            commit(amountValue === undefined ? undefined : applyDamage(points, amountValue))
-          }
-        />
-        <Button
-          variant="secondary"
-          size="sm"
-          label={message('sheet.play.heal')}
-          onClick={() =>
-            commit(amountValue === undefined ? undefined : applyHeal(points, amountValue))
-          }
-        />
       </div>
     </div>
   );
