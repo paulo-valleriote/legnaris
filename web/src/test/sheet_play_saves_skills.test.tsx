@@ -69,7 +69,7 @@ function savedData(fake: ReturnType<typeof createFakeTransport>) {
 }
 
 async function save(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
 }
 
 async function editBonus(user: ReturnType<typeof userEvent.setup>, label: string, text: string) {
@@ -256,7 +256,9 @@ describe('skills', () => {
     await user.type(input, 'abc{Enter}');
 
     expect(screen.getByRole('button', { name: 'Athletics bonus' })).toHaveTextContent('+0');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -266,7 +268,9 @@ describe('skills', () => {
     await editBonus(user, 'Athletics bonus', '');
 
     expect(screen.getByRole('button', { name: 'Athletics bonus' })).toHaveTextContent('+0');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -291,7 +295,9 @@ describe('skills', () => {
     await user.type(input, '4{Escape}');
 
     expect(screen.getByRole('button', { name: 'Athletics bonus' })).toHaveTextContent('+0');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 

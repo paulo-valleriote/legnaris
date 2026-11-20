@@ -66,7 +66,7 @@ describe('the Play preset review surface', () => {
     expect(passive).toHaveTextContent('Passive awareness');
   });
 
-  it('Edge: Play hides the footer jump while keeping the recalculated status, and Edit brings it back', async () => {
+  it('Edge: Play draws no footer, and Edit brings the recalculated status and jump back', async () => {
     const fake = createFakeTransport(
       successOutcome(fantasySheetPayload()),
       successOutcome(fantasyTemplatePayload()),
@@ -88,15 +88,16 @@ describe('the Play preset review surface', () => {
       }),
     );
 
+    expect(document.querySelector('.lg-sheet__footer')).toBeNull();
+    expect(screen.queryByTestId('sheet-status')).not.toBeInTheDocument();
+
+    await switchToEdit(user);
+
     await waitFor(() =>
       expect(screen.getByTestId('sheet-status')).toHaveTextContent(
         messageWith('sheet.statusUnsavedCount', { count: 1 }),
       ),
     );
-    expect(screen.queryByRole('button', { name: message('sheet.jumpToFirstName') })).toBeNull();
-
-    await switchToEdit(user);
-
     expect(
       screen.getByRole('button', { name: message('sheet.jumpToFirstName') }),
     ).toBeInTheDocument();

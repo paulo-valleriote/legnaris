@@ -69,7 +69,7 @@ async function editScore(user: ReturnType<typeof userEvent.setup>, label: string
 }
 
 async function save(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
 }
 
 describe('ability medallions', () => {
@@ -139,7 +139,9 @@ describe('ability medallions', () => {
     await editScore(user, 'Strength', '18');
 
     expect(scoreButton('Strength')).toHaveTextContent('16');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -248,7 +250,9 @@ describe('the score badge', () => {
     await user.type(input, 'abc{Enter}');
 
     expect(scoreButton('Strength')).toHaveTextContent('16');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -258,7 +262,9 @@ describe('the score badge', () => {
     await editScore(user, 'Strength', '');
 
     expect(scoreButton('Strength')).toHaveTextContent('16');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -281,7 +287,9 @@ describe('the score badge', () => {
     await user.type(input, '18{Escape}');
 
     expect(scoreButton('Strength')).toHaveTextContent('16');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -294,6 +302,8 @@ describe('the score badge', () => {
     await editScore(user, 'Strength', '16');
 
     expect(screen.queryByTestId('sheet-pending-card')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
   });
 });

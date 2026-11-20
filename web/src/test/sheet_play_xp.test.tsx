@@ -53,7 +53,7 @@ async function openPanel(user: ReturnType<typeof userEvent.setup>) {
 }
 
 async function save(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
 }
 
 function savedData(fake: ReturnType<typeof createFakeTransport>) {
@@ -245,7 +245,9 @@ describe('the hero experience bar', () => {
     expect(screen.getByTestId('sheet-xp-panel')).toHaveTextContent(
       messageWith('sheet.play.xpTotal', { count: 1400 }),
     );
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 

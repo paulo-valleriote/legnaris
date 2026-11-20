@@ -349,13 +349,19 @@ inline. The hit points and experience bars animate their width and the roll toas
 every one of those animations is switched off under `prefers-reduced-motion`; on a phone the roll
 toast is flush with the bottom edge.
 
-Any Play-mode value edit also floats the pending-changes card (`pending_card.tsx`, fed by the pure
-`pending_changes.ts`): a `role="status"` polite region listing each changed field as
-`<label> <old> → <new>`, the `not saved yet` copy, a muted table-sync placeholder and Discard,
-Preview and Save wired to the same edit store. The card appears while the edited values differ from
-the saved baseline and hides on Save or Discard, or when every edit is reverted; a failed save or
-preview keeps it and shows the mapped failure copy. Only value edits are summarised: a Dice-only
-change still counts as unsaved work for the footer and the leave guard but draws no card.
+Any Play-mode value edit also floats the pending-changes bar (`pending_card.tsx`, fed by the pure
+`pending_changes.ts`): the only save surface in Play, because the screen draws no footer there.
+It lists each changed field as `<label> <old> → <new>`, the `not saved yet` copy, a small visible
+`Table sync soon` chip and Discard, Preview and Save wired to the same edit store. The bar clears
+the phone home indicator (`viewport-fit=cover` plus `env(safe-area-inset-bottom)`) and the Play
+body reserves the bar's measured height, so the bar never covers the content it hides. Its actions
+are `--lg-size-control` tall on a phone, it slides in unless `prefers-reduced-motion` asks it not
+to, and one polite, debounced live region announces the change summary once typing settles instead
+of on every committed edit. Escape discards outside a text entry, a dialog or the dice panel;
+`Ctrl+S`/`Cmd+S` saves. The bar appears while the edited values differ from the saved baseline and
+hides on Save or Discard, or when every edit is reverted; a failed save or preview keeps it and
+shows the mapped failure copy. Only value edits are summarised: a Dice-only change still counts as
+unsaved work for the leave guard but draws no bar.
 
 The spellcasting panel (`preset/fantasy/spells.tsx`) reads the decoded template instead of fixed
 paths. It shows the `spellcastingAbility` exclusive group as a segmented choice
@@ -437,8 +443,8 @@ Web:
   and marks.
 - `web/src/sheet/sheet_open.ts` — open situation; `sheet_edit.ts` — edit store, delta, marks,
   throttle and restore; `save_retry.ts` — 409 retry.
-- `web/src/sheet/sheet_screen.tsx` — mounted screen, footer and guards; `layout_store.ts` —
-  committed/staged layout, commit and backup.
+- `web/src/sheet/sheet_screen.tsx` — mounted screen, the Edit-only footer, the Play discard
+  shortcut and the guards; `layout_store.ts` — committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
   optional kind-selected `statBlock`, ordered section slots, the wide column layout and the
   mobile-first narrow layout);
@@ -457,9 +463,9 @@ Web:
   `segmented_choice.tsx` — the reusable exclusive-group control that writes through `setExclusive`;
   `rollable_value.tsx` — the
   reusable roll target (`useRowRoll` in `dice_row.tsx`); `pending_card.tsx`, `pending_changes.ts` —
-  the floating unsaved-delta card and its pure summary; `mode_toggle.tsx` — the local Play/Edit
-  switch; `inline_edit.tsx` — the reusable single-path inline editor (inline on a wide viewport, a
-  schema-typed bottom sheet on a phone).
+  the floating Play save bar, its debounced announcement and its pure summary; `mode_toggle.tsx` —
+  the local Play/Edit switch; `inline_edit.tsx` — the reusable single-path inline editor (inline on
+  a wide viewport, a schema-typed bottom sheet on a phone).
 - `web/src/sheet/view_store.ts`, `sheet_view.tsx`, `section_index.tsx` — local view state,
   collapse/filter and section strip; `dice_store.ts`, `dice_row.tsx`, `dice_panel.tsx`,
   `dice_view.ts` — Dice choices over the edit store (see [dice](dice.md)).
@@ -504,9 +510,11 @@ Web:
 - Play mode presents the `fantasy_v1` hero header with its experience bar, the armor class shield,
   the initiative and speed tiles and the hit-points card in the combat strip, the attack cards, the
   ability medallions, the saving throws and skills, the spellcasting panel with its table-rules
-  disclosure, and the pending-changes card today. An NPC or enemy sheet draws the compact stat
-  block instead of the character sections; a template without a preset always keeps the generic
-  form.
+  disclosure, and the pending-changes save bar; Play draws no footer. An NPC or enemy sheet draws
+  the compact stat block instead of the character sections; a template without a preset always
+  keeps the generic form and its footer.
+- A Dice-only change has no visible save surface in Play (the bar summarises value edits only) even
+  though it counts as unsaved work: save it with `Ctrl+S`/`Cmd+S` or switch to Edit.
 - `GET /sheets` still returns one arbitrary owned sheet for the legacy `/your-sheet` surface; the
   catalog uses `GET /sheets/owned` with an explicit kind.
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are

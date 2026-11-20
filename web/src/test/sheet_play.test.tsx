@@ -58,7 +58,7 @@ function savedData(fake: ReturnType<typeof createFakeTransport>) {
 }
 
 async function save(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
 }
 
 const hero = () => screen.getByTestId('sheet-play-hero');
@@ -188,7 +188,9 @@ describe('the hero header', () => {
     await user.type(input, 'Brenna{Enter}');
 
     expect(screen.getByRole('button', { name: 'Character name' })).toHaveTextContent('Aria');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -218,7 +220,9 @@ describe('the inline edit control', () => {
     await user.type(input, 'Brenna{Escape}');
 
     expect(screen.getByRole('button', { name: 'Character name' })).toHaveTextContent('Aria');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -232,7 +236,7 @@ describe('the inline edit control', () => {
     await user.tab();
 
     expect(screen.getByRole('button', { name: 'Ancestry' })).toHaveTextContent('Half-elf');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeEnabled();
+    expect(screen.getByRole('button', { name: message('sheet.pending.save') })).toBeEnabled();
   });
 
   it('Edge: committing an empty value writes the empty value and shows the Add copy', async () => {
@@ -289,14 +293,18 @@ describe('the pending changes card', () => {
     expect(screen.queryByTestId('sheet-pending-sync')).not.toBeInTheDocument();
   });
 
-  it('Edge: the card is a polite status region', async () => {
+  it('Edge: the card is a named region with one separate polite announcement slot', async () => {
     const { user } = await openFantasy();
 
     await user.click(levelStep('increase'));
 
     const card = screen.getByTestId('sheet-pending-card');
-    expect(card).toHaveAttribute('role', 'status');
-    expect(card).toHaveAttribute('aria-live', 'polite');
+    expect(card).toHaveAttribute('aria-label', message('sheet.pendingEdits'));
+    expect(card).not.toHaveAttribute('aria-live');
+    expect(within(card).getByTestId('sheet-pending-announcement')).toHaveAttribute(
+      'aria-live',
+      'polite',
+    );
   });
 
   it('Edge: editing a value back to its stored value removes the card', async () => {
@@ -308,7 +316,9 @@ describe('the pending changes card', () => {
     await user.click(levelStep('decrease'));
 
     expect(pendingCard()).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -357,7 +367,7 @@ describe('the pending changes card', () => {
     );
     expect(pendingCard()).toBeInTheDocument();
     expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent('Level 3 → 4');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeEnabled();
+    expect(screen.getByRole('button', { name: message('sheet.pending.save') })).toBeEnabled();
   });
 
   it('Error: a failed preview keeps the card and shows the mapped error', async () => {
@@ -425,7 +435,9 @@ describe('the pending changes card', () => {
     expect(screen.getByTestId('sheet-play-level')).toHaveTextContent(
       messageWith('sheet.play.level', { count: 3 }),
     );
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 

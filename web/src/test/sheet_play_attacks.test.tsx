@@ -153,7 +153,7 @@ async function editValue(
 }
 
 async function save(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
 }
 
 describe('attack cards in play mode', () => {
@@ -279,7 +279,9 @@ describe('attack editing', () => {
     await editValue(user, card, 'Attack 1 bonus', 'many');
 
     expect(within(card).getByRole('button', { name: 'Attack 1 bonus' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
   });
 
   it('Edge: a bonus above the template range is clamped', async () => {
@@ -309,7 +311,9 @@ describe('attack editing', () => {
     await editValue(user, attackCard(1), 'Attack 1 name', 'Sting');
 
     expect(screen.getByRole('button', { name: 'Attack 1 name' })).toHaveTextContent('Longsword');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 });
