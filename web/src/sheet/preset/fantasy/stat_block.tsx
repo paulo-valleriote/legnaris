@@ -260,10 +260,22 @@ export function FantasyStatBlock() {
           <HitPointsCard />
         </div>
       </div>
-      <FantasyAbilities showPassive={false} />
-      <StatProse />
-      <FantasyAttacks />
-      <FantasySpells variant="compact" />
+      <div className="lg-stat-block__body" data-testid="sheet-stat-body">
+        <div
+          className="lg-stat-block__column lg-stat-block__column--combat"
+          data-testid="sheet-stat-column-combat"
+        >
+          <FantasyAttacks />
+          <FantasySpells variant="compact" />
+        </div>
+        <div
+          className="lg-stat-block__column lg-stat-block__column--traits"
+          data-testid="sheet-stat-column-traits"
+        >
+          <FantasyAbilities showPassive={false} />
+          <StatProse />
+        </div>
+      </div>
     </div>
   );
 }

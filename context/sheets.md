@@ -451,8 +451,9 @@ reduced motion drops the transition.
 An NPC or enemy sheet (`sheet.kind` `npc` / `enemy`) of `fantasy_v1` swaps the character preset for
 the compact stat block (`preset/fantasy/stat_block.tsx`): the preset carries an optional `statBlock`
 with a `when(kind)` predicate and a body; the screen header keeps only its actions. The body draws
-one centred card (max width 44rem) whose sections are separated by hairlines with no nested panel
-borders, and the card's own header carries the name, a subtitle and the kind badge. The name is the
+one centred card whose sections are separated by hairlines with no nested panel borders, and the
+card's own header carries the name, a subtitle and the kind badge. The card is capped at 44rem
+until a wide viewport and fills the sheet content width from 1100px (`68.75rem`). The name is the
 same `identity.characterName` inline edit with the sheet name as fallback; the subtitle joins the
 non-empty parts of `identity.ancestry`, `identity.origin` and `identity.level` (through the pure
 `statBlockSubtitleParts`) and disappears when all are empty; the badge reads `NPC` or `Enemy`
@@ -461,8 +462,19 @@ vitals band under the header: a compact 56px armor class shield that still opens
 inline rollable initiative beside it (the same d20, `Roll initiative, <signed value>` name and
 hover-or-focus `Edit initiative` pencil, with the inline edit clamped to −5–20 by `armor_class.ts`) and
 the one-row hit-points card (`hit_points.ts`), with its
-amount field and Damage and Heal actions on the same line. Below it the body reuses the ability
-medallions (without the passive pill) and adds a short prose block from the
+amount field and Damage and Heal actions on the same line. Below the band the body splits into two
+equal columns from 1100px: attacks and spells in the combat column, the ability medallions and
+trait prose in the traits column. Below 1100px it stays one column with attacks and spells ahead
+of the traits, so a phone shows armor class, hit points and the first attack row without scrolling.
+An empty combat or traits column collapses and the other fills the card. The attack cards carry no
+add control (attacks are added in Edit). The spellcasting panel draws its `compact` variant: one
+summary line holds the ability select beside the rollable spell attack and the save DC, one slot row
+is drawn per level that has slots (level, pips, remaining), and the at-will and spell lists read as
+one prose line each with the template label as its term. Empty spell lists draw no line, and a
+creature with no spellcasting at all (no slot and no list text, per the pure `hasSpellCast` in
+`spells_data.ts`) draws no spells section; the hidden-levels footnote appears only beside at least
+one drawn slot row. The traits column reuses the ability medallions (without the passive pill) and
+adds a short prose block from the
 `config.save<A>Prof` / `config.skill<S>Prof` leaves: one line per list,
 "Saves Dex +4 · Wis +2" and "Skills Stealth +6 · Perception +6", each naming the save abbreviation
 or skill and its rollable total and nothing else (the `skills.<skill>.bonus` base stays editable
@@ -471,20 +483,18 @@ ends with one movement line, "Speed 30 ft · Passive 16": the template `combat.s
 `sheet.play.feet` unit and the derived `derived.passiveAwareness`, either side left out when it has
 no value, the whole line and the block omitted when nothing is left (`statMovementParts` /
 `statProseText` are pure). The lines wrap between parts, never inside a name and its total, on
-`--lg-size-control` roll targets. The body then draws the attack cards, with no add control (attacks
-are added in Edit), and the spellcasting panel in its `compact` variant: one summary line holds the
-ability select beside the rollable spell attack and the save DC, one slot row is drawn per level
-that has slots (level, pips, remaining), and the at-will and spell lists read as one prose line each
-with the template label as its term. Empty spell lists draw no line, and a creature with no
-spellcasting at all (no slot and no list text, per the pure `hasSpellCast` in `spells_data.ts`)
-draws no spells section; the hidden-levels footnote appears only beside at least one drawn slot row.
+`--lg-size-control` roll targets.
 Every value keeps its pending-delta path, so the stat block saves, previews and drafts like the full
 sheet. A character sheet, or a sheet with no kind, keeps the full preset. `stat_block.css` draws
 body text at `--lg-type-15` with every control on a `--lg-size-control` target; the vitals band is
 sticky under the top safe-area inset at every width, and its controls carry a scroll margin so a
 focused edit lands below it; on a phone the band
 puts armor class and initiative on one row with the full-width hit-points card below and
-control-sized 44px Damage and Heal actions.
+control-sized 44px Damage and Heal actions, the body pads at `--lg-space-12`, the six abilities sit
+in a three-column grid with 12px labels and their score pill under the medallion, and the trait
+prose reads at `--lg-type-13`, keeping a sample enemy inside its 900px (1440) and 1200px (390)
+height budgets. `e2e/responsive.spec.ts` records the height at both widths, the two-column split at
+1100px, the first-phone-screen contents and the lack of horizontal overflow at 360px.
 
 ### Web local records
 
