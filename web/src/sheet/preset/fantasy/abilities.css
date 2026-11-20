@@ -5,6 +5,16 @@
   min-width: 0;
 }
 
+.lg-preset-abilities__title {
+  display: none;
+}
+
+@media (max-width: 40rem) {
+  .lg-preset-abilities__title {
+    display: block;
+  }
+}
+
 .lg-ability-grid {
   display: flex;
   flex-direction: column;

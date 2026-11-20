@@ -18,8 +18,9 @@ import {
   parseAbilityScore,
   type AbilityKey,
 } from './abilities_data';
-import { PASSIVE_AWARENESS_PATH } from './stat_block_data';
 import './abilities.css';
+import './play_section.css';
+import { PASSIVE_AWARENESS_PATH } from './stat_block_data';
 
 function AbilityMedallion({ ability }: { readonly ability: AbilityKey }) {
   const scorePath = abilityScorePath(ability);
@@ -83,6 +84,7 @@ export function FantasyAbilities({ showPassive = true }: { readonly showPassive?
 
   return (
     <section className="lg-preset-abilities" aria-label={sectionLabel}>
+      <h2 className="lg-play-section__title lg-preset-abilities__title">{sectionLabel}</h2>
       <ul className="lg-ability-grid">
         {ABILITY_KEYS.map((ability) => (
           <AbilityMedallion key={ability} ability={ability} />
