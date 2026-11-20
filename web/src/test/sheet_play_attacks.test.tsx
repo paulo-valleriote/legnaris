@@ -175,12 +175,12 @@ describe('attack cards in play mode', () => {
     expect(fake.requests).toHaveLength(2);
   });
 
-  it('Edge: empty slots leave the section out and Play draws no add control', async () => {
+  it('Edge: empty slots keep the section and count them in the add control', async () => {
     await openAttacks();
 
-    expect(screen.queryByTestId('sheet-attacks')).toBeNull();
+    expect(screen.getByTestId('sheet-attacks')).toHaveTextContent('Attacks');
     expect(screen.queryAllByTestId(/^sheet-attack-\d+$/)).toHaveLength(0);
-    expect(addButton()).toBeNull();
+    expect(addButton()).toHaveTextContent('+ Add attack (4 free)');
   });
 
   it('Edge: an empty name hides the slot even when damage and bonus are set', async () => {
@@ -193,10 +193,10 @@ describe('attack cards in play mode', () => {
 
     expect(screen.queryByTestId('sheet-attack-1')).toBeNull();
     expect(screen.getByTestId('sheet-attack-2')).toHaveTextContent('Dagger');
-    expect(addButton()).toBeNull();
+    expect(addButton()).toHaveTextContent('+ Add attack (3 free)');
   });
 
-  it('Happy path: every filled slot draws and no add control appears', async () => {
+  it('Happy path: every filled slot draws and hides the add control', async () => {
     await openAttacks({
       data: attackData({
         1: { name: 'Longsword', damage: '1d8 + 3', bonus: 5 },
@@ -211,15 +211,55 @@ describe('attack cards in play mode', () => {
     expect(addButton()).toBeNull();
   });
 
-  it('Edge: a template without attack1 draws only its filled slots', async () => {
-    await openAttacks({
+  it('Edge: adding reveals one empty card at a time and recounts the free slots', async () => {
+    const { user } = await openAttacks();
+
+    await user.click(addButton() as HTMLElement);
+
+    expect(screen.getByTestId('sheet-attack-1')).toBeInTheDocument();
+    expect(addButton()).toHaveTextContent('+ Add attack (3 free)');
+
+    await user.click(addButton() as HTMLElement);
+
+    expect(screen.getByTestId('sheet-attack-2')).toBeInTheDocument();
+    expect(addButton()).toHaveTextContent('+ Add attack (2 free)');
+  });
+
+  it('Edge: a template without attack1 reveals the next present slot when adding', async () => {
+    const { user } = await openAttacks({
       template: { fields: attackFieldTreeWithoutFirstSlot() },
-      data: attackData({ 2: { name: 'Dagger', damage: '1d4', bonus: 4 } }),
     });
 
     expect(screen.queryByTestId('sheet-attack-1')).toBeNull();
+    expect(addButton()).toHaveTextContent('+ Add attack (3 free)');
+
+    await user.click(addButton() as HTMLElement);
+
+    expect(screen.queryByTestId('sheet-attack-1')).toBeNull();
     expect(screen.getByTestId('sheet-attack-2')).toBeInTheDocument();
+    expect(addButton()).toHaveTextContent('+ Add attack (2 free)');
+  });
+
+  it('Edge: revealing all four slots hides the add control', async () => {
+    const { user } = await openAttacks();
+
+    for (let click = 0; click < 4; click += 1) {
+      await user.click(addButton() as HTMLElement);
+    }
+
+    expect(screen.getAllByTestId(/^sheet-attack-\d+$/)).toHaveLength(4);
     expect(addButton()).toBeNull();
+  });
+
+  it('Edge: a revealed empty slot names its rolls with the template slot label', async () => {
+    const { user } = await openAttacks();
+    await user.click(addButton() as HTMLElement);
+
+    const card = attackCard(1);
+    expect(
+      within(card).getByRole('button', { name: attackRoll('Attack 1', '+0') }),
+    ).toBeInTheDocument();
+    expect(within(card).getByText(message('sheet.play.noValue'))).toBeInTheDocument();
   });
 });
 
@@ -276,6 +316,21 @@ describe('attack notes', () => {
     await waitFor(() =>
       expect(savedData(fake)).toEqual({
         data: { attacks: { attack1: { notes: 'DC 14 Wis' } } },
+      }),
+    );
+  });
+
+  it('Happy path: Edit mode exposes every empty attack slot so an attack can still be added there', async () => {
+    const { fake, user } = await openAttacks();
+
+    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    const name = await screen.findByRole('textbox', { name: 'Attack 3 name' });
+    await user.type(name, 'Javelin');
+    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+
+    await waitFor(() =>
+      expect(savedData(fake)).toEqual({
+        data: { attacks: { attack3: { name: 'Javelin' } } },
       }),
     );
   });

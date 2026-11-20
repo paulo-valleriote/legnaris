@@ -139,6 +139,18 @@
   stroke-width: var(--lg-space-2);
 }
 
+.lg-attacks .lg-attacks__add {
+  width: 100%;
+  border: var(--lg-size-hairline) dashed var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-md);
+  color: var(--lg-color-text-subtle);
+}
+
+.lg-attacks .lg-attacks__add:hover {
+  border-color: var(--lg-color-text-muted);
+  color: var(--lg-color-text);
+}
+
 @media (max-width: 40rem) {
   .lg-attack-card {
     grid-template-columns: minmax(0, 1fr);

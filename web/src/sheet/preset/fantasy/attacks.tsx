@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
 import { valueAtPath } from '../../../api/models/sheet';
 import { groupDisplayName } from '../../../engine/field_grouping';
 import { message, messageWith } from '../../../l10n/strings';
+import { Button } from '../../../ui/button';
 import { PencilIcon } from '../../../ui/icons';
 import { DieIcon } from '../../die_icon';
 import { useExpressionRoll } from '../../dice_row';
@@ -18,7 +19,7 @@ import { numberValue, textValue } from '../values';
 import { formatModifier } from './abilities_data';
 import {
   ATTACK_SLOTS,
-  attackFilled,
+  attackVisibility,
   parseAttackBonus,
   parseAttackDamage,
   type AttackSlot,
@@ -26,6 +27,7 @@ import {
 import './attacks.css';
 
 function AttackCard({ slot }: { readonly slot: AttackSlot }) {
+  const { template } = usePresetContext();
   const name = textValue(usePresetValue(slot.namePath));
   const bonus = numberValue(usePresetValue(slot.bonusPath));
   const damage = textValue(usePresetValue(slot.damagePath));
@@ -44,7 +46,14 @@ function AttackCard({ slot }: { readonly slot: AttackSlot }) {
   const commitNotes = usePresetCommit(slot.notesPath);
   const damageExpression = useMemo(() => parseAttackDamage(damage), [damage]);
   const rollDamage = useExpressionRoll(slot.rowKey, damageLabel);
-  const attackName = name.trim();
+  const attacksNode = template.fields.attacks;
+  const slotKey = `attack${slot.slot}`;
+  const slotNode = attacksNode?.kind === 'group' ? attacksNode.children[slotKey] : undefined;
+  const fallbackName = groupDisplayName(
+    slotKey,
+    slotNode?.kind === 'group' ? slotNode.label : undefined,
+  );
+  const attackName = name.trim() === '' ? fallbackName : name.trim();
   const bonusText = bonus === undefined ? message('sheet.play.noValue') : formatModifier(bonus);
   const attackRollName = messageWith('sheet.play.attackRoll', {
     name: attackName,
@@ -146,15 +155,29 @@ function AttackCard({ slot }: { readonly slot: AttackSlot }) {
   );
 }
 
-export function FantasyAttacks() {
+export function FantasyAttacks({ showAdd = true }: { readonly showAdd?: boolean }) {
   const { store, template, fields } = usePresetContext();
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
   const state = useSyncExternalStore(subscribe, store.getState);
+  const [revealed, setRevealed] = useState<readonly number[]>([]);
   const present = useMemo(() => ATTACK_SLOTS.filter((slot) => fields.has(slot.namePath)), [fields]);
+  const visibility = attackVisibility(
+    present.map((slot) => valueAtPath(state.data, slot.namePath)),
+    revealed,
+  );
   const attacksNode = template.fields.attacks;
-  const shown = present.filter((slot) => attackFilled(valueAtPath(state.data, slot.namePath)));
 
-  if (shown.length === 0) {
+  if (present.length === 0) {
+    return null;
+  }
+
+  const shown = visibility.shown.flatMap((position) => {
+    const slot = present[position - 1];
+    return slot === undefined ? [] : [slot];
+  });
+  const nextPosition = showAdd ? visibility.next : undefined;
+
+  if (!showAdd && shown.length === 0) {
     return null;
   }
 
@@ -175,6 +198,19 @@ export function FantasyAttacks() {
           <AttackCard key={slot.slot} slot={slot} />
         ))}
       </ul>
+      {nextPosition !== undefined && (
+        <Button
+          className="lg-attacks__add"
+          variant="ghost"
+          size="sm"
+          label={messageWith('sheet.play.addAttack', { count: visibility.free.length })}
+          onClick={() =>
+            setRevealed((current) =>
+              nextPosition === undefined ? current : [...current, nextPosition],
+            )
+          }
+        />
+      )}
     </section>
   );
 }

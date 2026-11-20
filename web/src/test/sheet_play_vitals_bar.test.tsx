@@ -19,6 +19,7 @@ const vitalsCss = readFileSync(
   path.resolve(here, '../sheet/preset/fantasy/vitals_bar.css'),
   'utf8',
 );
+const presetCss = readFileSync(path.resolve(here, '../sheet/preset/preset.css'), 'utf8');
 const statBlockCss = readFileSync(
   path.resolve(here, '../sheet/preset/fantasy/stat_block.css'),
   'utf8',
@@ -214,6 +215,17 @@ describe('the compact vitals bar styles', () => {
       /\.lg-vitals-bar__panel > \.lg-button\s*\{[^}]*min-block-size:\s*var\(--lg-size-control\)/,
     );
     expect(vitalsCss).toMatch(/\.lg-vitals-bar__bar\s*\{[^}]*block-size:\s*4px/);
+  });
+
+  it('Edge: the pending segment shares one hatched stripe with the hit points card', () => {
+    expect(vitalsCss).not.toMatch(/repeating-linear-gradient/);
+    expect(presetCss.match(/repeating-linear-gradient/g)).toHaveLength(2);
+    expect(presetCss).toMatch(
+      /\.lg-pending-stripe\[data-tone='damage'\]\s*\{[^}]*repeating-linear-gradient/,
+    );
+    expect(presetCss).toMatch(
+      /\.lg-pending-stripe\[data-tone='heal'\]\s*\{[^}]*repeating-linear-gradient/,
+    );
   });
 
   it('Edge: reduced motion drops the bar animation and the fill transition', () => {

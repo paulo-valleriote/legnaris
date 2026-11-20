@@ -951,8 +951,18 @@ describe('the stat block styles', () => {
       /\.lg-stat-block__combat\s*\{[^}]*grid-template-columns:\s*auto auto minmax\(0, 1fr\)/,
     );
     expect(css).toMatch(/\.lg-stat-block \.lg-ac\s*\{[^}]*width:\s*3\.5rem/);
-    expect(css).toMatch(/\.lg-stat-block \.lg-ac__shield\s*\{[^}]*min-height:\s*4rem/);
+    expect(css).toMatch(
+      /\.lg-stat-block \.lg-ac__shield\s*\{[^}]*min-height:\s*var\(--lg-space-64\)/,
+    );
     expect(css).toMatch(/\.lg-stat-block__stat\s*\{[^}]*flex-direction:\s*row/);
+  });
+
+  it('Edge: the armour class label clears the 11px floor on a desktop and 12px on a phone', () => {
+    expect(css).toMatch(/\.lg-stat-block \.lg-ac__label\s*\{[^}]*font-size:\s*var\(--lg-type-11\)/);
+    const mobile = css.slice(css.indexOf('@media (max-width: 40rem)'));
+    expect(mobile).toMatch(
+      /\.lg-stat-block \.lg-ac__label\s*\{[^}]*font-size:\s*var\(--lg-type-12\)/,
+    );
   });
 
   it('Edge: the initiative pencil waits for hover or focus on a full 44px target', () => {

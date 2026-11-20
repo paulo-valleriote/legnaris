@@ -430,12 +430,12 @@ func (d *DAG) validateUpdateKeysLocked(updatedData map[string]any) error {
 			return ErrUnknownField(key)
 		}
 	}
-	for key, value := range updatedData {
+	for _, key := range slices.Sorted(maps.Keys(updatedData)) {
 		node, ok := d.nodes[key]
 		if !ok {
 			continue
 		}
-		if err := node.checkTextLength(value); err != nil {
+		if err := node.checkTextLength(updatedData[key]); err != nil {
 			return err
 		}
 	}

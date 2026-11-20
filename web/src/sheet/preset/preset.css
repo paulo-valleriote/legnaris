@@ -212,7 +212,7 @@
 }
 
 .lg-preset-hero__badge-label {
-  margin-top: 3px;
+  margin-top: var(--lg-space-4);
   font-size: var(--lg-type-11);
   letter-spacing: var(--lg-tracking-widest);
   text-transform: uppercase;
@@ -390,7 +390,7 @@
   opacity: 0.85;
 }
 
-.lg-hp-card__pending[data-tone='damage'] {
+.lg-pending-stripe[data-tone='damage'] {
   background-image: repeating-linear-gradient(
     45deg,
     color-mix(in srgb, var(--lg-danger-400) 55%, transparent) 0 4px,
@@ -398,7 +398,7 @@
   );
 }
 
-.lg-hp-card__pending[data-tone='heal'] {
+.lg-pending-stripe[data-tone='heal'] {
   background-image: repeating-linear-gradient(
     45deg,
     color-mix(in srgb, var(--lg-success-400) 55%, transparent) 0 4px,

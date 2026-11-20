@@ -124,6 +124,11 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .lg-preset-saves__list,
+  .lg-preset-skills__list {
+    row-gap: var(--lg-space-8);
+  }
+
   .lg-save,
   .lg-skill {
     min-height: 36px;

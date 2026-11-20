@@ -408,10 +408,11 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   pill only; its value stays text colour. A derived row's label is muted.
 - **Phone tap targets.** Play controls stay at least `--lg-size-control` (44 px) square at phone
   widths, however compact their drawing. A save or skill row still draws at 36 px tall: its
-  proficiency dot, rollable total and base-bonus edit keep the full 44 px target, centred on the row
-  and apart from each other, so the list stays dense without shrinking what the finger hits. Attack
-  to-hit and damage pills and the attack edit pencils, the spell-slot pips and the armor-class and
-  initiative edit targets are the same 44 px.
+  proficiency dot, rollable total and base-bonus edit keep the full 44 px target on a 44 px row
+  pitch (an 8 px row gap), so the list stays dense without shrinking what the finger hits and
+  adjacent targets never overlap. Attack to-hit and damage pills and the attack edit pencils, the
+  spell-slot pips (whose drawn diamond stays compact) and the armor-class and initiative edit
+  targets are the same 44 px.
 - **Rollable totals (Play).** A rollable total reads in `--lg-color-text` with a dashed
   `--lg-color-link` underline; hover and focus fill it with `--lg-color-accent` and
   `--lg-color-accent-text`. Filled accent stays for the proficiency dot and the primary action, so

@@ -418,6 +418,10 @@
     font-size: var(--lg-type-12);
   }
 
+  .lg-stat-block .lg-ac__label {
+    font-size: var(--lg-type-12);
+  }
+
   .lg-stat-block__edit {
     opacity: 1;
   }
@@ -425,11 +429,11 @@
 
 .lg-stat-block .lg-ac {
   width: 3.5rem;
-  min-height: 4rem;
+  min-height: var(--lg-space-64);
 }
 
 .lg-stat-block .lg-ac__shield {
-  min-height: 4rem;
+  min-height: var(--lg-space-64);
   padding: 0 0 var(--lg-space-4);
 }
 
@@ -439,7 +443,7 @@
 
 .lg-stat-block .lg-ac__label {
   margin-top: 0;
-  font-size: 9px;
+  font-size: var(--lg-type-11);
 }
 
 @media (min-width: 40.01rem) {

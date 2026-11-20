@@ -361,14 +361,18 @@ from `derived.armorClass`. The bar reuses `fantasy/hit_points_view.ts` (`useHitP
 shared view over the pure hit-point math that the card also uses, so damage, healing, temporary
 points, the amount field and the pending delta follow exactly the card's flow. A pending change adds
 one line spelling out `<before> → <after> (<delta>)` in the danger or success tone, with the same
-hatched segment on the bar. Escape closes the disclosure only. The bar's height is reserved through
+hatched segment on the bar. The hatch is one shared `.lg-pending-stripe` class (`preset.css`) that
+both the bar and the hit-points card take, so the danger and success stripes are declared once.
+Escape closes the disclosure only. The bar's height is reserved through
 `scroll-padding-block-start`, so a focused field scrolls clear of it, and reduced motion drops its
 slide-in.
 
 Saving throws and skills follow as two card sections (`saves_skills.tsx`). On a phone each row draws
-at 36px while its proficiency dot, rollable total and bonus edit keep a 44px square target, so the
-sample character sheet's page at 390 shrinks from 2750 to 2652px; the three targets of a row stay
-apart horizontally. Each panel header carries a first-time legend: the saving throws title repeats
+at 36px while its proficiency dot, rollable total and bonus edit keep a 44px square target; the two
+lists carry an `--lg-space-8` row gap, so every row sits on a 44px pitch and the targets of a
+row touch their neighbours without overlapping. The targets of a row stay apart horizontally,
+and the drawn proficiency mark stays a 14px dot inside its 44px target. Each panel header carries a
+first-time legend: the saving throws title repeats
 the row dot (the same `lg-prof-dot__mark` mark, filled through the `--on` modifier) beside
 `proficient`, and the skills title says
 `Tap a number to roll`; both strings resolve through `sheet.play.proficient` /
@@ -387,14 +391,16 @@ builders, the abbreviation keys and the bonus parser that clamps to the template
 The row grammar `skills.<skill>` is the table Row key the Dice store resolves.
 
 Attack cards follow (`fantasy/attacks.tsx`). The four `attacks.attack1..4` table Rows draw only
-while their `name` is non-empty (the pure `attackFilled` trims it), so a template without a filled
-attack draws no section and a slot carrying only a note stays empty. Play draws no add control:
-adding an attack stays in Edit, whose generic form shows every slot of the template, with the
-attack table's Notes column as the place to write a note that is not shown yet. Each card carries
-an inline-editable name, a rollable bonus and a rollable damage expression. An optional
-`attacks.attackN.notes` text leaf (60 characters) draws as a muted subtitle under the name, editable
-in place; an empty note draws nothing at all, not an invitation, so Play never pads a card. The
-to-hit pill draws a decorative d20 (`aria-hidden`) beside
+while their `name` is non-empty (the pure `attackFilled` trims it) or the player has revealed the
+slot, so a slot carrying only a note stays empty. Play draws `+ Add attack (N free)`, which reveals
+one empty slot at a time and counts the slots still hidden; a revealed slot names its rolls by the
+template label (`Attack N`) until a name is written. The stat block asks the same component for
+`showAdd={false}`, so a creature adds attacks in Edit only. Edit's generic form shows every slot of
+the template, with the attack table's Notes column as the place to write a note that is not shown
+yet. Each card carries an inline-editable name, a rollable bonus and a rollable damage expression.
+An optional `attacks.attackN.notes` text leaf (60 characters) draws as a muted subtitle under the
+name, editable in place; an empty note draws nothing at all, not an invitation, so Play never pads a
+card. The to-hit pill draws a decorative d20 (`aria-hidden`) beside
 the signed bonus, so it reads as an attack roll rather than a bare number; its accessible name and
 title are `Attack roll, <attack name>, <signed bonus>`. The damage pill stays the dice expression,
 with the matching `Damage roll, <attack name>, <expression>` name and title. The bonus is the
@@ -459,7 +465,8 @@ drawn per level whose total is
 non-zero: `total` pips with the remaining ones first, each a `--lg-size-control` target that writes
 `spells.slotN.expended` (a remaining pip spends one, a spent pip recovers one), and the total stays
 inline-editable through the engine's numeric guard. On a phone each pip and the rollable spell
-attack keep the same 44px target. `preset/fantasy/slot_pips.ts` is pure
+attack keep the same 44px target, and the pip keeps its 14px diamond so the drawn mark stays compact
+inside the target. `preset/fantasy/slot_pips.ts` is pure
 (`slotPool`, `spendSlot`, `recoverSlot`, `slotPips`): a missing, non-numeric or negative count reads
 as zero, fractional counts truncate, `expended` clamps to the total, and spend or recover at a cap
 returns the same pool. A level stays visible while its total is being edited, and hides once a saved
