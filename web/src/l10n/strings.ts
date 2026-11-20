@@ -399,7 +399,6 @@ export const messages = {
   'sheet.play.armorClass': 'Armor class',
   'sheet.play.armorClassValue': 'Armor class {count}',
   'sheet.play.armorAbility': 'Armor class ability',
-  'sheet.play.addAttack': '+ Add attack ({count} free)',
   'sheet.inlineAdd': 'Add {label}',
   'sheet.pending.notSavedYet': 'not saved yet',
   'sheet.pending.arrow': '→',
