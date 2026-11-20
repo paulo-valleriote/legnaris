@@ -4,12 +4,14 @@
   justify-content: space-between;
   gap: var(--lg-space-8);
   inline-size: 100%;
-  min-block-size: var(--lg-size-control);
+  min-block-size: 28px;
   margin: 0;
   padding: 0;
   border: 0;
   background: transparent;
   font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
   color: inherit;
   text-align: start;
   cursor: pointer;
@@ -27,8 +29,8 @@
 
 .lg-rules__chevron {
   flex: none;
-  inline-size: var(--lg-space-24);
-  block-size: var(--lg-space-24);
+  inline-size: var(--lg-space-16);
+  block-size: var(--lg-space-16);
   color: var(--lg-color-text-muted);
   transition: transform var(--lg-motion-120) var(--lg-ease-standard);
 }
@@ -38,36 +40,43 @@
 }
 
 .lg-rules__fields {
-  display: flex;
-  flex-direction: column;
-  gap: var(--lg-space-8);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--lg-space-12);
   min-inline-size: 0;
+  padding-top: var(--lg-space-8);
+}
+
+.lg-rules__fields[hidden] {
+  display: none;
 }
 
 .lg-rules__field {
-  display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-  align-items: center;
-  gap: var(--lg-space-4) var(--lg-space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
   min-inline-size: 0;
 }
 
 .lg-rules__label {
   min-inline-size: 0;
-  font-size: var(--lg-type-13);
-  font-weight: var(--lg-font-weight-medium);
+  font-size: var(--lg-type-12);
   line-height: var(--lg-line-normal);
   color: var(--lg-color-text-muted);
 }
 
 .lg-rules__control {
   display: flex;
-  justify-content: flex-end;
+  min-inline-size: 0;
+}
+
+.lg-rules__control > * {
+  flex: 1;
   min-inline-size: 0;
 }
 
 @media (max-width: 40rem) {
-  .lg-rules__field {
-    grid-template-columns: minmax(0, 1fr);
+  .lg-rules__fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

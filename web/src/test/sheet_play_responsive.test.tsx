@@ -83,7 +83,7 @@ describe('the Play editing surface', () => {
     await user.click(editPath('identity.proficiencyBonus'));
     await user.clear(screen.getByRole('textbox', { name: 'Proficiency bonus' }));
     await user.type(screen.getByRole('textbox', { name: 'Proficiency bonus' }), '3{Enter}');
-    expect(editPath('identity.proficiencyBonus')).toHaveTextContent('Proficiency +3');
+    expect(editPath('identity.proficiencyBonus')).toHaveTextContent('+3Prof');
 
     await user.click(editPath('combat.hitPointsTemp'));
     const temp = screen.getByRole('textbox', { name: 'Temporary hit points' });
@@ -205,10 +205,10 @@ describe('the responsive Play layout', () => {
 
   it('Edge: the body is three columns, two near 1100px and one on a phone', () => {
     expect(presetCss).toMatch(
-      /\.lg-preset__columns\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/,
+      /\.lg-preset__columns\s*\{[^}]*grid-template-columns:\s*200px minmax\(0, 1fr\) minmax\(0, 1\.1fr\)/,
     );
     const twoColumn = presetCss.slice(presetCss.indexOf('@media (max-width: 68.75rem)'));
-    expect(twoColumn).toMatch(/grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+    expect(twoColumn).toMatch(/grid-template-columns:\s*180px minmax\(0, 1fr\)/);
     expect(mobileCss(presetCss)).toMatch(/grid-template-columns:\s*minmax\(0, 1fr\)/);
   });
 

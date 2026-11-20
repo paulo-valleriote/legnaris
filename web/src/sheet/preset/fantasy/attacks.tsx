@@ -163,6 +163,7 @@ export function FantasyAttacks() {
       </ul>
       {next !== undefined && (
         <Button
+          className="lg-attacks__add"
           variant="ghost"
           size="sm"
           label={messageWith('sheet.play.addAttack', { count: visibility.free.length })}

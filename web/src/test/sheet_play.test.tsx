@@ -202,7 +202,9 @@ describe('the hero header', () => {
       messageWith('sheet.play.level', { count: 3 }),
     );
     expect(hero()).toHaveTextContent('played by Sam');
-    expect(hero()).toHaveTextContent(messageWith('sheet.play.proficiency', { modifier: '+2' }));
+    expect(screen.getByTestId('sheet-play-proficiency')).toHaveTextContent(
+      `+2${message('sheet.play.proficiencyShort')}`,
+    );
   });
 });
 

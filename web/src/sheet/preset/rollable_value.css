@@ -14,11 +14,11 @@
 }
 
 .lg-rollable--button {
-  min-inline-size: var(--lg-size-control);
-  min-block-size: var(--lg-size-control);
-  padding-inline: var(--lg-space-4);
+  min-inline-size: 32px;
+  min-block-size: 32px;
+  padding-inline: var(--lg-space-8);
   border-radius: var(--lg-radius-sm);
-  color: var(--lg-color-accent);
+  color: var(--lg-lava-400);
   font-weight: var(--lg-font-weight-bold);
   cursor: pointer;
   transition:
@@ -27,8 +27,15 @@
 }
 
 .lg-rollable--button:hover {
-  background-color: var(--lg-color-surface-hover);
-  color: var(--lg-color-accent-hover);
+  background-color: color-mix(in srgb, var(--lg-lava-500) 14%, transparent);
+  color: var(--lg-lava-400);
+}
+
+@media (max-width: 40rem) {
+  .lg-rollable--button {
+    min-inline-size: var(--lg-size-control);
+    min-block-size: var(--lg-size-control);
+  }
 }
 
 .lg-rollable--button:focus-visible {

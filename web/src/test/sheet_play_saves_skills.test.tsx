@@ -89,7 +89,7 @@ describe('saving throws', () => {
 
     const section = screen.getByTestId('sheet-play-saves');
     expect(within(section).getAllByTestId(/^sheet-save-/)).toHaveLength(6);
-    expect(within(section).getByText('Strength save')).toBeInTheDocument();
+    expect(within(saveRow('strength')).getByText('STR')).toBeInTheDocument();
     expect(dot('Strength save')).toHaveAttribute('aria-pressed', 'false');
     expect(dot('Dexterity save')).toHaveAttribute('aria-pressed', 'true');
     expect(

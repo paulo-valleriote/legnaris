@@ -388,9 +388,11 @@ describe('the stat block styles', () => {
     );
   });
 
-  it('Edge: the phone combat strip folds to two columns with a full-width hit points card', () => {
+  it('Edge: the phone combat strip folds to the shield beside initiative with a full-width hit points card', () => {
     const mobile = css.slice(css.indexOf('@media (max-width: 40rem)'));
-    expect(mobile).toMatch(/\.lg-stat-block__combat\s*\{[^}]*grid-template-columns:\s*repeat\(2,/);
+    expect(mobile).toMatch(
+      /\.lg-stat-block__combat\s*\{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\)/,
+    );
     expect(mobile).toMatch(/\.lg-stat-block__hp\s*\{[^}]*grid-column:\s*1 \/ -1/);
   });
 });

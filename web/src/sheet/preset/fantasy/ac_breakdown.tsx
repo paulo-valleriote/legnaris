@@ -24,20 +24,17 @@ import {
 
 const BREAKDOWN_ID = 'lg-ac-breakdown';
 
-function ShieldIcon({ className }: { readonly className?: string }) {
+function ShieldShape({ className }: { readonly className?: string }) {
   return (
     <svg
       className={className}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.6}
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      viewBox="0 0 86 96"
+      preserveAspectRatio="xMidYMid meet"
       aria-hidden="true"
       focusable="false"
     >
-      <path d="M12 3 5 6v6c0 4.3 2.8 7.5 7 9 4.2-1.5 7-4.7 7-9V6l-7-3Z" />
+      <path className="lg-ac__shape" d="M43 4 80 16v30c0 24-18 40-37 46C24 86 6 70 6 46V16Z" />
+      <path className="lg-ac__shape-inner" d="M43 11 73 21v25c0 20-15 33-30 38" />
     </svg>
   );
 }
@@ -232,11 +229,11 @@ export function ArmorClassShield() {
         aria-controls={open ? BREAKDOWN_ID : undefined}
         onClick={() => setOpen((current) => !current)}
       >
-        <ShieldIcon className="lg-ac__icon" />
-        <span className="lg-ac__label">{label}</span>
+        <ShieldShape className="lg-ac__icon" />
         <span className="lg-ac__value" data-testid="sheet-ac-value">
           {value}
         </span>
+        <span className="lg-ac__label">{message('sheet.play.armorClassShort')}</span>
       </button>
       {open && <ArmorBreakdown label={label} onClose={closeAndFocus} />}
     </div>

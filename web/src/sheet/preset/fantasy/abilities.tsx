@@ -33,28 +33,30 @@ function AbilityMedallion({ ability }: { readonly ability: AbilityKey }) {
   return (
     <li className="lg-ability" data-testid={`sheet-ability-${ability}`}>
       <span className="lg-ability__name">{scoreLabel}</span>
-      <RollableValue
-        rowKey={scorePath}
-        sectionKey="stats"
-        label={modifierLabel}
-        text={modifier === undefined ? message('sheet.play.noValue') : formatModifier(modifier)}
-        allowRoll={modifier !== undefined}
-        className="lg-ability__modifier"
-      />
-      <InlineEdit
-        className="lg-ability__score"
-        label={scoreLabel}
-        path={scorePath}
-        schema={scoreSchema}
-        value={score === undefined ? '' : String(score)}
-        inputMode="numeric"
-        onCommit={(text) => {
-          const next = parseAbilityScore(text);
-          if (next !== undefined) {
-            commitScore(next);
-          }
-        }}
-      />
+      <span className="lg-ability__medal">
+        <RollableValue
+          rowKey={scorePath}
+          sectionKey="stats"
+          label={modifierLabel}
+          text={modifier === undefined ? message('sheet.play.noValue') : formatModifier(modifier)}
+          allowRoll={modifier !== undefined}
+          className="lg-ability__modifier"
+        />
+        <InlineEdit
+          className="lg-ability__score"
+          label={scoreLabel}
+          path={scorePath}
+          schema={scoreSchema}
+          value={score === undefined ? '' : String(score)}
+          inputMode="numeric"
+          onCommit={(text) => {
+            const next = parseAbilityScore(text);
+            if (next !== undefined) {
+              commitScore(next);
+            }
+          }}
+        />
+      </span>
     </li>
   );
 }
@@ -74,10 +76,10 @@ export function FantasyAbilities() {
         ))}
       </ul>
       <p className="lg-ability-passive" data-testid="sheet-play-passive">
-        <span className="lg-ability-passive__label">{passiveLabel}</span>{' '}
         <span className="lg-ability-passive__value">
           {passiveAwareness === undefined ? message('sheet.play.noValue') : passiveAwareness}
-        </span>
+        </span>{' '}
+        <span className="lg-ability-passive__label">{passiveLabel}</span>
       </p>
     </section>
   );

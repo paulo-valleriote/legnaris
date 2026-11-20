@@ -1,19 +1,20 @@
 .lg-play-section {
   display: flex;
   flex-direction: column;
-  gap: var(--lg-space-12);
+  gap: var(--lg-space-8);
   min-inline-size: 0;
-  padding: var(--lg-space-24);
+  padding: var(--lg-space-16);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
   border-radius: var(--lg-radius-lg);
   background-color: var(--lg-color-surface);
-  box-shadow: var(--lg-shadow-1);
 }
 
 .lg-play-section__title {
-  margin: 0;
-  font-size: var(--lg-type-20);
+  margin: 0 0 var(--lg-space-2);
+  font-size: 11px;
   font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
-  color: var(--lg-color-text);
+  letter-spacing: var(--lg-tracking-widest);
+  text-transform: uppercase;
+  color: var(--lg-color-text-subtle);
 }

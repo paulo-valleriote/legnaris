@@ -223,7 +223,7 @@ describe('ability medallions', () => {
     const passive = within(section).getByTestId('sheet-play-passive');
 
     expect(within(grid).getAllByRole('listitem')).toHaveLength(6);
-    expect(passive).toHaveTextContent('Passive awareness 14');
+    expect(passive).toHaveTextContent('14 Passive awareness');
     expect(grid.nextElementSibling).toBe(passive);
   });
 

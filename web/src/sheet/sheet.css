@@ -32,6 +32,20 @@
   padding-inline: var(--lg-space-24);
 }
 
+.lg-sheet--editor:has(.lg-preset)
+  > :not(.lg-sheet__footer):not(.lg-sectionbar):not(.lg-dialog__scrim):not(.lg-visually-hidden) {
+  max-width: calc(85rem + 2 * var(--lg-space-24));
+}
+
+.lg-sheet__heading:has(.lg-preset-hero) {
+  flex-direction: column-reverse;
+  align-items: stretch;
+}
+
+.lg-sheet__heading:has(.lg-preset-hero) > .lg-sheet__header-actions {
+  align-self: flex-end;
+}
+
 .lg-sheet__header {
   display: flex;
   flex-direction: column;

@@ -1,9 +1,9 @@
-import { Button } from '../../ui/button';
 import './segmented_choice.css';
 
 export interface SegmentedChoiceOption {
   readonly value: string;
   readonly label: string;
+  readonly short?: string;
 }
 
 export interface SegmentedChoiceProps {
@@ -28,16 +28,18 @@ export function SegmentedChoice({
   return (
     <div className="lg-segmented" role="group" aria-label={label}>
       {options.map((option) => (
-        <Button
+        <button
           key={option.value}
-          variant="outline"
-          size="sm"
+          type="button"
           className="lg-segmented__option"
           disabled={disabled}
-          ariaPressed={option.value === selected}
-          label={option.label}
+          aria-pressed={option.value === selected}
+          aria-label={option.short === undefined ? undefined : option.label}
+          title={option.short === undefined ? undefined : option.label}
           onClick={() => onChange(option.value)}
-        />
+        >
+          {option.short ?? option.label}
+        </button>
       ))}
     </div>
   );

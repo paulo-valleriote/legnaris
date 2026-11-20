@@ -1,6 +1,5 @@
 import { useCallback, useId, useMemo, useSyncExternalStore } from 'react';
 import { valueAtPath } from '../../../api/models/sheet';
-import { SheetFieldControl } from '../../../engine/field_control';
 import type { SheetField } from '../../../engine/field_grouping';
 import { fieldDisplayName, groupDisplayName, lastSegment } from '../../../engine/field_grouping';
 import { message, messageWith } from '../../../l10n/strings';
@@ -18,6 +17,7 @@ import { RollableValue } from '../rollable_value';
 import { SegmentedChoice } from '../segmented_choice';
 import type { SegmentedChoiceOption } from '../segmented_choice';
 import { numberValue, textValue } from '../values';
+import { parseClampedInt, UNBOUNDED } from './parse_number';
 import { recoverSlot, slotPips, slotPool, spendSlot } from './slot_pips';
 import type { SlotPool } from './slot_pips';
 import './play_section.css';
@@ -53,11 +53,11 @@ function signedValue(value: unknown): string {
 function abilityOptions(fields: ReadonlyMap<string, SheetField>): SegmentedChoiceOption[] {
   return [...fields.values()]
     .filter((field) => field.schema.exclusiveGroup === SPELLCASTING_ABILITY_GROUP)
-    .map((field) => ({
-      value: field.path,
-      label:
-        field.schema.optionLabel?.trim() || fieldDisplayName(lastSegment(field.path), field.schema),
-    }));
+    .map((field) => {
+      const label =
+        field.schema.optionLabel?.trim() || fieldDisplayName(lastSegment(field.path), field.schema);
+      return { value: field.path, label, short: label.slice(0, 3).toUpperCase() };
+    });
 }
 
 function SpellcastingAbility() {
@@ -202,20 +202,13 @@ function SlotLevel({
   onTotal,
 }: SlotLevelProps) {
   const groupLabel = messageWith('sheet.play.slotGroup', { count: level });
+  const totalNumber = numberValue(totalValue);
 
   return (
     <li className="lg-spells__slot" data-testid={`sheet-slot-${level}`}>
-      <div className="lg-spells__slot-head">
-        <span className="lg-spells__slot-level">
-          {messageWith('sheet.play.level', { count: level })}
-        </span>
-        <span className="lg-spells__slot-remaining" data-testid={`sheet-slot-${level}-remaining`}>
-          {messageWith('sheet.play.slotsLeft', {
-            remaining: pool.remaining,
-            total: pool.total,
-          })}
-        </span>
-      </div>
+      <span className="lg-spells__slot-level">
+        {messageWith('sheet.play.level', { count: level })}
+      </span>
       <div className="lg-spells__pips" role="group" aria-label={groupLabel}>
         {slotPips(pool).map((pip) => (
           <button
@@ -233,17 +226,32 @@ function SlotLevel({
           />
         ))}
       </div>
-      <div className="lg-spells__slot-total">
-        <span className="lg-spells__label">{message('sheet.play.slotTotal')}</span>
-        <span className="lg-spells__slot-total-control" data-edit-path={slotPath(level, 'total')}>
-          <SheetFieldControl
-            path={totalSchema.path}
-            schema={totalSchema.schema}
-            value={totalValue}
-            onChanged={onTotal}
-          />
+      <span className="lg-spells__slot-count">
+        <span className="lg-spells__slot-remaining" data-testid={`sheet-slot-${level}-remaining`}>
+          <span className="lg-visually-hidden">
+            {messageWith('sheet.play.slotsLeft', {
+              remaining: pool.remaining,
+              total: pool.total,
+            })}
+          </span>
+          <span aria-hidden="true">{pool.remaining}</span>
         </span>
-      </div>
+        <span aria-hidden="true">/</span>
+        <InlineEdit
+          className="lg-spells__slot-total"
+          label={totalSchema.schema.label ?? message('sheet.play.slotTotal')}
+          path={totalSchema.path}
+          schema={totalSchema.schema}
+          value={totalNumber === undefined ? '' : String(totalNumber)}
+          inputMode="numeric"
+          onCommit={(text) => {
+            const next = parseClampedInt(text, 0, UNBOUNDED);
+            if (next !== undefined) {
+              onTotal(next);
+            }
+          }}
+        />
+      </span>
     </li>
   );
 }
@@ -319,9 +327,9 @@ export function FantasySpells() {
       </h2>
       <SpellcastingAbility />
       <SpellStats />
+      <SpellSlots />
       <SpellText path="spells.atWill" />
       <SpellText path="spells.list" />
-      <SpellSlots />
     </section>
   );
 }

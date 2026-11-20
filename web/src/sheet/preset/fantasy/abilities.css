@@ -1,72 +1,102 @@
 .lg-preset-abilities {
   display: flex;
   flex-direction: column;
-  gap: var(--lg-space-8);
+  gap: var(--lg-space-12);
   min-width: 0;
 }
 
 .lg-ability-grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: var(--lg-space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-12);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .lg-ability {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--lg-space-4);
+  gap: var(--lg-space-8);
   min-width: 0;
-  padding: var(--lg-space-8) var(--lg-space-4);
+  padding: var(--lg-space-12) var(--lg-space-12) var(--lg-space-16) var(--lg-space-16);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
   border-radius: var(--lg-radius-lg);
   background-color: var(--lg-color-surface);
-  box-shadow: var(--lg-shadow-1);
 }
 
 .lg-ability__name {
-  font-size: var(--lg-type-12);
-  font-weight: var(--lg-font-weight-medium);
+  min-width: 0;
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
   letter-spacing: var(--lg-tracking-wide);
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
   color: var(--lg-color-text-muted);
 }
 
-.lg-ability__modifier {
-  font-size: var(--lg-type-24);
+.lg-ability__medal {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.lg-ability .lg-ability__modifier {
+  width: 58px;
+  height: 58px;
+  min-inline-size: 0;
+  padding: 0;
+  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-raised);
+  font-size: 22px;
   font-weight: var(--lg-font-weight-bold);
-  line-height: var(--lg-line-tight);
+  line-height: 1;
+}
+
+.lg-ability .lg-rollable--button.lg-ability__modifier:hover {
+  border-color: var(--lg-lava-500);
 }
 
 .lg-ability .lg-ability__score {
-  min-inline-size: var(--lg-space-32);
-  min-block-size: var(--lg-size-control);
-  padding: var(--lg-space-2) var(--lg-space-8);
+  position: absolute;
+  bottom: -9px;
+  left: 50%;
+  translate: -50% 0;
+  min-inline-size: 28px;
+  padding: 0 var(--lg-space-8);
   border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
   border-radius: var(--lg-radius-pill);
-  background-color: var(--lg-color-surface-hover);
-  font-size: var(--lg-type-13);
+  background-color: var(--lg-color-bg);
+  font-size: 11px;
+  line-height: 18px;
   font-variant-numeric: tabular-nums;
-  color: var(--lg-color-text-muted);
   text-align: center;
+  color: var(--lg-color-text-muted);
 }
 
 .lg-ability .lg-ability__score:hover {
   border-color: var(--lg-color-text-muted);
+  color: var(--lg-color-text);
+}
+
+.lg-ability .lg-ability__score.lg-inline-edit--input {
+  position: absolute;
+  width: 4rem;
+  line-height: normal;
 }
 
 .lg-ability-passive {
-  align-self: center;
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--lg-space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--lg-space-8);
   margin: 0;
-  padding: var(--lg-space-2) var(--lg-space-12);
-  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
+  padding: var(--lg-space-4) var(--lg-space-16) var(--lg-space-4) var(--lg-space-4);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
   border-radius: var(--lg-radius-pill);
   background-color: var(--lg-color-surface);
   font-size: var(--lg-type-12);
@@ -74,11 +104,17 @@
 }
 
 .lg-ability-passive__label {
-  font-weight: var(--lg-font-weight-medium);
   color: var(--lg-color-text-muted);
 }
 
 .lg-ability-passive__value {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-raised);
+  font-size: var(--lg-type-15);
   font-weight: var(--lg-font-weight-semibold);
   font-variant-numeric: tabular-nums;
   color: var(--lg-color-text);
@@ -86,10 +122,12 @@
 
 @media (max-width: 40rem) {
   .lg-ability-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .lg-ability__modifier {
-    font-size: var(--lg-type-20);
+  .lg-ability .lg-ability__score {
+    min-block-size: 28px;
+    line-height: 26px;
   }
 }

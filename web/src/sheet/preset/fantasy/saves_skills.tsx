@@ -26,6 +26,7 @@ import {
   SKILL_KEYS,
   type SkillKey,
 } from './saves_skills_data';
+import './play_section.css';
 import './saves_skills.css';
 
 function ProficiencyDot({ path, label }: { readonly path: string; readonly label: string }) {
@@ -56,7 +57,9 @@ function SaveRow({ ability }: { readonly ability: AbilityKey }) {
   return (
     <li className="lg-save" data-testid={`sheet-save-${ability}`}>
       <ProficiencyDot path={saveProficiencyPath(ability)} label={label} />
-      <span className="lg-save__name">{label}</span>
+      <span className="lg-save__name" aria-hidden="true">
+        {message(abilityAbbreviationKey(ability))}
+      </span>
       <RollableValue
         rowKey={totalPath}
         sectionKey="saves"
@@ -123,11 +126,11 @@ function SkillRow({ skill }: { readonly skill: SkillKey }) {
 export function FantasySaves() {
   return (
     <section
-      className="lg-preset-saves"
+      className="lg-play-section lg-preset-saves"
       aria-label={message('sheet.play.saves')}
       data-testid="sheet-play-saves"
     >
-      <h2 className="lg-preset-saves__title">{message('sheet.play.saves')}</h2>
+      <h2 className="lg-play-section__title">{message('sheet.play.saves')}</h2>
       <ul className="lg-preset-saves__list">
         {ABILITY_KEYS.map((ability) => (
           <SaveRow key={ability} ability={ability} />
@@ -140,11 +143,11 @@ export function FantasySaves() {
 export function FantasySkills() {
   return (
     <section
-      className="lg-preset-skills"
+      className="lg-play-section lg-preset-skills"
       aria-label={message('sheet.play.skills')}
       data-testid="sheet-play-skills"
     >
-      <h2 className="lg-preset-skills__title">{message('sheet.play.skills')}</h2>
+      <h2 className="lg-play-section__title">{message('sheet.play.skills')}</h2>
       <ul className="lg-preset-skills__list">
         {SKILL_KEYS.map((skill) => (
           <SkillRow key={skill} skill={skill} />

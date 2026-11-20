@@ -218,6 +218,12 @@ function abilityGroup() {
   return within(spellPanel()).getByRole('group', { name: 'Spellcasting ability' });
 }
 
+function totalButton(level: number): HTMLElement {
+  return within(screen.getByTestId(`sheet-slot-${level}`)).getByRole('button', {
+    name: `Level ${level} total`,
+  });
+}
+
 describe('the spellcasting panel', () => {
   it('Edge: a template without spell fields draws neither the panel nor the table rules', async () => {
     const fake = createFakeTransport(
@@ -371,15 +377,16 @@ describe('the spell slots', () => {
     );
   });
 
-  it('Edge: clearing the total keeps the level visible while the edit is pending', async () => {
+  it('Edge: a total set to zero keeps the level visible while the edit is pending', async () => {
     const { user } = await openSpells();
 
+    await user.click(totalButton(1));
     const total = within(screen.getByTestId('sheet-slot-1')).getByRole('textbox', {
       name: 'Level 1 total',
     });
     await user.clear(total);
+    await user.type(total, '0{Enter}');
 
-    expect(total).toHaveValue('');
     expect(screen.getByTestId('sheet-slot-1')).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: messageWith('sheet.play.slotSpend', { count: 1 }) }),
@@ -389,11 +396,12 @@ describe('the spell slots', () => {
   it('Happy path: the slot total is editable inline', async () => {
     const { fake, user } = await openSpells();
 
+    await user.click(totalButton(1));
     const total = within(screen.getByTestId('sheet-slot-1')).getByRole('textbox', {
       name: 'Level 1 total',
     });
     await user.clear(total);
-    await user.type(total, '4');
+    await user.type(total, '4{Enter}');
 
     await save(user);
     await waitFor(() =>
@@ -404,13 +412,14 @@ describe('the spell slots', () => {
   it('Error: a total that is not a number is refused and leaves the stored value', async () => {
     const { fake, user } = await openSpells();
 
+    await user.click(totalButton(1));
     const total = within(screen.getByTestId('sheet-slot-1')).getByRole('textbox', {
       name: 'Level 1 total',
     });
-    await user.click(total);
-    await user.type(total, 'abc');
+    await user.clear(total);
+    await user.type(total, 'abc{Enter}');
 
-    expect(total).toHaveValue('2');
+    expect(totalButton(1)).toHaveTextContent('2');
     expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
     expect(savedData(fake)).toBeUndefined();
   });

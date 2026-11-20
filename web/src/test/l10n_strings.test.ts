@@ -186,6 +186,7 @@ describe('the parameterized copy resolution', () => {
           email: 'a@b.test',
           minutes: 10,
           seconds: 42,
+          next: 1,
           mode: 'new account',
           year: 2026,
           label: 'Strength',
