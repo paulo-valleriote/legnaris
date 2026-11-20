@@ -23,6 +23,14 @@
   min-width: 0;
 }
 
+.lg-preset__section {
+  min-width: 0;
+}
+
+.lg-preset__section:empty {
+  display: none;
+}
+
 @media (max-width: 68.75rem) {
   .lg-preset__columns {
     grid-template-columns: 180px minmax(0, 1fr);
@@ -76,14 +84,33 @@
   margin: 0;
 }
 
+.lg-preset-hero__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lg-space-4) var(--lg-space-16);
+  min-width: 0;
+}
+
 .lg-preset-hero__meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--lg-space-4) var(--lg-space-12);
+  min-width: 0;
   font-size: var(--lg-type-15);
   line-height: var(--lg-line-normal);
   color: var(--lg-color-text-muted);
+}
+
+.lg-preset-hero__meta-item {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.lg-preset-hero__player {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 
 .lg-preset-hero__separator {
@@ -141,6 +168,8 @@
 .lg-preset-hero__played {
   font-size: var(--lg-type-13);
   line-height: var(--lg-line-normal);
+  min-width: 0;
+  overflow-wrap: anywhere;
   color: var(--lg-color-text-subtle);
 }
 
@@ -187,6 +216,14 @@
   .lg-preset-hero__identity,
   .lg-preset-hero__progress {
     width: 100%;
+  }
+
+  .lg-preset-hero__line {
+    column-gap: var(--lg-space-8);
+  }
+
+  .lg-preset-hero__meta {
+    column-gap: var(--lg-space-8);
   }
 
   .lg-preset-hero__name {

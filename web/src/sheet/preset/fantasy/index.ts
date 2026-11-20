@@ -27,4 +27,8 @@ export const fantasyPreset: SheetPreset = {
     { columns: [['stats'], ['saves', 'skills'], ['attacks', 'spells']] },
     { sections: ['rules'] },
   ],
+  narrowLayout: [
+    { sections: ['combat', 'attacks', 'spells', 'stats', 'saves', 'skills'] },
+    { sections: ['rules'] },
+  ],
 };
