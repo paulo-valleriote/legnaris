@@ -168,62 +168,64 @@ export function LeftNav() {
 
   return (
     <nav className="lg-nav" aria-label={message('nav.primaryLabel')}>
-      <div className="lg-nav__brand">
-        <span className="lg-nav__mark" aria-hidden="true">
-          <BrandMark />
-        </span>
-        <span className="lg-nav__brand-text">
-          <span className="lg-nav__wordmark">{message('app.name')}</span>
-          <span className="lg-nav__tagline">{message('nav.tagline')}</span>
-        </span>
-      </div>
+      <div className="lg-nav__rail">
+        <div className="lg-nav__brand">
+          <span className="lg-nav__mark" aria-hidden="true">
+            <BrandMark />
+          </span>
+          <span className="lg-nav__brand-text">
+            <span className="lg-nav__wordmark">{message('app.name')}</span>
+            <span className="lg-nav__tagline">{message('nav.tagline')}</span>
+          </span>
+        </div>
 
-      <div className="lg-nav__group">
-        <p className="lg-nav__group-label">{message('nav.sectionWorkspace')}</p>
-        <NavEntry path={CATALOG_PATH} label={message('nav.catalog')} icon={<CatalogIcon />} />
-        {snapshot.state === 'authenticated' && (
-          <NavEntry path={OWN_SHEET_PATH} label={message('nav.ownSheet')} icon={<SheetIcon />} />
-        )}
-        {snapshot.state === 'authenticated' && (
-          <NavEntry path={PLANS_PATH} label={message('nav.plans')} icon={<PlansIcon />} />
-        )}
-        {snapshot.state === 'authenticated' && (
-          <NavEntry
-            path={CAMPAIGNS_PATH}
-            label={message('nav.campaigns')}
-            icon={<CampaignsIcon />}
-          />
-        )}
-        {snapshot.state === 'authenticated' && (
-          <NavEntry path={ACCOUNT_PATH} label={message('nav.account')} icon={<AccountIcon />} />
-        )}
-      </div>
+        <div className="lg-nav__group">
+          <p className="lg-nav__group-label">{message('nav.sectionWorkspace')}</p>
+          <NavEntry path={CATALOG_PATH} label={message('nav.catalog')} icon={<CatalogIcon />} />
+          {snapshot.state === 'authenticated' && (
+            <NavEntry path={OWN_SHEET_PATH} label={message('nav.ownSheet')} icon={<SheetIcon />} />
+          )}
+          {snapshot.state === 'authenticated' && (
+            <NavEntry path={PLANS_PATH} label={message('nav.plans')} icon={<PlansIcon />} />
+          )}
+          {snapshot.state === 'authenticated' && (
+            <NavEntry
+              path={CAMPAIGNS_PATH}
+              label={message('nav.campaigns')}
+              icon={<CampaignsIcon />}
+            />
+          )}
+          {snapshot.state === 'authenticated' && (
+            <NavEntry path={ACCOUNT_PATH} label={message('nav.account')} icon={<AccountIcon />} />
+          )}
+        </div>
 
-      <div className="lg-nav__footer">
-        {snapshot.state === 'authenticated' && (
-          <div className="lg-nav__signout-wrap">
-            <button
-              type="button"
-              className="lg-nav__action lg-nav__signout"
-              onClick={signOut}
-              disabled={signingOut}
-              aria-busy={signingOut ? true : undefined}
-              aria-describedby={signOutFailed ? signOutFailureId : undefined}
-            >
-              <span className="lg-nav__icon" aria-hidden="true">
-                {signingOut ? <span className="lg-spinner" /> : <SignOutIcon />}
-              </span>
-              <span className="lg-nav__label">
-                {signingOut ? message('common.signingOut') : message('nav.logout')}
-              </span>
-            </button>
-            {signOutFailed ? (
-              <p className="lg-nav__error" id={signOutFailureId} role="alert">
-                {message('common.signOutFailed')}
-              </p>
-            ) : null}
-          </div>
-        )}
+        <div className="lg-nav__footer">
+          {snapshot.state === 'authenticated' && (
+            <div className="lg-nav__signout-wrap">
+              <button
+                type="button"
+                className="lg-nav__action lg-nav__signout"
+                onClick={signOut}
+                disabled={signingOut}
+                aria-busy={signingOut ? true : undefined}
+                aria-describedby={signOutFailed ? signOutFailureId : undefined}
+              >
+                <span className="lg-nav__icon" aria-hidden="true">
+                  {signingOut ? <span className="lg-spinner" /> : <SignOutIcon />}
+                </span>
+                <span className="lg-nav__label">
+                  {signingOut ? message('common.signingOut') : message('nav.logout')}
+                </span>
+              </button>
+              {signOutFailed ? (
+                <p className="lg-nav__error" id={signOutFailureId} role="alert">
+                  {message('common.signOutFailed')}
+                </p>
+              ) : null}
+            </div>
+          )}
+        </div>
       </div>
     </nav>
   );
