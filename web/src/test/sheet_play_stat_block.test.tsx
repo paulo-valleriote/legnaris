@@ -22,6 +22,7 @@ import { SHEET_ID, sheetPayload, templateDetailPayload } from './sheet_fixtures'
 const BASE_URL = 'http://api.test';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const stylesheet = path.resolve(here, '../sheet/preset/fantasy/stat_block.css');
+const spellsStylesheet = path.resolve(here, '../sheet/preset/fantasy/spells.css');
 
 function attackNode(slot: number): Record<string, unknown> {
   return {
@@ -132,18 +133,19 @@ function statBlockFieldTree(): Record<string, unknown> {
 }
 
 function statBlockData(data: Record<string, unknown> = {}): Record<string, unknown> {
-  const spells = data.spells as Record<string, unknown> | undefined;
+  const { spells, attacks, ...rest } = data;
   return {
-    ...fantasySheetData(data),
+    ...fantasySheetData(rest),
     attacks: {
       attack1: { name: 'Longsword', damage: '1d8 + 3', bonus: 5 },
       attack2: { name: '', damage: '', bonus: 0 },
+      ...(attacks as Record<string, unknown> | undefined),
     },
     spells: {
       attackBonus: 6,
       saveDC: 14,
       slot1: { total: 2, expended: 1, remaining: 1 },
-      ...spells,
+      ...(spells as Record<string, unknown> | undefined),
     },
   };
 }
@@ -172,6 +174,48 @@ function statBlockSpellAbilityFieldTree(): Record<string, unknown> {
   return {
     ...tree,
     config: { ...config, children: { ...config.children, ...spellAbilityGroup() } },
+  };
+}
+
+function statBlockTwoSlotFieldTree(): Record<string, unknown> {
+  const tree = statBlockFieldTree();
+  const spells = tree.spells as { label: string; children: Record<string, unknown> };
+  return {
+    ...tree,
+    spells: { ...spells, children: { ...spells.children, slot2: spellSlotNode(2) } },
+  };
+}
+
+function spellTextNode(level: { readonly key: 'atWill' | 'list'; readonly label: string }) {
+  return [
+    level.key,
+    {
+      schema: {
+        type: 'text',
+        label: level.label,
+        is_editable: true,
+        default: 0,
+        max_length: 200,
+      },
+    },
+  ];
+}
+
+function statBlockSpellProseFieldTree(): Record<string, unknown> {
+  const tree = statBlockFieldTree();
+  const spells = tree.spells as { label: string; children: Record<string, unknown> };
+  return {
+    ...tree,
+    spells: {
+      ...spells,
+      children: {
+        ...spells.children,
+        ...Object.fromEntries([
+          spellTextNode({ key: 'atWill', label: 'At-will spells' }),
+          spellTextNode({ key: 'list', label: 'Spell list' }),
+        ]),
+      },
+    },
   };
 }
 
@@ -670,7 +714,7 @@ describe('the stat block prose lines', () => {
   });
 });
 
-describe('the stat block attacks and spells', () => {
+describe('the stat block attacks', () => {
   it('Happy path: an attack keeps its rollable bonus and damage', async () => {
     await openFantasy({ kind: 'enemy' });
 
@@ -687,7 +731,82 @@ describe('the stat block attacks and spells', () => {
     ).toHaveTextContent('1d8 + 3');
   });
 
-  it('Happy path: the spellcasting ability is one select that writes the exclusive group', async () => {
+  it('Edge: no filled attack hides the section and offers no add control in Play', async () => {
+    await openFantasy({
+      kind: 'npc',
+      data: {
+        attacks: {
+          attack1: { name: '', damage: '', bonus: 0 },
+          attack2: { name: '   ', damage: '', bonus: 0 },
+        },
+      },
+    });
+
+    expect(screen.queryByTestId('sheet-attacks')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Add attack/ })).not.toBeInTheDocument();
+  });
+
+  it('Edge: Play draws no add control while Edit still edits the empty attack slot', async () => {
+    const { user } = await openFantasy({
+      kind: 'npc',
+      data: {
+        attacks: {
+          attack1: { name: '', damage: '', bonus: 0 },
+          attack2: { name: '', damage: '', bonus: 0 },
+        },
+      },
+    });
+
+    expect(screen.queryByRole('button', { name: /Add attack/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+
+    expect(screen.getByRole('textbox', { name: 'Attack 2 name' })).toBeInTheDocument();
+  });
+
+  it('Edge: a template without attacks or spells still draws the rest of the block', async () => {
+    await openFantasy({ kind: 'npc', template: fantasyFieldTree() });
+
+    expect(statBlock()).toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-attacks')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-spells')).not.toBeInTheDocument();
+    expect(screen.getByTestId('sheet-ac-value')).toBeInTheDocument();
+  });
+});
+
+describe('the compact stat block spellcasting', () => {
+  it('Edge: a creature with no spellcasting draws no spells section', async () => {
+    await openFantasy({
+      kind: 'npc',
+      data: { spells: { slot1: { total: 0, expended: 0, remaining: 0 } } },
+    });
+
+    expect(screen.queryByTestId('sheet-spells')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-spell-summary')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-spell-hidden-levels')).not.toBeInTheDocument();
+  });
+
+  it('Happy path: one summary line carries the ability, rollable attack and save DC', async () => {
+    await openFantasy({
+      kind: 'npc',
+      template: statBlockSpellAbilityFieldTree(),
+      data: { config: { spellUsesWisdom: 1, spellUsesIntelligence: 0 } },
+    });
+
+    expect(screen.getByTestId('sheet-spells')).toHaveAttribute('data-variant', 'compact');
+
+    const summary = screen.getByTestId('sheet-spell-summary');
+    expect(within(summary).getByRole('combobox', { name: 'Spellcasting ability' })).toHaveValue(
+      'config.spellUsesWisdom',
+    );
+    expect(within(summary).getByTestId('sheet-spell-attack')).toHaveTextContent('+6');
+    expect(
+      within(summary).getByRole('button', { name: rollName('Spell attack bonus') }),
+    ).toHaveTextContent('+6');
+    expect(within(summary).getByTestId('sheet-spell-save-dc')).toHaveTextContent('14');
+  });
+
+  it('Happy path: the spellcasting ability select still writes the exclusive group', async () => {
     const { fake, user } = await openFantasy({
       kind: 'npc',
       template: statBlockSpellAbilityFieldTree(),
@@ -707,40 +826,85 @@ describe('the stat block attacks and spells', () => {
     expect(config.spellUsesWisdom).toBe(0);
   });
 
-  it('Edge: the stat block names a single hidden level', async () => {
+  it('Edge: a level without slots is hidden beside a level that has them', async () => {
     await openFantasy({
       kind: 'npc',
-      data: { spells: { slot1: { total: 0, expended: 0, remaining: 0 } } },
+      template: statBlockTwoSlotFieldTree(),
+      data: {
+        spells: {
+          slot1: { total: 1, expended: 0, remaining: 1 },
+          slot2: { total: 0, expended: 0, remaining: 0 },
+        },
+      },
     });
 
-    expect(screen.queryByTestId('sheet-slot-1')).not.toBeInTheDocument();
+    expect(screen.getByTestId('sheet-slot-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-slot-2')).not.toBeInTheDocument();
     expect(screen.getByTestId('sheet-spell-hidden-levels')).toHaveTextContent(
-      'Level 1 hidden · no slots',
+      'Level 2 hidden · no slots',
     );
   });
 
-  it('Happy path: spells keep their slot pips', async () => {
-    await openFantasy({ kind: 'npc' });
+  it('Edge: every slot spent keeps one row with only the recover action', async () => {
+    await openFantasy({
+      kind: 'npc',
+      data: { spells: { slot1: { total: 2, expended: 2, remaining: 0 } } },
+    });
 
     const slot = screen.getByTestId('sheet-slot-1');
-    expect(within(slot).getByText('1 of 2 left')).toBeInTheDocument();
+    expect(within(slot).getByTestId('sheet-slot-1-remaining')).toHaveTextContent('0 of 2 left');
     expect(
-      within(slot).getByRole('button', { name: messageWith('sheet.play.slotSpend', { count: 1 }) }),
-    ).toBeInTheDocument();
+      within(slot).queryByRole('button', {
+        name: messageWith('sheet.play.slotSpend', { count: 1 }),
+      }),
+    ).not.toBeInTheDocument();
     expect(
-      within(slot).getByRole('button', {
+      within(slot).getAllByRole('button', {
         name: messageWith('sheet.play.slotRecover', { count: 1 }),
       }),
-    ).toBeInTheDocument();
+    ).toHaveLength(2);
   });
 
-  it('Edge: a template without attacks or spells still draws the rest of the block', async () => {
-    await openFantasy({ kind: 'npc', template: fantasyFieldTree() });
+  it('Happy path: a pip spends a slot through the pending delta and saves it', async () => {
+    const { fake, user } = await openFantasy({ kind: 'npc' });
 
-    expect(statBlock()).toBeInTheDocument();
-    expect(screen.queryByTestId('sheet-attacks')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('sheet-spells')).not.toBeInTheDocument();
-    expect(screen.getByTestId('sheet-ac-value')).toBeInTheDocument();
+    await user.click(
+      within(screen.getByTestId('sheet-slot-1')).getByRole('button', {
+        name: messageWith('sheet.play.slotSpend', { count: 1 }),
+      }),
+    );
+
+    expect(screen.getByTestId('sheet-slot-1-remaining')).toHaveTextContent('0 of 2 left');
+    expect(screen.getByTestId('sheet-pending-card')).toBeInTheDocument();
+
+    await save(user);
+
+    await waitFor(() =>
+      expect(savedData(fake)).toEqual({ data: { spells: { slot1: { expended: 2 } } } }),
+    );
+  });
+
+  it('Happy path: at-will and spell list read as prose lines', async () => {
+    await openFantasy({
+      kind: 'npc',
+      template: statBlockSpellProseFieldTree(),
+      data: { spells: { atWill: 'Light', list: 'Magic missile' } },
+    });
+
+    expect(screen.getByTestId('sheet-spell-atWill')).toHaveTextContent('At-will spells Light');
+    expect(screen.getByTestId('sheet-spell-list')).toHaveTextContent('Spell list Magic missile');
+  });
+
+  it('Edge: empty at-will and spell lists leave no prose line', async () => {
+    await openFantasy({
+      kind: 'npc',
+      template: statBlockSpellProseFieldTree(),
+      data: { spells: { atWill: '   ', list: '' } },
+    });
+
+    expect(screen.getByTestId('sheet-spells')).toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-spell-atWill')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-spell-list')).not.toBeInTheDocument();
   });
 });
 
@@ -852,5 +1016,27 @@ describe('the stat block styles', () => {
     expect(mobile).toMatch(
       /\.lg-stat-block \.lg-hp-card__quick > \.lg-button\s*\{[^}]*min-inline-size:\s*var\(--lg-size-control\)/,
     );
+  });
+
+  it('Edge: the compact spell summary wraps the ability, attack and save DC on one line', () => {
+    const spellsCss = readFileSync(spellsStylesheet, 'utf8');
+    expect(spellsCss).toMatch(
+      /\.lg-spells--compact \.lg-spells__top\s*\{[^}]*display:\s*flex[^}]*flex-wrap:\s*wrap/,
+    );
+    expect(spellsCss).toMatch(
+      /\.lg-spells--compact \.lg-spells__stat\s*\{[^}]*flex-direction:\s*row/,
+    );
+    expect(spellsCss).toMatch(
+      /\.lg-spells--compact \.lg-spells__ability\s*\{[^}]*flex-direction:\s*row/,
+    );
+  });
+
+  it('Edge: the compact slot rows and the spell prose keep one line each', () => {
+    const spellsCss = readFileSync(spellsStylesheet, 'utf8');
+    expect(spellsCss).toMatch(
+      /\.lg-spells--compact \.lg-spells__slot\s*\{[^}]*gap:\s*var\(--lg-space-8\)/,
+    );
+    expect(spellsCss).toMatch(/\.lg-spells__prose\s*\{[^}]*min-width:\s*0/);
+    expect(spellsCss).toMatch(/\.lg-spells__prose-line\s*\{[^}]*margin:\s*0/);
   });
 });

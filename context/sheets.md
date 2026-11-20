@@ -351,21 +351,19 @@ builders, the abbreviation keys and the bonus parser that clamps to the template
 The row grammar `skills.<skill>` is the table Row key the Dice store resolves.
 
 Attack cards follow (`fantasy/attacks.tsx`). The four `attacks.attack1..4` table Rows draw only
-while their `name` is non-empty; the remaining empty slots collapse into one
-`+ Add attack (N free)` button, hidden when nothing is free, which reveals the next empty slot for
-inline editing; the revealed set holds positions within the slots the template carries, so a
-template without `attack1` still reveals `attack2` first. Each card carries an inline-editable name, a rollable bonus and a rollable damage
-expression. The to-hit pill draws a decorative d20 (`aria-hidden`) beside the signed bonus, so it
-reads as an attack roll rather than a bare number; its accessible name and title are
-`Attack roll, <attack name>, <signed bonus>` (the template slot label stands in for an empty name).
-The damage pill stays the dice expression, with the matching `Damage roll, <attack name>,
-<expression>` name and title. The bonus is the attack Row through the `attacks` Section dice and the preset
-`1d20 + @.bonus` default, so it shares the Dice panel and per-sheet overrides. Damage is a literal
-expression validated by the pure `fantasy/attacks_data.ts` (`parseAttackDamage`: at least one die,
-no field reference) and rolled through `useExpressionRoll` (`dice_row.tsx`), which keeps the Dice
-panel, saved/draft values and result copy while leaving the attack Row's own dice setting alone.
-Bonus edits clamp to the template range; name, bonus and damage write the pending delta.
-`attackVisibility` decides which slots show and how many are still free.
+while their `name` is non-empty (the pure `attackFilled` trims it), so a template without a filled
+attack draws no section. Play draws no add control: adding an attack stays in Edit, whose generic
+form shows every slot of the template. Each card carries an inline-editable name, a rollable bonus
+and a rollable damage expression. The to-hit pill draws a decorative d20 (`aria-hidden`) beside
+the signed bonus, so it reads as an attack roll rather than a bare number; its accessible name and
+title are `Attack roll, <attack name>, <signed bonus>`. The damage pill stays the dice expression,
+with the matching `Damage roll, <attack name>, <expression>` name and title. The bonus is the
+attack Row through the `attacks` Section dice and the preset `1d20 + @.bonus` default, so it shares
+the Dice panel and per-sheet overrides. Damage is a literal expression validated by the pure
+`fantasy/attacks_data.ts` (`parseAttackDamage`: at least one die, no field reference) and rolled
+through `useExpressionRoll` (`dice_row.tsx`), which keeps the Dice panel, saved/draft values and
+result copy while leaving the attack Row's own dice setting alone. Bonus edits clamp to the
+template range; name, bonus and damage write the pending delta.
 
 The mode is component state for the open screen, local to the viewer, never persisted and never
 sent. Preset edits go through the same edit store (`setPath`), so Preview, Save, the draft cadence
@@ -423,7 +421,8 @@ returns the same pool. A level stays visible while its total is being edited, an
 total of zero is the stored value. A quiet footnote under the rows names every hidden level as a
 range or a list (`preset/fantasy/hidden_levels.ts` sorts and deduplicates them and draws one range
 per contiguous run); it is absent when no level is hidden, and it names only the levels the template
-carries. `preset/fantasy/rules.tsx` draws the four `rules.*` leaves as a
+carries. The panel has two variants: the default `panel` for the character sheet and the `compact`
+one the stat block asks for (below). `preset/fantasy/rules.tsx` draws the four `rules.*` leaves as a
 disclosure collapsed by default, editable through the same numeric guard when opened; its chevron
 points right while closed and rotates down while open (a class modifier off the open state), and
 reduced motion drops the transition.
@@ -442,8 +441,8 @@ inline rollable initiative beside it (the same d20, `Roll initiative, <signed va
 hover-or-focus `Edit initiative` pencil, with the inline edit clamped to −5–20 by `armor_class.ts`) and
 the one-row hit-points card (`hit_points.ts`), with its
 amount field and Damage and Heal actions on the same line. Below it the body reuses the ability
-medallions (without the passive pill) and the attack cards and the spellcasting panel, and adds a
-short prose block from the `config.save<A>Prof` / `config.skill<S>Prof` leaves: one line per list,
+medallions (without the passive pill) and adds a short prose block from the
+`config.save<A>Prof` / `config.skill<S>Prof` leaves: one line per list,
 "Saves Dex +4 · Wis +2" and "Skills Stealth +6 · Perception +6", each naming the save abbreviation
 or skill and its rollable total and nothing else (the `skills.<skill>.bonus` base stays editable
 only in Edit mode's generic form). A list with no proficient member draws no line. The same block
@@ -451,7 +450,13 @@ ends with one movement line, "Speed 30 ft · Passive 16": the template `combat.s
 `sheet.play.feet` unit and the derived `derived.passiveAwareness`, either side left out when it has
 no value, the whole line and the block omitted when nothing is left (`statMovementParts` /
 `statProseText` are pure). The lines wrap between parts, never inside a name and its total, on
-`--lg-size-control` roll targets.
+`--lg-size-control` roll targets. The body then draws the attack cards, with no add control (attacks
+are added in Edit), and the spellcasting panel in its `compact` variant: one summary line holds the
+ability select beside the rollable spell attack and the save DC, one slot row is drawn per level
+that has slots (level, pips, remaining), and the at-will and spell lists read as one prose line each
+with the template label as its term. Empty spell lists draw no line, and a creature with no
+spellcasting at all (no slot and no list text, per the pure `hasSpellCast` in `spells_data.ts`)
+draws no spells section; the hidden-levels footnote appears only beside at least one drawn slot row.
 Every value keeps its pending-delta path, so the stat block saves, previews and drafts like the full
 sheet. A character sheet, or a sheet with no kind, keeps the full preset. `stat_block.css` draws
 body text at `--lg-type-15` with every control on a `--lg-size-control` target; on a phone the band
@@ -509,10 +514,12 @@ Web:
   `fantasy/` — the hero, the combat strip, the attack cards, the ability medallions, the
   saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
   `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`, `attacks_data.ts`, `slot_pips.ts`,
-  `hidden_levels.ts`, `parse_number.ts` (the shared clamped-integer and percent helpers) and
-  `xp_progress.ts` helpers and the hero experience bar in `xp_panel.tsx`; `fantasy/stat_block.tsx` —
+  `spells_data.ts` (the spell paths and the presence rule), `hidden_levels.ts`, `parse_number.ts`
+  (the shared clamped-integer and percent helpers) and `xp_progress.ts` helpers and the hero
+  experience bar in `xp_panel.tsx`; `fantasy/stat_block.tsx` —
   the compact NPC/enemy stat block card and its inner header, reusing the combat shield, hit-points
-  card, ability medallions, attack cards and spellcasting panel; `fantasy/stat_block_data.ts` — its
+  card, ability medallions and attack cards and asking the spellcasting panel for its `compact`
+  variant; `fantasy/stat_block_data.ts` — its
   kind selection and subtitle parts;
   `fantasy/combat_strip.tsx` — the combat strip container; `fantasy/ac_breakdown.tsx` — the armor
   class shield and its breakdown with the DEX/CON segmented exclusive choice;
