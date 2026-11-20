@@ -57,6 +57,7 @@ func newSheetErrorRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache 
 func newErrorTestDAG(t *testing.T) sheettest.DAGMap {
 	t.Helper()
 
+	maxNotes := 5
 	fields := template.FieldGroup{
 		"stats": {Children: template.FieldGroup{
 			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
@@ -67,6 +68,13 @@ func newErrorTestDAG(t *testing.T) sheettest.DAGMap {
 				IsEditable: false,
 				Formula:    "floor((stats_dexterity - 10) / 2)",
 				DependsOn:  [][]string{{"stats", "dexterity"}},
+			}},
+		}},
+		"attacks": {Children: template.FieldGroup{
+			"attack1": {Children: template.FieldGroup{
+				"notes": {
+					Schema: &template.FieldSchema{Type: "text", IsEditable: true, MaxLength: &maxNotes},
+				},
 			}},
 		}},
 	}
@@ -184,6 +192,11 @@ func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 			payload:  `{"data":{"modifiers":{"dexterityMod":5}}}`,
 			wantCode: "INVALID_REQUEST",
 		},
+		{
+			name:     "Error: over-length note returns 400 INVALID_REQUEST",
+			payload:  `{"data":{"attacks":{"attack1":{"notes":"123456"}}}}`,
+			wantCode: "INVALID_REQUEST",
+		},
 	}
 
 	for _, tc := range tests {
@@ -285,6 +298,7 @@ func TestErrorMapping_MalformedSheetIDReturns400(t *testing.T) {
 func newPreviewErrorDAG(t *testing.T) sheettest.DAGMap {
 	t.Helper()
 
+	maxNotes := 5
 	fields := template.FieldGroup{
 		"stats": {Children: template.FieldGroup{
 			"dexterity": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 10}},
@@ -300,6 +314,13 @@ func newPreviewErrorDAG(t *testing.T) sheettest.DAGMap {
 		"config": {Children: template.FieldGroup{
 			"acUsesDex": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 1, ExclusiveGroup: "armorClassAbility"}},
 			"acUsesCon": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 0, ExclusiveGroup: "armorClassAbility"}},
+		}},
+		"attacks": {Children: template.FieldGroup{
+			"attack1": {Children: template.FieldGroup{
+				"notes": {
+					Schema: &template.FieldSchema{Type: "text", IsEditable: true, MaxLength: &maxNotes},
+				},
+			}},
 		}},
 	}
 
@@ -409,6 +430,11 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 			{
 				name:     "Error: exclusive group conflict returns 400 INVALID_REQUEST",
 				payload:  `{"data":{"config":{"acUsesDex":1,"acUsesCon":1}}}`,
+				wantCode: "INVALID_REQUEST",
+			},
+			{
+				name:     "Error: over-length note returns 400 INVALID_REQUEST",
+				payload:  `{"data":{"attacks":{"attack1":{"notes":"123456"}}}}`,
 				wantCode: "INVALID_REQUEST",
 			},
 		}

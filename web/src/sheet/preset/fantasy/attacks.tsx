@@ -29,15 +29,19 @@ function AttackCard({ slot }: { readonly slot: AttackSlot }) {
   const name = textValue(usePresetValue(slot.namePath));
   const bonus = numberValue(usePresetValue(slot.bonusPath));
   const damage = textValue(usePresetValue(slot.damagePath));
+  const notes = textValue(usePresetValue(slot.notesPath));
   const nameLabel = usePresetLabel(slot.namePath);
   const bonusLabel = usePresetLabel(slot.bonusPath);
   const damageLabel = usePresetLabel(slot.damagePath);
+  const notesLabel = usePresetLabel(slot.notesPath);
   const nameSchema = usePresetSchema(slot.namePath);
   const bonusSchema = usePresetSchema(slot.bonusPath);
   const damageSchema = usePresetSchema(slot.damagePath);
+  const notesSchema = usePresetSchema(slot.notesPath);
   const commitName = usePresetCommit(slot.namePath);
   const commitBonus = usePresetCommit(slot.bonusPath);
   const commitDamage = usePresetCommit(slot.damagePath);
+  const commitNotes = usePresetCommit(slot.notesPath);
   const damageExpression = useMemo(() => parseAttackDamage(damage), [damage]);
   const rollDamage = useExpressionRoll(slot.rowKey, damageLabel);
   const attackName = name.trim();
@@ -53,16 +57,30 @@ function AttackCard({ slot }: { readonly slot: AttackSlot }) {
 
   return (
     <li className="lg-attack-card" data-testid={`sheet-attack-${slot.slot}`}>
-      <h3 className="lg-attack-card__name">
-        <InlineEdit
-          className="lg-attack-card__name-value"
-          label={nameLabel}
-          path={slot.namePath}
-          schema={nameSchema}
-          value={name}
-          onCommit={commitName}
-        />
-      </h3>
+      <div className="lg-attack-card__heading">
+        <h3 className="lg-attack-card__name">
+          <InlineEdit
+            className="lg-attack-card__name-value"
+            label={nameLabel}
+            path={slot.namePath}
+            schema={nameSchema}
+            value={name}
+            onCommit={commitName}
+          />
+        </h3>
+        {notesSchema !== undefined && notes.trim() !== '' && (
+          <p className="lg-attack-card__notes" data-testid={`sheet-attack-notes-${slot.slot}`}>
+            <InlineEdit
+              className="lg-attack-card__notes-value"
+              label={notesLabel}
+              path={slot.notesPath}
+              schema={notesSchema}
+              value={notes}
+              onCommit={commitNotes}
+            />
+          </p>
+        )}
+      </div>
       <dl className="lg-attack-card__stats">
         <div className="lg-attack-card__stat">
           <dt className="lg-attack-card__label">{bonusLabel}</dt>

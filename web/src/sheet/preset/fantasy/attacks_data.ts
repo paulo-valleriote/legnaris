@@ -13,6 +13,7 @@ export interface AttackSlot {
   readonly namePath: string;
   readonly damagePath: string;
   readonly bonusPath: string;
+  readonly notesPath: string;
 }
 
 export function attackSlot(slot: number): AttackSlot {
@@ -23,6 +24,7 @@ export function attackSlot(slot: number): AttackSlot {
     namePath: `${rowKey}.name`,
     damagePath: `${rowKey}.damage`,
     bonusPath: `${rowKey}.bonus`,
+    notesPath: `${rowKey}.notes`,
   };
 }
 
