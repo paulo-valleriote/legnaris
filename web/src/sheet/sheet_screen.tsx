@@ -816,19 +816,15 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [playing, editStore]);
 
-  const StatBlockHeader =
-    playing && preset !== undefined && preset.statBlock?.when(sheet.kind)
-      ? preset.statBlock.Header
-      : undefined;
+  const statBlockActive =
+    playing && preset !== undefined && preset.statBlock?.when(sheet.kind) === true;
 
   return (
     <PresetProvider {...presetValue}>
       <header className="lg-sheet__header">
         <div className="lg-sheet__heading">
           <div className="lg-sheet__heading-text">
-            {StatBlockHeader !== undefined ? (
-              <StatBlockHeader />
-            ) : playing && preset !== undefined ? (
+            {statBlockActive ? null : playing && preset !== undefined ? (
               <preset.Header />
             ) : (
               <>

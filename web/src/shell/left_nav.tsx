@@ -1,11 +1,12 @@
-import { useId, useState, useSyncExternalStore } from 'react';
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuthSession } from '../app/providers';
 import { CAMPAIGNS_PATH, PLANS_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
-import { ChevronRightIcon } from '../ui/icons';
+import { ChevronRightIcon, MenuIcon } from '../ui/icons';
 import { BrandMark } from './brand_mark';
+import { useCompactNav } from './compact_nav';
 import { leaveIsGuarded, requestLeave } from './leave_guard';
 
 const CATALOG_PATH = '/';
@@ -119,9 +120,10 @@ interface NavEntryProps {
   readonly path: string;
   readonly label: string;
   readonly icon: ReactNode;
+  readonly onActivate?: () => void;
 }
 
-function NavEntry({ path, label, icon }: NavEntryProps) {
+function NavEntry({ path, label, icon, onActivate }: NavEntryProps) {
   const navigate = useNavigate();
 
   return (
@@ -129,6 +131,7 @@ function NavEntry({ path, label, icon }: NavEntryProps) {
       className="lg-nav__link"
       to={path}
       onClick={(event) => {
+        onActivate?.();
         if (!leaveIsGuarded()) {
           return;
         }
@@ -152,9 +155,53 @@ export function LeftNav() {
   const snapshot = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const signOutFailureId = useId();
+  const menuId = useId();
+  const compact = useCompactNav();
+  const [compactSeen, setCompactSeen] = useState(compact);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  if (compactSeen !== compact) {
+    setCompactSeen(compact);
+    setMenuOpen(false);
+  }
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return undefined;
+    }
+    const panel = panelRef.current;
+    const trigger = triggerRef.current;
+    panel?.querySelector<HTMLElement>('a[href], button:not(:disabled)')?.focus();
+    const closeAndRestore = () => {
+      setMenuOpen(false);
+      trigger?.focus();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeAndRestore();
+      }
+    };
+    const onClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (target instanceof Node && (panel?.contains(target) || trigger?.contains(target))) {
+        return;
+      }
+      closeAndRestore();
+    };
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('click', onClick);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('click', onClick);
+    };
+  }, [menuOpen]);
 
   const signOut = () => {
+    setMenuOpen(false);
     if (signingOut) {
       return;
     }
@@ -166,36 +213,49 @@ export function LeftNav() {
       .finally(() => setSigningOut(false));
   };
 
-  return (
-    <nav className="lg-nav" aria-label={message('nav.primaryLabel')}>
-      <div className="lg-nav__brand">
-        <span className="lg-nav__mark" aria-hidden="true">
-          <BrandMark />
-        </span>
-        <span className="lg-nav__brand-text">
-          <span className="lg-nav__wordmark">{message('app.name')}</span>
-          <span className="lg-nav__tagline">{message('nav.tagline')}</span>
-        </span>
-      </div>
+  const closeMenu = () => setMenuOpen(false);
 
+  const destinations = (
+    <>
       <div className="lg-nav__group">
         <p className="lg-nav__group-label">{message('nav.sectionWorkspace')}</p>
-        <NavEntry path={CATALOG_PATH} label={message('nav.catalog')} icon={<CatalogIcon />} />
+        <NavEntry
+          path={CATALOG_PATH}
+          label={message('nav.catalog')}
+          icon={<CatalogIcon />}
+          onActivate={closeMenu}
+        />
         {snapshot.state === 'authenticated' && (
-          <NavEntry path={OWN_SHEET_PATH} label={message('nav.ownSheet')} icon={<SheetIcon />} />
+          <NavEntry
+            path={OWN_SHEET_PATH}
+            label={message('nav.ownSheet')}
+            icon={<SheetIcon />}
+            onActivate={closeMenu}
+          />
         )}
         {snapshot.state === 'authenticated' && (
-          <NavEntry path={PLANS_PATH} label={message('nav.plans')} icon={<PlansIcon />} />
+          <NavEntry
+            path={PLANS_PATH}
+            label={message('nav.plans')}
+            icon={<PlansIcon />}
+            onActivate={closeMenu}
+          />
         )}
         {snapshot.state === 'authenticated' && (
           <NavEntry
             path={CAMPAIGNS_PATH}
             label={message('nav.campaigns')}
             icon={<CampaignsIcon />}
+            onActivate={closeMenu}
           />
         )}
         {snapshot.state === 'authenticated' && (
-          <NavEntry path={ACCOUNT_PATH} label={message('nav.account')} icon={<AccountIcon />} />
+          <NavEntry
+            path={ACCOUNT_PATH}
+            label={message('nav.account')}
+            icon={<AccountIcon />}
+            onActivate={closeMenu}
+          />
         )}
       </div>
 
@@ -223,6 +283,43 @@ export function LeftNav() {
               </p>
             ) : null}
           </div>
+        )}
+      </div>
+    </>
+  );
+
+  return (
+    <nav className="lg-nav" aria-label={message('nav.primaryLabel')}>
+      <div className="lg-nav__rail">
+        <div className="lg-nav__brand">
+          <span className="lg-nav__mark" aria-hidden="true">
+            <BrandMark />
+          </span>
+          <span className="lg-nav__brand-text">
+            <span className="lg-nav__wordmark">{message('app.name')}</span>
+            <span className="lg-nav__tagline">{message('nav.tagline')}</span>
+          </span>
+        </div>
+
+        {compact ? (
+          <>
+            <button
+              ref={triggerRef}
+              type="button"
+              className="lg-nav__menu-toggle"
+              aria-label={message('nav.menu')}
+              aria-expanded={menuOpen}
+              aria-controls={menuId}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <MenuIcon />
+            </button>
+            <div ref={panelRef} id={menuId} className="lg-nav__menu" hidden={!menuOpen}>
+              {destinations}
+            </div>
+          </>
+        ) : (
+          destinations
         )}
       </div>
     </nav>

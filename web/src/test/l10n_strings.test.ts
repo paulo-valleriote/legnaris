@@ -209,6 +209,7 @@ describe('the parameterized copy resolution', () => {
           carry: 105,
           before: '3',
           after: '4',
+          delta: '\u22127',
           summary: 'Level 3 → 4',
           characters: 10,
           npcs: 50,

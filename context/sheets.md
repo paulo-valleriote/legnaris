@@ -233,13 +233,23 @@ kind-selected stat block and ordered section slots, so later gameplay surfaces a
 preset rather than branches in the screen.
 The `fantasy_v1` preset currently draws the hero header, the combat strip, the attack cards, the
 ability medallions, the spellcasting panel and the table-rules disclosure. A preset declares an
-ordered body layout: full-width Section blocks and column blocks. The fantasy body draws the combat
-strip across the top, then three columns (abilities / saving throws with skills / attacks with
-spells), then the table rules; the columns fall to two around 1100px and to one on a phone, without
-a horizontal scroll at 360px. The title is
+ordered body layout: full-width Section blocks and column blocks, plus an optional narrow layout. The
+fantasy body draws the combat strip across the top, then three columns (abilities / saving throws
+with skills / attacks with spells), then the table rules; the columns fall to two around 1100px and
+to one on a phone, without a horizontal scroll at 360px. In both narrower layouts an ability
+medallion stacks its name above the medal and lets the name wrap instead of ellipsising it, so no
+ability name is cut; the three-column desktop layout is unchanged. On a phone (`max-width: 40rem`,
+the same `NARROW_QUERY` as every preset media query) the narrow layout replaces the columns with a
+flat, mobile-first order — combat, attacks, spells, abilities, saves, skills, rules — so the DOM and
+the keyboard tab order follow the visual order; the 1440 and 1100 arrangements keep their columns.
+The narrow sections are wrapped in `data-preset-section` slots, and a Section that renders nothing
+(no spells, no attacks, no rules) leaves an empty slot that is not drawn. On a phone the hero comes
+before the sheet action group (desktop keeps the actions above it), so the title starts within the
+first 80 px of a 390 px viewport. The title is
 `identity.characterName` with
-the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper,
-`played by <player>` and the proficiency badge (an inline edit clamped to 2–6 by the pure
+the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper and
+`played by <player>` on one wrapping line (they share the row at 390px, and long values wrap inside
+the line instead of overflowing), then the proficiency badge (an inline edit clamped to 2–6 by the pure
 `fantasy/identity.ts`). The hero also carries the experience bar
 (`fantasy/xp_panel.tsx` over the pure `fantasy/xp_progress.ts`): a `progressbar` running from the
 current level's floor to the next 5e threshold, whose disclosure shows the `identity.xp` total as an
@@ -289,7 +299,14 @@ current, so `10 / 10 → max 6 → 2 damage` leaves `4 / 6`: damage spends tempo
 points first and floors the current value at zero, healing caps at the maximum, and a zero,
 negative or unreadable amount changes nothing. The two writes go to the pending delta through
 `setPath` without a save; until the baseline advances the bar draws the difference as a hatched
-segment and the card reports `was <n>` / `temp was <n>`. `hit_points.ts` also owns the percentage
+segment, red for a loss and green for a gain, and the card spells the change out as
+`<before> → <after> (<signed delta>)`, with a second `temp …` line whenever the temporary points
+move (a loss that stays inside them lists only that line). The pure `hitPointsPreview` decides
+each changed line and the overall direction, and `formatHitPointsDelta` writes the sign (`+5`,
+`−7`). Pressing Enter in the amount field applies damage, and an empty or zero amount does
+nothing. The Damage and Heal buttons sit on `--lg-size-control-compact` on a desktop and
+`--lg-size-control` at phone widths, in the combat strip and in the stat block alike.
+`hit_points.ts` also owns the percentage
 and band helpers, and both the card and the math are exported for the NPC and enemy stat block.
 
 Saving throws and skills follow as two card sections (`saves_skills.tsx`). Each row draws a
@@ -364,9 +381,14 @@ disclosure collapsed by default, editable through the same numeric guard when op
 
 An NPC or enemy sheet (`sheet.kind` `npc` / `enemy`) of `fantasy_v1` swaps the character preset for
 the compact stat block (`preset/fantasy/stat_block.tsx`): the preset carries an optional `statBlock`
-with a `when(kind)` predicate, a header and a body. The header is the same
-`identity.characterName` inline edit with the sheet name as fallback plus a kind tag (`NPC sheet` /
-`Enemy sheet`); the body reuses the armor class shield, the hit-points card over the pure `hit_points.ts`,
+with a `when(kind)` predicate and a body; the screen header keeps only its actions. The body draws
+one centred card (max width 44rem) whose sections are separated by hairlines with no nested panel
+borders, and the card's own header carries the name, a subtitle and the kind badge. The name is the
+same `identity.characterName` inline edit with the sheet name as fallback; the subtitle joins the
+non-empty parts of `identity.ancestry`, `identity.origin` and `identity.level` (through the pure
+`statBlockSubtitleParts`) and disappears when all are empty; the badge reads `NPC` or `Enemy`
+(`kind.npc` / `kind.enemy`) and the enemy badge takes the danger role. The body reuses the armor
+class shield, the hit-points card over the pure `hit_points.ts`,
 the ability medallions, the attack cards and the spellcasting panel, and adds an initiative tile
 (rollable through the `combat.initiative` Row plus a pencil inline edit clamped to −5–20 by the pure
 `armor_class.ts` parser) and a compact proficiency card that draws only the proficient saving throws
@@ -424,14 +446,16 @@ Web:
 - `web/src/sheet/sheet_screen.tsx` — mounted screen, the Edit-only footer, the Play discard
   shortcut and the guards; `layout_store.ts` — committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
-  optional kind-selected `statBlock`, ordered section slots and the responsive body layout);
+  optional kind-selected `statBlock`, ordered section slots, the wide column layout and the
+  mobile-first narrow layout);
   `fantasy/` — the hero, the combat strip, the attack cards, the ability medallions, the
   saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
   `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`, `attacks_data.ts`, `slot_pips.ts`,
   `parse_number.ts` (the shared clamped-integer and percent helpers) and
   `xp_progress.ts` helpers and the hero experience bar in `xp_panel.tsx`; `fantasy/stat_block.tsx` —
-  the compact NPC/enemy stat block that reuses the combat shield, hit-points card, ability medallions,
-  attack cards and spellcasting panel; `fantasy/stat_block_data.ts` — its kind selection;
+  the compact NPC/enemy stat block card and its inner header, reusing the combat shield, hit-points
+  card, ability medallions, attack cards and spellcasting panel; `fantasy/stat_block_data.ts` — its
+  kind selection and subtitle parts;
   `fantasy/combat_strip.tsx` — the combat strip container; `fantasy/ac_breakdown.tsx` — the armor
   class shield and its breakdown with the DEX/CON segmented exclusive choice;
   `fantasy/armor_class.ts` — the AC/speed paths, the exactly-one-ability selector and the clamped

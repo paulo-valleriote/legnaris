@@ -84,9 +84,7 @@ test.describe('narrow viewport (the top bar and full-width content)', () => {
       }
     });
 
-    test(`the navigation is a reachable top bar of full-height controls on ${phone.name}`, async ({
-      page,
-    }) => {
+    test(`the navigation collapses behind one menu button on ${phone.name}`, async ({ page }) => {
       await page.setViewportSize({ width: phone.width, height: phone.height });
       await page.goto('/');
 
@@ -96,16 +94,46 @@ test.describe('narrow viewport (the top bar and full-width content)', () => {
       expect(navBox!.width).toBe(phone.width);
       expect(navBox!.y + navBox!.height).toBeLessThanOrEqual(mainBox!.y);
 
+      const trigger = nav.getByRole('button', { name: 'Menu' });
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      const triggerBox = await trigger.boundingBox();
+      expect(triggerBox!.width).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
+      expect(triggerBox!.height).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
+      expect(triggerBox!.x + triggerBox!.width).toBeLessThanOrEqual(phone.width);
+
+      await trigger.click();
+      await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+      const panelId = await trigger.getAttribute('aria-controls');
+      const panel = page.locator(`[id="${panelId}"]`);
       for (const control of [
-        nav.getByRole('link', { name: 'Catalog' }),
-        nav.getByRole('link', { name: 'Your sheet' }),
-        nav.getByRole('button', { name: 'Sign out' }),
+        panel.getByRole('link', { name: 'Catalog' }),
+        panel.getByRole('link', { name: 'Your sheet' }),
+        panel.getByRole('button', { name: 'Sign out' }),
       ]) {
+        await expect(control).toBeVisible();
         const box = await control.boundingBox();
-        expect(box).not.toBeNull();
         expect(box!.height).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
         expect(box!.x + box!.width).toBeLessThanOrEqual(phone.width);
       }
+
+      await page.keyboard.press('Escape');
+      await expect(trigger).toHaveAttribute('aria-expanded', 'false');
+      await expect(trigger).toBeFocused();
+    });
+
+    test(`the sheet title starts within the first 80 px on ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await page.goto(`/sheets/${SHEET_ID}`);
+
+      const playTitle = await page.getByTestId('sheet-name').boundingBox();
+      expect(playTitle).not.toBeNull();
+      expect(playTitle!.y).toBeLessThanOrEqual(80);
+
+      await page.getByRole('button', { name: 'Edit mode' }).click();
+
+      const editTitle = await page.getByTestId('sheet-name').boundingBox();
+      expect(editTitle).not.toBeNull();
+      expect(editTitle!.y).toBeLessThanOrEqual(80);
     });
 
     test(`the creation dialog fits ${phone.name} with a clickable action`, async ({ page }) => {
@@ -152,6 +180,66 @@ test.describe('narrow viewport (the top bar and full-width content)', () => {
     const mainBox = await page.getByRole('main').boundingBox();
     expect(navBox!.width).toBeLessThanOrEqual(240);
     expect(mainBox!.x).toBeGreaterThanOrEqual(navBox!.x + navBox!.width);
+  });
+});
+
+const LONG_FIELDS = Object.fromEntries(
+  Array.from({ length: 30 }, (_, index) => [
+    `field${index}`,
+    {
+      schema: {
+        type: 'number',
+        label: `Field ${index}`,
+        is_editable: true,
+        default: 0,
+      },
+    },
+  ]),
+);
+
+const LONG_DETAIL = {
+  ...DETAIL,
+  fields: { long: { label: 'Long', children: LONG_FIELDS } },
+};
+
+const LONG_SHEET = { ...SHEET, data: { long: {} } };
+
+test.describe('the desktop navigation on a long page', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSession(page);
+    await page.route('**/me/plan', (route) => route.fulfill({ json: { data: FREE_PLAN } }));
+    await page.route('**/templates/*', (route) => route.fulfill({ json: { data: LONG_DETAIL } }));
+    await page.route('**/templates', (route) => route.fulfill({ json: { data: CATALOG } }));
+    await page.route('**/sheets/*', (route) =>
+      route.request().resourceType() === 'document'
+        ? route.fallback()
+        : route.fulfill({ json: { data: LONG_SHEET } }),
+    );
+  });
+
+  test('the navigation paints the full scroll height while Sign out stays pinned', async ({
+    page,
+  }) => {
+    const viewport = { width: 1440, height: 900 };
+    await page.setViewportSize(viewport);
+    await page.goto(`/sheets/${SHEET_ID}`);
+    await page.getByRole('button', { name: 'Edit mode' }).click();
+    await expect(page.locator('[data-row-key="long.field29"]')).toBeVisible();
+
+    const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+    expect(scrollHeight).toBeGreaterThan(viewport.height);
+
+    const navBox = (await page.getByRole('navigation', { name: 'Primary' }).boundingBox())!;
+    expect(navBox.y).toBe(0);
+    expect(navBox.height).toBeGreaterThanOrEqual(scrollHeight - 1);
+
+    await page.evaluate(() => window.scrollTo({ top: 300, behavior: 'instant' }));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300);
+
+    const signOut = (await page.getByRole('button', { name: 'Sign out' }).boundingBox())!;
+    expect(signOut.y).toBeGreaterThan(0);
+    expect(signOut.y + signOut.height).toBeGreaterThan(viewport.height - 64);
+    expect(signOut.y + signOut.height).toBeLessThanOrEqual(viewport.height);
   });
 });
 

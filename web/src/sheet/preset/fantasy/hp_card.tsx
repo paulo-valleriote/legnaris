@@ -12,21 +12,27 @@ import {
 import {
   applyDamage,
   applyHeal,
+  formatHitPointsDelta,
   HIT_POINTS_CURRENT,
   HIT_POINTS_MAX,
   HIT_POINTS_TEMP,
   hitPointsBand,
   hitPointsFrom,
   hitPointsPercent,
+  hitPointsPreview,
   parseHitPointsAmount,
   parseHitPointsCurrent,
   parseHitPointsMaximum,
   parseHitPointsTemp,
 } from './hit_points';
-import type { HitPointsChange } from './hit_points';
+import type { HitPointsChange, HitPointsDirection } from './hit_points';
 
 function withinRange(value: number, max: number): number {
   return Math.min(max, Math.max(0, value));
+}
+
+function lineTone(delta: number): HitPointsDirection {
+  return delta < 0 ? 'damage' : 'heal';
 }
 
 export function HitPointsCard() {
@@ -58,8 +64,12 @@ export function HitPointsCard() {
   const tempPercent = hitPointsPercent(temp, max);
   const storedTempPercent = hitPointsPercent(storedTemp, max);
 
-  const currentPending = current !== storedCurrent;
-  const tempPending = temp !== storedTemp;
+  const preview = hitPointsPreview(
+    { current: storedCurrent, max, temp: storedTemp },
+    { current, max, temp },
+  );
+  const currentChange = preview?.current;
+  const tempChange = preview?.temp;
   const pendingLeft = Math.min(percent, storedPercent);
   const pendingWidth = Math.abs(percent - storedPercent);
   const currentEnd = Math.max(percent, storedPercent);
@@ -87,6 +97,9 @@ export function HitPointsCard() {
   };
 
   const amountValue = parseHitPointsAmount(amount);
+  const applyDamageAmount = () => {
+    commit(amountValue === undefined ? undefined : applyDamage(points, amountValue));
+  };
 
   return (
     <div className="lg-hp-card" data-testid="sheet-hp-card">
@@ -186,33 +199,51 @@ export function HitPointsCard() {
             aria-hidden="true"
           />
         )}
-        {currentPending && pendingWidth > 0 && (
+        {currentChange !== undefined && pendingWidth > 0 && (
           <span
             className="lg-hp-card__pending"
             data-testid="sheet-hp-pending"
+            data-tone={lineTone(currentChange.delta)}
             style={{ left: `${pendingLeft}%`, width: `${pendingWidth}%` }}
             aria-hidden="true"
           />
         )}
-        {tempPending && tempPendingWidth > 0 && (
+        {tempChange !== undefined && tempPendingWidth > 0 && (
           <span
             className="lg-hp-card__pending lg-hp-card__pending--temp"
             data-testid="sheet-hp-temp-pending"
+            data-tone={lineTone(tempChange.delta)}
             style={{ left: `${tempPendingLeft}%`, width: `${tempPendingWidth}%` }}
             aria-hidden="true"
           />
         )}
       </div>
-      {(currentPending || tempPending) && (
-        <p className="lg-hp-card__pending-notes">
-          {currentPending && (
-            <span className="lg-hp-card__was" data-testid="sheet-hp-was">
-              {messageWith('sheet.play.was', { count: storedCurrent })}
+      {preview !== undefined && (
+        <p className="lg-hp-card__pending-notes" data-direction={preview.direction}>
+          {currentChange !== undefined && (
+            <span
+              className="lg-hp-card__change"
+              data-tone={lineTone(currentChange.delta)}
+              data-testid="sheet-hp-change"
+            >
+              {messageWith('sheet.play.change', {
+                before: currentChange.before,
+                after: currentChange.after,
+                delta: formatHitPointsDelta(currentChange.delta),
+              })}
             </span>
           )}
-          {tempPending && (
-            <span className="lg-hp-card__was" data-testid="sheet-hp-temp-was">
-              {messageWith('sheet.play.tempWas', { count: storedTemp })}
+          {tempChange !== undefined && (
+            <span
+              className="lg-hp-card__change"
+              data-tone={lineTone(tempChange.delta)}
+              data-testid="sheet-hp-temp-change"
+            >
+              {messageWith('sheet.play.tempChange', {
+                before: tempChange.before,
+                after: tempChange.after,
+                delta: formatHitPointsDelta(tempChange.delta),
+              })}
             </span>
           )}
         </p>
@@ -226,15 +257,19 @@ export function HitPointsCard() {
             numeric
             value={amount}
             onChange={setAmount}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                applyDamageAmount();
+              }
+            }}
           />
         </div>
         <Button
           variant="danger"
           size="sm"
           label={message('sheet.play.damage')}
-          onClick={() =>
-            commit(amountValue === undefined ? undefined : applyDamage(points, amountValue))
-          }
+          onClick={applyDamageAmount}
         />
         <Button
           variant="secondary"
