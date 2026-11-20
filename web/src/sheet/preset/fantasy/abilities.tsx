@@ -18,6 +18,7 @@ import {
   parseAbilityScore,
   type AbilityKey,
 } from './abilities_data';
+import { PASSIVE_AWARENESS_PATH } from './stat_block_data';
 import './abilities.css';
 
 function AbilityMedallion({ ability }: { readonly ability: AbilityKey }) {
@@ -61,10 +62,22 @@ function AbilityMedallion({ ability }: { readonly ability: AbilityKey }) {
   );
 }
 
-export function FantasyAbilities() {
+function PassiveAwareness() {
+  const passiveAwareness = numberValue(usePresetValue(PASSIVE_AWARENESS_PATH));
+  const passiveLabel = usePresetLabel(PASSIVE_AWARENESS_PATH);
+
+  return (
+    <p className="lg-ability-passive" data-testid="sheet-play-passive">
+      <span className="lg-ability-passive__value">
+        {passiveAwareness === undefined ? message('sheet.play.noValue') : passiveAwareness}
+      </span>{' '}
+      <span className="lg-ability-passive__label">{passiveLabel}</span>
+    </p>
+  );
+}
+
+export function FantasyAbilities({ showPassive = true }: { readonly showPassive?: boolean }) {
   const { template } = usePresetContext();
-  const passiveAwareness = numberValue(usePresetValue('derived.passiveAwareness'));
-  const passiveLabel = usePresetLabel('derived.passiveAwareness');
   const stats = template.fields.stats;
   const sectionLabel = groupDisplayName('stats', stats?.kind === 'group' ? stats.label : undefined);
 
@@ -75,12 +88,7 @@ export function FantasyAbilities() {
           <AbilityMedallion key={ability} ability={ability} />
         ))}
       </ul>
-      <p className="lg-ability-passive" data-testid="sheet-play-passive">
-        <span className="lg-ability-passive__value">
-          {passiveAwareness === undefined ? message('sheet.play.noValue') : passiveAwareness}
-        </span>{' '}
-        <span className="lg-ability-passive__label">{passiveLabel}</span>
-      </p>
+      {showPassive && <PassiveAwareness />}
     </section>
   );
 }

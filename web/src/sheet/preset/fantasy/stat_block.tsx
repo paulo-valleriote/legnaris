@@ -15,16 +15,14 @@ import { numberValue, textValue } from '../values';
 import { FantasyAbilities } from './abilities';
 import { ABILITY_KEYS, formatModifier } from './abilities_data';
 import { ArmorClassShield } from './ac_breakdown';
-import { INITIATIVE_PATH, parseInitiative } from './armor_class';
+import { INITIATIVE_PATH, SPEED_PATH, parseInitiative } from './armor_class';
 import { FantasyAttacks } from './attacks';
 import { HitPointsCard } from './hp_card';
 import {
   abilityAbbreviationKey,
   isProficient,
-  parseSkillBonus,
   saveProficiencyPath,
   saveTotalPath,
-  skillBonusPath,
   skillProficiencyPath,
   skillRowKey,
   skillTotalPath,
@@ -32,7 +30,14 @@ import {
   type SkillKey,
 } from './saves_skills_data';
 import { FantasySpells } from './spells';
-import { statBlockKindLabelKey, statBlockSubtitleParts } from './stat_block_data';
+import {
+  PASSIVE_AWARENESS_PATH,
+  statBlockAbilityWord,
+  statBlockKindLabelKey,
+  statBlockSubtitleParts,
+  statMovementParts,
+  statProseText,
+} from './stat_block_data';
 import './stat_block.css';
 
 function useSkillLabel(skill: SkillKey): string {
@@ -128,64 +133,49 @@ function InitiativeTile() {
   );
 }
 
-function SaveLine({ ability }: { readonly ability: (typeof ABILITY_KEYS)[number] }) {
+function SaveItem({ ability }: { readonly ability: (typeof ABILITY_KEYS)[number] }) {
   const totalPath = saveTotalPath(ability);
   const total = numberValue(usePresetValue(totalPath));
   const label = usePresetLabel(totalPath);
 
   return (
-    <li className="lg-stat-block__prof" data-testid={`sheet-stat-save-${ability}`}>
-      <span className="lg-stat-block__prof-name">{message(abilityAbbreviationKey(ability))}</span>
+    <span className="lg-stat-block__line-item" data-testid={`sheet-stat-save-${ability}`}>
+      <span className="lg-stat-block__line-name" aria-hidden="true">
+        {statBlockAbilityWord(message(abilityAbbreviationKey(ability)))}
+      </span>{' '}
       <RollableValue
         rowKey={totalPath}
         sectionKey="saves"
         label={label}
         text={total === undefined ? message('sheet.play.noValue') : formatModifier(total)}
         allowRoll={total !== undefined}
-        className="lg-stat-block__prof-value"
       />
-    </li>
+    </span>
   );
 }
 
-function SkillLine({ skill }: { readonly skill: SkillKey }) {
-  const bonusPath = skillBonusPath(skill);
+function SkillItem({ skill }: { readonly skill: SkillKey }) {
   const totalPath = skillTotalPath(skill);
   const name = useSkillLabel(skill);
-  const bonus = numberValue(usePresetValue(bonusPath));
   const total = numberValue(usePresetValue(totalPath));
-  const bonusLabel = usePresetLabel(bonusPath);
-  const commitBonus = usePresetCommit(bonusPath);
 
   return (
-    <li className="lg-stat-block__prof" data-testid={`sheet-stat-skill-${skill}`}>
-      <span className="lg-stat-block__prof-name">{name}</span>
-      <InlineEdit
-        className="lg-stat-block__prof-bonus"
-        label={bonusLabel}
-        value={bonus === undefined ? '' : formatModifier(bonus)}
-        inputMode="numeric"
-        onCommit={(text) => {
-          const next = parseSkillBonus(text);
-          if (next !== undefined) {
-            commitBonus(next);
-          }
-        }}
-      />
+    <span className="lg-stat-block__line-item" data-testid={`sheet-stat-skill-${skill}`}>
+      <span className="lg-stat-block__line-name">{name}</span>{' '}
       <RollableValue
         rowKey={skillRowKey(skill)}
         sectionKey="skills"
         label={name}
         text={total === undefined ? message('sheet.play.noValue') : formatModifier(total)}
         allowRoll={total !== undefined}
-        className="lg-stat-block__prof-value"
       />
-    </li>
+    </span>
   );
 }
 
-function StatProficiencies() {
+function StatProse() {
   const { store } = usePresetContext();
+  const speedLabel = usePresetLabel(SPEED_PATH);
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
   const state = useSyncExternalStore(subscribe, store.getState);
   const saves = ABILITY_KEYS.filter((ability) =>
@@ -194,40 +184,58 @@ function StatProficiencies() {
   const skills = SKILL_KEYS.filter((skill) =>
     isProficient(valueAtPath(state.data, skillProficiencyPath(skill))),
   );
+  const movement = statProseText(
+    statMovementParts(
+      numberValue(valueAtPath(state.data, SPEED_PATH)),
+      numberValue(valueAtPath(state.data, PASSIVE_AWARENESS_PATH)),
+      {
+        speed: speedLabel,
+        passive: message('sheet.play.passiveShort'),
+        feet: (count) => messageWith('sheet.play.feet', { count }),
+      },
+    ),
+  );
 
-  if (saves.length === 0 && skills.length === 0) {
+  if (saves.length === 0 && skills.length === 0 && movement === undefined) {
     return null;
   }
 
   return (
-    <div className="lg-stat-block__profs" data-testid="sheet-stat-proficiencies">
+    <div className="lg-stat-block__prose" data-testid="sheet-stat-prose">
       {saves.length > 0 && (
-        <section
-          className="lg-stat-block__prof-group"
-          aria-label={message('sheet.play.saves')}
-          data-testid="sheet-stat-saves"
-        >
-          <h2 className="lg-stat-block__heading">{message('sheet.play.saves')}</h2>
-          <ul className="lg-stat-block__prof-list">
-            {saves.map((ability) => (
-              <SaveLine key={ability} ability={ability} />
-            ))}
-          </ul>
-        </section>
+        <p className="lg-stat-block__line" data-testid="sheet-stat-saves">
+          <span className="lg-stat-block__line-term">{message('sheet.play.savesShort')}</span>{' '}
+          {saves.map((ability, index) => (
+            <Fragment key={ability}>
+              {index > 0 && (
+                <span className="lg-stat-block__separator" data-separator aria-hidden="true">
+                  {' \u00b7 '}
+                </span>
+              )}
+              <SaveItem ability={ability} />
+            </Fragment>
+          ))}
+        </p>
       )}
       {skills.length > 0 && (
-        <section
-          className="lg-stat-block__prof-group"
-          aria-label={message('sheet.play.skills')}
-          data-testid="sheet-stat-skills"
-        >
-          <h2 className="lg-stat-block__heading">{message('sheet.play.skills')}</h2>
-          <ul className="lg-stat-block__prof-list">
-            {skills.map((skill) => (
-              <SkillLine key={skill} skill={skill} />
-            ))}
-          </ul>
-        </section>
+        <p className="lg-stat-block__line" data-testid="sheet-stat-skills">
+          <span className="lg-stat-block__line-term">{message('sheet.play.skills')}</span>{' '}
+          {skills.map((skill, index) => (
+            <Fragment key={skill}>
+              {index > 0 && (
+                <span className="lg-stat-block__separator" data-separator aria-hidden="true">
+                  {' \u00b7 '}
+                </span>
+              )}
+              <SkillItem skill={skill} />
+            </Fragment>
+          ))}
+        </p>
+      )}
+      {movement !== undefined && (
+        <p className="lg-stat-block__line" data-testid="sheet-stat-speed">
+          {movement}
+        </p>
       )}
     </div>
   );
@@ -244,8 +252,8 @@ export function FantasyStatBlock() {
           <HitPointsCard />
         </div>
       </div>
-      <FantasyAbilities />
-      <StatProficiencies />
+      <FantasyAbilities showPassive={false} />
+      <StatProse />
       <FantasyAttacks />
       <FantasySpells />
     </div>
