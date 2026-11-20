@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
+import { message } from '../src/l10n/strings';
 import { seedSession } from './auth_seed';
 
 test.use({ serviceWorkers: 'block' });
@@ -35,15 +36,18 @@ test.describe('auth surface, signed-in shell and own-sheet accessibility', () =>
     await page.goto('/');
 
     await expect(
-      page.getByRole('heading', { level: 1, name: 'A character sheet that does its own math.' }),
+      page.getByRole('heading', { level: 1, name: message('landing.heroTitle') }),
     ).toBeVisible();
     await expect(page.getByRole('main')).toBeVisible();
-    await expect(page.getByRole('link', { name: 'Start your archive' }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: message('landing.create') }).first()).toBeVisible();
 
     const results = await new AxeBuilder({ page }).analyze();
     expect(criticalViolations(results)).toEqual([]);
 
-    await page.getByRole('link', { name: 'Start your archive' }).first().click();
+    await page
+      .getByRole('link', { name: message('landing.create') })
+      .first()
+      .click();
     await expect(page).toHaveURL(/\/sign-up\?start=fantasy$/);
     await expect(page.getByRole('textbox', { name: 'Username' })).toBeVisible();
   });

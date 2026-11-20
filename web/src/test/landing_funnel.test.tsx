@@ -50,7 +50,7 @@ describe('landing funnel counters', () => {
     expect(beacon).toHaveBeenCalledWith(FUNNEL_URL, '{"event":"cta_click"}');
   });
 
-  it('Edge: the footer create action is not the hero call to action', async () => {
+  it('Happy path: the closing create action reports a CTA click', async () => {
     const beacon = stubBeacon();
     const user = userEvent.setup();
     await visit();
@@ -60,7 +60,7 @@ describe('landing funnel counters', () => {
     const footer = screen.getByRole('contentinfo');
     await user.click(within(footer).getByRole('link', { name: message('landing.create') }));
 
-    expect(beacon).not.toHaveBeenCalledWith(FUNNEL_URL, '{"event":"cta_click"}');
+    expect(beacon).toHaveBeenCalledWith(FUNNEL_URL, '{"event":"cta_click"}');
   });
 
   it('Edge: the sign-in action is not a funnel call to action', async () => {

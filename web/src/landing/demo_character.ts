@@ -88,7 +88,7 @@ function textLeaf(label: string, options: { readonly columnLabel?: string } = {}
       type: 'text',
       label,
       isEditable: true,
-      defaultValue: 0,
+      defaultValue: '',
       ...options,
     },
   };

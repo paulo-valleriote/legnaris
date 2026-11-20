@@ -3,6 +3,7 @@ package app
 import (
 	"net/http"
 
+	"legnaris/backend/internal/platform/ratelimit"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/json"
 
@@ -12,6 +13,7 @@ import (
 const (
 	funnelEventVisit      = "visit"
 	funnelEventCTAClick   = "cta_click"
+	funnelRateLimitKey    = "funnel:"
 	MsgFunnelEventInvalid = "event must be visit or cta_click"
 )
 
@@ -49,4 +51,15 @@ func (fc *FunnelController) Home(c *echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func funnelRateLimit(limiter ratelimit.Allower) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			if allowed, retryAfter := limiter.Allow(funnelRateLimitKey+ipKey(c), limiter.Now()); !allowed {
+				return rateLimited(c, nil, retryAfter)
+			}
+			return next(c)
+		}
+	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/logger"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -12,12 +13,17 @@ import (
 )
 
 const (
-	RefreshInterval  = 15 * time.Minute
-	firstSheetWindow = 24 * time.Hour
-	usersCollection  = "users"
-	sheetsCollection = "sheets"
-	firstSheetKey    = "first_sheet_at"
-	firstSheetPath   = "$first_sheet_at"
+	RefreshInterval   = 15 * time.Minute
+	firstSheetWindow  = 24 * time.Hour
+	usersCollection   = "users"
+	sheetsCollection  = "sheets"
+	firstSheetKey     = "first_sheet_at"
+	firstSheetPath    = "$first_sheet_at"
+	firstSheetLookup  = "first_sheet"
+	statusField       = "status"
+	createdAtField    = "created_at"
+	ownerIDField      = "owner_id"
+	firstSheetElement = "$first_sheet.created_at"
 )
 
 type Stats struct {
@@ -78,15 +84,28 @@ func milestonePipeline() mongo.Pipeline {
 	windowMillis := firstSheetWindow.Milliseconds()
 
 	return mongo.Pipeline{
+		{{Key: "$match", Value: bson.D{
+			{Key: statusField, Value: bson.D{{Key: "$nin", Value: bson.A{
+				user.StatusDeleting, user.StatusDeletionDead,
+			}}}},
+		}}},
 		{{Key: "$lookup", Value: bson.D{
 			{Key: "from", Value: sheetsCollection},
 			{Key: "localField", Value: "_id"},
-			{Key: "foreignField", Value: "owner_id"},
-			{Key: "as", Value: "sheets"},
+			{Key: "foreignField", Value: ownerIDField},
+			{Key: "pipeline", Value: mongo.Pipeline{
+				{{Key: "$sort", Value: bson.D{{Key: createdAtField, Value: 1}}}},
+				{{Key: "$limit", Value: 1}},
+				{{Key: "$project", Value: bson.D{
+					{Key: createdAtField, Value: 1},
+					{Key: "_id", Value: 0},
+				}}},
+			}},
+			{Key: "as", Value: firstSheetLookup},
 		}}},
 		{{Key: "$project", Value: bson.D{
-			{Key: "created_at", Value: 1},
-			{Key: firstSheetKey, Value: bson.D{{Key: "$min", Value: "$sheets.created_at"}}},
+			{Key: createdAtField, Value: 1},
+			{Key: firstSheetKey, Value: bson.D{{Key: "$arrayElemAt", Value: bson.A{firstSheetElement, 0}}}},
 		}}},
 		{{Key: "$addFields", Value: bson.D{
 			{Key: "first_sheet_delay", Value: bson.D{{Key: "$subtract", Value: bson.A{firstSheetPath, "$created_at"}}}},

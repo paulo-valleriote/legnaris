@@ -72,6 +72,7 @@ describe('the landing game moments', () => {
     expect(within(xpCard()).getByRole('status')).toHaveTextContent(
       messageWith('landing.momentXpAnnounce', { count: 2700 }),
     );
+    expect(within(xpCard()).getByRole('status')).toHaveFocus();
 
     await user.click(
       within(xpCard()).getByRole('button', {
@@ -140,6 +141,7 @@ describe('the landing game moments', () => {
       messageWith('sheet.play.slotsLeft', { remaining: 0, total: 2 }),
     );
     expect(spend).toBeDisabled();
+    expect(within(slotCard()).getByRole('status')).toHaveFocus();
   });
 
   it('Happy path: an action replays a short flash when motion is allowed', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { buildSections, rowKey } from '../engine/field_grouping';
 import { createDiceStore } from '../sheet/dice_store';
@@ -58,6 +58,11 @@ export function DemoProvider({
   readonly onInteract?: () => void;
 }) {
   const [runtime] = useState(createDemoRuntime);
+  const onInteractRef = useRef(onInteract);
+
+  useEffect(() => {
+    onInteractRef.current = onInteract;
+  }, [onInteract]);
 
   useEffect(() => {
     const store = runtime.preset.store;
@@ -66,10 +71,10 @@ export function DemoProvider({
       const next = store.getState().revision;
       if (next !== revision) {
         revision = next;
-        onInteract?.();
+        onInteractRef.current?.();
       }
     });
-  }, [runtime, onInteract]);
+  }, [runtime]);
 
   return (
     <PresetProvider {...runtime.preset}>

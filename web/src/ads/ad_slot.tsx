@@ -12,7 +12,7 @@ export interface AdSlotProps {
 export function AdSlot({ surface }: AdSlotProps) {
   const { config, signedIn, plan, consent, pushAdSlot, registerSlot } = useAds();
   const slotId = config?.slots[surface];
-  const eligible = adsEligible({ config, signedIn, plan, surface });
+  const eligible = adsEligible({ config, signedIn, plan });
   const active = eligible && slotId !== undefined;
   const pushed = useRef(false);
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useApiClient } from '../app/providers';
 import { LANDING_PATH } from '../app/routes';
 import { AuthBusy } from '../auth/auth_busy';
@@ -15,6 +15,7 @@ export function StartSheet({ templateId }: StartSheetProps) {
   const client = useApiClient();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const started = useRef(false);
 
   useEffect(() => {
@@ -22,6 +23,7 @@ export function StartSheet({ templateId }: StartSheetProps) {
       return;
     }
     started.current = true;
+    navigate(location.pathname, { replace: true });
     void client
       .createSheet({
         templateId,
@@ -36,7 +38,7 @@ export function StartSheet({ templateId }: StartSheetProps) {
       .catch(() => {
         navigate(LANDING_PATH, { replace: true });
       });
-  }, [client, templateId, queryClient, navigate]);
+  }, [client, templateId, queryClient, navigate, location.pathname]);
 
   return <AuthBusy testId="start-sheet" label={message('landing.startSheetPreparing')} />;
 }

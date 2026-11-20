@@ -34,7 +34,7 @@ describe('the demo edit store', () => {
     expect(read(store, 'saves.strength')).toBe(4);
     expect(read(store, 'skills.athletics.total')).toBe(5);
     expect(read(store, 'derived.armorClass')).toBe(12);
-    expect(read(store, 'derived.passiveAwareness')).toBe(11);
+    expect(read(store, 'derived.passiveAwareness')).toBe(13);
     expect(store.getState().editedPaths).toEqual(new Set(['stats.strength']));
   });
 
@@ -64,9 +64,27 @@ describe('the demo edit store', () => {
 
     expect(read(store, 'saves.dexterity')).toBe(6);
     expect(read(store, 'skills.stealth.total')).toBe(7);
-    expect(read(store, 'derived.passiveAwareness')).toBe(13);
+    expect(read(store, 'derived.passiveAwareness')).toBe(15);
     expect(read(store, 'spells.attackBonus')).toBe(5);
     expect(read(store, 'spells.saveDC')).toBe(13);
+  });
+
+  it('Happy path: passive awareness includes the perception skill bonus', () => {
+    const store = openDemo();
+
+    store.setPath('skills.perception.bonus', 5);
+
+    expect(read(store, 'skills.perception.total')).toBe(6);
+    expect(read(store, 'derived.passiveAwareness')).toBe(16);
+  });
+
+  it('Edge: dropping the perception proficiency lowers passive awareness', () => {
+    const store = openDemo();
+
+    store.setPath('config.skillPerceptionProf', 0);
+
+    expect(read(store, 'skills.perception.total')).toBe(1);
+    expect(read(store, 'derived.passiveAwareness')).toBe(11);
   });
 
   it('Happy path: the rule leaves drive the modifier step and the passive base', () => {
@@ -76,7 +94,7 @@ describe('the demo edit store', () => {
     store.setPath('rules.passiveBase', 12);
 
     expect(read(store, 'modifiers.strengthMod')).toBe(2);
-    expect(read(store, 'derived.passiveAwareness')).toBe(12);
+    expect(read(store, 'derived.passiveAwareness')).toBe(14);
   });
 
   it('Happy path: the armor ability choice recomputes the defense', () => {

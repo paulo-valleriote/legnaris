@@ -42,6 +42,19 @@ func indexIsUnique(idx bson.M) bool {
 	return ok && unique
 }
 
+func indexKeys(t *testing.T, idx bson.M) []string {
+	t.Helper()
+
+	key, ok := idx["key"].(bson.D)
+	require.True(t, ok, "index key must be a document, got %v", idx["key"])
+
+	names := make([]string, 0, len(key))
+	for _, entry := range key {
+		names = append(names, entry.Key)
+	}
+	return names
+}
+
 func indexExpireAfterSeconds(t *testing.T, idx bson.M) int32 {
 	t.Helper()
 	val, ok := idx["expireAfterSeconds"]
@@ -83,6 +96,11 @@ func TestEnsureIndexes(t *testing.T) {
 		ownerKind, ok := sheets["sheets_owner_id_kind"]
 		require.True(t, ok, "sheets (owner_id, kind) index must exist, got %v", sheets)
 		assert.False(t, indexIsUnique(ownerKind), "one owner may hold several kinds, so the index is not unique")
+
+		ownerCreatedAt, ok := sheets["sheets_owner_id_created_at"]
+		require.True(t, ok, "sheets (owner_id, created_at) index must exist, got %v", sheets)
+		assert.False(t, indexIsUnique(ownerCreatedAt), "one owner may hold several sheets, so the index is not unique")
+		assert.Equal(t, []string{"owner_id", "created_at"}, indexKeys(t, ownerCreatedAt))
 
 		counters := listIndexes(t, mdb, "sheet_counts")
 		counterKey, ok := counters["sheet_counts_owner_id_kind_unique"]

@@ -128,8 +128,8 @@ export function deriveDemoValues(data: Record<string, unknown>): Map<string, num
   derived.set(ARMOR_CLASS_PATH, defense + armor);
 
   const passiveBase = numberAt(data, 'rules.passiveBase', DEFAULT_PASSIVE_BASE);
-  const aware = isOn(data, skillProficiencyPath('perception')) ? proficiency : 0;
-  derived.set('derived.passiveAwareness', passiveBase + modifiers.wisdom + aware);
+  const perception = skillTotal(data, 'perception', modifiers, proficiency);
+  derived.set('derived.passiveAwareness', passiveBase + perception);
 
   const casting = ABILITY_KEYS.find((ability) => isOn(data, castingConfigPath(ability)));
   if (casting !== undefined) {

@@ -152,15 +152,19 @@ sender prints one-time codes, and every run starts from empty data.
   whole file as one GitHub environment secret; rotation is editing it and
   redeploying.
 - **Home funnel metrics (LGN-346).** `POST /funnel/home` takes
-  `{"event":"visit"}` or `{"event":"cta_click"}` and answers 204; it is public,
-  stores no cookie, identifier or per-user record, and only increments
-  `legnaris_funnel_home_visits_total` or `legnaris_funnel_home_cta_clicks_total`
-  in the API process. The API refreshes `legnaris_funnel_accounts`,
+  `{"event":"visit"}` or `{"event":"cta_click"}` and answers 204; it is public
+  and IP rate limited through the same public limiter settings as
+  `/csp-report`, stores no cookie, identifier or per-user record, and only
+  increments `legnaris_funnel_home_visits_total` or
+  `legnaris_funnel_home_cta_clicks_total` in the API process. A browser
+  `sendBeacon` may attach same-origin cookies on the wire; the endpoint neither
+  reads nor stores them. The API refreshes `legnaris_funnel_accounts`,
   `legnaris_funnel_first_sheet_within_24h` and its `_ratio` every 15 minutes
-  from the existing timestamps: an account counts when its earliest Sheet
-  `created_at` is at most 24 hours after the account `created_at`. Those three
-  are gauges of the current database, so deleting an account lowers them. The
-  dashboard is `deploy/grafana/dashboards/legnaris-funnel.json`.
+  from the existing timestamps: an active account counts when its earliest
+  Sheet `created_at` is at most 24 hours after the account `created_at`, and an
+  account in `deleting` or `deletion_dead` is excluded. Those three are gauges
+  of the current database, so deleting an account lowers them. The dashboard is
+  `deploy/grafana/dashboards/legnaris-funnel.json`.
 - **No credential in the repository.** The only repository secret is none: the
   pipeline uses the automatic `GITHUB_TOKEN` (`packages: write` on the image
   job, push events only) plus the deploy environment secrets above, and a job
@@ -273,7 +277,7 @@ sender prints one-time codes, and every run starts from empty data.
   steps), not deployment capacity.
 - The ops surface trusts one GitHub account allowlist and a shared operator
   broker account, with no further role separation.
-- The funnel beacon is unauthenticated and unthrottled, so a client can inflate
-  the visit and CTA counters; they are a directional baseline, not an audited
-  ledger. The activation gauges follow the current database and fall when an
-  account is deleted.
+- The funnel beacon is unauthenticated, so a client can inflate the visit and
+  CTA counters within the per-address limit; they are a directional baseline,
+  not an audited ledger. The activation gauges follow the current database,
+  exclude deleting accounts and fall when an account is deleted.

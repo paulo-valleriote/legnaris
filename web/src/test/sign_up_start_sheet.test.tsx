@@ -8,7 +8,7 @@ import type { UserEvent } from '@testing-library/user-event';
 import { QueryClient } from '@tanstack/react-query';
 import { createAuthApi, type AuthApi } from '../api/auth_api';
 import { createApiClient } from '../api/client';
-import type { HttpRequest, Transport } from '../api/transport';
+import type { HttpRequest, HttpResponse, Transport } from '../api/transport';
 import { createAuthSession } from '../auth/auth_session';
 import { message } from '../l10n/strings';
 import {
@@ -63,6 +63,30 @@ function fantasyTemplate(): Record<string, unknown> {
 
 function postRequests(requests: readonly HttpRequest[]): HttpRequest[] {
   return requests.filter((request) => request.method === 'POST' && request.url.endsWith('/sheets'));
+}
+
+function deferredSheetCreation() {
+  const requests: HttpRequest[] = [];
+  let settle: ((response: HttpResponse) => void) | undefined;
+  const transport: Transport = (request) => {
+    requests.push(request);
+    if (request.method === 'POST' && request.url.endsWith('/sheets')) {
+      return new Promise<HttpResponse>((resolve) => {
+        settle = resolve;
+      });
+    }
+    if (request.method === 'GET' && request.url.includes('/templates/')) {
+      return Promise.resolve(successOutcome(fantasyTemplate()));
+    }
+    return Promise.resolve(successOutcome(undefined));
+  };
+  return {
+    transport,
+    requests,
+    resolve(response: HttpResponse) {
+      settle?.(response);
+    },
+  };
 }
 
 async function submitRegister(user: UserEvent) {
@@ -121,6 +145,35 @@ describe('a sign-up started on the home page', () => {
       message('landing.startSheetName'),
     );
     expect(screen.queryByTestId('catalog')).not.toBeInTheDocument();
+  });
+
+  it('Happy path: the start intent is stripped before the sheet request settles', async () => {
+    const user = userEvent.setup();
+    const auth = createDeferredTransport();
+    const session = restoringSession(auth.transport);
+    const creation = deferredSheetCreation();
+
+    renderApp('/sign-up?start=fantasy', {
+      session,
+      client: clientWith(withPlanUsage(creation.transport)),
+      queryClient: appQueryClient(),
+    });
+
+    auth.resolve(errorOutcome('UNAUTHORIZED', 'no cookie', 401));
+    await screen.findByLabelText(message('auth.emailLabel'));
+    await submitRegister(user);
+
+    await waitFor(() => expect(auth.attempts).toBe(2));
+    auth.resolve(successOutcome(SESSION_BODY));
+
+    expect(await screen.findByTestId('catalog')).toBeInTheDocument();
+    expect(screen.queryByTestId('start-sheet')).not.toBeInTheDocument();
+    expect(postRequests(creation.requests)).toHaveLength(1);
+
+    creation.resolve(successOutcome(createdFantasySheet(), 201));
+
+    expect(await screen.findByTestId('sheet-screen')).toBeInTheDocument();
+    expect(postRequests(creation.requests)).toHaveLength(1);
   });
 
   it('Happy path: the intent survives the email code step and creates the sheet after verification', async () => {

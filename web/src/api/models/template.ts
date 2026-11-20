@@ -14,7 +14,7 @@ export interface FieldSchema {
   readonly formula?: string;
   readonly dependsOn?: readonly (readonly string[])[];
   readonly isEditable: boolean;
-  readonly defaultValue: number;
+  readonly defaultValue: number | string;
   readonly exclusiveGroup?: string;
   readonly optionLabel?: string;
   readonly columnLabel?: string;

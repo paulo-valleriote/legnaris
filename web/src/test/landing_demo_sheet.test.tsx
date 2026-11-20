@@ -7,8 +7,21 @@ import userEvent from '@testing-library/user-event';
 import DemoSheet from '../landing/demo_sheet';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+import type { FieldNode } from '../api/models/template';
 import { message } from '../l10n/strings';
+import { DEMO_TEMPLATE } from '../landing/demo_character';
 import { rollName } from './dice_names';
+
+function leafDefault(fields: Record<string, FieldNode>, path: readonly string[]): unknown {
+  let node: FieldNode | undefined = fields[path[0]];
+  for (const segment of path.slice(1)) {
+    if (node === undefined || node.kind !== 'group') {
+      return undefined;
+    }
+    node = node.children[segment];
+  }
+  return node?.kind === 'leaf' ? node.schema.defaultValue : undefined;
+}
 
 function medallion(ability: string) {
   return screen.getByTestId(`sheet-ability-${ability}`);
@@ -124,6 +137,11 @@ describe('the landing demo sheet', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it('Happy path: the sample text leaves default to an empty string', () => {
+    expect(leafDefault(DEMO_TEMPLATE.fields, ['identity', 'characterName'])).toBe('');
+    expect(leafDefault(DEMO_TEMPLATE.fields, ['attacks', 'attack1', 'name'])).toBe('');
+  });
+
   it('Edge: the demo is a separate module with a default export', async () => {
     const module = await import('../landing/demo_sheet');
     const landing = readFileSync(path.resolve(here, '../landing/landing_screen.tsx'), 'utf8');
@@ -145,6 +163,20 @@ describe('the landing demo sheet', () => {
 
     await user.click(screen.getByRole('button', { name: rollName('Might modifier') }));
     expect(onInteract).toHaveBeenCalledTimes(2);
+  });
+
+  it('Edge: a rerender hands later interactions to the latest callback', async () => {
+    const first = vi.fn();
+    const latest = vi.fn();
+    const user = userEvent.setup();
+    const view = render(<DemoSheet onInteract={first} />);
+
+    view.rerender(<DemoSheet onInteract={latest} />);
+
+    await editAttribute(user, 'strength', '18');
+
+    expect(latest).toHaveBeenCalled();
+    expect(first).not.toHaveBeenCalled();
   });
 
   it('Edge: the demo runs without an interaction callback', async () => {

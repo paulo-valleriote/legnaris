@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"legnaris/backend/internal/funnel"
+	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/db/dbtest"
 
 	"github.com/stretchr/testify/assert"
@@ -17,6 +18,7 @@ import (
 type accountFixture struct {
 	ID        string
 	CreatedAt time.Time
+	Status    string
 }
 
 type sheetFixture struct {
@@ -95,6 +97,30 @@ func TestMongoStoreStats(t *testing.T) {
 			want:     funnel.Stats{Accounts: 1},
 		},
 		{
+			name:     "Edge: a deleting account is excluded from the baseline and the milestone",
+			accounts: []accountFixture{{ID: "a1", CreatedAt: accountEpoch, Status: user.StatusDeleting}},
+			sheets:   []sheetFixture{{ID: "s1", OwnerID: "a1", CreatedAt: accountEpoch.Add(time.Hour)}},
+			want:     funnel.Stats{},
+		},
+		{
+			name:     "Edge: an account whose deletion is dead is excluded",
+			accounts: []accountFixture{{ID: "a1", CreatedAt: accountEpoch, Status: user.StatusDeletionDead}},
+			sheets:   []sheetFixture{{ID: "s1", OwnerID: "a1", CreatedAt: accountEpoch.Add(time.Hour)}},
+			want:     funnel.Stats{},
+		},
+		{
+			name: "Edge: an active account beside a deleting one still counts",
+			accounts: []accountFixture{
+				{ID: "a1", CreatedAt: accountEpoch},
+				{ID: "a2", CreatedAt: accountEpoch, Status: user.StatusDeleting},
+			},
+			sheets: []sheetFixture{
+				{ID: "s1", OwnerID: "a1", CreatedAt: accountEpoch.Add(time.Hour)},
+				{ID: "s2", OwnerID: "a2", CreatedAt: accountEpoch.Add(time.Hour)},
+			},
+			want: funnel.Stats{Accounts: 1, FirstSheetWithin24h: 1},
+		},
+		{
 			name: "Edge: an empty database reports zeroes",
 			want: funnel.Stats{},
 		},
@@ -122,6 +148,9 @@ func seedFunnelFixtures(t *testing.T, database *mongo.Database, accounts []accou
 			doc := bson.D{{Key: "_id", Value: account.ID}}
 			if !account.CreatedAt.IsZero() {
 				doc = append(doc, bson.E{Key: "created_at", Value: account.CreatedAt})
+			}
+			if account.Status != "" {
+				doc = append(doc, bson.E{Key: "status", Value: account.Status})
 			}
 			docs = append(docs, doc)
 		}

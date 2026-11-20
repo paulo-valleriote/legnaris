@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useApiBaseUrl } from '../app/providers';
@@ -114,6 +114,7 @@ export function LandingScreen() {
   }, [apiBaseUrl]);
 
   const reportCtaClick = () => reportHomeFunnel(apiBaseUrl, 'cta_click');
+  const reportInteraction = useCallback(() => setInteracted(true), []);
 
   return (
     <div className="lg-landing" data-testid="landing">
@@ -159,7 +160,7 @@ export function LandingScreen() {
 
         <section className="lg-landing__hero-demo" aria-label={message('landing.demoSheetLabel')}>
           <Suspense fallback={<DemoLoading />}>
-            <DemoSheet onInteract={() => setInteracted(true)} />
+            <DemoSheet onInteract={reportInteraction} />
           </Suspense>
           {interacted && (
             <div className="lg-landing__demo-cta" data-testid="landing-demo-cta">
@@ -262,7 +263,11 @@ export function LandingScreen() {
             {message('landing.closeTitle')}
           </h2>
           <div className="lg-landing__actions">
-            <Link className="lg-landing__cta lg-landing__cta--primary" to={FANTASY_SIGN_UP_PATH}>
+            <Link
+              className="lg-landing__cta lg-landing__cta--primary"
+              to={FANTASY_SIGN_UP_PATH}
+              onClick={reportCtaClick}
+            >
               {message('landing.create')}
             </Link>
             <Link className="lg-landing__cta lg-landing__cta--outline" to={SIGN_IN_PATH}>

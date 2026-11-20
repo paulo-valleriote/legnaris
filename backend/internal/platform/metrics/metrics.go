@@ -51,6 +51,8 @@ type Metrics struct {
 	funnelFirstSheet24hRatio prometheus.Gauge
 }
 
+var _ funnel.Observer = (*Metrics)(nil)
+
 const metricsNamespace = "legnaris"
 
 const sweeperSubsystem = "sweeper"
@@ -474,8 +476,6 @@ func (m *Metrics) HomeVisited() {
 func (m *Metrics) HomeCTAClicked() {
 	m.funnelHomeCTAClicks.Inc()
 }
-
-var _ funnel.Observer = (*Metrics)(nil)
 
 func (m *Metrics) FunnelStats(stats funnel.Stats) {
 	accounts := max(stats.Accounts, 0)

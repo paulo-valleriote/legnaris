@@ -157,7 +157,7 @@ describe('landing screen', () => {
   it('Edge: the home mounts no ad slot even when a slot is configured', async () => {
     renderApp('/', {
       session: 'unauthenticated',
-      adsConfig: { client: 'ca-pub-1234567890', slots: { landing: '1111111111' } },
+      adsConfig: { client: 'ca-pub-1234567890', slots: { catalog: '1111111111' } },
     });
     await waitFor(() => expect(screen.queryByTestId('auth-restoring')).not.toBeInTheDocument());
 

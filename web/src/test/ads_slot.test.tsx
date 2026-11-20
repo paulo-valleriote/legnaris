@@ -13,7 +13,7 @@ const CLIENT = 'ca-pub-1234567890123456';
 
 const CONFIG: AdsConfig = {
   client: CLIENT,
-  slots: { catalog: '1111111111', campaigns: '2222222222', landing: '3333333333' },
+  slots: { catalog: '1111111111', campaigns: '2222222222' },
 };
 
 const BILLING: BillingStatus = {
@@ -145,16 +145,13 @@ describe('AdSlot', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('Happy path: a logged-out visitor sees the landing slot', () => {
-    renderSlot({ signedIn: false, usage: undefined, surface: 'landing' });
+  it('Edge: a logged-out visitor sees no slot on any surface', () => {
+    for (const surface of ['catalog', 'campaigns'] as const) {
+      const { container, unmount } = renderSlot({ signedIn: false, usage: undefined, surface });
 
-    expect(screen.getByRole('complementary', { name: 'Advertisement' })).toBeInTheDocument();
-  });
-
-  it('Edge: a logged-out visitor sees no slot on the catalog', () => {
-    const { container } = renderSlot({ signedIn: false, usage: undefined, surface: 'catalog' });
-
-    expect(container).toBeEmptyDOMElement();
+      expect(container).toBeEmptyDOMElement();
+      unmount();
+    }
   });
 
   it('Edge: a missing slot id renders nothing and loads nothing', () => {

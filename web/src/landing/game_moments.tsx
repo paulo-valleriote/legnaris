@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react';
+import { forwardRef, useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { message, messageWith } from '../l10n/strings';
 import { HitPointsCard } from '../sheet/preset/fantasy/hp_card';
@@ -79,13 +79,20 @@ interface ResultProps {
   readonly text: string;
 }
 
-function Result({ text }: ResultProps) {
+const Result = forwardRef<HTMLParagraphElement, ResultProps>(function Result({ text }, ref) {
   return (
-    <p className="lg-moment__result" role="status" aria-live="polite" aria-atomic="true">
+    <p
+      ref={ref}
+      className="lg-moment__result"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+      tabIndex={-1}
+    >
       {text}
     </p>
   );
-}
+});
 
 function XpMoment() {
   const level = numberValue(usePresetValue(LEVEL_PATH));
@@ -94,6 +101,7 @@ function XpMoment() {
   const commitLevel = usePresetCommit(LEVEL_PATH);
   const reduced = useReducedMotion();
   const [pulse, setPulse] = useState(0);
+  const resultRef = useRef<HTMLParagraphElement>(null);
   const progress = xpProgress(level, xp);
   const gain =
     progress.nextThreshold === null ? 0 : Math.max(0, progress.nextThreshold - progress.xp);
@@ -108,6 +116,7 @@ function XpMoment() {
     }
     commitXp(progress.xp + gain);
     setPulse((value) => value + 1);
+    resultRef.current?.focus();
   };
 
   const takeLevel = () => {
@@ -116,6 +125,7 @@ function XpMoment() {
     }
     commitLevel(nextLevel);
     setPulse((value) => value + 1);
+    resultRef.current?.focus();
   };
 
   return (
@@ -148,7 +158,7 @@ function XpMoment() {
           />
         )}
       </div>
-      <Result text={result} />
+      <Result ref={resultRef} text={result} />
     </Moment>
   );
 }
@@ -159,6 +169,7 @@ function HpMoment() {
   const max = numberValue(usePresetValue(HIT_POINTS_MAX));
   const reduced = useReducedMotion();
   const [pulse, setPulse] = useState(0);
+  const resultRef = useRef<HTMLParagraphElement>(null);
   const exhausted = (current ?? 0) <= 0;
   const result =
     current === undefined
@@ -174,6 +185,7 @@ function HpMoment() {
     store.setPath(HIT_POINTS_CURRENT, change.current);
     store.setPath(HIT_POINTS_TEMP, change.temp);
     setPulse((value) => value + 1);
+    resultRef.current?.focus();
   };
 
   return (
@@ -195,7 +207,7 @@ function HpMoment() {
           onClick={takeDamage}
         />
       </div>
-      <Result text={result} />
+      <Result ref={resultRef} text={result} />
     </Moment>
   );
 }
@@ -206,6 +218,7 @@ function SlotMoment() {
   const expended = numberValue(usePresetValue('spells.slot1.expended'));
   const reduced = useReducedMotion();
   const [pulse, setPulse] = useState(0);
+  const resultRef = useRef<HTMLParagraphElement>(null);
   const pool = slotPool(total, expended);
   const result = messageWith('landing.momentSlotAnnounce', { count: pool.remaining });
 
@@ -216,6 +229,7 @@ function SlotMoment() {
     const next = spendSlot(pool);
     store.setPath('spells.slot1.expended', next.expended);
     setPulse((value) => value + 1);
+    resultRef.current?.focus();
   };
 
   return (
@@ -237,7 +251,7 @@ function SlotMoment() {
           onClick={spend}
         />
       </div>
-      <Result text={result} />
+      <Result ref={resultRef} text={result} />
     </Moment>
   );
 }

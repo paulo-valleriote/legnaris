@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -57,6 +58,18 @@ func main() {
 
 const logErrorKey = "error"
 
+func startFunnelRefresher(ctx context.Context, refresher *funnel.Refresher, log logger.StructuredLogger) func() {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := refresher.Run(ctx); err != nil {
+			log.Error(ctx, "funnel stats refresher stopped", logger.Attribute{Key: logErrorKey, Value: err.Error()})
+		}
+	}()
+	return wg.Wait
+}
+
 func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 	database, err := db.InitMongo(cfg)
 	if err != nil {
@@ -94,11 +107,7 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 		log,
 		funnel.RefreshInterval,
 	)
-	go func() {
-		if err := funnelRefresher.Run(ctx); err != nil {
-			log.Error(ctx, "funnel stats refresher stopped", logger.Attribute{Key: logErrorKey, Value: err.Error()})
-		}
-	}()
+	defer startFunnelRefresher(ctx, funnelRefresher, log)()
 
 	eventPublisher := eventsamqp.New(eventsamqp.Config{
 		URL:           cfg.Variables.RabbitMQURL,
