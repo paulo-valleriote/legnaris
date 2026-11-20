@@ -29,7 +29,7 @@
 .lg-ability__name {
   min-width: 0;
   overflow: hidden;
-  font-size: 11px;
+  font-size: var(--lg-type-11);
   font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
   letter-spacing: var(--lg-tracking-wide);
@@ -58,8 +58,11 @@
   line-height: 1;
 }
 
-.lg-ability .lg-rollable--button.lg-ability__modifier:hover {
-  border-color: var(--lg-lava-500);
+.lg-ability .lg-rollable--button.lg-ability__modifier:hover,
+.lg-ability .lg-rollable--button.lg-ability__modifier:focus-visible {
+  border-color: var(--lg-color-accent);
+  background-color: var(--lg-color-accent);
+  color: var(--lg-color-accent-text);
 }
 
 .lg-ability .lg-ability__score {
@@ -146,5 +149,9 @@
   .lg-ability .lg-ability__score {
     min-block-size: 28px;
     line-height: 26px;
+  }
+
+  .lg-ability__name {
+    font-size: var(--lg-type-12);
   }
 }

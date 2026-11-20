@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
-import { message } from '../l10n/strings';
+import { message, messageWith } from '../l10n/strings';
 import {
   FANTASY_SHEET_ID,
   fantasyFieldTree,
@@ -13,7 +13,6 @@ import {
 import type { FakeOutcome } from './fake_transport';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
-import { rollName } from './dice_names';
 
 const BASE_URL = 'http://api.test';
 
@@ -318,6 +317,92 @@ describe('attack editing', () => {
   });
 });
 
+function attackRoll(name: string, value: string): string {
+  return messageWith('sheet.play.attackRoll', { name, value });
+}
+
+function damageRoll(name: string, value: string): string {
+  return messageWith('sheet.play.damageRoll', { name, value });
+}
+
+describe('attack roll labels', () => {
+  it('Happy path: the to-hit pill carries a decorative d20 and the signed bonus', async () => {
+    await openAttacks({
+      data: attackData({ 1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6 } }),
+    });
+    const card = attackCard(1);
+    const name = attackRoll('Longbow', '+6');
+
+    const roll = within(card).getByRole('button', { name });
+
+    expect(roll).toHaveTextContent('+6');
+    expect(roll).toHaveAttribute('title', name);
+    const icon = roll.querySelector('svg');
+    expect(icon).not.toBeNull();
+    expect(icon).toHaveAttribute('aria-hidden', 'true');
+    expect(icon).toHaveAttribute('data-die-shape', 'd20');
+  });
+
+  it('Happy path: the damage pill stays the dice expression and names the damage roll', async () => {
+    await openAttacks({
+      data: attackData({ 1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6 } }),
+    });
+    const card = attackCard(1);
+    const name = damageRoll('Longbow', '1d8 + 3');
+
+    const roll = within(card).getByRole('button', { name });
+
+    expect(roll).toHaveTextContent('1d8 + 3');
+    expect(roll).toHaveAttribute('title', name);
+    expect(roll.querySelector('svg')).toBeNull();
+  });
+
+  it('Edge: an attack with no name falls back to its template slot label', async () => {
+    const { user } = await openAttacks();
+
+    await user.click(addButton() as HTMLElement);
+    const card = attackCard(1);
+
+    expect(
+      within(card).getByRole('button', { name: attackRoll('Attack 1', '+0') }),
+    ).toHaveTextContent('+0');
+  });
+
+  it('Edge: zero and negative bonuses keep the signed value in the name', async () => {
+    await openAttacks({
+      data: attackData({
+        1: { name: 'Longbow', damage: '1d8 + 3', bonus: 0 },
+        2: { name: 'Dagger', damage: '1d4', bonus: -2 },
+      }),
+    });
+
+    const zero = within(attackCard(1)).getByRole('button', {
+      name: attackRoll('Longbow', '+0'),
+    });
+    const negative = within(attackCard(2)).getByRole('button', {
+      name: attackRoll('Dagger', '-2'),
+    });
+
+    expect(zero).toHaveTextContent('+0');
+    expect(negative).toHaveTextContent('-2');
+    expect(zero.querySelector('svg')).toHaveAttribute('data-die-shape', 'd20');
+    expect(negative.querySelector('svg')).toHaveAttribute('data-die-shape', 'd20');
+  });
+
+  it('Edge: empty damage shows the placeholder and offers no damage roll', async () => {
+    await openAttacks({
+      data: attackData({ 1: { name: 'Longbow', damage: '', bonus: 6 } }),
+    });
+    const card = attackCard(1);
+
+    expect(within(card).queryByRole('button', { name: /^Damage roll,/ })).toBeNull();
+    expect(within(card).getByText(message('sheet.play.noValue'))).toBeInTheDocument();
+    expect(
+      within(card).getByRole('button', { name: attackRoll('Longbow', '+6') }),
+    ).toBeInTheDocument();
+  });
+});
+
 describe('attack rolling', () => {
   it('Happy path: the bonus rolls d20 plus the stored bonus through the dice store', async () => {
     const { user } = await openAttacks({
@@ -325,7 +410,7 @@ describe('attack rolling', () => {
     });
 
     await user.click(
-      within(attackCard(1)).getByRole('button', { name: rollName('Attack 1 bonus') }),
+      within(attackCard(1)).getByRole('button', { name: attackRoll('Longsword', '+5') }),
     );
 
     await waitFor(() => expect(document.querySelector('.lg-dice-panel')).not.toBeNull());
@@ -344,7 +429,7 @@ describe('attack rolling', () => {
     });
 
     await user.click(
-      within(attackCard(1)).getByRole('button', { name: rollName('Attack 1 damage') }),
+      within(attackCard(1)).getByRole('button', { name: damageRoll('Longsword', '1d8 + 3') }),
     );
 
     await waitFor(() => expect(document.querySelector('.lg-dice-panel')).not.toBeNull());
@@ -363,10 +448,10 @@ describe('attack rolling', () => {
     });
     const card = attackCard(1);
 
-    expect(within(card).queryByRole('button', { name: rollName('Attack 1 damage') })).toBeNull();
+    expect(within(card).queryByRole('button', { name: /^Damage roll,/ })).toBeNull();
     expect(within(card).getByText('three')).toBeInTheDocument();
     expect(
-      within(card).getByRole('button', { name: rollName('Attack 1 bonus') }),
+      within(card).getByRole('button', { name: attackRoll('Longsword', '+5') }),
     ).toBeInTheDocument();
   });
 });

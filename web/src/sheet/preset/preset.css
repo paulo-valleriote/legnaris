@@ -213,7 +213,7 @@
 
 .lg-preset-hero__badge-label {
   margin-top: 3px;
-  font-size: 9px;
+  font-size: var(--lg-type-11);
   letter-spacing: var(--lg-tracking-widest);
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);
@@ -245,6 +245,14 @@
   .lg-preset-hero__badge .lg-preset-hero__proficiency {
     width: 48px;
     height: 48px;
+  }
+
+  .lg-preset-hero__badge-label {
+    font-size: var(--lg-type-12);
+  }
+
+  .lg-hp-card__label {
+    font-size: var(--lg-type-12);
   }
 }
 
@@ -296,7 +304,7 @@
 }
 
 .lg-hp-card__label {
-  font-size: 10px;
+  font-size: var(--lg-type-11);
   letter-spacing: var(--lg-tracking-wide);
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);
@@ -575,6 +583,15 @@
 .lg-inline-edit[data-empty] {
   color: var(--lg-color-text-muted);
   font-style: italic;
+}
+
+.lg-inline-edit--quiet {
+  border-bottom-color: transparent;
+}
+
+.lg-inline-edit--quiet:hover,
+.lg-inline-edit--quiet:focus-visible {
+  border-bottom-color: var(--lg-color-border-strong);
 }
 
 .lg-inline-edit--input {

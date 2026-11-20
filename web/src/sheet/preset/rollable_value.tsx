@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { Resolution } from '../../dice/resolve';
 import { messageWith } from '../../l10n/strings';
 import { useRowRoll } from '../dice_row';
@@ -18,6 +19,8 @@ export interface RollableValueProps {
   readonly text: string;
   readonly allowRoll?: boolean;
   readonly className?: string;
+  readonly accessibleName?: string;
+  readonly icon?: ReactNode;
 }
 
 export function RollableValue({
@@ -27,14 +30,26 @@ export function RollableValue({
   text,
   allowRoll = true,
   className,
+  accessibleName,
+  icon,
 }: RollableValueProps) {
   const { resolution, roll } = useRowRoll(rowKey, sectionKey, label);
   const classes = ['lg-rollable', className].filter((entry): entry is string => !!entry).join(' ');
+  const content = (
+    <>
+      {icon}
+      {text}
+    </>
+  );
 
   if (!allowRoll || !resolution.rollable) {
     return (
-      <span className={`${classes} lg-rollable--still`} data-rollable="false">
-        {text}
+      <span
+        className={`${classes} lg-rollable--still`}
+        data-rollable="false"
+        title={accessibleName}
+      >
+        {content}
       </span>
     );
   }
@@ -43,10 +58,12 @@ export function RollableValue({
     <button
       type="button"
       className={`${classes} lg-rollable--button`}
-      aria-label={rollAccessibleName(label, resolution)}
+      data-rollable="true"
+      aria-label={accessibleName ?? rollAccessibleName(label, resolution)}
+      title={accessibleName}
       onClick={roll}
     >
-      {text}
+      {content}
     </button>
   );
 }

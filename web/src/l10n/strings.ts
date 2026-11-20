@@ -358,6 +358,8 @@ export const messages = {
   'sheet.play.xpAdd': 'Add XP',
   'sheet.play.levelUp': 'Level up to {count}?',
   'sheet.play.noValue': '—',
+  'sheet.play.attackRoll': 'Attack roll, {name}, {value}',
+  'sheet.play.damageRoll': 'Damage roll, {name}, {value}',
   'sheet.play.spellcasting': 'Spellcasting',
   'sheet.play.spellSlots': 'Spell slots',
   'sheet.play.slotGroup': 'Level {count} spell slots',

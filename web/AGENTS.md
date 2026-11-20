@@ -141,7 +141,9 @@ the F2 client and the F4 engine and owns no wire model.
   shared edit store, Dice context and decoded template through `preset_context.tsx` and owns no wire
   model, state or request; one file per Play section, so a new panel is one `sections` entry; every
   string resolves through `src/l10n/strings.ts`, every visual value is a `--lg-*` token and data is
-  rendered as text; an NPC/enemy sheet may swap the body through the optional kind-selected
+  rendered as text; every rollable total draws through `rollable_value.tsx` (text colour, dashed
+  accent underline, accent hover/focus fill) and filled accent stays reserved for the proficiency
+  dot and the primary action; an NPC/enemy sheet may swap the body through the optional kind-selected
   `statBlock`. Section-by-section detail, the pure helpers and their tests live in
   [../context/sheets.md](../context/sheets.md).
 - `src/shell/shortcut_registry.ts` — the one action → key map (`Ctrl+S`/`Cmd+S` save, `F5`
