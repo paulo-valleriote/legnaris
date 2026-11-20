@@ -434,11 +434,16 @@ vitals band under the header: a compact 56px armor class shield that still opens
 inline rollable initiative beside it (pencil inline edit clamped to −5–20 by `armor_class.ts`) and
 the one-row hit-points card (`hit_points.ts`), with its
 amount field and Damage and Heal actions on the same line. Below it the body reuses the ability
-medallions, the attack cards and the spellcasting panel, and adds a compact proficiency card that
-draws only the proficient saving throws
-(ability abbreviation plus the rollable `saves.<ability>` total) and skills (template name, an
-inline-editable `skills.<skill>.bonus`, the rollable total) from the
-`config.save<A>Prof` / `config.skill<S>Prof` leaves; with none proficient the card is not drawn.
+medallions (without the passive pill) and the attack cards and the spellcasting panel, and adds a
+short prose block from the `config.save<A>Prof` / `config.skill<S>Prof` leaves: one line per list,
+"Saves Dex +4 · Wis +2" and "Skills Stealth +6 · Perception +6", each naming the save abbreviation
+or skill and its rollable total and nothing else (the `skills.<skill>.bonus` base stays editable
+only in Edit mode's generic form). A list with no proficient member draws no line. The same block
+ends with one movement line, "Speed 30 ft · Passive 16": the template `combat.speed` with the
+`sheet.play.feet` unit and the derived `derived.passiveAwareness`, either side left out when it has
+no value, the whole line and the block omitted when nothing is left (`statMovementParts` /
+`statProseText` are pure). The lines wrap between parts, never inside a name and its total, on
+`--lg-size-control` roll targets.
 Every value keeps its pending-delta path, so the stat block saves, previews and drafts like the full
 sheet. A character sheet, or a sheet with no kind, keeps the full preset. `stat_block.css` draws
 body text at `--lg-type-15` with every control on a `--lg-size-control` target; on a phone the band

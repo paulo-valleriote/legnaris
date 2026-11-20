@@ -449,16 +449,57 @@ describe('the stat block vitals band', () => {
   });
 });
 
-describe('the stat block proficiencies', () => {
-  it('Edge: no proficient saves or skills hides the proficiency block', async () => {
+describe('the stat block prose lines', () => {
+  it('Edge: no proficient saves or skills leaves their lines out but keeps the movement line', async () => {
     await openFantasy({
       kind: 'npc',
       data: { config: { saveDexterityProf: 0, skillAthleticsProf: 0 } },
     });
 
-    expect(screen.queryByTestId('sheet-stat-proficiencies')).not.toBeInTheDocument();
     expect(screen.queryByTestId('sheet-stat-saves')).not.toBeInTheDocument();
     expect(screen.queryByTestId('sheet-stat-skills')).not.toBeInTheDocument();
+    expect(screen.getByTestId('sheet-stat-speed')).toHaveTextContent('Speed 30 ft · Passive 14');
+  });
+
+  it('Edge: no proficiency, no speed and no passive awareness drops the whole block', async () => {
+    await openFantasy({
+      kind: 'npc',
+      data: {
+        config: { saveDexterityProf: 0, skillAthleticsProf: 0 },
+        combat: { speed: null },
+        derived: { passiveAwareness: null },
+      },
+    });
+
+    expect(screen.queryByTestId('sheet-stat-prose')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sheet-stat-speed')).not.toBeInTheDocument();
+  });
+
+  it('Edge: a missing speed leaves only the passive value on its line', async () => {
+    await openFantasy({ kind: 'npc', data: { combat: { speed: null } } });
+
+    const line = screen.getByTestId('sheet-stat-speed');
+    expect(line).toHaveTextContent('Passive 14');
+    expect(line).not.toHaveTextContent('ft');
+    expect(line.querySelector('[data-separator]')).toBeNull();
+  });
+
+  it('Edge: a missing passive awareness leaves only the speed on its line', async () => {
+    await openFantasy({ kind: 'npc', data: { derived: { passiveAwareness: null } } });
+
+    const line = screen.getByTestId('sheet-stat-speed');
+    expect(line).toHaveTextContent('Speed 30 ft');
+    expect(line).not.toHaveTextContent('Passive');
+  });
+
+  it('Edge: negative totals keep their sign', async () => {
+    await openFantasy({
+      kind: 'enemy',
+      data: { saves: { dexterity: -2 }, skills: { athletics: { bonus: 0, total: -3 } } },
+    });
+
+    expect(screen.getByTestId('sheet-stat-saves')).toHaveTextContent('Saves Dex -2');
+    expect(screen.getByTestId('sheet-stat-skills')).toHaveTextContent('Skills Athletics -3');
   });
 
   it('Edge: only proficient saves and skills are drawn as inline text', async () => {
@@ -470,25 +511,61 @@ describe('the stat block proficiencies', () => {
     expect(screen.queryByTestId('sheet-stat-skill-stealth')).not.toBeInTheDocument();
   });
 
-  it('Happy path: a save total rolls and a skill bonus is inline editable', async () => {
-    const { fake, user } = await openFantasy({ kind: 'npc' });
+  it('Happy path: each save and skill shows exactly one number, the rollable total', async () => {
+    await openFantasy({ kind: 'npc' });
 
-    const saveRow = screen.getByTestId('sheet-stat-save-dexterity');
-    expect(within(saveRow).getByText('DEX')).toBeInTheDocument();
+    expect(screen.getByTestId('sheet-stat-saves')).toHaveTextContent('Saves Dex +4');
+    expect(screen.getByTestId('sheet-stat-skills')).toHaveTextContent('Skills Athletics +5');
     expect(
-      within(saveRow).getByRole('button', { name: rollName('Dexterity save') }),
+      within(screen.getByTestId('sheet-stat-save-dexterity')).getByRole('button', {
+        name: rollName('Dexterity save'),
+      }),
     ).toHaveTextContent('+4');
+    expect(
+      within(screen.getByTestId('sheet-stat-skill-athletics')).getByRole('button', {
+        name: rollName('Athletics'),
+      }),
+    ).toHaveTextContent('+5');
+  });
+
+  it('Happy path: several proficient skills share one line behind separators', async () => {
+    await openFantasy({
+      kind: 'npc',
+      data: { config: { skillStealthProf: 1, skillPerceptionProf: 1, skillSurvivalProf: 1 } },
+    });
+
+    const skills = screen.getByTestId('sheet-stat-skills');
+    expect(skills).toHaveTextContent(
+      'Skills Athletics +5 · Stealth +3 · Perception +1 · Survival -1',
+    );
+    expect(skills.querySelectorAll('[data-separator]')).toHaveLength(3);
+  });
+
+  it('Edge: the base skill bonus draws no control in Play, so the line carries only the total', async () => {
+    await openFantasy({ kind: 'npc' });
 
     const skill = screen.getByTestId('sheet-stat-skill-athletics');
-    expect(within(skill).getByRole('button', { name: rollName('Athletics') })).toHaveTextContent(
-      '+5',
-    );
+    expect(within(skill).getByText('Athletics')).toBeInTheDocument();
+    expect(skill).toHaveTextContent('Athletics +5');
+    expect(
+      within(skill).queryByRole('button', { name: 'Athletics bonus' }),
+    ).not.toBeInTheDocument();
+    expect(within(skill).queryByRole('textbox')).not.toBeInTheDocument();
+  });
 
-    await editValue(user, skill, 'Athletics bonus', '+3');
-    await save(user);
-    await waitFor(() =>
-      expect(savedData(fake)).toEqual({ data: { skills: { athletics: { bonus: 3 } } } }),
-    );
+  it('Happy path: Edit mode still edits the base skill bonus', async () => {
+    const { user } = await openFantasy({ kind: 'npc' });
+
+    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+
+    expect(screen.getByRole('textbox', { name: 'Athletics bonus' })).toBeInTheDocument();
+  });
+
+  it('Happy path: speed and passive awareness share one line instead of the passive pill', async () => {
+    await openFantasy({ kind: 'npc' });
+
+    expect(screen.getByTestId('sheet-stat-speed')).toHaveTextContent('Speed 30 ft · Passive 14');
+    expect(screen.queryByTestId('sheet-play-passive')).not.toBeInTheDocument();
   });
 });
 
@@ -593,7 +670,17 @@ describe('the stat block styles', () => {
     );
     expect(css).toMatch(/\.lg-stat-block \.lg-play-section\s*\{[^}]*border:\s*0/);
     expect(css).toMatch(/\.lg-stat-block \.lg-hp-card\s*\{[^}]*border:\s*0/);
-    expect(css).toMatch(/\.lg-stat-block__profs\s*\{[^}]*border:\s*0/);
+    expect(css).toMatch(/\.lg-stat-block__prose\s*\{[^}]*min-width:\s*0/);
+  });
+
+  it('Edge: the prose lines wrap without splitting a name from its total, on 44px targets', () => {
+    expect(css).toMatch(/\.lg-stat-block__line\s*\{[^}]*overflow-wrap:\s*anywhere/);
+    expect(css).toMatch(/\.lg-stat-block__line-item\s*\{[^}]*white-space:\s*nowrap/);
+    expect(css).toMatch(
+      /\.lg-stat-block :is\(button, input\)\s*\{[^}]*min-block-size:\s*var\(--lg-size-control\)/,
+    );
+    expect(css).not.toMatch(/lg-stat-block__prof/);
+    expect(css).not.toMatch(/lg-ability-passive/);
   });
 
   it('Edge: the enemy badge uses the danger role and the NPC badge a neutral role', () => {
