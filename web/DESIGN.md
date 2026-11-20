@@ -126,17 +126,21 @@ No screen invents its own heading size; a smaller voice is a step of this list, 
   margin is a step of this scale.
 - **The shell is two regions: navigation then content.** There is no contextual panel. On every
   route the shell exposes exactly a named `nav` and a `main`, in that order.
-- **Navigation is persistent:** at 640 px (`40rem`) and wider it is a left column fixed between
-  `--lg-size-nav-min` and `--lg-size-nav-max` (200–240 px). It never becomes a hamburger, a drawer
-  or an overlay. Its surface and trailing hairline paint the full page height, while a viewport-high
-  sticky rail keeps the links and Sign out in place on a page taller than the viewport.
+- **Navigation is persistent from 640 px:** at 640 px (`40rem`) and wider it is a left column fixed
+  between `--lg-size-nav-min` and `--lg-size-nav-max` (200–240 px). The desktop column never becomes
+  a drawer or an overlay. Its surface and trailing hairline paint the full page height, while a
+  viewport-high sticky rail keeps the links and Sign out in place on a page taller than the viewport.
 - **Below 640 px the navigation is a compact top bar.** The same `nav` becomes a single row above
-  the content: the brand mark, then Catalog and Your sheet, with Sign out at the trailing edge.
-  Labels are text only (no icons, no chevrons, no tagline or wordmark), the current item keeps the
-  raised layer and gains an accent underline, and every control keeps the `--lg-size-control` height.
-  The row wraps rather than overflowing if text is enlarged. It is not a hamburger, an overlay or a
-  bottom bar: every destination stays visible and one tap away. The breakpoint is `40rem` because a
-  media query cannot read a token and the literal scan forbids pixel values.
+  the content: the brand mark, then a `--lg-size-control` menu button at the trailing edge
+  (`aria-expanded`, `aria-controls`). Its destinations (Catalog, Your sheet, Plans, Campaigns,
+  Account and Sign out) open in one floating panel on the surface layer, `--lg-space-16` in from
+  each edge, just under the bar, with `--lg-radius-md`, `--lg-shadow-2` and a `70dvh` scroll cap.
+  The panel is the only overlay the shell draws; the bar stays a grid row above the content, so
+  nothing overlaps until the panel opens. The current item keeps the raised layer and an accent
+  underline, labels are text only, and every control keeps the `--lg-size-control` height. Opening
+  moves focus into the panel; Escape or a tap outside closes it and returns focus to the button.
+  The breakpoint is `40rem` because a media query cannot read a token and the literal scan forbids
+  pixel values.
 - **Content keeps a minimum width** (`--lg-size-content-min`, 320 px) and a readable measure
   (`--lg-size-content-max`, 960 px, centred). From 640 px up, as the viewport narrows, the
   navigation stays put and the content reaches its minimum without ever overlapping the navigation
@@ -238,8 +242,9 @@ No screen invents its own heading size; a smaller voice is a step of this list, 
 - **Navigation.** A persistent left region opening with a brand lockup (sigil, tracked wordmark
   and tagline); each item pairs an icon with its label and closes with a chevron, and the current
   item is marked with the raised layer and an accent icon; the footer hosts the icon-and-label
-  session control. Below 640 px it is the compact top bar described under "Spacing and layout".
-  Its controls are `--lg-size-control` high at every width and pointer. There is no theme switch: the signed-in app is always
+  session control. Below 640 px it is the compact top bar described under "Spacing and layout":
+  the brand mark and one menu button, with the destinations and the session control in a floating
+  panel on the surface layer. Its controls are `--lg-size-control` high at every width and pointer. There is no theme switch: the signed-in app is always
   dark.
 - **Dialog / overlay.** `--lg-shadow-3` on the surface layer, `--lg-radius-lg`, the
   `--lg-color-overlay` scrim with an inset of `--lg-space-16`, so a full-height dialog never touches
@@ -455,7 +460,8 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   in `--lg-type-15` muted: no kicker above the heading. The actions sit at the trailing edge as one
   bounded group (hairline border, `--lg-radius-md`) of ghost text buttons divided by hairlines, each
   on a `--lg-size-control` target: `Help`, `Arrange` (pinning is part of Arrange mode). None is primary, because none is: Save stays the only one. On a narrow width the group
-  wraps under the name. `Collapse all` is not a header action: it sits at the trailing edge of the
+  wraps under the name; in Play the hero leads and the group follows it, so the sheet title starts
+  within the first 80 px of a 390 px viewport. `Collapse all` is not a header action: it sits at the trailing edge of the
   sticky section strip, next to the links it acts on. There is no vitals strip and no card of pinned
   numbers above the Sections: pinned Rows rise to the top of their own Section.
 

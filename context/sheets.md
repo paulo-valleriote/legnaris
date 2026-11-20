@@ -243,7 +243,9 @@ the same `NARROW_QUERY` as every preset media query) the narrow layout replaces 
 flat, mobile-first order — combat, attacks, spells, abilities, saves, skills, rules — so the DOM and
 the keyboard tab order follow the visual order; the 1440 and 1100 arrangements keep their columns.
 The narrow sections are wrapped in `data-preset-section` slots, and a Section that renders nothing
-(no spells, no attacks, no rules) leaves an empty slot that is not drawn. The title is
+(no spells, no attacks, no rules) leaves an empty slot that is not drawn. On a phone the hero comes
+before the sheet action group (desktop keeps the actions above it), so the title starts within the
+first 80 px of a 390 px viewport. The title is
 `identity.characterName` with
 the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper and
 `played by <player>` on one wrapping line (they share the row at 390px, and long values wrap inside

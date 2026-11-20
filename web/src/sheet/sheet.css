@@ -367,6 +367,10 @@
 }
 
 @media (max-width: 39.99rem) {
+  .lg-sheet__heading:has(.lg-preset-hero) {
+    flex-direction: column;
+  }
+
   .lg-sheet--editor {
     padding-top: var(--lg-space-24);
   }

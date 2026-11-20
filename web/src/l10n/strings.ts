@@ -203,6 +203,7 @@ export const messages = {
   'nav.sectionWorkspace': 'Workspace',
   'nav.tagline': 'Character archive',
   'nav.account': 'Account',
+  'nav.menu': 'Menu',
 
   'account.title': 'Your account',
   'account.privacyHeading': 'Privacy',

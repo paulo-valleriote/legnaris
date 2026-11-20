@@ -245,10 +245,11 @@
 
 /*
  * Below 40rem (640 px) the two-column grid cannot fit: the navigation and the content minimum
- * alone exceed a phone. The navigation becomes a compact top bar (still exactly two regions, nav
- * then main, never an overlay or a hamburger) and the content takes the full width on 16 px
- * gutters. Media queries do not resolve custom properties, so the breakpoint is a relative unit,
- * one hundredth of a rem under the 40rem desktop edge so 40rem itself stays desktop.
+ * alone exceed a phone. The navigation keeps exactly two regions (nav then main) but its
+ * destinations collapse behind one control-height menu button and open as a floating panel over
+ * the content. The content takes the full width on 16 px gutters. Media queries do not resolve
+ * custom properties, so the breakpoint is a relative unit, one hundredth of a rem under the
+ * 40rem desktop edge so 40rem itself stays desktop.
  */
 @media (max-width: 39.99rem) {
   .lg-shell {
@@ -258,9 +259,13 @@
 
   .lg-nav {
     display: flex;
-    flex-flow: row wrap;
+    position: relative;
+    align-self: stretch;
+    height: auto;
+    overflow-y: visible;
+    flex-flow: row nowrap;
     align-items: center;
-    gap: var(--lg-space-4);
+    gap: var(--lg-space-8);
     padding: var(--lg-space-4) var(--lg-space-16);
     border-right: 0;
     border-bottom: var(--lg-size-hairline) solid var(--lg-color-border);
@@ -272,41 +277,67 @@
 
   .lg-nav__brand {
     flex: none;
-    padding: 0 var(--lg-space-8) 0 0;
+    padding: 0;
   }
 
-  .lg-nav__brand-text,
-  .lg-nav__group-label,
-  .lg-nav__icon,
-  .lg-nav__chevron {
+  .lg-nav__brand-text {
     display: none;
   }
 
-  .lg-nav__group {
-    display: contents;
-  }
-
-  .lg-nav__footer {
-    flex-direction: row;
-    margin-top: 0;
+  .lg-nav__menu-toggle {
+    display: grid;
+    place-items: center;
+    width: var(--lg-size-control);
+    height: var(--lg-size-control);
     margin-left: auto;
-    padding-top: 0;
-    border-top: 0;
+    padding: 0;
+    border: 0;
+    border-radius: var(--lg-radius-md);
+    background-color: transparent;
+    font-family: inherit;
+    color: var(--lg-color-text-muted);
+    cursor: pointer;
+    transition:
+      background-color var(--lg-motion-180) var(--lg-ease-standard),
+      color var(--lg-motion-180) var(--lg-ease-standard);
   }
 
-  .lg-nav__link,
-  .lg-nav__action {
-    width: auto;
-    min-height: var(--lg-size-control);
-    padding: 0 var(--lg-space-8);
+  .lg-nav__menu-toggle:hover {
+    background-color: var(--lg-color-surface-hover);
+    color: var(--lg-color-text);
   }
 
-  .lg-nav__label {
-    flex: none;
+  .lg-nav__menu-toggle svg {
+    display: block;
+    width: var(--lg-space-24);
+    height: var(--lg-space-24);
   }
 
-  .lg-nav__link[aria-current='page'] {
-    box-shadow: inset 0 calc(-1 * var(--lg-space-2)) 0 var(--lg-color-accent);
+  .lg-nav__menu {
+    position: absolute;
+    top: calc(100% + var(--lg-space-4));
+    inset-inline: var(--lg-space-16);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    gap: var(--lg-space-8);
+    max-height: 70dvh;
+    overflow-y: auto;
+    padding: var(--lg-space-8);
+    border: var(--lg-size-hairline) solid var(--lg-color-border);
+    border-radius: var(--lg-radius-md);
+    background-color: var(--lg-color-surface);
+    box-shadow: var(--lg-shadow-2);
+  }
+
+  .lg-nav__menu[hidden] {
+    display: none;
+  }
+
+  .lg-nav__menu .lg-nav__footer {
+    margin-top: 0;
+    padding-top: var(--lg-space-8);
+    border-top: var(--lg-size-hairline) solid var(--lg-color-border);
   }
 
   .lg-content {
