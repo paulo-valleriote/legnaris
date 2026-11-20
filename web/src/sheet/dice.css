@@ -96,6 +96,32 @@
   color: var(--lg-color-text-muted);
 }
 
+.lg-dice-panel__die {
+  font-variant-numeric: tabular-nums;
+}
+
+.lg-dice-panel__die--kept {
+  color: var(--lg-color-text);
+  font-weight: var(--lg-font-weight-semibold);
+}
+
+.lg-dice-panel__die--dropped {
+  text-decoration-line: line-through;
+}
+
+.lg-dice-panel__mode {
+  margin-inline-start: var(--lg-space-8);
+  color: var(--lg-color-text);
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-semibold);
+  white-space: nowrap;
+}
+
+.lg-roll-mode {
+  display: grid;
+  gap: var(--lg-space-8);
+}
+
 .lg-dice-panel__value {
   margin-inline-start: auto;
 }

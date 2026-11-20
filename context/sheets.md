@@ -269,7 +269,12 @@ hook it uses are the reusable roll surface for later gameplay sections. Every ro
 one affordance: text colour, a dashed accent (`--lg-color-link`) underline, and an accent fill with
 on-accent text on hover or focus. Filled accent is reserved for the proficiency dot and the primary
 action, so "proficient" and "rollable" never look alike; the style follows the value rather than its
-sign, so a zero or negative modifier keeps it. No Play label falls below `--lg-type-11` on a desktop
+sign, so a zero or negative modifier keeps it. A d20 rollable also carries the roll mode: Shift-click
+rolls with advantage and Alt-click with disadvantage (Shift wins when both are held), while a long
+press, the Context Menu key or Shift+F10 opens one small dialog choosing Normal, Advantage or
+Disadvantage, so a phone and a keyboard reach the same choice. Only an expression with a d20 term
+reacts; a damage expression and every other non-d20 roll throws exactly its own dice. No Play label
+falls below `--lg-type-11` on a desktop
 or `--lg-type-12` on a phone (hero badge, HP, AC and combat chips, spellcasting, ability and skill
 labels). The attack cards, saving throws, skills, spellcasting panel and table-rules disclosure
 follow (see below). Edit keeps the generic form, Arrange and the pinned filter; Play ignores the
@@ -383,7 +388,8 @@ attack Row through the `attacks` Section dice and the preset `1d20 + @.bonus` de
 the Dice panel and per-sheet overrides. Damage is a literal expression validated by the pure
 `fantasy/attacks_data.ts` (`parseAttackDamage`: at least one die, no field reference) and rolled
 through `useExpressionRoll` (`dice_row.tsx`), which keeps the Dice panel, saved/draft values and
-result copy while leaving the attack Row's own dice setting alone. Bonus edits clamp to the
+result copy while leaving the attack Row's own dice setting alone; it takes no roll mode, so the
+advantage/disadvantage modifiers never touch a damage roll. Bonus edits clamp to the
 template range; name, bonus and damage write the pending delta.
 
 The mode is component state for the open screen, local to the viewer, never persisted and never
@@ -406,7 +412,9 @@ floor observer, so the bar never covers the total, the parts or the `role="statu
 The panel keeps the last three rolls of the session (`dice_history.ts`, `rememberRoll`), newest
 first: a fourth roll evicts the oldest, only the newest is announced through the one polite live
 region, and its × or Escape clears the whole history. The history is in memory only, so a reload
-starts empty.
+starts empty. A roll made with a mode names `Advantage` or `Disadvantage` beside its total, lists
+every thrown d20 with the kept one in text colour and the dropped one struck through, and announces
+the newest as `<label> rolled <total> with advantage` (or `with disadvantage`).
 
 Any Play-mode value edit also floats the pending-changes bar (`pending_card.tsx`, fed by the pure
 `pending_changes.ts`): the only save surface in Play, because the screen draws no footer there.

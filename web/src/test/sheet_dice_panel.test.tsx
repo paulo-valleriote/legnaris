@@ -166,6 +166,87 @@ describe('DicePanel', () => {
     expect(onDismiss).not.toHaveBeenCalled();
   });
 
+  it('Happy path: an advantaged roll lists both dice, marks the dropped one and names the kept', () => {
+    const advantaged: RollEntry = {
+      id: 1,
+      label: 'Initiative',
+      mode: 'advantage',
+      outcome: succeed({
+        total: 17,
+        parts: [{ sign: 1, label: '1d20', value: 17, rolls: [4, 17], discarded: [0] }],
+      }),
+    };
+    render(<DicePanel results={[advantaged]} onDismiss={() => {}} />);
+
+    const dice = [...document.querySelectorAll<HTMLElement>('.lg-dice-panel__die')];
+    expect(dice.map((die) => die.textContent)).toEqual(['4', '17']);
+    expect(dice[0]).toHaveClass('lg-dice-panel__die--dropped');
+    expect(dice[1]).toHaveClass('lg-dice-panel__die--kept');
+    expect(
+      screen.getByText(messageWith('dice.keptRolls', { rolls: '4, 17', kept: '17' })),
+    ).toBeTruthy();
+    expect(screen.getByText(message('dice.mode.advantage'))).toBeTruthy();
+  });
+
+  it('Edge: a disadvantaged roll marks the lower die, not the higher one', () => {
+    const disadvantaged: RollEntry = {
+      id: 1,
+      label: 'Initiative',
+      mode: 'disadvantage',
+      outcome: succeed({
+        total: 4,
+        parts: [{ sign: 1, label: '1d20', value: 4, rolls: [4, 17], discarded: [1] }],
+      }),
+    };
+    render(<DicePanel results={[disadvantaged]} onDismiss={() => {}} />);
+
+    const dice = [...document.querySelectorAll<HTMLElement>('.lg-dice-panel__die')];
+    expect(dice[0]).toHaveClass('lg-dice-panel__die--kept');
+    expect(dice[1]).toHaveClass('lg-dice-panel__die--dropped');
+    expect(screen.getByText(message('dice.mode.disadvantage'))).toBeTruthy();
+  });
+
+  it('Edge: both dice equal keep the first and mark only the second as dropped', () => {
+    const tied: RollEntry = {
+      id: 1,
+      label: 'Initiative',
+      mode: 'advantage',
+      outcome: succeed({
+        total: 9,
+        parts: [{ sign: 1, label: '1d20', value: 9, rolls: [9, 9], discarded: [1] }],
+      }),
+    };
+    render(<DicePanel results={[tied]} onDismiss={() => {}} />);
+
+    const dice = [...document.querySelectorAll<HTMLElement>('.lg-dice-panel__die')];
+    expect(dice.map((die) => die.textContent)).toEqual(['9', '9']);
+    expect(dice[0]).toHaveClass('lg-dice-panel__die--kept');
+    expect(dice[1]).toHaveClass('lg-dice-panel__die--dropped');
+  });
+
+  it('Edge: a normal roll names no mode and draws no mode mark', () => {
+    render(<DicePanel results={[rolled]} onDismiss={() => {}} />);
+
+    expect(document.querySelector('.lg-dice-panel__mode')).toBeNull();
+    expect(document.querySelector('.lg-dice-panel__die')).toBeNull();
+    expect(screen.queryByText(message('dice.mode.advantage'))).toBeNull();
+  });
+
+  it('Happy path: an advantaged result is announced with its mode', () => {
+    const advantaged: RollEntry = {
+      id: 2,
+      label: 'Initiative',
+      mode: 'advantage',
+      outcome: succeed({ total: 17, parts: [] }),
+    };
+    render(<DicePanel results={[advantaged, rolled]} onDismiss={() => {}} />);
+
+    expect(screen.getByRole('status').textContent).toBe(
+      messageWith('dice.rolledAdvantage', { label: 'Initiative', total: 17 }),
+    );
+    expect(screen.getByRole('status').textContent).not.toContain('11');
+  });
+
   it('Edge: a negative term is shown with its minus sign, not dropped', () => {
     const withMinus = entry(1, 'Hit', 2, [
       { sign: 1, label: '1d20', value: 5, rolls: [5] },
