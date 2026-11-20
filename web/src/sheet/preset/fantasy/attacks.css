@@ -19,6 +19,10 @@
   background-color: var(--lg-color-bg);
 }
 
+.lg-attack-card__heading {
+  min-width: 0;
+}
+
 .lg-attack-card__name {
   min-width: 0;
   margin: 0;
@@ -35,6 +39,25 @@
 }
 
 .lg-attack-card__name .lg-inline-edit:hover {
+  border-bottom-color: var(--lg-color-border-strong);
+}
+
+.lg-attack-card__notes {
+  min-width: 0;
+  margin: var(--lg-space-2) 0 0;
+  overflow: hidden;
+  color: var(--lg-color-text-muted);
+  font-size: var(--lg-type-13);
+  line-height: var(--lg-line-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lg-attack-card__notes .lg-inline-edit {
+  border-bottom-color: transparent;
+}
+
+.lg-attack-card__notes .lg-inline-edit:hover {
   border-bottom-color: var(--lg-color-border-strong);
 }
 
