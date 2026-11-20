@@ -68,6 +68,81 @@ async function contentEdges(page: Page) {
   });
 }
 
+interface DashedUnderline {
+  readonly text: string | null;
+  readonly textBox: { left: number; right: number; top: number; bottom: number } | null;
+  readonly underline: { left: number; right: number; top: number; bottom: number };
+}
+
+async function dashedUnderlines(page: Page): Promise<DashedUnderline[]> {
+  return page.getByTestId('sheet-stat-band').evaluate((band) => {
+    const textBoxOf = (element: Element) => {
+      const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+      let text = '';
+      let left = Number.POSITIVE_INFINITY;
+      let right = Number.NEGATIVE_INFINITY;
+      let top = Number.POSITIVE_INFINITY;
+      let bottom = Number.NEGATIVE_INFINITY;
+      for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+        const content = node.textContent ?? '';
+        if (content.trim() === '') {
+          continue;
+        }
+        text += content;
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const rect = range.getBoundingClientRect();
+        left = Math.min(left, rect.left);
+        right = Math.max(right, rect.right);
+        top = Math.min(top, rect.top);
+        bottom = Math.max(bottom, rect.bottom);
+      }
+      return text === '' ? null : { text, box: { left, right, top, bottom } };
+    };
+
+    const found: DashedUnderline[] = [];
+    for (const element of band.querySelectorAll('*')) {
+      const style = getComputedStyle(element);
+      const borderWidth = Number.parseFloat(style.borderBottomWidth);
+      const dashedBorder = style.borderBottomStyle === 'dashed' && borderWidth > 0;
+      const dashedText =
+        style.textDecorationStyle === 'dashed' && style.textDecorationLine.includes('underline');
+      if (!dashedBorder && !dashedText) {
+        continue;
+      }
+      const content = textBoxOf(element);
+      const rect = element.getBoundingClientRect();
+      if (dashedBorder) {
+        found.push({
+          text: content?.text ?? null,
+          textBox: content?.box ?? null,
+          underline: {
+            left: rect.left,
+            right: rect.right,
+            top: rect.bottom - borderWidth,
+            bottom: rect.bottom,
+          },
+        });
+        continue;
+      }
+      const context = document.createElement('canvas').getContext('2d')!;
+      context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const ascent = content === null ? 0 : context.measureText(content.text).fontBoundingBoxAscent;
+      const offset = Number.parseFloat(style.textUnderlineOffset) || 0;
+      const thickness = Number.parseFloat(style.textDecorationThickness) || 1;
+      const left = content?.box.left ?? rect.left;
+      const right = content?.box.right ?? rect.right;
+      const top = (content?.box.top ?? rect.top) + ascent + offset;
+      found.push({
+        text: content?.text ?? null,
+        textBox: content?.box ?? null,
+        underline: { left, right, top, bottom: top + thickness },
+      });
+    }
+    return found;
+  });
+}
+
 async function expectFullWidthModeSwitch(page: Page, segments: number) {
   const group = page.getByTestId('sheet-header-actions');
   const edges = await contentEdges(page);
@@ -625,6 +700,35 @@ test.describe('the enemy stat block', () => {
         expect(name.text).not.toBe('');
         expect(name.scroll).toBeLessThanOrEqual(name.client);
       }
+    });
+  }
+
+  for (const phone of PHONES) {
+    test(`every dashed underline hugs its value on ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await openStatBlock(page);
+
+      const underlines = await dashedUnderlines(page);
+      expect(new Set(underlines.map((entry) => entry.text?.trim()))).toEqual(
+        new Set(['+2', '26', '38', 'Temp']),
+      );
+
+      for (const entry of underlines) {
+        expect(entry.text).not.toBeNull();
+        const text = entry.textBox!;
+        expect(entry.underline.left).toBeLessThan(text.right);
+        expect(entry.underline.right).toBeGreaterThan(text.left);
+        expect(Math.abs(entry.underline.top - text.bottom)).toBeLessThanOrEqual(8);
+      }
+    });
+
+    test(`the hit point action rows share one left edge on ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await openStatBlock(page);
+
+      const quick = (await page.locator('.lg-hp-card__quick').boundingBox())!;
+      const entry = (await page.locator('.lg-hp-card__entry').boundingBox())!;
+      expect(Math.abs(quick.x - entry.x)).toBeLessThanOrEqual(1);
     });
   }
 });
