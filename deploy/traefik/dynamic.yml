@@ -3,11 +3,18 @@
 #   {{ env "API_DOMAIN" }}        public API hostname
 #   {{ env "WEB_DOMAIN" }}        public web client hostname
 #   {{ env "OPS_DOMAIN" }}        observability + OAuth hostname
+#   {{ env "ROOT_DOMAIN" }}       apex domain AdSense reviews: serves /ads.txt, redirects the rest to the web client
 # Every router uses the `websecure` entrypoint (TLS); the file provider is the
 # only provider, so no Docker socket is needed.
 
 http:
   middlewares:
+    root-to-web:
+      redirectRegex:
+        regex: '^https?://[^/]+/(.*)'
+        replacement: 'https://{{ env "WEB_DOMAIN" }}/${1}'
+        permanent: true
+
     oauth:
       forwardAuth:
         address: "http://oauth2-proxy:4180"
@@ -95,6 +102,20 @@ http:
           - url: "http://rabbitmq:15672"
 
   routers:
+    # AdSense only accepts the apex domain and reads its ads.txt from there.
+    root-ads-txt:
+      rule: 'Host(`{{ env "ROOT_DOMAIN" }}`) && Path(`/ads.txt`)'
+      entryPoints: ['websecure']
+      service: web
+      middlewares: ["web-security-headers"]
+      priority: 1000
+
+    root:
+      rule: 'Host(`{{ env "ROOT_DOMAIN" }}`)'
+      entryPoints: ['websecure']
+      service: web
+      middlewares: ["root-to-web"]
+
     # OAuth callback on the ops domain (no oauth middleware, else login loops).
     oauth2-proxy:
       rule: 'Host(`{{ env "OPS_DOMAIN" }}`) && PathPrefix(`/oauth2`)'

@@ -400,3 +400,55 @@ func TestPublicProbeExposure(t *testing.T) {
 		assert.Equal(t, 200, limit.Burst)
 	})
 }
+
+func TestRootDomainServesAdsTxtAndRedirectsToWeb(t *testing.T) {
+	routes := readRoutes(t)
+	rootHost := "Host(`{{ env \"ROOT_DOMAIN\" }}`)"
+
+	t.Run("Happy path: ads.txt on the apex domain is served by the web client", func(t *testing.T) {
+		router, ok := routes.HTTP.Routers["root-ads-txt"]
+		require.True(t, ok, "root-ads-txt router must exist")
+		assert.Equal(t, rootHost+" && Path(`/ads.txt`)", router.Rule)
+		assert.Equal(t, "web", router.Service)
+		assert.NotContains(t, router.Middlewares, "root-to-web")
+	})
+
+	t.Run("Happy path: every other apex path redirects permanently to the web domain", func(t *testing.T) {
+		router, ok := routes.HTTP.Routers["root"]
+		require.True(t, ok, "root router must exist")
+		assert.Equal(t, rootHost, router.Rule)
+		assert.Equal(t, []string{"root-to-web"}, router.Middlewares)
+
+		raw, err := os.ReadFile(dynamicFile)
+		require.NoError(t, err)
+		var doc struct {
+			HTTP struct {
+				Middlewares map[string]struct {
+					RedirectRegex struct {
+						Regex       string `yaml:"regex"`
+						Replacement string `yaml:"replacement"`
+						Permanent   bool   `yaml:"permanent"`
+					} `yaml:"redirectRegex"`
+				} `yaml:"middlewares"`
+			} `yaml:"http"`
+		}
+		require.NoError(t, yaml.Unmarshal(raw, &doc))
+		redirect := doc.HTTP.Middlewares["root-to-web"].RedirectRegex
+		assert.Equal(t, "https://{{ env \"WEB_DOMAIN\" }}/${1}", redirect.Replacement)
+		assert.True(t, redirect.Permanent)
+	})
+
+	t.Run("Edge: the ads.txt route outranks the catch-all redirect", func(t *testing.T) {
+		raw, err := os.ReadFile(dynamicFile)
+		require.NoError(t, err)
+		var doc struct {
+			HTTP struct {
+				Routers map[string]struct {
+					Priority int `yaml:"priority"`
+				} `yaml:"routers"`
+			} `yaml:"http"`
+		}
+		require.NoError(t, yaml.Unmarshal(raw, &doc))
+		assert.Greater(t, doc.HTTP.Routers["root-ads-txt"].Priority, doc.HTTP.Routers["root"].Priority)
+	})
+}

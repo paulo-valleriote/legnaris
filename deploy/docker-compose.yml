@@ -66,6 +66,7 @@ services:
       API_DOMAIN: ${API_DOMAIN}
       WEB_DOMAIN: ${WEB_DOMAIN}
       OPS_DOMAIN: ${OPS_DOMAIN}
+      ROOT_DOMAIN: ${ROOT_DOMAIN}
     ports:
       - "80:80"
       - "443:443"
