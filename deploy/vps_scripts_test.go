@@ -606,6 +606,14 @@ if [[ -n "${FAKE_FAIL_GIT:-}" && "$*" == *"$FAKE_FAIL_GIT"* ]]; then exit 1; fi
 if [[ "$1" == fetch && " $* " == *" origin main "* && -n "${FAKE_FETCH_MAIN_FAIL:-}" ]]; then exit 1; fi
 if [[ "$1" == merge-base ]]; then exit "${FAKE_ANCESTOR:-0}"; fi`,
 	"docker": `
+if [[ " $* " == *" config --services "* ]]; then printf 'app\nprometheus\nweb\n'; exit 0; fi
+if [[ " $* " == *" up "* && " $* " != *" --wait "* ]]; then
+  [[ " $* " == *" --no-deps prometheus "* ]] && printf '%s %s\n' "${IMAGE_TAG:-none}" "up-nowait prometheus" >>"$FAKE_LOG"
+  exit 0
+fi
+if [[ " $* " == *" up "* ]]; then
+  [[ " $* " == *" prometheus "* || " $* " != *" app web "* ]] && { echo "gated up must list app web without prometheus" >&2; exit 2; }
+fi
 for sub in pull up; do
   [[ " $* " == *" $sub "* ]] || continue
   printf '%s %s\n' "${IMAGE_TAG:-none}" "$sub" >>"$FAKE_LOG"
@@ -665,7 +673,7 @@ func TestDeployReleaseFailuresStopBeforeUp(t *testing.T) {
 			name:      "Happy path: new commit is pulled, started and recorded",
 			prev:      oldSHA,
 			wantCode:  0,
-			wantCalls: []string{"sha-" + newSHA + " pull", "sha-" + newSHA + " up"},
+			wantCalls: []string{"sha-" + newSHA + " pull", "sha-" + newSHA + " up", "sha-" + newSHA + " up-nowait prometheus"},
 			wantState: newSHA,
 		},
 		{
@@ -673,7 +681,7 @@ func TestDeployReleaseFailuresStopBeforeUp(t *testing.T) {
 			prev:       oldSHA,
 			env:        []string{"FAKE_FAIL_GIT=fetch --depth 1 origin " + newSHA},
 			wantCode:   1,
-			wantCalls:  []string{"sha-" + oldSHA + " pull", "sha-" + oldSHA + " up"},
+			wantCalls:  []string{"sha-" + oldSHA + " pull", "sha-" + oldSHA + " up", "sha-" + oldSHA + " up-nowait prometheus"},
 			wantState:  oldSHA,
 			wantOutput: "rolling back",
 		},
@@ -682,7 +690,7 @@ func TestDeployReleaseFailuresStopBeforeUp(t *testing.T) {
 			prev:       oldSHA,
 			env:        []string{"FAKE_FAIL_GIT=checkout --detach " + newSHA},
 			wantCode:   1,
-			wantCalls:  []string{"sha-" + oldSHA + " pull", "sha-" + oldSHA + " up"},
+			wantCalls:  []string{"sha-" + oldSHA + " pull", "sha-" + oldSHA + " up", "sha-" + oldSHA + " up-nowait prometheus"},
 			wantState:  oldSHA,
 			wantOutput: "rolling back",
 		},
@@ -691,7 +699,7 @@ func TestDeployReleaseFailuresStopBeforeUp(t *testing.T) {
 			prev:      oldSHA,
 			env:       []string{"FAKE_FAIL_TAG=sha-" + newSHA, "FAKE_FAIL_SUB=pull"},
 			wantCode:  1,
-			wantCalls: []string{"sha-" + newSHA + " pull", "sha-" + oldSHA + " pull", "sha-" + oldSHA + " up"},
+			wantCalls: []string{"sha-" + newSHA + " pull", "sha-" + oldSHA + " pull", "sha-" + oldSHA + " up", "sha-" + oldSHA + " up-nowait prometheus"},
 			wantState: oldSHA,
 		},
 		{
@@ -699,7 +707,7 @@ func TestDeployReleaseFailuresStopBeforeUp(t *testing.T) {
 			prev:      oldSHA,
 			env:       []string{"FAKE_FAIL_TAG=sha-" + newSHA, "FAKE_FAIL_SUB=up"},
 			wantCode:  1,
-			wantCalls: []string{"sha-" + newSHA + " pull", "sha-" + newSHA + " up", "sha-" + oldSHA + " pull", "sha-" + oldSHA + " up"},
+			wantCalls: []string{"sha-" + newSHA + " pull", "sha-" + newSHA + " up", "sha-" + oldSHA + " pull", "sha-" + oldSHA + " up", "sha-" + oldSHA + " up-nowait prometheus"},
 			wantState: oldSHA,
 		},
 		{
@@ -798,5 +806,5 @@ func TestDeployChecksAncestryBeforeRelease(t *testing.T) {
 	log := readLog(t, logPath)
 	assert.Contains(t, log, "git fetch --quiet origin main")
 	assert.Contains(t, log, "git merge-base --is-ancestor "+newSHA+" origin/main")
-	assert.Equal(t, []string{"sha-" + newSHA + " pull", "sha-" + newSHA + " up"}, composeActions(log))
+	assert.Equal(t, []string{"sha-" + newSHA + " pull", "sha-" + newSHA + " up", "sha-" + newSHA + " up-nowait prometheus"}, composeActions(log))
 }
