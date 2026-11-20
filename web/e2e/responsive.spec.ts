@@ -155,6 +155,66 @@ test.describe('narrow viewport (the top bar and full-width content)', () => {
   });
 });
 
+const LONG_FIELDS = Object.fromEntries(
+  Array.from({ length: 30 }, (_, index) => [
+    `field${index}`,
+    {
+      schema: {
+        type: 'number',
+        label: `Field ${index}`,
+        is_editable: true,
+        default: 0,
+      },
+    },
+  ]),
+);
+
+const LONG_DETAIL = {
+  ...DETAIL,
+  fields: { long: { label: 'Long', children: LONG_FIELDS } },
+};
+
+const LONG_SHEET = { ...SHEET, data: { long: {} } };
+
+test.describe('the desktop navigation on a long page', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSession(page);
+    await page.route('**/me/plan', (route) => route.fulfill({ json: { data: FREE_PLAN } }));
+    await page.route('**/templates/*', (route) => route.fulfill({ json: { data: LONG_DETAIL } }));
+    await page.route('**/templates', (route) => route.fulfill({ json: { data: CATALOG } }));
+    await page.route('**/sheets/*', (route) =>
+      route.request().resourceType() === 'document'
+        ? route.fallback()
+        : route.fulfill({ json: { data: LONG_SHEET } }),
+    );
+  });
+
+  test('the navigation paints the full scroll height while Sign out stays pinned', async ({
+    page,
+  }) => {
+    const viewport = { width: 1440, height: 900 };
+    await page.setViewportSize(viewport);
+    await page.goto(`/sheets/${SHEET_ID}`);
+    await page.getByRole('button', { name: 'Edit mode' }).click();
+    await expect(page.locator('[data-row-key="long.field29"]')).toBeVisible();
+
+    const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+    expect(scrollHeight).toBeGreaterThan(viewport.height);
+
+    const navBox = (await page.getByRole('navigation', { name: 'Primary' }).boundingBox())!;
+    expect(navBox.y).toBe(0);
+    expect(navBox.height).toBeGreaterThanOrEqual(scrollHeight - 1);
+
+    await page.evaluate(() => window.scrollTo({ top: 300, behavior: 'instant' }));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300);
+
+    const signOut = (await page.getByRole('button', { name: 'Sign out' }).boundingBox())!;
+    expect(signOut.y).toBeGreaterThan(0);
+    expect(signOut.y + signOut.height).toBeGreaterThan(viewport.height - 64);
+    expect(signOut.y + signOut.height).toBeLessThanOrEqual(viewport.height);
+  });
+});
+
 const LONG_LABEL = 'Ancestry, lineage and heritage of the northern clans';
 
 const MARKED_DETAIL = {
