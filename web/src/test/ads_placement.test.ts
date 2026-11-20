@@ -6,11 +6,7 @@ import { describe, expect, it } from 'vitest';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const srcRoot = path.resolve(here, '..');
 
-const ALLOWED = [
-  'catalog/catalog_screen.tsx',
-  'campaign/campaigns_screen.tsx',
-  'landing/landing_screen.tsx',
-];
+const ALLOWED = ['catalog/catalog_screen.tsx', 'campaign/campaigns_screen.tsx'];
 
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
@@ -36,7 +32,7 @@ function surfaces(file: string): string[] {
 }
 
 describe('ad placement', () => {
-  it('Happy path: only the catalog, campaigns and landing screens import AdSlot', () => {
+  it('Happy path: only the catalog and campaign screens import AdSlot', () => {
     const importers = sourceFiles(srcRoot).filter(importing).map(relative).sort();
 
     expect(importers).toEqual([...ALLOWED].sort());
@@ -45,7 +41,10 @@ describe('ad placement', () => {
   it('Happy path: each allowed screen mounts its own surface at the bottom of the page', () => {
     expect(surfaces(path.resolve(srcRoot, 'catalog/catalog_screen.tsx'))).toEqual(['catalog']);
     expect(surfaces(path.resolve(srcRoot, 'campaign/campaigns_screen.tsx'))).toEqual(['campaigns']);
-    expect(surfaces(path.resolve(srcRoot, 'landing/landing_screen.tsx'))).toEqual(['landing']);
+  });
+
+  it('Edge: the home mounts no ad slot', () => {
+    expect(surfaces(path.resolve(srcRoot, 'landing/landing_screen.tsx'))).toEqual([]);
   });
 
   it('Edge: the sheet, plans, campaign detail, generate, dice and auth modules mount no slot', () => {

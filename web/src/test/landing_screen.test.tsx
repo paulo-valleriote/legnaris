@@ -4,10 +4,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { message, messageWith } from '../l10n/strings';
+import { message } from '../l10n/strings';
 import { PRIVACY_PATH } from '../app/routes';
 import { signUpCtaPath } from '../landing/start_intent';
-import { MIGHT_MAX, MIGHT_MIN } from '../landing/cascade';
 import { renderApp } from './render';
 import { rollName } from './dice_names';
 
@@ -138,14 +137,32 @@ describe('landing screen', () => {
     expect(screen.getAllByRole('group').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('Happy path: the demo stepper uses the shared minus and plus glyphs', async () => {
+  it('Happy path: the game moments replace the principles and keep the questions and the legal line', async () => {
     await visit('/');
 
-    const down = screen.getByRole('button', { name: message('landing.demoBaseDown') });
-    const up = screen.getByRole('button', { name: message('landing.demoBaseUp') });
+    expect(
+      screen.getByRole('heading', { level: 2, name: message('landing.momentsTitle') }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { level: 2, name: message('landing.faqTitle') }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(message('landing.faq1Question'))).toBeInTheDocument();
+    expect(
+      within(screen.getByRole('contentinfo')).getByRole('link', {
+        name: message('landing.footer.privacy'),
+      }),
+    ).toHaveAttribute('href', PRIVACY_PATH);
+  });
 
-    expect(down.querySelector('svg path')).toHaveAttribute('d', 'M5 12h14');
-    expect(up.querySelector('svg path')).toHaveAttribute('d', 'M12 5v14');
+  it('Edge: the home mounts no ad slot even when a slot is configured', async () => {
+    renderApp('/', {
+      session: 'unauthenticated',
+      adsConfig: { client: 'ca-pub-1234567890', slots: { landing: '1111111111' } },
+    });
+    await waitFor(() => expect(screen.queryByTestId('auth-restoring')).not.toBeInTheDocument());
+
+    expect(document.querySelector('.lg-ad-slot')).toBeNull();
+    expect(screen.queryByText(message('ads.label'))).not.toBeInTheDocument();
   });
 
   it('Happy path: the sign-up path opens the registration mode', async () => {
@@ -184,148 +201,6 @@ describe('landing screen', () => {
 
     expect(screen.getByTestId('catalog')).toBeInTheDocument();
     expect(screen.queryByTestId('landing')).not.toBeInTheDocument();
-  });
-});
-
-describe('landing recalculation example', () => {
-  function demo() {
-    return within(screen.getByRole('figure', { name: message('landing.demoLabel') }));
-  }
-
-  function demoOutputs(): HTMLOutputElement[] {
-    return [
-      ...screen
-        .getByRole('figure', { name: message('landing.demoLabel') })
-        .querySelectorAll('output'),
-    ];
-  }
-
-  function demoValues(): (string | null)[] {
-    return demoOutputs().map((node) => node.textContent);
-  }
-
-  it('Happy path: raising the base score recalculates every derived value', async () => {
-    const user = userEvent.setup();
-    await visit('/');
-
-    await user.click(demo().getByRole('button', { name: message('landing.demoBaseUp') }));
-    await user.click(demo().getByRole('button', { name: message('landing.demoBaseUp') }));
-
-    expect(demoValues()).toEqual(['16', '+3', '+6', '112']);
-  });
-
-  it('Edge: one polite live region announces the change and the values are not live', async () => {
-    const user = userEvent.setup();
-    await visit('/');
-    const live = demo().getByTestId('demo-live');
-
-    expect(live).toHaveAttribute('aria-live', 'polite');
-    expect(live).toHaveTextContent(
-      messageWith('landing.demoChange', {
-        might: 14,
-        modifier: '+2',
-        climbing: '+5',
-        carry: 98,
-      }),
-    );
-
-    for (const output of demoOutputs()) {
-      expect(output).toHaveAttribute('aria-live', 'off');
-    }
-
-    await user.click(demo().getByRole('button', { name: message('landing.demoBaseUp') }));
-
-    expect(live).toHaveTextContent(
-      messageWith('landing.demoChange', {
-        might: 15,
-        modifier: '+2',
-        climbing: '+5',
-        carry: 105,
-      }),
-    );
-  });
-
-  it('Edge: the lower bound disables the decrease control and keeps the value', async () => {
-    const user = userEvent.setup();
-    await visit('/');
-    const down = demo().getByRole('button', { name: message('landing.demoBaseDown') });
-
-    for (let index = 0; index < MIGHT_MAX; index += 1) {
-      if (!down.hasAttribute('disabled')) {
-        await user.click(down);
-      }
-    }
-
-    expect(down).toBeDisabled();
-    expect(demoValues()[0]).toBe(String(MIGHT_MIN));
-    expect(demoValues()[1]).toBe('−5');
-  });
-
-  it('Edge: the upper bound disables the increase control and keeps the value', async () => {
-    const user = userEvent.setup();
-    await visit('/');
-    const up = demo().getByRole('button', { name: message('landing.demoBaseUp') });
-
-    for (let index = 0; index < MIGHT_MAX; index += 1) {
-      if (!up.hasAttribute('disabled')) {
-        await user.click(up);
-      }
-    }
-
-    expect(up).toBeDisabled();
-    expect(demoValues()[0]).toBe(String(MIGHT_MAX));
-  });
-
-  it('Edge: reaching the upper bound swaps the caption for a remark and leaving restores it', async () => {
-    const user = userEvent.setup();
-    await visit('/');
-    const up = demo().getByRole('button', { name: message('landing.demoBaseUp') });
-
-    for (let index = 0; index < MIGHT_MAX; index += 1) {
-      if (!up.hasAttribute('disabled')) {
-        await user.click(up);
-      }
-    }
-    expect(demo().getByText(message('landing.demoNoteMax'))).toBeInTheDocument();
-    expect(demo().queryByText(message('landing.demoNote'))).not.toBeInTheDocument();
-
-    await user.click(demo().getByRole('button', { name: message('landing.demoBaseDown') }));
-    expect(demo().getByText(message('landing.demoNote'))).toBeInTheDocument();
-  });
-
-  it('Edge: reaching the lower bound swaps the caption for a remark', async () => {
-    const user = userEvent.setup();
-    await visit('/');
-    const down = demo().getByRole('button', { name: message('landing.demoBaseDown') });
-
-    for (let index = 0; index < MIGHT_MAX; index += 1) {
-      if (!down.hasAttribute('disabled')) {
-        await user.click(down);
-      }
-    }
-
-    expect(demo().getByText(message('landing.demoNoteMin'))).toBeInTheDocument();
-  });
-
-  it('Edge: only the rows whose value changed replay their heat line (14 to 15 moves just the carry limit)', async () => {
-    const user = userEvent.setup();
-    await visit('/');
-    const heat = () => Array.from(document.querySelectorAll('.lg-landing__demo-heat'));
-    const before = heat();
-
-    await user.click(demo().getByRole('button', { name: message('landing.demoBaseUp') }));
-
-    const after = heat();
-    expect(after).toHaveLength(3);
-    expect(after[0]).toBe(before[0]);
-    expect(after[1]).toBe(before[1]);
-    expect(after[2]).not.toBe(before[2]);
-  });
-
-  it('Edge: the example says its values belong to no game', async () => {
-    await visit('/');
-
-    expect(demo().getByText(message('landing.demoNote'))).toBeInTheDocument();
   });
 });
 
@@ -387,7 +262,7 @@ describe('landing hero conversion', () => {
   it('Happy path: changing hit points reveals the CTA and announces the pending change', async () => {
     const user = userEvent.setup();
     await visitDemo();
-    const card = screen.getByTestId('sheet-hp-card');
+    const card = within(screen.getByTestId('landing-demo-sheet')).getByTestId('sheet-hp-card');
     const input = within(card).getByLabelText(message('sheet.play.amount'));
 
     await user.clear(input);

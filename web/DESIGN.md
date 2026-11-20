@@ -322,12 +322,14 @@ no display-scale heading.
   the top-to-bottom fade are the only gradients the product allows.
 - **Stage roles.** The whole page sits on the `--lg-color-stage-*` roles, declared in both themes
   with the same values: a teal-black ground (the colour of the hero photograph's rock), an
-  alternate band for the principles and the questions, a raised layer for the example, a lava
-  orange accent sampled from the photograph's lava, a danger tone for refusals
+  alternate band for the game moments and the questions, a raised layer for the moment cards and
+  the contextual action, a lava orange accent sampled from the photograph's lava, a danger tone
+  for refusals
   (`--lg-color-stage-danger`) and an information tone for an informational notice edge
   (`--lg-color-stage-info`, asserted on the stage band). The landing is therefore always dark, whatever
   the theme, and carries no theme control. The accent is used for the primary action, the sigil's
-  core, the step numerals and the derived values of the example.
+  core, the step numerals, the derived values of the step illustrations and the flash a moment
+  action replays.
 - **Display type.** Geist 600 at `--lg-type-display-lg` (hero) and `--lg-type-display-md`
   (section titles), `--lg-line-display` and `--lg-tracking-display`.
 - **Hero demo.** The static hero copy (one H1, the lead and the sign-up action) renders first;
@@ -338,22 +340,27 @@ no display-scale heading.
   action sits at the viewport foot below `40rem` and is withdrawn above it.
 - **Rhythm.** Section padding uses `--lg-space-96` and, from the wide breakpoint, `--lg-space-128`.
   Content is capped at `--lg-size-landing-max`. Rows and questions are hairline-divided, never
-  cards; the bounded objects are the demo sheet's own cards and the contextual action on
-  `--lg-color-stage-raised`.
-- **Proof, not claims.** The hero demo mounts the product's real Play components over invented
-  values, with no network request; the cascade example below repeats the arithmetic proof with
-  invented names and formulas and says so in its caption. The page carries no testimonial,
-  statistic, price or customer claim.
+  cards; the bounded objects are the demo sheet's own cards, the three game-moment cards and the
+  contextual action on `--lg-color-stage-raised`. Each step carries a small sheet-visual
+  illustration: a template picker, an ability tile with its derived modifier, and a hit-point bar
+  with slot pips.
+- **Proof, not claims.** The hero demo and the game moments mount the product's real Play
+  components over invented values, with no network request; the moments are exactly level-up,
+  damage and a spent slot, each with one action and a polite result line. The page carries no
+  testimonial, statistic, price or customer claim.
 - **Motion.** One authored entrance: the photograph settles (`--lg-motion-1200`) and the hero
   content rises (`--lg-motion-600`, `--lg-ease-out`), staggered by `--lg-motion-120` steps.
-  Changing a base value replays a short rise on the derived values. Everything is zeroed under
-  `prefers-reduced-motion` and content is visible by default.
+  A game-moment action replays a short accent flash on the card and the real control's own value
+  transition. The flash is not drawn when the browser prefers reduced motion. Everything is
+  zeroed under `prefers-reduced-motion` and content is visible by default.
 - **Actions.** "Create your character sheet" leads to the Fantasy start intent and "Sign in" to
   `/sign-in`; both are links. Every conversion action (hero, contextual, sticky, close) carries the
   same start intent. Buttons keep `--lg-radius-md`, never a pill.
 - **Accessibility.** Landmarks are `header`, `main` and `footer`; the questions are native
-  `details` disclosures; the stage focus ring is `--lg-color-stage-focus`; the stage text pairs are
-  asserted in both themes like every other pair.
+  `details` disclosures; each game moment is a named article with one polite result line, and its
+  controls are the real sheet controls or a labelled button; the step illustrations are
+  decorative. The stage focus ring is `--lg-color-stage-focus`; the stage text pairs are
+  asserted in both themes like every other pair. The landing mounts no ad slot.
 
 ---
 

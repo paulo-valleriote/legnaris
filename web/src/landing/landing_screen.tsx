@@ -1,19 +1,20 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { AdSlot } from '../ads/ad_slot';
 import { useApiBaseUrl } from '../app/providers';
 import { PRIVACY_PATH, SIGN_IN_PATH } from '../app/routes';
 import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
 import { BrandMark } from '../shell/brand_mark';
 import { ChevronDownIcon } from '../ui/icons';
-import { CascadeDemo } from './cascade_demo';
 import { reportHomeFunnel, reportHomeVisit } from './funnel_beacon';
 import { signUpCtaPath } from './start_intent';
 import { useStageThemeColor } from './use_stage_theme_color';
 import './landing.css';
 
 const DemoSheet = lazy(() => import('./demo_sheet'));
+
+const GameMoments = lazy(() => import('./game_moments'));
 
 const HERO_SRCSET = ['/images/hero-lava-1280.webp 1280w', '/images/hero-lava-1920.webp 1920w'].join(
   ', ',
@@ -29,22 +30,70 @@ function DemoLoading() {
   );
 }
 
-interface Entry {
-  readonly title: MessageKey;
-  readonly body: MessageKey;
+function MomentsLoading() {
+  return (
+    <div className="lg-landing__demo-loading" data-testid="landing-moments-loading">
+      {message('landing.momentsLoading')}
+    </div>
+  );
 }
 
-const PRINCIPLES: readonly Entry[] = [
-  { title: 'landing.principle1Title', body: 'landing.principle1Body' },
-  { title: 'landing.principle2Title', body: 'landing.principle2Body' },
-  { title: 'landing.principle3Title', body: 'landing.principle3Body' },
-  { title: 'landing.principle4Title', body: 'landing.principle4Body' },
-];
+function TemplateVisual() {
+  return (
+    <span
+      className="lg-landing__mini lg-landing__mini--template"
+      data-testid="landing-step-visual-template"
+    >
+      <span className="lg-landing__mini-row" />
+      <span className="lg-landing__mini-row lg-landing__mini-row--active" />
+      <span className="lg-landing__mini-row" />
+    </span>
+  );
+}
 
-const STEPS: readonly Entry[] = [
-  { title: 'landing.step1Title', body: 'landing.step1Body' },
-  { title: 'landing.step2Title', body: 'landing.step2Body' },
-  { title: 'landing.step3Title', body: 'landing.step3Body' },
+function SheetVisual() {
+  return (
+    <span
+      className="lg-landing__mini lg-landing__mini--sheet"
+      data-testid="landing-step-visual-sheet"
+    >
+      <span className="lg-landing__mini-stat">
+        <span className="lg-landing__mini-label">{message('landing.stepVisualName')}</span>
+        <span className="lg-landing__mini-score">{message('landing.stepVisualScore')}</span>
+      </span>
+      <span className="lg-landing__mini-derived">{message('landing.stepVisualDerived')}</span>
+    </span>
+  );
+}
+
+function PlayVisual() {
+  return (
+    <span
+      className="lg-landing__mini lg-landing__mini--play"
+      data-testid="landing-step-visual-play"
+    >
+      <span className="lg-landing__mini-hp">
+        <span className="lg-landing__mini-hp-fill" />
+      </span>
+      <span className="lg-landing__mini-pips">
+        <span className="lg-landing__mini-pip" />
+        <span className="lg-landing__mini-pip lg-landing__mini-pip--spent" />
+        <span className="lg-landing__mini-pip" />
+      </span>
+    </span>
+  );
+}
+
+interface Step {
+  readonly title: MessageKey;
+  readonly body: MessageKey;
+  readonly visual: () => ReactNode;
+}
+
+const STEPS: readonly Step[] = [
+  { title: 'landing.step1Title', body: 'landing.step1Body', visual: TemplateVisual },
+  { title: 'landing.step2Title', body: 'landing.step2Body', visual: SheetVisual },
+  { title: 'landing.step3Title', body: 'landing.step3Body', visual: PlayVisual },
 ];
 
 const FAQ: readonly { readonly question: MessageKey; readonly answer: MessageKey }[] = [
@@ -130,25 +179,26 @@ export function LandingScreen() {
       <main>
         <section
           className="lg-landing__section lg-landing__section--band"
-          aria-labelledby="principles-title"
+          aria-labelledby="moments-title"
         >
-          <div className="lg-landing__inner lg-landing__split">
-            <h2 className="lg-landing__title" id="principles-title">
-              {message('landing.principlesTitle')}
+          <div className="lg-landing__inner">
+            <h2 className="lg-landing__title" id="moments-title">
+              {message('landing.momentsTitle')}
             </h2>
-            <ul className="lg-landing__principles">
-              {PRINCIPLES.map((entry) => (
-                <li className="lg-landing__principle" key={entry.title}>
-                  <h3 className="lg-landing__principle-title">{message(entry.title)}</h3>
-                  <p className="lg-landing__text">{message(entry.body)}</p>
-                </li>
-              ))}
-            </ul>
+            <p className="lg-landing__text lg-landing__moments-lead">
+              {message('landing.momentsLead')}
+            </p>
+            <Suspense fallback={<MomentsLoading />}>
+              <GameMoments />
+            </Suspense>
+            <p className="lg-landing__text lg-landing__moments-note">
+              {message('landing.momentNote')}
+            </p>
           </div>
         </section>
 
         <section className="lg-landing__section" aria-labelledby="how-title">
-          <div className="lg-landing__inner lg-landing__split">
+          <div className="lg-landing__inner">
             <div className="lg-landing__how">
               <h2 className="lg-landing__title" id="how-title">
                 {message('landing.howTitle')}
@@ -158,11 +208,13 @@ export function LandingScreen() {
                   <li className="lg-landing__step-item" key={step.title}>
                     <h3 className="lg-landing__step-title">{message(step.title)}</h3>
                     <p className="lg-landing__text">{message(step.body)}</p>
+                    <span className="lg-landing__step-visual" aria-hidden="true">
+                      {step.visual()}
+                    </span>
                   </li>
                 ))}
               </ol>
             </div>
-            <CascadeDemo />
           </div>
         </section>
 
@@ -217,9 +269,6 @@ export function LandingScreen() {
               {message('auth.submitLogin')}
             </Link>
           </div>
-        </div>
-        <div className="lg-landing__inner">
-          <AdSlot surface="landing" />
         </div>
         <div className="lg-landing__inner lg-landing__legal">
           <small className="lg-landing__copyright">

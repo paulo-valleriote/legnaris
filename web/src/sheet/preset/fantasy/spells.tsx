@@ -248,7 +248,7 @@ function SlotLevel({
   );
 }
 
-function SpellSlots() {
+export function SpellSlots() {
   const { store, fields } = usePresetContext();
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
   const state = useSyncExternalStore(subscribe, store.getState);
