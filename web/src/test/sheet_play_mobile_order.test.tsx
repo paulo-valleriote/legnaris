@@ -18,6 +18,11 @@ import { renderApp } from './render';
 const BASE_URL = 'http://api.test';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const presetCss = readFileSync(path.resolve(here, '../sheet/preset/preset.css'), 'utf8');
+const sheetCss = readFileSync(path.resolve(here, '../sheet/sheet.css'), 'utf8');
+
+function narrowSheetCss(): string {
+  return sheetCss.slice(sheetCss.indexOf('@media (max-width: 39.99rem)'));
+}
 
 const LONG_PLAYER = 'Alexandria-Cassandra Montgomery-Worthington the Third';
 
@@ -203,6 +208,12 @@ describe('the mobile Play section order', () => {
 });
 
 describe('the one-line hero', () => {
+  it('Edge: on a phone the hero comes before the sheet actions, so the title sits near the top', () => {
+    expect(narrowSheetCss()).toMatch(
+      /\.lg-sheet__heading:has\(\.lg-preset-hero\)\s*\{[^}]*flex-direction:\s*column;/,
+    );
+  });
+
   it('Happy path: the meta line and played by share one line container at 390', async () => {
     await openFantasy(390);
 
