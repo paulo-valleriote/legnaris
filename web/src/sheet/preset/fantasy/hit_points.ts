@@ -5,6 +5,21 @@ export const HIT_POINTS_CURRENT = 'combat.hitPoints';
 export const HIT_POINTS_MAX = 'combat.hitPointsMax';
 export const HIT_POINTS_TEMP = 'combat.hitPointsTemp';
 
+export type HitPointsBand = 'high' | 'medium' | 'low';
+export type HitPointsDirection = 'damage' | 'heal';
+
+export interface HitPointsPreviewLine {
+  readonly before: number;
+  readonly after: number;
+  readonly delta: number;
+}
+
+export interface HitPointsPreview {
+  readonly direction: HitPointsDirection;
+  readonly current: HitPointsPreviewLine | undefined;
+  readonly temp: HitPointsPreviewLine | undefined;
+}
+
 export interface HitPoints {
   readonly current: number;
   readonly max: number;
@@ -15,8 +30,6 @@ export interface HitPointsChange {
   readonly current: number;
   readonly temp: number;
 }
-
-export type HitPointsBand = 'high' | 'medium' | 'low';
 
 const HIGH_MIN_PERCENT = 50;
 const MEDIUM_MIN_PERCENT = 25;
@@ -63,6 +76,44 @@ export function applyHeal(hitPoints: HitPoints, amount: number): HitPointsChange
     current: Math.min(max, atLeastZero(hitPoints.current) + amount),
     temp: atLeastZero(hitPoints.temp),
   };
+}
+
+export function applyTemp(hitPoints: HitPoints, amount: number): HitPointsChange | undefined {
+  if (!isAmount(amount)) {
+    return undefined;
+  }
+  return {
+    current: hitPoints.current,
+    temp: Math.max(atLeastZero(hitPoints.temp), amount),
+  };
+}
+
+function previewLine(before: number, after: number): HitPointsPreviewLine | undefined {
+  const delta = after - before;
+  return delta === 0 ? undefined : { before, after, delta };
+}
+
+export function hitPointsPreview(
+  stored: HitPoints,
+  preview: HitPoints,
+): HitPointsPreview | undefined {
+  const current = previewLine(stored.current, preview.current);
+  const temp = previewLine(stored.temp, preview.temp);
+  if (current === undefined && temp === undefined) {
+    return undefined;
+  }
+  const direction: HitPointsDirection =
+    (current?.delta ?? 0) < 0 || (current === undefined && (temp?.delta ?? 0) < 0)
+      ? 'damage'
+      : 'heal';
+  return { direction, current, temp };
+}
+
+export function formatHitPointsDelta(delta: number): string {
+  if (delta === 0) {
+    return '0';
+  }
+  return `${delta > 0 ? '+' : '\u2212'}${Math.abs(delta)}`;
 }
 
 export function hitPointsPercent(current: number, max: number): number {

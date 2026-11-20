@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"legnaris/backend/internal/engine"
 	"legnaris/backend/shared/maputils"
@@ -29,6 +30,7 @@ type Node struct {
 	FormulaString   string
 	compiledFormula *vm.Program
 	IsEditable      bool
+	maxLength       int
 }
 
 func (n Node) IsDerived() bool {
@@ -37,6 +39,20 @@ func (n Node) IsDerived() bool {
 
 func (n Node) MapKey() string {
 	return n.Path.String()
+}
+
+func (n Node) checkTextLength(value any) error {
+	if n.maxLength <= 0 {
+		return nil
+	}
+	text, ok := value.(string)
+	if !ok {
+		return nil
+	}
+	if length := utf8.RuneCountInString(text); length > n.maxLength {
+		return ErrTextTooLong(n.MapKey(), length, n.maxLength)
+	}
+	return nil
 }
 
 func (d *DAG) HasNode(key string) bool {
@@ -195,6 +211,10 @@ func (d *DAG) compileNodeFormulas(schemas []*FieldSchema, paths []Path, compilat
 			Path:          path,
 			FormulaString: schema.Formula,
 			IsEditable:    schema.IsEditable,
+		}
+
+		if schema.MaxLength != nil {
+			node.maxLength = *schema.MaxLength
 		}
 
 		if schema.Formula != "" {
@@ -408,6 +428,15 @@ func (d *DAG) validateUpdateKeysLocked(updatedData map[string]any) error {
 		}
 		if !d.hasNodePrefix(key) {
 			return ErrUnknownField(key)
+		}
+	}
+	for _, key := range slices.Sorted(maps.Keys(updatedData)) {
+		node, ok := d.nodes[key]
+		if !ok {
+			continue
+		}
+		if err := node.checkTextLength(updatedData[key]); err != nil {
+			return err
 		}
 	}
 	return nil

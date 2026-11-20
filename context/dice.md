@@ -87,6 +87,8 @@ The schema maps a dotted path to `number`, `text` or `bool`; every Field a term 
 
 Dice are thrown in expression order, each yielding 1..faces. Numbers are literal and Field values are floored toward minus infinity before being added, so a Roll may total below zero. The result carries the total and one part per term with its sign, label, value and, for a die, the individual rolls. `no_value` means a Field is absent, null, non-numeric, NaN or infinite; `overflow` means finite Field values sum past the float64 range; `no_roller` (Go only) means a die was evaluated with no roller.
 
+A keep mode (`highest` / `lowest`) is a client evaluation option, not grammar: every d20 term throws one extra die and keeps the best or worst of the count it names, while every other die throws exactly as written. The part then carries all thrown dice plus the `discarded` indices, so a result can show both dice and mark the kept one. Advantage maps to `highest` and disadvantage to `lowest`; Go has no keep mode because the server never rolls.
+
 ### Error classes
 
 | Stage | Classes |
@@ -137,9 +139,9 @@ A grammar change starts in the vectors: add or amend the cases (bump `version` f
 - `backend/internal/sheet/service.go` — `validatedDice`, `translateDiceErr` and the one compare-and-swap save; `sheet.go` holds the stored block; `dto.go` always serializes it on `GET`.
 - `backend/internal/app/sheet.go` — the `PATCH /sheets/:id` route.
 - `testdata/dice/vectors.json` — the shared vectors.
-- `web/src/dice/` — `parse.ts`, `fit.ts`, `resolve.ts` (precedence), `roll.ts` (`performRoll`, `dieFromWords`, crypto source), `errors.ts`.
+- `web/src/dice/` — `parse.ts`, `fit.ts`, `resolve.ts` (precedence), `roll.ts` (`performRoll`, `dieFromWords`, crypto source, keep modes), `errors.ts`.
 - `web/src/sheet/dice_view.ts` — schema, pruning, error keys and Roll summary; `dice_store.ts` — local check and `setDice`; `sheet_edit.ts` — saved and pending blocks, drafts and the save.
-- `web/src/sheet/dice_row.tsx` — Roll/Edit controls, Section button and editor; `dice_panel.tsx` — the floating result; `die_icon.tsx`, `dice.css` — shapes.
+- `web/src/sheet/dice_row.tsx` — Roll/Edit controls, Section button and editor; `roll_mode.tsx` — the Normal/Advantage/Disadvantage choice and its click and context-key mapping; `dice_panel.tsx` — the floating result with its recent-roll history (`dice_history.ts` keeps the last three, newest first, with each entry's mode); `die_icon.tsx`, `dice.css` — shapes.
 - `web/src/api/models/dice.ts`, `web/src/api/client.ts` — wire parsing and body.
 - `web/src/test/dice_*.test.ts`, `web/src/test/sheet_dice_*.test.*` — vector, resolution, Roll, store and screen suites.
 
@@ -153,8 +155,8 @@ A grammar change starts in the vectors: add or amend the cases (bump `version` f
 
 ## Known limits
 
-- No keep-highest/lowest, so advantage and disadvantage are not expressible; the grammar has only `+`/`-`, with no multiplication, exploding dice or per-die modifiers.
-- No Roll history and no server-side Roll: a result cannot be audited or replayed, and refreshing loses it.
+- The grammar has no keep tokens: a stored expression is always plain `NdM`, and advantage/disadvantage are an evaluation option of the client Roll (each d20 term throws one extra die and keeps the best or worst), so they need no grammar or save-contract change. The grammar has only `+`/`-`, with no multiplication, exploding dice or per-die modifiers.
+- No Roll history on the server and no server-side Roll: a result cannot be audited or replayed, and refreshing loses the in-memory history.
 - Dice attach to Rows and Sections, never to an individual Field; a free-text field such as an attack's damage is not a Dice default.
 - A Row with no applicable expression has no editor of its own; adding dice where the Template gave none happens at Section level.
 - A Section expression only serves the Rows it fits; the others show no Roll button.

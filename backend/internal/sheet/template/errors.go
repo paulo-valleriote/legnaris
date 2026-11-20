@@ -84,6 +84,16 @@ func (e *FieldNameError) Error() string {
 	return fmt.Sprintf("invalid field name '%s': %s", e.Field, e.Reason)
 }
 
+type TextTooLongError struct {
+	Key    string
+	Length int
+	Max    int
+}
+
+func (e *TextTooLongError) Error() string {
+	return fmt.Sprintf("field '%s' has %d characters (limit %d)", e.Key, e.Length, e.Max)
+}
+
 var (
 	ErrInfiniteCycle = errors.New("an infinite cycle was detected on template formulas")
 
@@ -121,6 +131,10 @@ func ErrInvalidFieldName(field string, reason string) error {
 
 func ErrUnknownField(key string) error {
 	return &UnknownFieldError{Key: key}
+}
+
+func ErrTextTooLong(key string, length, maxLength int) error {
+	return &TextTooLongError{Key: key, Length: length, Max: maxLength}
 }
 
 func ErrNotEditable(key string) error {

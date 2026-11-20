@@ -69,7 +69,7 @@ function savedData(fake: ReturnType<typeof createFakeTransport>) {
 }
 
 async function save(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
 }
 
 async function editBonus(user: ReturnType<typeof userEvent.setup>, label: string, text: string) {
@@ -89,7 +89,7 @@ describe('saving throws', () => {
 
     const section = screen.getByTestId('sheet-play-saves');
     expect(within(section).getAllByTestId(/^sheet-save-/)).toHaveLength(6);
-    expect(within(section).getByText('Strength save')).toBeInTheDocument();
+    expect(within(saveRow('strength')).getByText('STR')).toBeInTheDocument();
     expect(dot('Strength save')).toHaveAttribute('aria-pressed', 'false');
     expect(dot('Dexterity save')).toHaveAttribute('aria-pressed', 'true');
     expect(
@@ -256,7 +256,9 @@ describe('skills', () => {
     await user.type(input, 'abc{Enter}');
 
     expect(screen.getByRole('button', { name: 'Athletics bonus' })).toHaveTextContent('+0');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -266,7 +268,9 @@ describe('skills', () => {
     await editBonus(user, 'Athletics bonus', '');
 
     expect(screen.getByRole('button', { name: 'Athletics bonus' })).toHaveTextContent('+0');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -291,7 +295,9 @@ describe('skills', () => {
     await user.type(input, '4{Escape}');
 
     expect(screen.getByRole('button', { name: 'Athletics bonus' })).toHaveTextContent('+0');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -341,6 +347,41 @@ describe('skills', () => {
     const total = Number(document.querySelector('.lg-dice-panel__total-value')?.textContent);
     expect(total).toBeGreaterThanOrEqual(6);
     expect(total).toBeLessThanOrEqual(25);
+  });
+});
+
+describe('the section legends', () => {
+  it('Edge: saving throws carry the proficiency legend with the same dot as their rows', async () => {
+    await openFantasy();
+
+    const saves = screen.getByTestId('sheet-play-saves');
+    const legend = within(saves).getByTestId('sheet-saves-legend');
+    expect(legend).toHaveTextContent(message('sheet.play.proficient'));
+
+    const legendDot = legend.querySelector('.lg-prof-dot__mark');
+    expect(legendDot).not.toBeNull();
+    expect(legendDot).toHaveClass('lg-prof-dot__mark--on');
+    expect(saveRow('strength').querySelector('.lg-prof-dot__mark')).toHaveClass(
+      'lg-prof-dot__mark',
+    );
+  });
+
+  it('Edge: skills carry the roll hint in their header', async () => {
+    await openFantasy();
+
+    const skills = screen.getByTestId('sheet-play-skills');
+    expect(within(skills).getByTestId('sheet-skills-roll-hint')).toHaveTextContent(
+      message('sheet.play.rollHint'),
+    );
+  });
+
+  it('Edge: Edit mode hides both legends', async () => {
+    const { user } = await openFantasy();
+
+    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+
+    expect(screen.queryByTestId('sheet-saves-legend')).toBeNull();
+    expect(screen.queryByTestId('sheet-skills-roll-hint')).toBeNull();
   });
 });
 

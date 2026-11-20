@@ -14,21 +14,37 @@
 }
 
 .lg-rollable--button {
-  min-inline-size: var(--lg-size-control);
-  min-block-size: var(--lg-size-control);
-  padding-inline: var(--lg-space-4);
+  min-inline-size: 32px;
+  min-block-size: 32px;
+  padding-inline: var(--lg-space-8);
   border-radius: var(--lg-radius-sm);
-  color: var(--lg-color-accent);
+  color: var(--lg-color-text);
   font-weight: var(--lg-font-weight-bold);
+  text-decoration-line: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: var(--lg-color-link);
+  text-underline-offset: var(--lg-underline-offset);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
   transition:
     color var(--lg-motion-120) var(--lg-ease-out),
     background-color var(--lg-motion-120) var(--lg-ease-out);
 }
 
-.lg-rollable--button:hover {
-  background-color: var(--lg-color-surface-hover);
-  color: var(--lg-color-accent-hover);
+.lg-rollable--button:hover,
+.lg-rollable--button:focus-visible {
+  background-color: var(--lg-color-accent);
+  color: var(--lg-color-accent-text);
+  text-decoration-color: currentColor;
+}
+
+@media (max-width: 40rem) {
+  .lg-rollable--button {
+    min-inline-size: var(--lg-size-control);
+    min-block-size: var(--lg-size-control);
+  }
 }
 
 .lg-rollable--button:focus-visible {

@@ -25,8 +25,8 @@ const LIMIT_NOTICE_ID = 'sheet-kind-limit';
 
 const KIND_LABEL_KEYS = {
   character: 'catalog.kindCharacter',
-  npc: 'campaign.kindNpc',
-  enemy: 'campaign.kindEnemy',
+  npc: 'kind.npc',
+  enemy: 'kind.enemy',
 } as const satisfies Record<SheetKind, MessageKey>;
 
 type DetailRenderPhase =

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
-import { message } from '../l10n/strings';
+import { message, messageWith } from '../l10n/strings';
 import {
   FANTASY_SHEET_ID,
   fantasyFieldTree,
@@ -13,7 +13,6 @@ import {
 import type { FakeOutcome } from './fake_transport';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
-import { rollName } from './dice_names';
 
 const BASE_URL = 'http://api.test';
 
@@ -23,12 +22,13 @@ interface AttackValues {
   readonly name?: string;
   readonly damage?: string;
   readonly bonus?: number;
+  readonly notes?: string;
 }
 
 function attackNode(slot: number): Record<string, unknown> {
   return {
     label: `Attack ${slot}`,
-    columns: ['name', 'damage', 'bonus'],
+    columns: ['name', 'damage', 'bonus', 'notes'],
     children: {
       name: {
         schema: {
@@ -61,6 +61,16 @@ function attackNode(slot: number): Record<string, unknown> {
           column_label: 'Bonus',
         },
       },
+      notes: {
+        schema: {
+          type: 'text',
+          label: `Attack ${slot} notes`,
+          is_editable: true,
+          default: 0,
+          max_length: 60,
+          column_label: 'Notes',
+        },
+      },
     },
   };
 }
@@ -86,6 +96,7 @@ function attackSlotData(values: AttackValues): Record<string, unknown> {
     name: values.name ?? '',
     damage: values.damage ?? '',
     bonus: values.bonus ?? 0,
+    ...(values.notes === undefined ? {} : { notes: values.notes }),
   };
 }
 
@@ -153,7 +164,7 @@ async function editValue(
 }
 
 async function save(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
 }
 
 describe('attack cards in play mode', () => {
@@ -164,7 +175,7 @@ describe('attack cards in play mode', () => {
     expect(fake.requests).toHaveLength(2);
   });
 
-  it('Edge: empty slots are hidden and counted in the add button', async () => {
+  it('Edge: empty slots keep the section and count them in the add control', async () => {
     await openAttacks();
 
     expect(screen.getByTestId('sheet-attacks')).toHaveTextContent('Attacks');
@@ -185,7 +196,7 @@ describe('attack cards in play mode', () => {
     expect(addButton()).toHaveTextContent('+ Add attack (3 free)');
   });
 
-  it('Edge: every filled slot hides the add button', async () => {
+  it('Happy path: every filled slot draws and hides the add control', async () => {
     await openAttacks({
       data: attackData({
         1: { name: 'Longsword', damage: '1d8 + 3', bonus: 5 },
@@ -195,11 +206,12 @@ describe('attack cards in play mode', () => {
       }),
     });
 
+    expect(screen.getByTestId('sheet-attacks')).toHaveTextContent('Attacks');
     expect(screen.getAllByTestId(/^sheet-attack-\d+$/)).toHaveLength(4);
     expect(addButton()).toBeNull();
   });
 
-  it('Edge: adding reveals one empty card at a time and counts the hidden ones', async () => {
+  it('Edge: adding reveals one empty card at a time and recounts the free slots', async () => {
     const { user } = await openAttacks();
 
     await user.click(addButton() as HTMLElement);
@@ -228,7 +240,7 @@ describe('attack cards in play mode', () => {
     expect(addButton()).toHaveTextContent('+ Add attack (2 free)');
   });
 
-  it('Edge: revealing all four slots hides the add button', async () => {
+  it('Edge: revealing all four slots hides the add control', async () => {
     const { user } = await openAttacks();
 
     for (let click = 0; click < 4; click += 1) {
@@ -238,13 +250,126 @@ describe('attack cards in play mode', () => {
     expect(screen.getAllByTestId(/^sheet-attack-\d+$/)).toHaveLength(4);
     expect(addButton()).toBeNull();
   });
+
+  it('Edge: a revealed empty slot names its rolls with the template slot label', async () => {
+    const { user } = await openAttacks();
+    await user.click(addButton() as HTMLElement);
+
+    const card = attackCard(1);
+    expect(
+      within(card).getByRole('button', { name: attackRoll('Attack 1', '+0') }),
+    ).toBeInTheDocument();
+    expect(within(card).getByText(message('sheet.play.noValue'))).toBeInTheDocument();
+  });
+});
+
+describe('attack notes', () => {
+  it('Happy path: a note renders as a subtitle under the name', async () => {
+    await openAttacks({
+      data: attackData({
+        1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6, notes: 'ranged · 150/600' },
+      }),
+    });
+
+    const notes = within(attackCard(1)).getByTestId('sheet-attack-notes-1');
+    expect(notes).toHaveTextContent('ranged · 150/600');
+  });
+
+  it('Happy path: the note edits in place and saves as one attack note', async () => {
+    const { fake, user } = await openAttacks({
+      data: attackData({
+        1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6, notes: 'ranged · 150/600' },
+      }),
+    });
+    const card = attackCard(1);
+
+    await editValue(user, card, 'Attack 1 notes', 'DC 14 Wis');
+
+    expect(within(card).getByRole('button', { name: 'Attack 1 notes' })).toHaveTextContent(
+      'DC 14 Wis',
+    );
+
+    await save(user);
+
+    await waitFor(() =>
+      expect(savedData(fake)).toEqual({
+        data: { attacks: { attack1: { notes: 'DC 14 Wis' } } },
+      }),
+    );
+  });
+
+  it('Happy path: Edit mode draws the note in the attack table and saves the delta', async () => {
+    const { fake, user } = await openAttacks({
+      data: attackData({
+        1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6, notes: 'ranged · 150/600' },
+      }),
+    });
+
+    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    const note = await screen.findByRole('textbox', { name: 'Attack 1 notes' });
+    expect(note).toHaveValue('ranged · 150/600');
+
+    await user.clear(note);
+    await user.type(note, 'DC 14 Wis');
+    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+
+    await waitFor(() =>
+      expect(savedData(fake)).toEqual({
+        data: { attacks: { attack1: { notes: 'DC 14 Wis' } } },
+      }),
+    );
+  });
+
+  it('Happy path: Edit mode exposes every empty attack slot so an attack can still be added there', async () => {
+    const { fake, user } = await openAttacks();
+
+    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    const name = await screen.findByRole('textbox', { name: 'Attack 3 name' });
+    await user.type(name, 'Javelin');
+    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+
+    await waitFor(() =>
+      expect(savedData(fake)).toEqual({
+        data: { attacks: { attack3: { name: 'Javelin' } } },
+      }),
+    );
+  });
+
+  it('Edge: an empty note draws no subtitle and no add placeholder', async () => {
+    await openAttacks({
+      data: attackData({ 1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6, notes: '' } }),
+    });
+
+    const card = attackCard(1);
+    expect(within(card).queryByTestId('sheet-attack-notes-1')).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Attack 1 notes' })).toBeNull();
+    expect(within(card).queryByText('Add Attack 1 notes')).toBeNull();
+  });
+
+  it('Edge: a legacy sheet without the notes key still draws the attack without a subtitle', async () => {
+    await openAttacks({
+      data: attackData({ 1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6 } }),
+    });
+
+    const card = attackCard(1);
+    expect(card).toHaveTextContent('Longbow');
+    expect(within(card).queryByTestId('sheet-attack-notes-1')).toBeNull();
+  });
+
+  it('Edge: a note on an otherwise empty attack slot draws no card', async () => {
+    await openAttacks({
+      data: attackData({ 1: { name: '', notes: 'ranged · 150/600' } }),
+    });
+
+    expect(screen.queryByTestId('sheet-attack-1')).toBeNull();
+  });
 });
 
 describe('attack editing', () => {
   it('Happy path: name, bonus and damage edit into the pending delta and save as one attack', async () => {
-    const { fake, user } = await openAttacks();
-
-    await user.click(addButton() as HTMLElement);
+    const { fake, user } = await openAttacks({
+      data: attackData({ 1: { name: 'Longsword', damage: '1d8 + 3', bonus: 5 } }),
+    });
     const card = attackCard(1);
     await editValue(user, card, 'Attack 1 name', 'Sting');
     await editValue(user, card, 'Attack 1 bonus', '7');
@@ -254,7 +379,7 @@ describe('attack editing', () => {
     expect(within(card).getByRole('button', { name: 'Attack 1 bonus' })).toBeInTheDocument();
     expect(within(card).getByRole('button', { name: 'Attack 1 damage' })).toBeInTheDocument();
     expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent(
-      'Attack 1 name empty → Sting',
+      'Attack 1 name Longsword → Sting',
     );
 
     await save(user);
@@ -279,7 +404,9 @@ describe('attack editing', () => {
     await editValue(user, card, 'Attack 1 bonus', 'many');
 
     expect(within(card).getByRole('button', { name: 'Attack 1 bonus' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
   });
 
   it('Edge: a bonus above the template range is clamped', async () => {
@@ -309,8 +436,85 @@ describe('attack editing', () => {
     await editValue(user, attackCard(1), 'Attack 1 name', 'Sting');
 
     expect(screen.getByRole('button', { name: 'Attack 1 name' })).toHaveTextContent('Longsword');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
+  });
+});
+
+function attackRoll(name: string, value: string): string {
+  return messageWith('sheet.play.attackRoll', { name, value });
+}
+
+function damageRoll(name: string, value: string): string {
+  return messageWith('sheet.play.damageRoll', { name, value });
+}
+
+describe('attack roll labels', () => {
+  it('Happy path: the to-hit pill carries a decorative d20 and the signed bonus', async () => {
+    await openAttacks({
+      data: attackData({ 1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6 } }),
+    });
+    const card = attackCard(1);
+    const name = attackRoll('Longbow', '+6');
+
+    const roll = within(card).getByRole('button', { name });
+
+    expect(roll).toHaveTextContent('+6');
+    expect(roll).toHaveAttribute('title', name);
+    const icon = roll.querySelector('svg');
+    expect(icon).not.toBeNull();
+    expect(icon).toHaveAttribute('aria-hidden', 'true');
+    expect(icon).toHaveAttribute('data-die-shape', 'd20');
+  });
+
+  it('Happy path: the damage pill stays the dice expression and names the damage roll', async () => {
+    await openAttacks({
+      data: attackData({ 1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6 } }),
+    });
+    const card = attackCard(1);
+    const name = damageRoll('Longbow', '1d8 + 3');
+
+    const roll = within(card).getByRole('button', { name });
+
+    expect(roll).toHaveTextContent('1d8 + 3');
+    expect(roll).toHaveAttribute('title', name);
+    expect(roll.querySelector('svg')).toBeNull();
+  });
+
+  it('Edge: zero and negative bonuses keep the signed value in the name', async () => {
+    await openAttacks({
+      data: attackData({
+        1: { name: 'Longbow', damage: '1d8 + 3', bonus: 0 },
+        2: { name: 'Dagger', damage: '1d4', bonus: -2 },
+      }),
+    });
+
+    const zero = within(attackCard(1)).getByRole('button', {
+      name: attackRoll('Longbow', '+0'),
+    });
+    const negative = within(attackCard(2)).getByRole('button', {
+      name: attackRoll('Dagger', '-2'),
+    });
+
+    expect(zero).toHaveTextContent('+0');
+    expect(negative).toHaveTextContent('-2');
+    expect(zero.querySelector('svg')).toHaveAttribute('data-die-shape', 'd20');
+    expect(negative.querySelector('svg')).toHaveAttribute('data-die-shape', 'd20');
+  });
+
+  it('Edge: empty damage shows the placeholder and offers no damage roll', async () => {
+    await openAttacks({
+      data: attackData({ 1: { name: 'Longbow', damage: '', bonus: 6 } }),
+    });
+    const card = attackCard(1);
+
+    expect(within(card).queryByRole('button', { name: /^Damage roll,/ })).toBeNull();
+    expect(within(card).getByText(message('sheet.play.noValue'))).toBeInTheDocument();
+    expect(
+      within(card).getByRole('button', { name: attackRoll('Longbow', '+6') }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -321,7 +525,7 @@ describe('attack rolling', () => {
     });
 
     await user.click(
-      within(attackCard(1)).getByRole('button', { name: rollName('Attack 1 bonus') }),
+      within(attackCard(1)).getByRole('button', { name: attackRoll('Longsword', '+5') }),
     );
 
     await waitFor(() => expect(document.querySelector('.lg-dice-panel')).not.toBeNull());
@@ -340,7 +544,7 @@ describe('attack rolling', () => {
     });
 
     await user.click(
-      within(attackCard(1)).getByRole('button', { name: rollName('Attack 1 damage') }),
+      within(attackCard(1)).getByRole('button', { name: damageRoll('Longsword', '1d8 + 3') }),
     );
 
     await waitFor(() => expect(document.querySelector('.lg-dice-panel')).not.toBeNull());
@@ -359,10 +563,10 @@ describe('attack rolling', () => {
     });
     const card = attackCard(1);
 
-    expect(within(card).queryByRole('button', { name: rollName('Attack 1 damage') })).toBeNull();
+    expect(within(card).queryByRole('button', { name: /^Damage roll,/ })).toBeNull();
     expect(within(card).getByText('three')).toBeInTheDocument();
     expect(
-      within(card).getByRole('button', { name: rollName('Attack 1 bonus') }),
+      within(card).getByRole('button', { name: attackRoll('Longsword', '+5') }),
     ).toBeInTheDocument();
   });
 });

@@ -95,8 +95,9 @@ Rules:
 - `--lg-font-family` leads with `'Geist'` and falls back to the system stack, so text renders
   without the file and never breaks layout.
 - Loaded with `font-display: swap` and preloaded (`as="font"`, `crossorigin`).
-- **Scale:** `12 / 13 / 15 / 16 / 18 / 20 / 24 / 30` px (`--lg-type-*`). There is no upper cap
-  below the largest step; headings are allowed to exceed body size.
+- **Scale:** `11 / 12 / 13 / 15 / 16 / 18 / 20 / 24 / 30` px (`--lg-type-*`). There is no upper
+  cap below the largest step; headings are allowed to exceed body size. Eleven is the desktop floor
+  for a dense label; a phone label starts at twelve.
 - **Weights:** 400 regular, 500 medium, 600 semibold, 700 bold.
 - **Line height:** `--lg-line-tight` (1.2) for headings, `--lg-line-normal` (1.5) for body.
 - **Tabular figures** (`font-variant-numeric: tabular-nums`) on every numeric or derived column so
@@ -126,16 +127,21 @@ No screen invents its own heading size; a smaller voice is a step of this list, 
   margin is a step of this scale.
 - **The shell is two regions: navigation then content.** There is no contextual panel. On every
   route the shell exposes exactly a named `nav` and a `main`, in that order.
-- **Navigation is persistent:** at 640 px (`40rem`) and wider it is a left column fixed between
-  `--lg-size-nav-min` and `--lg-size-nav-max` (200–240 px). It never becomes a hamburger, a drawer
-  or an overlay.
+- **Navigation is persistent from 640 px:** at 640 px (`40rem`) and wider it is a left column fixed
+  between `--lg-size-nav-min` and `--lg-size-nav-max` (200–240 px). The desktop column never becomes
+  a drawer or an overlay. Its surface and trailing hairline paint the full page height, while a
+  viewport-high sticky rail keeps the links and Sign out in place on a page taller than the viewport.
 - **Below 640 px the navigation is a compact top bar.** The same `nav` becomes a single row above
-  the content: the brand mark, then Catalog and Your sheet, with Sign out at the trailing edge.
-  Labels are text only (no icons, no chevrons, no tagline or wordmark), the current item keeps the
-  raised layer and gains an accent underline, and every control keeps the `--lg-size-control` height.
-  The row wraps rather than overflowing if text is enlarged. It is not a hamburger, an overlay or a
-  bottom bar: every destination stays visible and one tap away. The breakpoint is `40rem` because a
-  media query cannot read a token and the literal scan forbids pixel values.
+  the content: the brand mark, then a `--lg-size-control` menu button at the trailing edge
+  (`aria-expanded`, `aria-controls`). Its destinations (Catalog, Your sheet, Plans, Campaigns,
+  Account and Sign out) open in one floating panel on the surface layer, `--lg-space-16` in from
+  each edge, just under the bar, with `--lg-radius-md`, `--lg-shadow-2` and a `70dvh` scroll cap.
+  The panel is the only overlay the shell draws; the bar stays a grid row above the content, so
+  nothing overlaps until the panel opens. The current item keeps the raised layer and an accent
+  underline, labels are text only, and every control keeps the `--lg-size-control` height. Opening
+  moves focus into the panel; Escape or a tap outside closes it and returns focus to the button.
+  The breakpoint is `40rem` because a media query cannot read a token and the literal scan forbids
+  pixel values.
 - **Content keeps a minimum width** (`--lg-size-content-min`, 320 px) and a readable measure
   (`--lg-size-content-max`, 960 px, centred). From 640 px up, as the viewport narrows, the
   navigation stays put and the content reaches its minimum without ever overlapping the navigation
@@ -143,7 +149,9 @@ No screen invents its own heading size; a smaller voice is a step of this list, 
   the content takes the full width on `--lg-space-16` gutters, the sheet editor and its sticky
   footer included, and the page never scrolls horizontally down to a 320 px viewport.
 - **Density:** rows are `--lg-size-row` high and controls `--lg-size-control` high; prefer aligned
-  rows and compact controls over whitespace-driven layouts.
+  rows and compact controls over whitespace-driven layouts. A pointer-width action that must stay
+  denser without losing its touch target elsewhere uses `--lg-size-control-compact` (40 px) and
+  returns to `--lg-size-control` (44 px) at phone widths.
 - **Narrow single-column screens.** Join and privacy cap their column at `--lg-size-narrow-max`
   rather than a one-off width, so the two flows keep one measure.
 
@@ -235,8 +243,9 @@ No screen invents its own heading size; a smaller voice is a step of this list, 
 - **Navigation.** A persistent left region opening with a brand lockup (sigil, tracked wordmark
   and tagline); each item pairs an icon with its label and closes with a chevron, and the current
   item is marked with the raised layer and an accent icon; the footer hosts the icon-and-label
-  session control. Below 640 px it is the compact top bar described under "Spacing and layout".
-  Its controls are `--lg-size-control` high at every width and pointer. There is no theme switch: the signed-in app is always
+  session control. Below 640 px it is the compact top bar described under "Spacing and layout":
+  the brand mark and one menu button, with the destinations and the session control in a floating
+  panel on the surface layer. Its controls are `--lg-size-control` high at every width and pointer. There is no theme switch: the signed-in app is always
   dark.
 - **Dialog / overlay.** `--lg-shadow-3` on the surface layer, `--lg-radius-lg`, the
   `--lg-color-overlay` scrim with an inset of `--lg-space-16`, so a full-height dialog never touches
@@ -397,6 +406,25 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   unchanged, and the sheet's `Help` explains the recessed readout once. A marked readout carries the
   "Recalculated" pill instead and no description. A marked readout keeps the accent on its border and
   pill only; its value stays text colour. A derived row's label is muted.
+- **Phone tap targets.** Play controls stay at least `--lg-size-control` (44 px) square at phone
+  widths, however compact their drawing. A save or skill row still draws at 36 px tall: its
+  proficiency dot, rollable total and base-bonus edit keep the full 44 px target on a 44 px row
+  pitch (an 8 px row gap), so the list stays dense without shrinking what the finger hits and
+  adjacent targets never overlap. Attack to-hit and damage pills and the attack edit pencils, the
+  spell-slot pips (whose drawn diamond stays compact) and the armor-class and initiative edit
+  targets are the same 44 px.
+- **Rollable totals (Play).** A rollable total reads in `--lg-color-text` with a dashed
+  `--lg-color-link` underline; hover and focus fill it with `--lg-color-accent` and
+  `--lg-color-accent-text`. Filled accent stays for the proficiency dot and the primary action, so
+  "proficient" and "rollable" never share a shape. A d20 rollable takes a roll mode: Shift-click is
+  advantage, Alt-click is disadvantage, and a long press or the Context Menu key / Shift+F10 opens one
+  small dialog with Normal, Advantage and Disadvantage as full-width secondary buttons (the first
+  takes focus). A non-d20 roll ignores all of it. Read-only Play text (the at-will and prepared
+  spell lists) draws no input edge until hover or focus, while Edit keeps the generic input
+  affordance. Initiative reads as a roll before hover: a decorative d20 sits beside its signed total
+  at all times, named `Roll initiative, <signed value>`, and its ghost pencil waits for hover or
+  focus on a desktop, is a full `--lg-size-control` target on a phone and is named
+  `Edit initiative`. No Play label renders below `--lg-type-11`, or below `--lg-type-12` on a phone.
 - **Derived beside its input.** An editable number Row whose value directly feeds one or two derived
   leaves (`schema.dependsOn`, direct edges only; none or three and more draw nothing; a `config.*`
   switch, a text or a table cell never does) carries a second line inside the same Row, under the
@@ -411,6 +439,22 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   `--lg-color-text-muted`.
 - **Numbers lead.** Numeric values are `--lg-type-20` semibold (derived `--lg-type-24` bold),
   right-aligned with tabular figures.
+- **Hit point quick actions.** The hit-points card puts a strip of common changes (`−5`, `−1`, `+1`,
+  `+5`, `+ Temp`) above the amount field and Damage/Heal: ghost-weight `sm` buttons on a hairline
+  border with tabular figures, the damage pair in `--lg-color-danger-400` and the heal pair in
+  `--lg-success-400`. Each is named by its effect ("Damage 5"), and `+ Temp` stays disabled until the
+  amount is positive. They sit on `--lg-size-control-compact` on a desktop and a
+  `--lg-size-control` square on a phone, so a touch target never falls under 44 px.
+- **Compact vitals bar.** On a phone, once the character combat strip scrolls out of view, a fixed
+  bar about `--lg-space-48` tall under the top safe-area inset holds AC, the current and maximum hit
+  points with a 4 px bar, and one `Damage or heal` control on a `--lg-size-control` target; it hides
+  the moment the strip returns. Opening it reveals the amount field and the Damage/Heal actions on
+  the same `--lg-size-control` targets and through the same pending flow as the card. A pending
+  change adds one `--lg-type-12` line under the row (`10 → 6 (−4)`) in the danger or success tone,
+  with its hatched segment on the bar. It slides in with `--lg-motion-180` and drops the motion
+  under reduced motion. The page reserves its height with `scroll-padding-block-start`, so a focused
+  field scrolls clear of it rather than under it. The stat block's vitals band is the same promise
+  by other means: it is sticky under the safe-area inset at every width.
 - **Booleans are switches.** A toggle is a pill track (`--lg-radius-pill`) with a knob drawn on
   the native checkbox: accent track and `--lg-color-accent-text` knob when on, the knob position
   carrying the state as well as the colour. The touch area is at least `--lg-size-control` high: the native input itself is that tall, its track
@@ -451,8 +495,12 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
 - **Header.** The sheet name is the heading (`--lg-type-30` semibold) with the template name under it
   in `--lg-type-15` muted: no kicker above the heading. The actions sit at the trailing edge as one
   bounded group (hairline border, `--lg-radius-md`) of ghost text buttons divided by hairlines, each
-  on a `--lg-size-control` target: `Help`, `Arrange` (pinning is part of Arrange mode). None is primary, because none is: Save stays the only one. On a narrow width the group
-  wraps under the name. `Collapse all` is not a header action: it sits at the trailing edge of the
+  on a `--lg-size-control` target: `Help`, `Arrange` (pinning is part of Arrange mode). None is primary, because none is: Save stays the only one. Below
+  `40rem` the group wraps under the name and takes the content width edge to edge, its segments
+  sharing it equally with centred labels (two for a character's `Play mode` / `Edit mode`, three
+  with `Duplicate` on an NPC or enemy); in Play the hero leads and the group follows it, so the
+  sheet title starts within the first 80 px of a 390 px viewport. From `40rem` the group stays
+  compact and trailing. `Collapse all` is not a header action: it sits at the trailing edge of the
   sticky section strip, next to the links it acts on. There is no vitals strip and no card of pinned
   numbers above the Sections: pinned Rows rise to the top of their own Section.
 
@@ -656,8 +704,8 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
   app the same text opens in the Document dialog instead of navigating away.
 - **States (loading / empty / error / not found).** Each is designed: a short line of plain text
   and, where there is an action, one control. No illustration, no demo data.
-- **Overlays.** Creation flows, destructive confirmations, blocking errors and the dice expression
-  editor use the one dialog pattern; everything else stays inline.
+- **Overlays.** Creation flows, destructive confirmations, blocking errors, the dice expression
+  editor and the roll-mode choice use the one dialog pattern; everything else stays inline.
 - **Dice.** A Row's dice controls sit at the trailing edge of its label, in every Row kind, so they
   always sit right before the value; a label beside them keeps whole words. Roll is the action of the
   table and the only outlined control: raised fill, `--lg-color-border-strong` hairline (accent on
@@ -675,9 +723,16 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
   Row with dice keeps its value on the same guide as every other Row. The editor is the dialog: title, the Section note when editing a Section, the
   `Expression` field, the two quiet ghost alternatives (`Use the Template dice`, `No dice`), then a
   hairline and the commit pair (`Keep current dice` secondary, `Save dice` primary). The Roll result
-  floats at the bottom of the viewport above the sticky footer (`--lg-shadow-2`, raised, a short
-  rise-in zeroed under reduced motion), names the rolled Row beside its total and lists every die
-  and number; it never traps focus and closes on its × or Escape.
+  floats at the bottom of the viewport above the sticky footer or the Play pending bar
+  (`--lg-shadow-2`, raised, a short rise-in zeroed under reduced motion), moves with that surface
+  when it appears, grows or leaves, names the rolled Row beside its total and lists every die and
+  number; it keeps the last three results of the session, newest first, separating them with a
+  hairline (a fourth result drops off the oldest, and older totals step down to `--lg-type-18`).
+  A roll made with advantage or disadvantage names the mode beside its total at
+  `--lg-type-13` semibold, lists every thrown d20 in muted figures with the dropped one struck
+  through and the kept one in text colour semibold, and reads the whole thing in `dice.keptRolls`.
+  It never traps focus and closes on its × or Escape, which also clears the history and starts the
+  next roll from an empty panel.
 
 ---
 

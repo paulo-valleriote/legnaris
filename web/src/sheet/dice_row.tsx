@@ -11,7 +11,14 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { DiceBlock } from '../api/models/dice';
-import { performRoll, rollExpression, type RollResult } from '../dice/roll';
+import {
+  performRoll,
+  keepForMode,
+  rollExpression,
+  rollsD20,
+  type RollMode,
+  type RollResult,
+} from '../dice/roll';
 import type { DiceResult } from '../dice/errors';
 import type { Expression } from '../dice/parse';
 import type { DiceSchema } from '../dice/fit';
@@ -26,6 +33,8 @@ import type { DiceCheck, DiceStore, DiceTarget } from './dice_store';
 import type { PendingDiceKeys } from './sheet_edit';
 import { diceErrorMessageKey, diceSummary, resolveRowForSheet } from './dice_view';
 import { DicePanel } from './dice_panel';
+import { rememberRoll, type RollEntry } from './dice_history';
+import { opensRollModeMenu, RollModeDialog, rollModeFromClick } from './roll_mode';
 import { DieIcon, dieShapeFor } from './die_icon';
 import './dice.css';
 
@@ -64,6 +73,7 @@ interface RollSession {
   readonly rowKey: string;
   readonly label: string;
   readonly outcome: DiceResult<RollResult>;
+  readonly mode?: RollMode;
 }
 
 interface EditRequest {
@@ -96,19 +106,26 @@ export function DiceProvider({
   readonly value: DiceContextValue;
   readonly children: ReactNode;
 }) {
-  const [roll, setRoll] = useState<(RollSession & { readonly id: number }) | null>(null);
+  const [rolls, setRolls] = useState<readonly RollEntry[]>([]);
   const [request, setRequest] = useState<EditRequest | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const rollCount = useRef(0);
-  const dismiss = useCallback(() => setRoll(null), []);
+  const dismiss = useCallback(() => setRolls([]), []);
   const sendRoll = useCallback((next: RollSession) => {
     rollCount.current += 1;
-    setRoll({ ...next, id: rollCount.current });
+    setRolls((history) =>
+      rememberRoll(history, {
+        id: rollCount.current,
+        label: next.label,
+        outcome: next.outcome,
+        mode: next.mode,
+      }),
+    );
   }, []);
   const openEditor = useCallback((next: EditRequest) => {
     returnFocus.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setRoll(null);
+    setRolls([]);
     setRequest(next);
   }, []);
   const closeEditor = useCallback(() => {
@@ -138,14 +155,9 @@ export function DiceProvider({
             />,
             document.body,
           )}
-        {roll !== null &&
+        {rolls.length > 0 &&
           createPortal(
-            <DicePanel
-              key={roll.id}
-              label={roll.label}
-              outcome={roll.outcome}
-              onDismiss={dismiss}
-            />,
+            <DicePanel key={rolls[0].id} results={rolls} onDismiss={dismiss} />,
             document.body,
           )}
       </DiceSessionContext.Provider>
@@ -281,24 +293,29 @@ function useRowResolution(rowKey: string, sectionKey: string): Resolution {
 
 export interface RowRoll {
   readonly resolution: Resolution;
-  readonly roll: () => void;
+  readonly roll: (mode?: RollMode) => void;
 }
 
 export function useRowRoll(rowKey: string, sectionKey: string, label: string): RowRoll {
   const dice = useDiceContext();
   const { sendRoll } = useContext(DiceSessionContext);
   const resolution = useRowResolution(rowKey, sectionKey);
-  const roll = useCallback(() => {
-    sendRoll({
-      rowKey,
-      label,
-      outcome: performRoll(resolution, {
+  const roll = useCallback(
+    (mode: RollMode = 'normal') => {
+      sendRoll({
         rowKey,
-        values: dice.savedValues(),
-        draft: dice.draftValues(),
-      }),
-    });
-  }, [dice, resolution, rowKey, label, sendRoll]);
+        label,
+        mode,
+        outcome: performRoll(resolution, {
+          rowKey,
+          values: dice.savedValues(),
+          draft: dice.draftValues(),
+          keep: keepForMode(mode),
+        }),
+      });
+    },
+    [dice, resolution, rowKey, label, sendRoll],
+  );
   return { resolution, roll };
 }
 
@@ -325,11 +342,17 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
   const { editing, openEditor } = useContext(DiceSessionContext);
   const pressTimer = useRef<number | undefined>(undefined);
   const longPressed = useRef(false);
+  const [choosing, setChoosing] = useState(false);
   const { resolution, roll } = useRowRoll(rowKey, sectionKey, label);
   const isEditing = editing === editKeyOf('row', rowKey);
   const showEdit = rowOffersEdit(resolution);
+  const d20 = resolution.rollable && rollsD20(resolution.parsed);
   const edit = () =>
     openEditor({ target: 'row', keyName: rowKey, label, current: resolution.expression ?? '' });
+  const rollWith = (mode: RollMode) => {
+    setChoosing(false);
+    roll(mode);
+  };
 
   const cancelPress = () => {
     if (pressTimer.current !== undefined) {
@@ -358,6 +381,7 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
               ? messageWith('dice.roll', { label })
               : messageWith('dice.rollWith', { label, dice: summary })
           }
+          aria-haspopup={d20 ? 'dialog' : undefined}
           onPointerDown={() => {
             longPressed.current = false;
             cancelPress();
@@ -370,12 +394,30 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
           onPointerUp={cancelPress}
           onPointerLeave={cancelPress}
           onPointerCancel={cancelPress}
-          onClick={() => {
+          onContextMenu={
+            d20
+              ? (event) => {
+                  event.preventDefault();
+                  setChoosing(true);
+                }
+              : undefined
+          }
+          onKeyDown={
+            d20
+              ? (event) => {
+                  if (opensRollModeMenu(event)) {
+                    event.preventDefault();
+                    setChoosing(true);
+                  }
+                }
+              : undefined
+          }
+          onClick={(event) => {
             if (longPressed.current) {
               longPressed.current = false;
               return;
             }
-            roll();
+            roll(d20 ? rollModeFromClick(event) : 'normal');
           }}
         >
           <DieIcon shape={dieShapeFor(resolution.parsed)} />
@@ -395,6 +437,9 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
         >
           {resolution.rollable ? <PencilIcon className="lg-dice-icon" /> : <DieIcon off />}
         </button>
+      )}
+      {choosing && (
+        <RollModeDialog label={label} onChoose={rollWith} onClose={() => setChoosing(false)} />
       )}
     </span>
   );

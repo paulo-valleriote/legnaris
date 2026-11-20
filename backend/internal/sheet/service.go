@@ -647,6 +647,10 @@ func translateDAGErr(err error) error {
 	if errors.As(err, &notEditable) {
 		return apperr.NewError(apperr.CodeInvalidRequest, notEditable.Error(), nil)
 	}
+	var tooLong *template.TextTooLongError
+	if errors.As(err, &tooLong) {
+		return apperr.NewError(apperr.CodeInvalidRequest, tooLong.Error(), err)
+	}
 	var conflict *template.ExclusiveGroupConflictError
 	if errors.As(err, &conflict) {
 		return apperr.NewError(

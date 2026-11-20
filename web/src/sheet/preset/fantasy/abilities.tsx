@@ -19,6 +19,8 @@ import {
   type AbilityKey,
 } from './abilities_data';
 import './abilities.css';
+import './play_section.css';
+import { PASSIVE_AWARENESS_PATH } from './stat_block_data';
 
 function AbilityMedallion({ ability }: { readonly ability: AbilityKey }) {
   const scorePath = abilityScorePath(ability);
@@ -33,52 +35,62 @@ function AbilityMedallion({ ability }: { readonly ability: AbilityKey }) {
   return (
     <li className="lg-ability" data-testid={`sheet-ability-${ability}`}>
       <span className="lg-ability__name">{scoreLabel}</span>
-      <RollableValue
-        rowKey={scorePath}
-        sectionKey="stats"
-        label={modifierLabel}
-        text={modifier === undefined ? message('sheet.play.noValue') : formatModifier(modifier)}
-        allowRoll={modifier !== undefined}
-        className="lg-ability__modifier"
-      />
-      <InlineEdit
-        className="lg-ability__score"
-        label={scoreLabel}
-        path={scorePath}
-        schema={scoreSchema}
-        value={score === undefined ? '' : String(score)}
-        inputMode="numeric"
-        onCommit={(text) => {
-          const next = parseAbilityScore(text);
-          if (next !== undefined) {
-            commitScore(next);
-          }
-        }}
-      />
+      <span className="lg-ability__medal">
+        <RollableValue
+          rowKey={scorePath}
+          sectionKey="stats"
+          label={modifierLabel}
+          text={modifier === undefined ? message('sheet.play.noValue') : formatModifier(modifier)}
+          allowRoll={modifier !== undefined}
+          className="lg-ability__modifier"
+        />
+        <InlineEdit
+          className="lg-ability__score"
+          label={scoreLabel}
+          path={scorePath}
+          schema={scoreSchema}
+          value={score === undefined ? '' : String(score)}
+          inputMode="numeric"
+          onCommit={(text) => {
+            const next = parseAbilityScore(text);
+            if (next !== undefined) {
+              commitScore(next);
+            }
+          }}
+        />
+      </span>
     </li>
   );
 }
 
-export function FantasyAbilities() {
+function PassiveAwareness() {
+  const passiveAwareness = numberValue(usePresetValue(PASSIVE_AWARENESS_PATH));
+  const passiveLabel = usePresetLabel(PASSIVE_AWARENESS_PATH);
+
+  return (
+    <p className="lg-ability-passive" data-testid="sheet-play-passive">
+      <span className="lg-ability-passive__value">
+        {passiveAwareness === undefined ? message('sheet.play.noValue') : passiveAwareness}
+      </span>{' '}
+      <span className="lg-ability-passive__label">{passiveLabel}</span>
+    </p>
+  );
+}
+
+export function FantasyAbilities({ showPassive = true }: { readonly showPassive?: boolean }) {
   const { template } = usePresetContext();
-  const passiveAwareness = numberValue(usePresetValue('derived.passiveAwareness'));
-  const passiveLabel = usePresetLabel('derived.passiveAwareness');
   const stats = template.fields.stats;
   const sectionLabel = groupDisplayName('stats', stats?.kind === 'group' ? stats.label : undefined);
 
   return (
     <section className="lg-preset-abilities" aria-label={sectionLabel}>
+      <h2 className="lg-play-section__title lg-preset-abilities__title">{sectionLabel}</h2>
       <ul className="lg-ability-grid">
         {ABILITY_KEYS.map((ability) => (
           <AbilityMedallion key={ability} ability={ability} />
         ))}
       </ul>
-      <p className="lg-ability-passive" data-testid="sheet-play-passive">
-        <span className="lg-ability-passive__label">{passiveLabel}</span>{' '}
-        <span className="lg-ability-passive__value">
-          {passiveAwareness === undefined ? message('sheet.play.noValue') : passiveAwareness}
-        </span>
-      </p>
+      {showPassive && <PassiveAwareness />}
     </section>
   );
 }

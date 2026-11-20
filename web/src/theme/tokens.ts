@@ -47,6 +47,30 @@ const pairSpecs: readonly PairSpec[] = [
     minRatio: 4.5,
   },
   {
+    description: 'subtle label on surface',
+    foregroundVar: '--lg-color-text-subtle',
+    backgroundVar: '--lg-color-surface',
+    minRatio: 4.5,
+  },
+  {
+    description: 'lava accent on surface',
+    foregroundVar: '--lg-color-accent',
+    backgroundVar: '--lg-color-surface',
+    minRatio: 4.5,
+  },
+  {
+    description: 'lava accent on raised layer',
+    foregroundVar: '--lg-color-accent',
+    backgroundVar: '--lg-color-raised',
+    minRatio: 4.5,
+  },
+  {
+    description: 'link on raised layer',
+    foregroundVar: '--lg-color-link',
+    backgroundVar: '--lg-color-raised',
+    minRatio: 4.5,
+  },
+  {
     description: 'accent label on accent fill',
     foregroundVar: '--lg-color-accent-text',
     backgroundVar: '--lg-color-accent',
@@ -243,7 +267,8 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-font-family', 'self-hosted family with a system fallback'],
   ]),
   ...group('primitive', 'type', [
-    ['--lg-type-12', 'smallest supporting text'],
+    ['--lg-type-11', 'dense labels on desktop'],
+    ['--lg-type-12', 'smallest supporting text and labels on a phone'],
     ['--lg-type-13', 'secondary label / dense rows'],
     ['--lg-type-15', 'default body and control text'],
     ['--lg-type-16', 'emphasized body'],

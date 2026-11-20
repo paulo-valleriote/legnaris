@@ -56,9 +56,10 @@ describe('page rhythm under the page title', () => {
     expect(ruleBody('.lg-a { color: red; }', '.lg-b')).toBe('');
   });
 
-  it('Happy path: on narrow screens the nav links flow inline with the brand', () => {
+  it('Happy path: on narrow screens the destinations open as one floating panel', () => {
     const shell = read('shell/shell.css');
     const narrow = shell.slice(shell.indexOf('@media (max-width: 39.99rem)'));
-    expect(ruleBody(narrow, '.lg-nav__group')).toMatch(/display:\s*contents/);
+    expect(ruleBody(narrow, '.lg-nav__menu')).toMatch(/position:\s*absolute/);
+    expect(ruleBody(narrow, '.lg-nav__group')).toBe('');
   });
 });

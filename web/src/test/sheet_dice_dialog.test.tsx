@@ -20,6 +20,7 @@ const DICE_TEMPLATE = {
   dice: { section: {}, row: { 'alpha.one': '1d20+alpha.two' } },
 };
 const DATA = { alpha: { one: 5, two: 3, three: 0 } };
+const ONE_ROLL = [{ id: 1, label: 'One', outcome: succeed({ total: 4, parts: [] }) }];
 
 async function open() {
   const stub = createArrangeStub({ template: DICE_TEMPLATE, data: DATA });
@@ -71,9 +72,7 @@ describe('floorOffset', () => {
 
 describe('DicePanel floats above the floor', () => {
   it('Edge: with no floor element the panel sits on the viewport edge', () => {
-    render(
-      <DicePanel label="One" outcome={succeed({ total: 4, parts: [] })} onDismiss={() => {}} />,
-    );
+    render(<DicePanel results={ONE_ROLL} onDismiss={() => {}} />);
 
     const panel = document.querySelector<HTMLElement>('.lg-dice-panel');
     expect(panel?.style.getPropertyValue('--dice-floor')).toBe('0px');
@@ -85,13 +84,39 @@ describe('DicePanel floats above the floor', () => {
     floor.getBoundingClientRect = () => ({ top: window.innerHeight - 90 }) as DOMRect;
     document.body.append(floor);
 
-    render(
-      <DicePanel label="One" outcome={succeed({ total: 4, parts: [] })} onDismiss={() => {}} />,
-    );
+    render(<DicePanel results={ONE_ROLL} onDismiss={() => {}} />);
 
     const panel = document.querySelector<HTMLElement>('.lg-dice-panel');
     expect(panel?.style.getPropertyValue('--dice-floor')).toBe('90px');
     floor.remove();
+  });
+
+  it('Edge: a floor that appears after the panel lifts it without a scroll or resize', async () => {
+    render(<DicePanel results={ONE_ROLL} onDismiss={() => {}} />);
+    const panel = document.querySelector<HTMLElement>('.lg-dice-panel');
+    expect(panel?.style.getPropertyValue('--dice-floor')).toBe('0px');
+
+    const floor = document.createElement('footer');
+    floor.setAttribute(FLOATING_FLOOR_ATTRIBUTE, '');
+    floor.getBoundingClientRect = () => ({ top: window.innerHeight - 90 }) as DOMRect;
+    document.body.append(floor);
+
+    await waitFor(() => expect(panel?.style.getPropertyValue('--dice-floor')).toBe('90px'));
+    floor.remove();
+  });
+
+  it('Edge: a floor that disappears returns the panel to the viewport edge', async () => {
+    const floor = document.createElement('footer');
+    floor.setAttribute(FLOATING_FLOOR_ATTRIBUTE, '');
+    floor.getBoundingClientRect = () => ({ top: window.innerHeight - 90 }) as DOMRect;
+    document.body.append(floor);
+    render(<DicePanel results={ONE_ROLL} onDismiss={() => {}} />);
+    const panel = document.querySelector<HTMLElement>('.lg-dice-panel');
+    expect(panel?.style.getPropertyValue('--dice-floor')).toBe('90px');
+
+    floor.remove();
+
+    await waitFor(() => expect(panel?.style.getPropertyValue('--dice-floor')).toBe('0px'));
   });
 });
 

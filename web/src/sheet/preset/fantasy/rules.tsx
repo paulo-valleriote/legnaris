@@ -1,7 +1,7 @@
 import { useId, useState } from 'react';
 import { SheetFieldControl } from '../../../engine/field_control';
 import { message } from '../../../l10n/strings';
-import { ChevronDownIcon } from '../../../ui/icons';
+import { ChevronRightIcon } from '../../../ui/icons';
 import {
   usePresetCommit,
   usePresetContext,
@@ -65,7 +65,9 @@ export function FantasyTableRules() {
           onClick={() => setOpen((current) => !current)}
         >
           <span>{message('sheet.play.rules')}</span>
-          <ChevronDownIcon className="lg-rules__chevron" />
+          <ChevronRightIcon
+            className={open ? 'lg-rules__chevron lg-rules__chevron--open' : 'lg-rules__chevron'}
+          />
         </button>
       </h2>
       <div id={panelId} className="lg-rules__fields" hidden={!open}>
