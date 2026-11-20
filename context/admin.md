@@ -47,6 +47,8 @@ sequenceDiagram
 
 ## Contracts
 
+- **Apex domain for AdSense.** `ROOT_DOMAIN` (required deploy key, e.g. `paulovalleriote.io`) gets two Traefik routers: `root-ads-txt` serves `/ads.txt` from the web container (priority 1000), and `root` answers every other path with a 301 to `WEB_DOMAIN` (`root-to-web` redirectRegex). AdSense only accepts the apex domain, reads its `ads.txt` there and reviews whatever the apex serves. Its DNS record must resolve to the VPS so Let's Encrypt can issue the certificate.
+
 - **Deploy health gate excludes Prometheus.** `deploy/vps/deploy.sh` runs `up --wait --wait-timeout 180` on every service except `prometheus`, then starts `prometheus` without waiting: its WAL replay can outlast the gate, and monitoring must not roll back a healthy release.
 
 - **Traefik dynamic config is a directory mount.** `deploy/traefik/` is mounted read-only at `/etc/traefik/dynamic` and watched by the file provider, so a deploy that replaces `dynamic.yml` (new inode) reaches the running proxy without a restart; a single-file bind mount would keep serving the old file.
