@@ -145,14 +145,14 @@
   }
 
   .lg-attack-card .lg-attack-card__roll {
-    min-block-size: 36px;
+    min-block-size: var(--lg-size-control);
   }
 
   .lg-attack-card .lg-attack-card__edit {
     position: static;
     opacity: 1;
-    inline-size: 36px;
-    block-size: 36px;
+    inline-size: var(--lg-size-control);
+    block-size: var(--lg-size-control);
     margin-inline-start: var(--lg-space-4);
   }
 }

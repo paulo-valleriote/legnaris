@@ -275,8 +275,12 @@
   }
 
   .lg-spells__pip {
-    width: 36px;
-    height: 36px;
+    width: var(--lg-size-control);
+    height: var(--lg-size-control);
+  }
+
+  .lg-spells__stat .lg-spells__rollable {
+    min-block-size: var(--lg-size-control);
   }
 
   .lg-spells__slot {

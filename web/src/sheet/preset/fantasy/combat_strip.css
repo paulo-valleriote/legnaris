@@ -325,6 +325,10 @@
     block-size: var(--lg-size-control);
   }
 
+  .lg-ac-breakdown .lg-ac-breakdown__base {
+    min-inline-size: var(--lg-size-control);
+  }
+
   .lg-ac-breakdown {
     position: fixed;
     inset-inline: 0;

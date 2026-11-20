@@ -281,7 +281,8 @@ holds the armor class shield, the initiative tile, the speed tile and the hit-po
 query turns it static and the strip into a three-column grid on a phone, with the card across
 all three). The shield (`fantasy/ac_breakdown.tsx`) reads `derived.armorClass` and opens a
 breakdown popover with `role="dialog"`: the base armor (`combat.baseArmorClass`) as an inline
-edit clamped to 1–30, the AC ability as DEX/CON segmented buttons that write the
+edit clamped to 1–30 and a 44px target on a phone, the AC ability as DEX/CON segmented buttons
+that write the
 `armorClassAbility` exclusive group through `setExclusive` (`config.acUsesDex` /
 `config.acUsesCon`, exactly one non-zero member in the delta), that ability's
 `modifiers.<ability>Mod` and the derived total. It closes on Escape, on an outside click and on
@@ -349,9 +350,12 @@ hatched segment on the bar. Escape closes the disclosure only. The bar's height 
 `scroll-padding-block-start`, so a focused field scrolls clear of it, and reduced motion drops its
 slide-in.
 
-Saving throws and skills follow as two card sections (`saves_skills.tsx`). Each panel header carries
-a first-time legend: the saving throws title repeats the row dot (the same `lg-prof-dot__mark`
-mark, filled through the `--on` modifier) beside `proficient`, and the skills title says
+Saving throws and skills follow as two card sections (`saves_skills.tsx`). On a phone each row draws
+at 36px while its proficiency dot, rollable total and bonus edit keep a 44px square target, so the
+sample character sheet's page at 390 shrinks from 2750 to 2652px; the three targets of a row stay
+apart horizontally. Each panel header carries a first-time legend: the saving throws title repeats
+the row dot (the same `lg-prof-dot__mark` mark, filled through the `--on` modifier) beside
+`proficient`, and the skills title says
 `Tap a number to roll`; both strings resolve through `sheet.play.proficient` /
 `sheet.play.rollHint` and sit in the shared `.lg-play-section__note` at the label floor (11px
 desktop, 12px phone). The panels exist only in Play, so Edit draws neither legend. Each row draws a
@@ -384,7 +388,8 @@ the Dice panel and per-sheet overrides. Damage is a literal expression validated
 `fantasy/attacks_data.ts` (`parseAttackDamage`: at least one die, no field reference) and rolled
 through `useExpressionRoll` (`dice_row.tsx`), which keeps the Dice panel, saved/draft values and
 result copy while leaving the attack Row's own dice setting alone. Bonus edits clamp to the
-template range; name, bonus and damage write the pending delta.
+template range; name, bonus and damage write the pending delta. On a phone the to-hit and damage
+pills and both edit pencils are full 44px targets.
 
 The mode is component state for the open screen, local to the viewer, never persisted and never
 sent. Preset edits go through the same edit store (`setPath`), so Preview, Save, the draft cadence
@@ -435,7 +440,8 @@ edge until hover or focus, while Edit keeps the generic form's input affordance.
 drawn per level whose total is
 non-zero: `total` pips with the remaining ones first, each a `--lg-size-control` target that writes
 `spells.slotN.expended` (a remaining pip spends one, a spent pip recovers one), and the total stays
-inline-editable through the engine's numeric guard. `preset/fantasy/slot_pips.ts` is pure
+inline-editable through the engine's numeric guard. On a phone each pip and the rollable spell
+attack keep the same 44px target. `preset/fantasy/slot_pips.ts` is pure
 (`slotPool`, `spendSlot`, `recoverSlot`, `slotPips`): a missing, non-numeric or negative count reads
 as zero, fractional counts truncate, `expended` clamps to the total, and spend or recover at a cap
 returns the same pool. A level stays visible while its total is being edited, and hides once a saved
