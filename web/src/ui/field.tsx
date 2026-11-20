@@ -1,4 +1,4 @@
-import { useId, type ReactNode, type Ref } from 'react';
+import { useId, type KeyboardEventHandler, type ReactNode, type Ref } from 'react';
 
 export type FieldType = 'text' | 'password' | 'email' | 'number';
 export type FieldInputMode =
@@ -28,6 +28,7 @@ export interface FieldProps {
   inputRef?: Ref<HTMLInputElement>;
   onChange?: (v: string) => void;
   onBlur?: () => void;
+  onKeyDown?: KeyboardEventHandler<HTMLInputElement>;
   trailing?: ReactNode;
 }
 
@@ -59,6 +60,7 @@ export function Field({
   inputRef,
   onChange,
   onBlur,
+  onKeyDown,
   trailing,
 }: FieldProps) {
   const generatedId = useId();
@@ -105,7 +107,7 @@ export function Field({
         {multiline === true ? (
           <textarea {...shared} rows={rows} />
         ) : (
-          <input {...shared} ref={inputRef} type={type} pattern={pattern} />
+          <input {...shared} ref={inputRef} type={type} pattern={pattern} onKeyDown={onKeyDown} />
         )}
         {trailing === undefined ? null : (
           <span className="lg-form-field__trailing">{trailing}</span>

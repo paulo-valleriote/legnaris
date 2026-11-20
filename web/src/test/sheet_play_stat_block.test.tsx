@@ -395,4 +395,14 @@ describe('the stat block styles', () => {
     );
     expect(mobile).toMatch(/\.lg-stat-block__hp\s*\{[^}]*grid-column:\s*1 \/ -1/);
   });
+
+  it('Edge: the block keeps the damage and heal buttons at 40px on a desktop and 44px on a phone', () => {
+    const mobile = css.slice(css.indexOf('@media (max-width: 40rem)'));
+    expect(css).toMatch(
+      /\.lg-stat-block \.lg-hp-card__actions > \.lg-button\s*\{[^}]*min-block-size:\s*var\(--lg-size-control-compact\)/,
+    );
+    expect(mobile).toMatch(
+      /\.lg-stat-block \.lg-hp-card__actions > \.lg-button\s*\{[^}]*min-block-size:\s*var\(--lg-size-control\)/,
+    );
+  });
 });

@@ -297,7 +297,14 @@ current, so `10 / 10 → max 6 → 2 damage` leaves `4 / 6`: damage spends tempo
 points first and floors the current value at zero, healing caps at the maximum, and a zero,
 negative or unreadable amount changes nothing. The two writes go to the pending delta through
 `setPath` without a save; until the baseline advances the bar draws the difference as a hatched
-segment and the card reports `was <n>` / `temp was <n>`. `hit_points.ts` also owns the percentage
+segment, red for a loss and green for a gain, and the card spells the change out as
+`<before> → <after> (<signed delta>)`, with a second `temp …` line whenever the temporary points
+move (a loss that stays inside them lists only that line). The pure `hitPointsPreview` decides
+each changed line and the overall direction, and `formatHitPointsDelta` writes the sign (`+5`,
+`−7`). Pressing Enter in the amount field applies damage, and an empty or zero amount does
+nothing. The Damage and Heal buttons sit on `--lg-size-control-compact` on a desktop and
+`--lg-size-control` at phone widths, in the combat strip and in the stat block alike.
+`hit_points.ts` also owns the percentage
 and band helpers, and both the card and the math are exported for the NPC and enemy stat block.
 
 Saving throws and skills follow as two card sections (`saves_skills.tsx`). Each row draws a

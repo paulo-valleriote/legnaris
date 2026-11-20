@@ -144,7 +144,9 @@ No screen invents its own heading size; a smaller voice is a step of this list, 
   the content takes the full width on `--lg-space-16` gutters, the sheet editor and its sticky
   footer included, and the page never scrolls horizontally down to a 320 px viewport.
 - **Density:** rows are `--lg-size-row` high and controls `--lg-size-control` high; prefer aligned
-  rows and compact controls over whitespace-driven layouts.
+  rows and compact controls over whitespace-driven layouts. A pointer-width action that must stay
+  denser without losing its touch target elsewhere uses `--lg-size-control-compact` (40 px) and
+  returns to `--lg-size-control` (44 px) at phone widths.
 - **Narrow single-column screens.** Join and privacy cap their column at `--lg-size-narrow-max`
   rather than a one-off width, so the two flows keep one measure.
 
