@@ -109,6 +109,10 @@
   min-width: 0;
 }
 
+.lg-stat-block .lg-hp-card__actions > .lg-button {
+  min-block-size: var(--lg-size-control-compact);
+}
+
 .lg-stat-block__stat {
   display: flex;
   flex-direction: column;
@@ -293,6 +297,10 @@
 
   .lg-stat-block__hp {
     grid-column: 1 / -1;
+  }
+
+  .lg-stat-block .lg-hp-card__actions > .lg-button {
+    min-block-size: var(--lg-size-control);
   }
 }
 
