@@ -3,6 +3,7 @@ import type { RefObject } from 'react';
 import { fieldDisplayName, lastSegment } from '../../engine/field_grouping';
 import { message, messageWith } from '../../l10n/strings';
 import { Button } from '../../ui/button';
+import { FLOATING_FLOOR_ATTRIBUTE } from '../dice_panel';
 import { areValuesPending, canPreview, canSave } from '../sheet_edit';
 import { pendingChanges } from './pending_changes';
 import { usePresetContext } from './preset_context';
@@ -88,6 +89,7 @@ export function PendingChangesCard() {
       className="lg-pending-card"
       aria-label={message('sheet.pendingEdits')}
       data-testid="sheet-pending-card"
+      {...{ [FLOATING_FLOOR_ATTRIBUTE]: '' }}
     >
       <p
         className="lg-visually-hidden"

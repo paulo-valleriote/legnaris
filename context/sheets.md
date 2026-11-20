@@ -349,7 +349,10 @@ opens a bottom-sheet `Dialog` instead: the input takes `type` and `inputMode` fr
 writing. The narrow check reads `matchMedia` through `useNarrowViewport`; a browser without it edits
 inline. The hit points and experience bars animate their width and the roll toast animates in, and
 every one of those animations is switched off under `prefers-reduced-motion`; on a phone the roll
-toast is flush with the bottom edge.
+toast is flush with the bottom edge. The roll result floats above the current bottom surface: the
+sticky footer in Edit, or the pending bar in Play, which carries the same floor marker as the
+footer. A panel already open lifts or drops when that surface appears or disappears, through the
+floor observer, so the bar never covers the total, the parts or the `role="status"` announcement.
 
 Any Play-mode value edit also floats the pending-changes bar (`pending_card.tsx`, fed by the pure
 `pending_changes.ts`): the only save surface in Play, because the screen draws no footer there.
@@ -362,8 +365,9 @@ to, and one polite, debounced live region announces the change summary once typi
 of on every committed edit. Escape discards outside a text entry, a dialog or the dice panel;
 `Ctrl+S`/`Cmd+S` saves. The bar appears while the edited values differ from the saved baseline and
 hides on Save or Discard, or when every edit is reverted; a failed save or preview keeps it and
-shows the mapped failure copy. Only value edits are summarised: a Dice-only change still counts as
-unsaved work for the leave guard but draws no bar.
+shows the mapped failure copy. In Play the bar is also the roll result's floor: the result panel
+sits fully above it and moves with it when it appears, changes height or leaves. Only value edits
+are summarised: a Dice-only change still counts as unsaved work for the leave guard but draws no bar.
 
 The spellcasting panel (`preset/fantasy/spells.tsx`) reads the decoded template instead of fixed
 paths. It shows the `spellcastingAbility` exclusive group as a segmented choice

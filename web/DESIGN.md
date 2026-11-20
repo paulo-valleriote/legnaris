@@ -684,9 +684,10 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
   Row with dice keeps its value on the same guide as every other Row. The editor is the dialog: title, the Section note when editing a Section, the
   `Expression` field, the two quiet ghost alternatives (`Use the Template dice`, `No dice`), then a
   hairline and the commit pair (`Keep current dice` secondary, `Save dice` primary). The Roll result
-  floats at the bottom of the viewport above the sticky footer (`--lg-shadow-2`, raised, a short
-  rise-in zeroed under reduced motion), names the rolled Row beside its total and lists every die
-  and number; it never traps focus and closes on its × or Escape.
+  floats at the bottom of the viewport above the sticky footer or the Play pending bar
+  (`--lg-shadow-2`, raised, a short rise-in zeroed under reduced motion), moves with that surface
+  when it appears, grows or leaves, names the rolled Row beside its total and lists every die and
+  number; it never traps focus and closes on its × or Escape.
 
 ---
 
