@@ -308,7 +308,9 @@ initiative tile is the large, read-only roll target over the `combat.initiative`
 decorative d20 beside the signed total at all times, with the accessible name and title
 `Roll initiative, <signed value>`; its inline edit pencil waits for hover or focus on a desktop, is
 a full `--lg-size-control` target on a phone and is named `Edit initiative` (the inline editor keeps
-the field label as its name). The
+the field label as its name). The rollable total's dashed underline uses a tighter
+`text-underline-offset` than a text link, so it stays inside the value's line box and clear of the
+label under it. The
 speed tile inline-edits `combat.speed` (clamped to 0–120). `fantasy/armor_class.ts` owns the
 paths, the 1–30 / 0–120 / −5–20 parsing and the exactly-one-ability selector. The hit-points card reads
 `combat.hitPoints`, `combat.hitPointsMax` and `combat.hitPointsTemp`, draws the bar as a
@@ -343,10 +345,12 @@ never reduces them; it writes only `combat.hitPointsTemp` and never rewrites the
 Each button states its effect as its accessible name (`Damage 5`, `Heal 1`, `Add temporary hit
 points`). The Damage and Heal buttons and the quick strip sit on `--lg-size-control-compact` on a
 desktop and `--lg-size-control` at phone widths, the quick buttons as 44px squares, in the combat
-strip and in the stat block alike. The stat block folds the card into one row (numbers, bar, then a
-74px amount field with Damage and Heal under the quick strip, with any pending line across the
-full width), so the vitals band stays compact; on a phone the actions drop to their own row under
-the numbers. `hit_points.ts`
+strip and in the stat block alike. On a phone the actions sit in one full-width,
+min-width-zero track, so the quick strip and the amount/Damage/Heal row wrap and stay inside the
+card at 320 and 390 instead of running past its right edge. The stat block folds the card into one
+row (numbers, bar, then a 74px amount field with Damage and Heal under the quick strip, with any
+pending line across the full width), so the vitals band stays compact; on a phone the actions drop
+to their own row under the numbers. `hit_points.ts`
 also owns the percentage
 and band helpers, and both the card and the math are exported for the NPC and enemy stat block.
 
@@ -522,11 +526,13 @@ body text at `--lg-type-15` with every control on a `--lg-size-control` target; 
 sticky under the top safe-area inset at every width, and its controls carry a scroll margin so a
 focused edit lands below it; on a phone the band
 puts armor class and initiative on one row with the full-width hit-points card below and
-control-sized 44px Damage and Heal actions, the body pads at `--lg-space-12`, the six abilities sit
-in a three-column grid with 12px labels and their score pill under the medallion, and the trait
+control-sized 44px Damage and Heal actions, the body pads at `--lg-space-12` and the trait
 prose reads at `--lg-type-13`, keeping a sample enemy inside its 900px (1440) and 1200px (390)
-height budgets. `e2e/responsive.spec.ts` records the height at both widths, the two-column split at
-1100px, the first-phone-screen contents and the lack of horizontal overflow at 360px.
+height budgets. At every width the six abilities sit in a three-column grid of two rows with
+their score pill under the medallion, so no ability name has to truncate; the labels read
+`--lg-type-11` on a desktop and `--lg-type-12` on a phone. `e2e/responsive.spec.ts` records the
+height at both widths, the two-column split at 1100px, the first-phone-screen contents and the
+lack of horizontal overflow at 360px, and that no ability name is cut at 1440 and 1100.
 
 ### Web local records
 

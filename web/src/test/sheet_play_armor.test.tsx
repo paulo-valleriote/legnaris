@@ -546,4 +546,11 @@ describe('the phone layout', () => {
       /\.lg-combat-stat \.lg-combat-stat__edit\s*\{[^}]*block-size:\s*var\(--lg-size-control\)/,
     );
   });
+
+  it('Edge: the initiative underline clears the label below it', () => {
+    expect(css).toMatch(/\.lg-combat-stat\s*\{[^}]*gap:\s*var\(--lg-space-4\)/);
+    expect(css).toMatch(
+      /\.lg-combat-stat \.lg-combat-stat__value\.lg-rollable\s*\{[^}]*text-underline-offset:\s*var\(--lg-space-4\)/,
+    );
+  });
 });

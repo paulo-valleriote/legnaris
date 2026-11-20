@@ -1017,13 +1017,24 @@ describe('the stat block styles', () => {
     const mobile = css.slice(css.indexOf('@media (max-width: 40rem)'));
     expect(mobile).toMatch(/\.lg-stat-block__column > \*\s*\{[^}]*padding:\s*var\(--lg-space-12\)/);
     expect(mobile).toMatch(
-      /\.lg-stat-block \.lg-ability-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/,
+      /\.lg-stat-block \.lg-ability-grid\s*\{[^}]*row-gap:\s*var\(--lg-space-8\)/,
     );
     expect(mobile).toMatch(/\.lg-stat-block \.lg-ability__name\s*\{[^}]*var\(--lg-type-12\)/);
     expect(mobile).toMatch(
       /\.lg-stat-block \.lg-ability \.lg-ability__score\s*\{[^}]*position:\s*absolute/,
     );
     expect(mobile).toMatch(/\.lg-stat-block__line\s*\{[^}]*font-size:\s*var\(--lg-type-13\)/);
+  });
+
+  it('Edge: the stat block abilities sit in three columns at every width and never ellipsise', () => {
+    expect(css).toMatch(
+      /\.lg-stat-block \.lg-ability-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/,
+    );
+    const name = css.slice(css.indexOf('.lg-stat-block .lg-ability__name'));
+    expect(name).toMatch(/white-space:\s*normal/);
+    expect(name).toMatch(/overflow-wrap:\s*anywhere/);
+    expect(name).toMatch(/text-overflow:\s*clip/);
+    expect(name).not.toMatch(/text-overflow:\s*ellipsis/);
   });
 
   it('Edge: one centred card holds the block, capped near 45rem', () => {

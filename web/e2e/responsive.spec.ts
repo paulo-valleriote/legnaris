@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import { seedSession } from './auth_seed';
+import {
+  SHEET as FANTASY_SHEET,
+  SHEET_ID as FANTASY_SHEET_ID,
+  TEMPLATE as FANTASY_TEMPLATE,
+} from './fantasy_play';
 import { STAT_BLOCK_DETAIL, STAT_BLOCK_SHEET, STAT_BLOCK_SHEET_ID } from './stat_block_fixture';
 
 test.use({ serviceWorkers: 'block' });
@@ -8,6 +13,8 @@ test.use({ serviceWorkers: 'block' });
 const TEMPLATE_ID = 'fantasy_v1';
 const SHEET_ID = '01a14236-21c9-7546-945e-40c46d1fcd1d';
 const CONTROL_HEIGHT = 44;
+const UNDERLINE_THICKNESS = 1.5;
+const UNDERLINE_CLEARANCE = 2;
 
 const CATALOG = [{ id: TEMPLATE_ID, name: 'Fantasy', default: true, fields: {} }];
 
@@ -531,6 +538,30 @@ test.describe('the enemy stat block', () => {
     );
     expect(overflow).toBe(0);
   });
+
+  for (const viewport of [
+    { name: '1440', width: 1440, height: 900 },
+    { name: '1100', width: 1100, height: 900 },
+  ]) {
+    test(`no stat block ability name is cut at ${viewport.name} px`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await openStatBlock(page);
+
+      const names = page.locator('.lg-stat-block .lg-ability__name');
+      expect(await names.count()).toBe(6);
+      const measured = await names.evaluateAll((elements) =>
+        elements.map((element) => ({
+          text: element.textContent?.trim(),
+          scroll: element.scrollWidth,
+          client: element.clientWidth,
+        })),
+      );
+      for (const name of measured) {
+        expect(name.text).not.toBe('');
+        expect(name.scroll).toBeLessThanOrEqual(name.client);
+      }
+    });
+  }
 });
 
 const dieField = (label: string) => ({
@@ -602,6 +633,102 @@ test.describe('dice controls keep the value column on one guide', () => {
         () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
       );
       expect(overflow).toBe(0);
+    });
+  }
+});
+
+test.describe('the fantasy Play sheet at every width', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSession(page);
+    await page.route('**/templates/*', (route) =>
+      route.fulfill({ json: { data: FANTASY_TEMPLATE } }),
+    );
+    await page.route('**/templates', (route) =>
+      route.fulfill({ json: { data: [FANTASY_TEMPLATE] } }),
+    );
+    await page.route('**/sheets/*', (route) =>
+      route.request().resourceType() === 'document'
+        ? route.fallback()
+        : route.fulfill({ json: { data: FANTASY_SHEET } }),
+    );
+  });
+
+  async function openPlay(page: Page) {
+    await page.goto(`/sheets/${FANTASY_SHEET_ID}`);
+    await expect(page.getByTestId('sheet-hp-card')).toBeVisible();
+  }
+
+  for (const phone of PHONES) {
+    test(`every hit point control stays inside the card on ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await openPlay(page);
+
+      const card = page.getByTestId('sheet-hp-card');
+      const cardBox = (await card.boundingBox())!;
+      const controls = card.locator('button, input');
+      const count = await controls.count();
+      expect(count).toBeGreaterThanOrEqual(11);
+      for (let index = 0; index < count; index += 1) {
+        const control = controls.nth(index);
+        await expect(control).toBeVisible();
+        const box = (await control.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(cardBox.x - 0.5);
+        expect(box.x + box.width).toBeLessThanOrEqual(cardBox.x + cardBox.width + 0.5);
+        expect(box.y).toBeGreaterThanOrEqual(cardBox.y - 0.5);
+        expect(box.y + box.height).toBeLessThanOrEqual(cardBox.y + cardBox.height + 0.5);
+      }
+
+      for (const name of [
+        'Damage 5',
+        'Damage 1',
+        'Heal 1',
+        'Heal 5',
+        'Add temporary hit points',
+        'Damage',
+        'Heal',
+      ]) {
+        const box = (await card.getByRole('button', { name, exact: true }).boundingBox())!;
+        expect(box.width).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
+        expect(box.height).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
+      }
+    });
+  }
+
+  for (const viewport of [
+    { name: '1440', width: 1440, height: 900 },
+    { name: '390', width: 390, height: 844 },
+  ]) {
+    test(`the initiative underline sits clear of its label at ${viewport.name} px`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await openPlay(page);
+
+      const geometry = await page.getByTestId('sheet-initiative').evaluate((element) => {
+        const value = element.querySelector('.lg-combat-stat__value')!;
+        const label = element.querySelector('.lg-combat-stat__label')!;
+        const text = [...value.childNodes].find(
+          (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? '').trim() !== '',
+        )!;
+        const range = document.createRange();
+        range.selectNodeContents(text);
+        const textBox = range.getBoundingClientRect();
+        const style = getComputedStyle(value);
+        const context = document.createElement('canvas').getContext('2d')!;
+        context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        const metrics = context.measureText(text.textContent ?? '');
+        return {
+          underlineBottom:
+            textBox.top +
+            metrics.fontBoundingBoxAscent +
+            Number.parseFloat(style.textUnderlineOffset),
+          labelTop: label.getBoundingClientRect().top,
+        };
+      });
+
+      expect(geometry.underlineBottom + UNDERLINE_THICKNESS).toBeLessThanOrEqual(
+        geometry.labelTop - UNDERLINE_CLEARANCE,
+      );
     });
   }
 });
