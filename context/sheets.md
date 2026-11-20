@@ -236,7 +236,9 @@ ability medallions, the spellcasting panel and the table-rules disclosure. A pre
 ordered body layout: full-width Section blocks and column blocks. The fantasy body draws the combat
 strip across the top, then three columns (abilities / saving throws with skills / attacks with
 spells), then the table rules; the columns fall to two around 1100px and to one on a phone, without
-a horizontal scroll at 360px. The title is
+a horizontal scroll at 360px. In both narrower layouts an ability medallion stacks its name above
+the medal and lets the name wrap instead of ellipsising it, so no ability name is cut; the
+three-column desktop layout is unchanged. The title is
 `identity.characterName` with
 the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper,
 `played by <player>` and the proficiency badge (an inline edit clamped to 2–6 by the pure
