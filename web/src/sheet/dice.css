@@ -40,6 +40,29 @@
   margin: 0;
 }
 
+.lg-dice-panel__history {
+  display: grid;
+  gap: var(--lg-space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lg-dice-panel__entry {
+  display: grid;
+  gap: var(--lg-space-8);
+  min-inline-size: 0;
+}
+
+.lg-dice-panel__entry + .lg-dice-panel__entry {
+  padding-block-start: var(--lg-space-8);
+  border-block-start: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-dice-panel__entry + .lg-dice-panel__entry .lg-dice-panel__total-value {
+  font-size: var(--lg-type-18);
+}
+
 .lg-dice-panel__total-label {
   min-width: 0;
   overflow-wrap: anywhere;
