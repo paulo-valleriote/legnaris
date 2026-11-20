@@ -164,7 +164,12 @@ describe('the mobile Play section order', () => {
 
     const reached = focusables.map((element) => {
       const section = element.closest<HTMLElement>('[data-preset-section]');
-      return section === null ? -1 : (position.get(section) ?? -1);
+      if (section !== null) {
+        return position.get(section) ?? -1;
+      }
+      const strip = element.closest<HTMLElement>('[data-testid="sheet-section-nav"]');
+      const previous = strip?.previousElementSibling;
+      return previous instanceof HTMLElement ? (position.get(previous) ?? -1) : -1;
     });
 
     expect(focusables.length).toBeGreaterThan(0);

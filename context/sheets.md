@@ -245,7 +245,17 @@ the same `NARROW_QUERY` as every preset media query) the narrow layout replaces 
 flat, mobile-first order — combat, attacks, spells, abilities, saves, skills, rules — so the DOM and
 the keyboard tab order follow the visual order; the 1440 and 1100 arrangements keep their columns.
 The narrow sections are wrapped in `data-preset-section` slots, and a Section that renders nothing
-(no spells, no attacks, no rules) leaves an empty slot that is not drawn. On a phone the hero comes
+(no spells, no attacks, no rules) leaves an empty slot that is not drawn. A preset that declares
+`sectionNav.after` (`combat` for `fantasy_v1`) also draws a phone-only section chip row under that
+slot (`preset/section_nav.tsx` over the pure `preset/section_nav_targets.ts`): it lists, in layout
+order, only the Sections that rendered a heading, leaving out the strip the player is already under.
+Each chip is a full `--lg-size-control` tab stop in a horizontally scrolling `nav`; tapping one
+scrolls its heading into view with `scroll-margin-block-start` (the vitals bar's own scroll padding
+is not stacked) and moves focus to the heading, which reduced motion lands instantly. A scroll and
+resize listener marks the Section whose heading last crossed the landing line, and marks the last
+Section once the page reaches the bottom, so a short final Section still marks itself. The ability
+Section grows a phone-only heading (hidden in the desktop columns) so it can be a jump target.
+On a phone the hero comes
 before the sheet action group (desktop keeps the actions above it), so the title starts within the
 first 80 px of a 390 px viewport. The title is
 `identity.characterName` with
@@ -550,7 +560,9 @@ Web:
   shortcut and the guards; `layout_store.ts` — committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
   optional kind-selected `statBlock`, the optional `Vitals` bar, ordered section slots, the wide
-  column layout and the mobile-first narrow layout);
+  column layout, the mobile-first narrow layout and the optional phone section nav);
+  `section_nav.tsx` — the phone-only section chips and scrollspy; `section_nav_targets.ts` — its
+  pure target discovery and active-Section resolution;
   `fantasy/` — the hero, the combat strip, the attack cards, the ability medallions, the
   saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
   `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`, `attacks_data.ts`, `slot_pips.ts`,

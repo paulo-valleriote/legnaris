@@ -33,4 +33,5 @@ export const fantasyPreset: SheetPreset = {
     { sections: ['combat', 'attacks', 'spells', 'stats', 'saves', 'skills'] },
     { sections: ['rules'] },
   ],
+  sectionNav: { after: 'combat' },
 };
