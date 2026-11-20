@@ -85,6 +85,7 @@ export function PresetPlayView({ preset }: { readonly preset: SheetPreset }) {
           ))}
         </div>
       )}
+      {statBlock === undefined && preset.Vitals !== undefined && <preset.Vitals />}
       <PendingChangesCard />
     </div>
   );

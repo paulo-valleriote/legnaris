@@ -92,7 +92,7 @@ function SpeedTile() {
 
 export function CombatStrip() {
   return (
-    <div className="lg-combat-strip" data-testid="sheet-combat-strip">
+    <div className="lg-combat-strip" data-testid="sheet-combat-strip" data-vitals-anchor="">
       <ArmorClassShield />
       <InitiativeTile />
       <SpeedTile />

@@ -332,6 +332,21 @@ the numbers. `hit_points.ts`
 also owns the percentage
 and band helpers, and both the card and the math are exported for the NPC and enemy stat block.
 
+The phone keeps those vitals reachable once the strip leaves the viewport. `fantasy/vitals_bar.tsx`
+is registered as the preset's optional `Vitals` and draws a fixed bar under the top safe-area inset
+(about `--lg-space-48` tall) with AC, current/maximum hit points and a thin bar, plus one
+`Damage or heal` disclosure that opens the amount field and 44px Damage/Heal actions. It exists only
+at phone widths and measures the strip's `data-vitals-anchor` rect on scroll and resize, so it
+appears once the strip has passed the top edge and hides when it returns; a zero-height or missing
+anchor keeps it hidden, and a short sheet that never scrolls the strip out never shows it. AC comes
+from `derived.armorClass`. The bar reuses `fantasy/hit_points_view.ts` (`useHitPointsView`), the
+shared view over the pure hit-point math that the card also uses, so damage, healing, temporary
+points, the amount field and the pending delta follow exactly the card's flow. A pending change adds
+one line spelling out `<before> → <after> (<delta>)` in the danger or success tone, with the same
+hatched segment on the bar. Escape closes the disclosure only. The bar's height is reserved through
+`scroll-padding-block-start`, so a focused field scrolls clear of it, and reduced motion drops its
+slide-in.
+
 Saving throws and skills follow as two card sections (`saves_skills.tsx`). Each panel header carries
 a first-time legend: the saving throws title repeats the row dot (the same `lg-prof-dot__mark`
 mark, filled through the `--on` modifier) beside `proficient`, and the skills title says
@@ -459,7 +474,9 @@ spellcasting at all (no slot and no list text, per the pure `hasSpellCast` in `s
 draws no spells section; the hidden-levels footnote appears only beside at least one drawn slot row.
 Every value keeps its pending-delta path, so the stat block saves, previews and drafts like the full
 sheet. A character sheet, or a sheet with no kind, keeps the full preset. `stat_block.css` draws
-body text at `--lg-type-15` with every control on a `--lg-size-control` target; on a phone the band
+body text at `--lg-type-15` with every control on a `--lg-size-control` target; the vitals band is
+sticky under the top safe-area inset at every width, and its controls carry a scroll margin so a
+focused edit lands below it; on a phone the band
 puts armor class and initiative on one row with the full-width hit-points card below and
 control-sized 44px Damage and Heal actions.
 
@@ -509,8 +526,8 @@ Web:
 - `web/src/sheet/sheet_screen.tsx` — mounted screen, the Edit-only footer, the Play discard
   shortcut and the guards; `layout_store.ts` — committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
-  optional kind-selected `statBlock`, ordered section slots, the wide column layout and the
-  mobile-first narrow layout);
+  optional kind-selected `statBlock`, the optional `Vitals` bar, ordered section slots, the wide
+  column layout and the mobile-first narrow layout);
   `fantasy/` — the hero, the combat strip, the attack cards, the ability medallions, the
   saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
   `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`, `attacks_data.ts`, `slot_pips.ts`,
@@ -521,7 +538,10 @@ Web:
   card, ability medallions and attack cards and asking the spellcasting panel for its `compact`
   variant; `fantasy/stat_block_data.ts` — its
   kind selection and subtitle parts;
-  `fantasy/combat_strip.tsx` — the combat strip container; `fantasy/ac_breakdown.tsx` — the armor
+  `fantasy/combat_strip.tsx` — the combat strip container and the vitals anchor; `fantasy/vitals_bar.tsx`
+  — the phone-only fixed vitals bar and its strip measurement; `fantasy/hit_points_view.ts` — the
+  shared React view over the hit-point math (amount, commits, pending preview geometry) used by both
+  cards; `fantasy/ac_breakdown.tsx` — the armor
   class shield and its breakdown with the DEX/CON segmented exclusive choice;
   `fantasy/armor_class.ts` — the AC/speed paths, the exactly-one-ability selector and the clamped
   parsing; `fantasy/hp_card.tsx` — the hit-points card; `fantasy/attacks.tsx` — the attack cards;

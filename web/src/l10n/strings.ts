@@ -378,6 +378,8 @@ export const messages = {
   'sheet.play.hiddenLevels': 'Levels {levels} hidden · no slots',
   'sheet.play.rules': 'Table rules',
   'sheet.play.hitPoints': 'Hit points',
+  'sheet.play.vitals': 'Vitals',
+  'sheet.play.damageOrHeal': 'Damage or heal',
   'sheet.play.hitPointsValue': '{count} / {max}',
   'sheet.play.tempValue': '+{count} temp',
   'sheet.play.tempShort': 'Temp',

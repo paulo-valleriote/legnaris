@@ -1,46 +1,47 @@
-import { useCallback, useState, useSyncExternalStore } from 'react';
 import { message, messageWith } from '../../../l10n/strings';
 import { Button } from '../../../ui/button';
 import { Field } from '../../../ui/field';
 import { InlineEdit } from '../../inline_edit';
-import {
-  usePresetCommit,
-  usePresetContext,
-  usePresetLabel,
-  usePresetSchema,
-} from '../preset_context';
+import { usePresetCommit, usePresetLabel, usePresetSchema } from '../preset_context';
 import {
   applyDamage,
   applyHeal,
-  applyTemp,
   formatHitPointsDelta,
   HIT_POINTS_CURRENT,
   HIT_POINTS_MAX,
   HIT_POINTS_TEMP,
-  hitPointsBand,
-  hitPointsFrom,
-  hitPointsPercent,
-  hitPointsPreview,
-  parseHitPointsAmount,
   parseHitPointsCurrent,
   parseHitPointsMaximum,
   parseHitPointsTemp,
 } from './hit_points';
-import type { HitPointsChange, HitPointsDirection } from './hit_points';
-
-function withinRange(value: number, max: number): number {
-  return Math.min(max, Math.max(0, value));
-}
-
-function lineTone(delta: number): HitPointsDirection {
-  return delta < 0 ? 'damage' : 'heal';
-}
+import { lineTone, useHitPointsView, withinRange } from './hit_points_view';
 
 export function HitPointsCard() {
-  const { store } = usePresetContext();
-  const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
-  const state = useSyncExternalStore(subscribe, store.getState);
-  const [amount, setAmount] = useState('');
+  const {
+    points,
+    current,
+    currentValue,
+    max,
+    maxValue,
+    temp,
+    band,
+    percent,
+    tempPercent,
+    preview,
+    currentChange,
+    tempChange,
+    pendingLeft,
+    pendingWidth,
+    tempPendingLeft,
+    tempPendingWidth,
+    amount,
+    setAmount,
+    amountValue,
+    commit,
+    applyDamageAmount,
+    applyHealAmount,
+    applyTempAmount,
+  } = useHitPointsView();
   const currentLabel = usePresetLabel(HIT_POINTS_CURRENT);
   const maxLabel = usePresetLabel(HIT_POINTS_MAX);
   const tempLabel = usePresetLabel(HIT_POINTS_TEMP);
@@ -50,72 +51,6 @@ export function HitPointsCard() {
   const commitCurrent = usePresetCommit(HIT_POINTS_CURRENT);
   const commitMax = usePresetCommit(HIT_POINTS_MAX);
   const commitTemp = usePresetCommit(HIT_POINTS_TEMP);
-
-  const hitPoints = hitPointsFrom(state.data);
-  const stored = hitPointsFrom(state.defaults);
-  const max = Math.max(0, hitPoints.max);
-  const current = withinRange(hitPoints.current, max);
-  const storedCurrent = withinRange(stored.current, max);
-  const temp = Math.max(0, hitPoints.temp);
-  const storedTemp = Math.max(0, stored.temp);
-  const points = { current, max, temp };
-
-  const percent = hitPointsPercent(current, max);
-  const storedPercent = hitPointsPercent(storedCurrent, max);
-  const tempPercent = hitPointsPercent(temp, max);
-  const storedTempPercent = hitPointsPercent(storedTemp, max);
-
-  const preview = hitPointsPreview(
-    { current: storedCurrent, max, temp: storedTemp },
-    { current, max, temp },
-  );
-  const currentChange = preview?.current;
-  const tempChange = preview?.temp;
-  const pendingLeft = Math.min(percent, storedPercent);
-  const pendingWidth = Math.abs(percent - storedPercent);
-  const currentEnd = Math.max(percent, storedPercent);
-  const tempEnd = Math.min(100, percent + tempPercent);
-  const storedTempEnd = Math.min(100, storedPercent + storedTempPercent);
-  const tempPendingLeft = Math.min(
-    100,
-    Math.max(
-      currentEnd,
-      Math.min(percent, storedPercent) + Math.min(tempPercent, storedTempPercent),
-    ),
-  );
-  const tempPendingWidth = Math.min(
-    100 - tempPendingLeft,
-    Math.max(0, Math.max(tempEnd, storedTempEnd) - tempPendingLeft),
-  );
-
-  const commit = (change: HitPointsChange | undefined) => {
-    if (change === undefined) {
-      return;
-    }
-    store.setPath(HIT_POINTS_CURRENT, change.current);
-    store.setPath(HIT_POINTS_TEMP, change.temp);
-  };
-
-  const applyAmount = (change: HitPointsChange | undefined) => {
-    if (change === undefined) {
-      return;
-    }
-    commit(change);
-    setAmount('');
-  };
-
-  const amountValue = parseHitPointsAmount(amount);
-  const applyDamageAmount = () => {
-    applyAmount(amountValue === undefined ? undefined : applyDamage(points, amountValue));
-  };
-  const applyTempAmount = () => {
-    const change = amountValue === undefined ? undefined : applyTemp(points, amountValue);
-    if (change === undefined) {
-      return;
-    }
-    store.setPath(HIT_POINTS_TEMP, change.temp);
-    setAmount('');
-  };
 
   return (
     <div className="lg-hp-card" data-testid="sheet-hp-card">
@@ -145,14 +80,14 @@ export function HitPointsCard() {
               label={maxLabel}
               path={HIT_POINTS_MAX}
               schema={maxSchema}
-              value={String(hitPoints.max)}
+              value={String(maxValue)}
               inputMode="numeric"
               onCommit={(text) => {
                 const next = parseHitPointsMaximum(text);
                 if (next !== undefined) {
                   commitMax(next);
-                  const clamped = withinRange(hitPoints.current, next);
-                  if (clamped !== hitPoints.current) {
+                  const clamped = withinRange(currentValue, next);
+                  if (clamped !== currentValue) {
                     commitCurrent(clamped);
                   }
                 }
@@ -199,7 +134,7 @@ export function HitPointsCard() {
       <div
         className="lg-hp-card__bar"
         data-testid="sheet-hp-meter"
-        data-band={hitPointsBand(percent)}
+        data-band={band}
         role="meter"
         aria-label={message('sheet.play.hitPoints')}
         aria-valuemin={0}
@@ -339,9 +274,7 @@ export function HitPointsCard() {
             variant="secondary"
             size="sm"
             label={message('sheet.play.heal')}
-            onClick={() =>
-              applyAmount(amountValue === undefined ? undefined : applyHeal(points, amountValue))
-            }
+            onClick={applyHealAmount}
           />
         </div>
       </div>

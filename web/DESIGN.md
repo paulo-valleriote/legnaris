@@ -435,6 +435,16 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   `--lg-success-400`. Each is named by its effect ("Damage 5"), and `+ Temp` stays disabled until the
   amount is positive. They sit on `--lg-size-control-compact` on a desktop and a
   `--lg-size-control` square on a phone, so a touch target never falls under 44 px.
+- **Compact vitals bar.** On a phone, once the character combat strip scrolls out of view, a fixed
+  bar about `--lg-space-48` tall under the top safe-area inset holds AC, the current and maximum hit
+  points with a 4 px bar, and one `Damage or heal` control on a `--lg-size-control` target; it hides
+  the moment the strip returns. Opening it reveals the amount field and the Damage/Heal actions on
+  the same `--lg-size-control` targets and through the same pending flow as the card. A pending
+  change adds one `--lg-type-12` line under the row (`10 → 6 (−4)`) in the danger or success tone,
+  with its hatched segment on the bar. It slides in with `--lg-motion-180` and drops the motion
+  under reduced motion. The page reserves its height with `scroll-padding-block-start`, so a focused
+  field scrolls clear of it rather than under it. The stat block's vitals band is the same promise
+  by other means: it is sticky under the safe-area inset at every width.
 - **Booleans are switches.** A toggle is a pill track (`--lg-radius-pill`) with a knob drawn on
   the native checkbox: accent track and `--lg-color-accent-text` knob when on, the knob position
   carrying the state as well as the colour. The touch area is at least `--lg-size-control` high: the native input itself is that tall, its track
