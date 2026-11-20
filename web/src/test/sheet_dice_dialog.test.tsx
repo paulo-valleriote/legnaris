@@ -93,6 +93,38 @@ describe('DicePanel floats above the floor', () => {
     expect(panel?.style.getPropertyValue('--dice-floor')).toBe('90px');
     floor.remove();
   });
+
+  it('Edge: a floor that appears after the panel lifts it without a scroll or resize', async () => {
+    render(
+      <DicePanel label="One" outcome={succeed({ total: 4, parts: [] })} onDismiss={() => {}} />,
+    );
+    const panel = document.querySelector<HTMLElement>('.lg-dice-panel');
+    expect(panel?.style.getPropertyValue('--dice-floor')).toBe('0px');
+
+    const floor = document.createElement('footer');
+    floor.setAttribute(FLOATING_FLOOR_ATTRIBUTE, '');
+    floor.getBoundingClientRect = () => ({ top: window.innerHeight - 90 }) as DOMRect;
+    document.body.append(floor);
+
+    await waitFor(() => expect(panel?.style.getPropertyValue('--dice-floor')).toBe('90px'));
+    floor.remove();
+  });
+
+  it('Edge: a floor that disappears returns the panel to the viewport edge', async () => {
+    const floor = document.createElement('footer');
+    floor.setAttribute(FLOATING_FLOOR_ATTRIBUTE, '');
+    floor.getBoundingClientRect = () => ({ top: window.innerHeight - 90 }) as DOMRect;
+    document.body.append(floor);
+    render(
+      <DicePanel label="One" outcome={succeed({ total: 4, parts: [] })} onDismiss={() => {}} />,
+    );
+    const panel = document.querySelector<HTMLElement>('.lg-dice-panel');
+    expect(panel?.style.getPropertyValue('--dice-floor')).toBe('90px');
+
+    floor.remove();
+
+    await waitFor(() => expect(panel?.style.getPropertyValue('--dice-floor')).toBe('0px'));
+  });
 });
 
 describe('focusTrap', () => {

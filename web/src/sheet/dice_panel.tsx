@@ -33,24 +33,78 @@ function Breakdown({ result }: { readonly result: RollResult }) {
 
 export const FLOATING_FLOOR_ATTRIBUTE = 'data-floating-floor';
 
+const FLOOR_SELECTOR = `[${FLOATING_FLOOR_ATTRIBUTE}]`;
+
 export function floorOffset(viewportHeight: number, floorTop: number | undefined): number {
   if (floorTop === undefined || !Number.isFinite(floorTop)) return 0;
   return Math.max(0, Math.min(viewportHeight, viewportHeight - floorTop));
 }
 
+function isFloorNode(node: Node): boolean {
+  if (node.nodeType !== Node.ELEMENT_NODE) {
+    return false;
+  }
+  const element = node as Element;
+  return element.matches(FLOOR_SELECTOR) || element.querySelector(FLOOR_SELECTOR) !== null;
+}
+
+function touchesFloor(records: readonly MutationRecord[]): boolean {
+  return records.some(
+    (record) =>
+      record.type === 'attributes' ||
+      [...record.addedNodes, ...record.removedNodes].some(isFloorNode),
+  );
+}
+
 function useFloatAboveFloor(panel: React.RefObject<HTMLDivElement | null>) {
   useLayoutEffect(() => {
     const place = () => {
-      const floor = document.querySelector<HTMLElement>(`[${FLOATING_FLOOR_ATTRIBUTE}]`);
+      const floor = document.querySelector<HTMLElement>(FLOOR_SELECTOR);
       const offset = floorOffset(window.innerHeight, floor?.getBoundingClientRect().top);
-      panel.current?.style.setProperty('--dice-floor', `${offset}px`);
+      const element = panel.current;
+      if (element !== null && element.style.getPropertyValue('--dice-floor') !== `${offset}px`) {
+        element.style.setProperty('--dice-floor', `${offset}px`);
+      }
     };
-    place();
+    const resizer = typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(place);
+    let observed: HTMLElement | null = null;
+    const track = () => {
+      const floor = document.querySelector<HTMLElement>(FLOOR_SELECTOR);
+      if (floor === observed) {
+        return;
+      }
+      resizer?.disconnect();
+      observed = floor;
+      if (floor !== null) {
+        resizer?.observe(floor);
+      }
+    };
+    const refresh = () => {
+      track();
+      place();
+    };
+    refresh();
     window.addEventListener('scroll', place, { passive: true });
-    window.addEventListener('resize', place);
+    window.addEventListener('resize', refresh);
+    const mutations =
+      typeof MutationObserver === 'undefined'
+        ? undefined
+        : new MutationObserver((records) => {
+            if (touchesFloor(records)) {
+              refresh();
+            }
+          });
+    mutations?.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: [FLOATING_FLOOR_ATTRIBUTE],
+    });
     return () => {
       window.removeEventListener('scroll', place);
-      window.removeEventListener('resize', place);
+      window.removeEventListener('resize', refresh);
+      mutations?.disconnect();
+      resizer?.disconnect();
     };
   }, [panel]);
 }
