@@ -128,7 +128,8 @@ No screen invents its own heading size; a smaller voice is a step of this list, 
   route the shell exposes exactly a named `nav` and a `main`, in that order.
 - **Navigation is persistent from 640 px:** at 640 px (`40rem`) and wider it is a left column fixed
   between `--lg-size-nav-min` and `--lg-size-nav-max` (200–240 px). The desktop column never becomes
-  a drawer or an overlay.
+  a drawer or an overlay. Its surface and trailing hairline paint the full page height, while a
+  viewport-high sticky rail keeps the links and Sign out in place on a page taller than the viewport.
 - **Below 640 px the navigation is a compact top bar.** The same `nav` becomes a single row above
   the content: the brand mark, then a `--lg-size-control` menu button at the trailing edge
   (`aria-expanded`, `aria-controls`). Its destinations (Catalog, Your sheet, Plans, Campaigns,

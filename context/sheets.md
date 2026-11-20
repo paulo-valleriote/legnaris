@@ -236,12 +236,14 @@ ability medallions, the spellcasting panel and the table-rules disclosure. A pre
 ordered body layout: full-width Section blocks and column blocks, plus an optional narrow layout. The
 fantasy body draws the combat strip across the top, then three columns (abilities / saving throws
 with skills / attacks with spells), then the table rules; the columns fall to two around 1100px and
-to one on a phone, without a horizontal scroll at 360px. On a phone (`max-width: 40rem`, the same
-`NARROW_QUERY` as every preset media query) the narrow layout replaces the columns with a flat,
-mobile-first order — combat, attacks, spells, abilities, saves, skills, rules — so the DOM and the
-keyboard tab order follow the visual order; the 1440 and 1100 arrangements keep their columns. The
-narrow sections are wrapped in `data-preset-section` slots, and a Section that renders nothing (no
-spells, no attacks, no rules) leaves an empty slot that is not drawn. On a phone the hero comes
+to one on a phone, without a horizontal scroll at 360px. In both narrower layouts an ability
+medallion stacks its name above the medal and lets the name wrap instead of ellipsising it, so no
+ability name is cut; the three-column desktop layout is unchanged. On a phone (`max-width: 40rem`,
+the same `NARROW_QUERY` as every preset media query) the narrow layout replaces the columns with a
+flat, mobile-first order — combat, attacks, spells, abilities, saves, skills, rules — so the DOM and
+the keyboard tab order follow the visual order; the 1440 and 1100 arrangements keep their columns.
+The narrow sections are wrapped in `data-preset-section` slots, and a Section that renders nothing
+(no spells, no attacks, no rules) leaves an empty slot that is not drawn. On a phone the hero comes
 before the sheet action group (desktop keeps the actions above it), so the title starts within the
 first 80 px of a 390 px viewport. The title is
 `identity.characterName` with

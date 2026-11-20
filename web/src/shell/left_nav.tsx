@@ -290,36 +290,38 @@ export function LeftNav() {
 
   return (
     <nav className="lg-nav" aria-label={message('nav.primaryLabel')}>
-      <div className="lg-nav__brand">
-        <span className="lg-nav__mark" aria-hidden="true">
-          <BrandMark />
-        </span>
-        <span className="lg-nav__brand-text">
-          <span className="lg-nav__wordmark">{message('app.name')}</span>
-          <span className="lg-nav__tagline">{message('nav.tagline')}</span>
-        </span>
-      </div>
+      <div className="lg-nav__rail">
+        <div className="lg-nav__brand">
+          <span className="lg-nav__mark" aria-hidden="true">
+            <BrandMark />
+          </span>
+          <span className="lg-nav__brand-text">
+            <span className="lg-nav__wordmark">{message('app.name')}</span>
+            <span className="lg-nav__tagline">{message('nav.tagline')}</span>
+          </span>
+        </div>
 
-      {compact ? (
-        <>
-          <button
-            ref={triggerRef}
-            type="button"
-            className="lg-nav__menu-toggle"
-            aria-label={message('nav.menu')}
-            aria-expanded={menuOpen}
-            aria-controls={menuId}
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            <MenuIcon />
-          </button>
-          <div ref={panelRef} id={menuId} className="lg-nav__menu" hidden={!menuOpen}>
-            {destinations}
-          </div>
-        </>
-      ) : (
-        destinations
-      )}
+        {compact ? (
+          <>
+            <button
+              ref={triggerRef}
+              type="button"
+              className="lg-nav__menu-toggle"
+              aria-label={message('nav.menu')}
+              aria-expanded={menuOpen}
+              aria-controls={menuId}
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              <MenuIcon />
+            </button>
+            <div ref={panelRef} id={menuId} className="lg-nav__menu" hidden={!menuOpen}>
+              {destinations}
+            </div>
+          </>
+        ) : (
+          destinations
+        )}
+      </div>
     </nav>
   );
 }
