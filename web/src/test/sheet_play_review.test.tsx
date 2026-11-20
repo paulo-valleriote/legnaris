@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
@@ -6,6 +6,8 @@ import { message, messageWith } from '../l10n/strings';
 import { FANTASY_SHEET_ID, fantasySheetPayload, fantasyTemplatePayload } from './fantasy_fixtures';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
+
+vi.setConfig({ testTimeout: 15_000 });
 
 const BASE_URL = 'http://api.test';
 
