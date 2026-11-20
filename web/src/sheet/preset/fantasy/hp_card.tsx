@@ -16,6 +16,33 @@ import {
 } from './hit_points';
 import { lineTone, useHitPointsView, withinRange } from './hit_points_view';
 
+const QUICK_ACTIONS = [
+  {
+    kind: 'damage',
+    count: 5,
+    short: 'sheet.play.damage5Short',
+    className: 'lg-hp-card__quick-damage',
+  },
+  {
+    kind: 'damage',
+    count: 1,
+    short: 'sheet.play.damage1Short',
+    className: 'lg-hp-card__quick-damage',
+  },
+  {
+    kind: 'heal',
+    count: 1,
+    short: 'sheet.play.heal1Short',
+    className: 'lg-hp-card__quick-heal',
+  },
+  {
+    kind: 'heal',
+    count: 5,
+    short: 'sheet.play.heal5Short',
+    className: 'lg-hp-card__quick-heal',
+  },
+] as const;
+
 export function HitPointsCard() {
   const {
     points,
@@ -152,7 +179,7 @@ export function HitPointsCard() {
         )}
         {currentChange !== undefined && pendingWidth > 0 && (
           <span
-            className="lg-hp-card__pending"
+            className="lg-hp-card__pending lg-pending-stripe"
             data-testid="sheet-hp-pending"
             data-tone={lineTone(currentChange.delta)}
             style={{ left: `${pendingLeft}%`, width: `${pendingWidth}%` }}
@@ -161,7 +188,7 @@ export function HitPointsCard() {
         )}
         {tempChange !== undefined && tempPendingWidth > 0 && (
           <span
-            className="lg-hp-card__pending lg-hp-card__pending--temp"
+            className="lg-hp-card__pending lg-hp-card__pending--temp lg-pending-stripe"
             data-testid="sheet-hp-temp-pending"
             data-tone={lineTone(tempChange.delta)}
             style={{ left: `${tempPendingLeft}%`, width: `${tempPendingWidth}%` }}
@@ -201,42 +228,27 @@ export function HitPointsCard() {
       )}
       <div className="lg-hp-card__actions">
         <div className="lg-hp-card__quick">
-          <Button
-            variant="secondary"
-            size="sm"
-            className="lg-hp-card__quick-damage"
-            name={messageWith('sheet.play.damageAmount', { count: 5 })}
-            onClick={() => commit(applyDamage(points, 5))}
-          >
-            {message('sheet.play.damage5Short')}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="lg-hp-card__quick-damage"
-            name={messageWith('sheet.play.damageAmount', { count: 1 })}
-            onClick={() => commit(applyDamage(points, 1))}
-          >
-            {message('sheet.play.damage1Short')}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="lg-hp-card__quick-heal"
-            name={messageWith('sheet.play.healAmount', { count: 1 })}
-            onClick={() => commit(applyHeal(points, 1))}
-          >
-            {message('sheet.play.heal1Short')}
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="lg-hp-card__quick-heal"
-            name={messageWith('sheet.play.healAmount', { count: 5 })}
-            onClick={() => commit(applyHeal(points, 5))}
-          >
-            {message('sheet.play.heal5Short')}
-          </Button>
+          {QUICK_ACTIONS.map((action) => (
+            <Button
+              key={`${action.kind}-${action.count}`}
+              variant="secondary"
+              size="sm"
+              className={action.className}
+              name={messageWith(
+                action.kind === 'damage' ? 'sheet.play.damageAmount' : 'sheet.play.healAmount',
+                { count: action.count },
+              )}
+              onClick={() =>
+                commit(
+                  action.kind === 'damage'
+                    ? applyDamage(points, action.count)
+                    : applyHeal(points, action.count),
+                )
+              }
+            >
+              {message(action.short)}
+            </Button>
+          ))}
           <Button
             variant="secondary"
             size="sm"

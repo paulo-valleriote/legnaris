@@ -421,6 +421,7 @@ describe('the Play label size floor', () => {
     ['combat stat label', combatCss],
     ['spellcasting label', spellsCss],
     ['stat block ability label', statBlockCss],
+    ['stat block armor class label', statBlockCss],
     ['ability name label', abilitiesCss],
     ['skill ability label', savesCss],
     ['play section note', playSectionCss],
@@ -433,6 +434,7 @@ describe('the Play label size floor', () => {
     'combat stat label': '.lg-combat-stat__label',
     'spellcasting label': '.lg-spells__label',
     'stat block ability label': '.lg-stat-block .lg-ability__name',
+    'stat block armor class label': '.lg-stat-block .lg-ac__label',
     'ability name label': '.lg-ability__name',
     'skill ability label': '.lg-skill__ability',
     'play section note': '.lg-play-section__note',
@@ -444,5 +446,33 @@ describe('the Play label size floor', () => {
 
   it.each(labels)('Edge: the phone %s clears the 12px floor', (name, css) => {
     expect(fontSize(narrowCss(css), selectors[name])).toBeGreaterThanOrEqual(12);
+  });
+});
+
+describe('the phone Play row pitch', () => {
+  it('Edge: save and skill targets sit on a 44px pitch so neighbours never overlap', () => {
+    const phone = narrowCss(savesCss);
+    expect(phone).toMatch(
+      /\.lg-preset-saves__list,\s*\.lg-preset-skills__list\s*\{\s*row-gap:\s*var\(--lg-space-8\)/,
+    );
+    expect(phone).toMatch(
+      /\.lg-prof-dot\s*\{[^}]*margin-block:\s*calc\(var\(--lg-space-4\) \* -1\)/,
+    );
+    expect(phone).toMatch(
+      /\.lg-save__total,\s*\.lg-skill__total\s*\{[^}]*margin-block:\s*calc\(var\(--lg-space-4\) \* -1\)/,
+    );
+  });
+
+  it('Edge: slot pips keep a compact mark inside the 44px target', () => {
+    expect(narrowCss(spellsCss)).toMatch(
+      /\.lg-spells__pip\s*\{[^}]*width:\s*var\(--lg-size-control\)[^}]*height:\s*var\(--lg-size-control\)/,
+    );
+    expect(spellsCss).toMatch(/\.lg-spells__pip::before\s*\{[^}]*width:\s*14px[^}]*height:\s*14px/);
+  });
+
+  it('Edge: the hero badge label sits on the spacing scale', () => {
+    expect(ruleBody(presetCss, '.lg-preset-hero__badge-label')).toMatch(
+      /margin-top:\s*var\(--lg-space-4\)/,
+    );
   });
 });

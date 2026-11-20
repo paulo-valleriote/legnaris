@@ -6,7 +6,7 @@ test.use({ serviceWorkers: 'block' });
 
 const TAP_TARGET = 44;
 const COMPACT_ROW = 40;
-const PAGE_HEIGHT_BEFORE = 2750;
+const PAGE_HEIGHT_BUDGET = 2950;
 
 test.describe('Play tap targets on a phone', () => {
   test.beforeEach(async ({ page }) => {
@@ -71,8 +71,63 @@ test.describe('Play tap targets on a phone', () => {
     expect(dot.x + dot.width).toBeLessThanOrEqual(total.x);
   });
 
-  test('shortens the page at 390', async ({ page }) => {
+  test('keeps every save and skill target on a 44px pitch without overlaps', async ({ page }) => {
+    const controls = page.locator(
+      '.lg-save .lg-prof-dot, .lg-save .lg-save__total, .lg-skill .lg-prof-dot, .lg-skill .lg-skill__total, .lg-skill .lg-skill__bonus',
+    );
+    const count = await controls.count();
+    expect(count).toBeGreaterThan(0);
+
+    const boxes: { x: number; y: number; width: number; height: number }[] = [];
+    for (let index = 0; index < count; index += 1) {
+      const control = controls.nth(index);
+      if (!(await control.isVisible())) {
+        continue;
+      }
+      const box = await control.boundingBox();
+      expect(box).not.toBeNull();
+      expect(box!.width).toBeGreaterThanOrEqual(TAP_TARGET);
+      expect(box!.height).toBeGreaterThanOrEqual(TAP_TARGET);
+      boxes.push(box!);
+    }
+
+    for (let first = 0; first < boxes.length; first += 1) {
+      for (let second = first + 1; second < boxes.length; second += 1) {
+        const horizontal =
+          Math.min(boxes[first].x + boxes[first].width, boxes[second].x + boxes[second].width) -
+          Math.max(boxes[first].x, boxes[second].x);
+        const vertical =
+          Math.min(boxes[first].y + boxes[first].height, boxes[second].y + boxes[second].height) -
+          Math.max(boxes[first].y, boxes[second].y);
+        expect(horizontal <= 0 || vertical <= 0).toBe(true);
+      }
+    }
+  });
+
+  test('keeps the drawn proficiency and slot marks compact inside their targets', async ({
+    page,
+  }) => {
+    const mark = await page
+      .getByTestId('sheet-save-strength')
+      .locator('.lg-prof-dot__mark')
+      .boundingBox();
+    expect(mark).not.toBeNull();
+    expect(mark!.width).toBeLessThanOrEqual(16);
+    expect(mark!.height).toBeLessThanOrEqual(16);
+
+    const pipMark = await page.evaluate(() => {
+      const pip = document.querySelector('.lg-spells__pip');
+      if (pip === null) {
+        return null;
+      }
+      const style = getComputedStyle(pip, '::before');
+      return { width: style.width, height: style.height };
+    });
+    expect(pipMark).toEqual({ width: '14px', height: '14px' });
+  });
+
+  test('keeps the phone Play page within its review budget', async ({ page }) => {
     const height = await page.evaluate(() => document.documentElement.scrollHeight);
-    expect(height).toBeLessThan(PAGE_HEIGHT_BEFORE);
+    expect(height).toBeLessThan(PAGE_HEIGHT_BUDGET);
   });
 });

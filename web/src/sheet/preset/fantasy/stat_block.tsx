@@ -265,7 +265,7 @@ export function FantasyStatBlock() {
           className="lg-stat-block__column lg-stat-block__column--combat"
           data-testid="sheet-stat-column-combat"
         >
-          <FantasyAttacks />
+          <FantasyAttacks showAdd={false} />
           <FantasySpells variant="compact" />
         </div>
         <div

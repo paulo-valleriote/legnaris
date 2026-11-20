@@ -5,6 +5,7 @@ import {
   ATTACK_SLOTS,
   attackFilled,
   attackSlot,
+  attackVisibility,
   parseAttackBonus,
   parseAttackDamage,
 } from '../sheet/preset/fantasy/attacks_data';
@@ -41,6 +42,57 @@ describe('attack filled state', () => {
     { name: 3, expected: false },
   ])('Edge: "$name" is not filled: $expected', ({ name, expected }) => {
     expect(attackFilled(name)).toBe(expected);
+  });
+});
+
+describe('attack visibility', () => {
+  it('Edge: no names and nothing revealed leaves every slot free', () => {
+    expect(attackVisibility([], [])).toEqual({ shown: [], free: [], next: undefined });
+    expect(attackVisibility(['', '', '', ''], [])).toEqual({
+      shown: [],
+      free: [1, 2, 3, 4],
+      next: 1,
+    });
+  });
+
+  it('Happy path: filled slots are shown and the remaining slots stay free', () => {
+    expect(attackVisibility(['Longsword', 'Dagger', '', ''], [])).toEqual({
+      shown: [1, 2],
+      free: [3, 4],
+      next: 3,
+    });
+  });
+
+  it('Edge: a revealed empty slot is shown and no longer counts as free', () => {
+    expect(attackVisibility(['Longsword', 'Dagger', '', ''], [3])).toEqual({
+      shown: [1, 2, 3],
+      free: [4],
+      next: 4,
+    });
+  });
+
+  it('Edge: every slot revealed cancels the add action even when names stay empty', () => {
+    expect(attackVisibility(['', '', '', ''], [1, 2, 3, 4])).toEqual({
+      shown: [1, 2, 3, 4],
+      free: [],
+      next: undefined,
+    });
+  });
+
+  it('Edge: unknown and duplicate revealed slots are ignored', () => {
+    expect(attackVisibility(['', ''], [2, 2, 9])).toEqual({
+      shown: [2],
+      free: [1],
+      next: 1,
+    });
+  });
+
+  it('Edge: a name cleared after being filled becomes free again', () => {
+    expect(attackVisibility(['Longsword', '', ''], [])).toEqual({
+      shown: [1],
+      free: [2, 3],
+      next: 2,
+    });
   });
 });
 

@@ -104,7 +104,7 @@ function VitalsBarSurface() {
             )}
             {currentChange !== undefined && pendingWidth > 0 && (
               <span
-                className="lg-vitals-bar__pending"
+                className="lg-vitals-bar__pending lg-pending-stripe"
                 data-tone={lineTone(currentChange.delta)}
                 style={{ left: `${pendingLeft}%`, width: `${pendingWidth}%` }}
                 aria-hidden="true"
@@ -112,7 +112,7 @@ function VitalsBarSurface() {
             )}
             {tempChange !== undefined && tempPendingWidth > 0 && (
               <span
-                className="lg-vitals-bar__pending lg-vitals-bar__pending--temp"
+                className="lg-vitals-bar__pending lg-vitals-bar__pending--temp lg-pending-stripe"
                 data-tone={lineTone(tempChange.delta)}
                 style={{ left: `${tempPendingLeft}%`, width: `${tempPendingWidth}%` }}
                 aria-hidden="true"

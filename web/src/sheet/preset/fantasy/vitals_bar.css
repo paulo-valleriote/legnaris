@@ -108,22 +108,6 @@ html:has(.lg-vitals-bar) {
   opacity: 0.85;
 }
 
-.lg-vitals-bar__pending[data-tone='damage'] {
-  background-image: repeating-linear-gradient(
-    45deg,
-    color-mix(in srgb, var(--lg-danger-400) 55%, transparent) 0 4px,
-    color-mix(in srgb, var(--lg-danger-400) 25%, transparent) 4px 8px
-  );
-}
-
-.lg-vitals-bar__pending[data-tone='heal'] {
-  background-image: repeating-linear-gradient(
-    45deg,
-    color-mix(in srgb, var(--lg-success-400) 55%, transparent) 0 4px,
-    color-mix(in srgb, var(--lg-success-400) 25%, transparent) 4px 8px
-  );
-}
-
 .lg-vitals-bar__pending-notes {
   display: flex;
   flex-wrap: wrap;

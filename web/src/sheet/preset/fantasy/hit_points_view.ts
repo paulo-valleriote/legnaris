@@ -115,12 +115,12 @@ export function useHitPointsView(): HitPointsView {
   };
 
   const amountValue = parseHitPointsAmount(amount);
-  const applyDamageAmount = () => {
-    applyAmount(amountValue === undefined ? undefined : applyDamage(points, amountValue));
-  };
-  const applyHealAmount = () => {
-    applyAmount(amountValue === undefined ? undefined : applyHeal(points, amountValue));
-  };
+  const applyAmountWith =
+    (apply: (points: HitPoints, value: number) => HitPointsChange | undefined) => () => {
+      applyAmount(amountValue === undefined ? undefined : apply(points, amountValue));
+    };
+  const applyDamageAmount = applyAmountWith(applyDamage);
+  const applyHealAmount = applyAmountWith(applyHeal);
   const applyTempAmount = () => {
     const change = amountValue === undefined ? undefined : applyTemp(points, amountValue);
     if (change === undefined) {
