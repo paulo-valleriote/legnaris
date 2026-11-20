@@ -22,12 +22,13 @@ interface AttackValues {
   readonly name?: string;
   readonly damage?: string;
   readonly bonus?: number;
+  readonly notes?: string;
 }
 
 function attackNode(slot: number): Record<string, unknown> {
   return {
     label: `Attack ${slot}`,
-    columns: ['name', 'damage', 'bonus'],
+    columns: ['name', 'damage', 'bonus', 'notes'],
     children: {
       name: {
         schema: {
@@ -60,6 +61,16 @@ function attackNode(slot: number): Record<string, unknown> {
           column_label: 'Bonus',
         },
       },
+      notes: {
+        schema: {
+          type: 'text',
+          label: `Attack ${slot} notes`,
+          is_editable: true,
+          default: 0,
+          max_length: 60,
+          column_label: 'Notes',
+        },
+      },
     },
   };
 }
@@ -85,6 +96,7 @@ function attackSlotData(values: AttackValues): Record<string, unknown> {
     name: values.name ?? '',
     damage: values.damage ?? '',
     bonus: values.bonus ?? 0,
+    ...(values.notes === undefined ? {} : { notes: values.notes }),
   };
 }
 
@@ -208,6 +220,93 @@ describe('attack cards in play mode', () => {
     expect(screen.queryByTestId('sheet-attack-1')).toBeNull();
     expect(screen.getByTestId('sheet-attack-2')).toBeInTheDocument();
     expect(addButton()).toBeNull();
+  });
+});
+
+describe('attack notes', () => {
+  it('Happy path: a note renders as a subtitle under the name', async () => {
+    await openAttacks({
+      data: attackData({
+        1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6, notes: 'ranged · 150/600' },
+      }),
+    });
+
+    const notes = within(attackCard(1)).getByTestId('sheet-attack-notes-1');
+    expect(notes).toHaveTextContent('ranged · 150/600');
+  });
+
+  it('Happy path: the note edits in place and saves as one attack note', async () => {
+    const { fake, user } = await openAttacks({
+      data: attackData({
+        1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6, notes: 'ranged · 150/600' },
+      }),
+    });
+    const card = attackCard(1);
+
+    await editValue(user, card, 'Attack 1 notes', 'DC 14 Wis');
+
+    expect(within(card).getByRole('button', { name: 'Attack 1 notes' })).toHaveTextContent(
+      'DC 14 Wis',
+    );
+
+    await save(user);
+
+    await waitFor(() =>
+      expect(savedData(fake)).toEqual({
+        data: { attacks: { attack1: { notes: 'DC 14 Wis' } } },
+      }),
+    );
+  });
+
+  it('Happy path: Edit mode draws the note in the attack table and saves the delta', async () => {
+    const { fake, user } = await openAttacks({
+      data: attackData({
+        1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6, notes: 'ranged · 150/600' },
+      }),
+    });
+
+    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    const note = await screen.findByRole('textbox', { name: 'Attack 1 notes' });
+    expect(note).toHaveValue('ranged · 150/600');
+
+    await user.clear(note);
+    await user.type(note, 'DC 14 Wis');
+    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+
+    await waitFor(() =>
+      expect(savedData(fake)).toEqual({
+        data: { attacks: { attack1: { notes: 'DC 14 Wis' } } },
+      }),
+    );
+  });
+
+  it('Edge: an empty note draws no subtitle and no add placeholder', async () => {
+    await openAttacks({
+      data: attackData({ 1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6, notes: '' } }),
+    });
+
+    const card = attackCard(1);
+    expect(within(card).queryByTestId('sheet-attack-notes-1')).toBeNull();
+    expect(within(card).queryByRole('button', { name: 'Attack 1 notes' })).toBeNull();
+    expect(within(card).queryByText('Add Attack 1 notes')).toBeNull();
+  });
+
+  it('Edge: a legacy sheet without the notes key still draws the attack without a subtitle', async () => {
+    await openAttacks({
+      data: attackData({ 1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6 } }),
+    });
+
+    const card = attackCard(1);
+    expect(card).toHaveTextContent('Longbow');
+    expect(within(card).queryByTestId('sheet-attack-notes-1')).toBeNull();
+  });
+
+  it('Edge: a note on an otherwise empty attack slot draws no card', async () => {
+    await openAttacks({
+      data: attackData({ 1: { name: '', notes: 'ranged · 150/600' } }),
+    });
+
+    expect(screen.queryByTestId('sheet-attack-1')).toBeNull();
   });
 });
 

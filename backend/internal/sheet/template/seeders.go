@@ -35,6 +35,7 @@ const (
 	fieldNameExpended         = "expended"
 	fieldNameRemaining        = "remaining"
 	fieldNameName             = "name"
+	fieldNameNotes            = "notes"
 	fieldNameACUsesDex        = "acUsesDex"
 	fieldNameACUsesCon        = "acUsesCon"
 	fieldNameDamage           = "damage"
@@ -356,15 +357,18 @@ func attacksGroup() FieldGroup {
 		bonus.Schema.ColumnLabel = "Bonus"
 		damage := generatableText(textField(fmt.Sprintf("Attack %d damage", i)), 60)
 		damage.Schema.ColumnLabel = "Damage"
+		notes := generatableText(textField(fmt.Sprintf("Attack %d notes", i)), 60)
+		notes.Schema.ColumnLabel = "Notes"
 		group[fmt.Sprintf("attack%d", i)] = FieldNode{
 			Children: FieldGroup{
 				fieldNameName:   name,
 				fieldNameBonus:  bonus,
 				fieldNameDamage: damage,
+				fieldNameNotes:  notes,
 			},
 			Label:   fmt.Sprintf("Attack %d", i),
-			Columns: []string{fieldNameName, fieldNameDamage, fieldNameBonus},
-			Order:   []string{fieldNameName, fieldNameDamage, fieldNameBonus},
+			Columns: []string{fieldNameName, fieldNameDamage, fieldNameBonus, fieldNameNotes},
+			Order:   []string{fieldNameName, fieldNameDamage, fieldNameBonus, fieldNameNotes},
 		}
 	}
 	return group

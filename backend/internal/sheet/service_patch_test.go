@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -111,6 +112,43 @@ func newPatchService(t *testing.T, repo sheet.Repository, log logger.StructuredL
 	return sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{patchTemplateID: dag}, log, events.NoOp{})
 }
 
+func notesPatchDAG(t *testing.T) *template.DAG {
+	t.Helper()
+
+	maxLength := 60
+	fields := template.FieldGroup{
+		"attacks": {Children: template.FieldGroup{
+			"attack1": {Children: template.FieldGroup{
+				"name":  {Schema: &template.FieldSchema{Type: "text", IsEditable: true}},
+				"notes": {Schema: &template.FieldSchema{Type: "text", IsEditable: true, MaxLength: &maxLength}},
+			}},
+		}},
+	}
+	dag, err := template.BuildDAG(patchTemplateID, fields, engine.NewFormulaEngine())
+	require.NoError(t, err)
+	return dag
+}
+
+func notesPatchSheet() *sheet.Sheet {
+	return &sheet.Sheet{
+		ID:         patchSheetID,
+		TemplateID: patchTemplateID,
+		OwnerID:    ownerUserID,
+		Data: map[string]any{
+			"attacks": map[string]any{"attack1": map[string]any{"name": "", "notes": ""}},
+		},
+	}
+}
+
+func notesPatch(notes string) sheet.PartialUpdateSheetCommand {
+	return sheet.PartialUpdateSheetCommand{
+		SheetID:   patchSheetID,
+		OwnerID:   ownerUserID,
+		RequestID: patchRequestID,
+		Data:      map[string]any{"attacks": map[string]any{"attack1": map[string]any{"notes": notes}}},
+	}
+}
+
 func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 	ctx := context.Background()
 	dag := patchDAG(t)
@@ -208,6 +246,56 @@ func TestService_PartialUpdate_CompareAndSwap(t *testing.T) {
 		require.ErrorAs(t, err, &appErr)
 		assert.Equal(t, apperr.CodeInternal, appErr.Code)
 		assert.Empty(t, *lines)
+	})
+}
+
+func TestService_PartialUpdate_TextMaxLength(t *testing.T) {
+	ctx := context.Background()
+	dag := notesPatchDAG(t)
+
+	t.Run("Happy path: a note on an otherwise empty attack slot saves", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		log, lines := newPatchLogger(t)
+		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(notesPatchSheet(), nil).Once()
+		repo.EXPECT().
+			PartialUpdate(ctx, patchSheetID, int64(0), mock.MatchedBy(func(updates map[string]any) bool {
+				data, ok := updates["data"].(map[string]any)
+				if !ok {
+					return false
+				}
+				attacks, ok := data["attacks"].(map[string]any)
+				if !ok {
+					return false
+				}
+				slot, ok := attacks["attack1"].(map[string]any)
+				return ok && slot["notes"] == "ranged · 150/600"
+			})).
+			Return(int64(1), nil).
+			Once()
+
+		cascade, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, notesPatch("ranged · 150/600"))
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{}, cascade)
+		require.Len(t, *lines, 1)
+		assert.Equal(t, "attacks.attack1.notes", (*lines)[0].attrs["delta_paths"])
+		assert.Empty(t, (*lines)[0].attrs["delta_values"])
+	})
+
+	t.Run("Error: an over-length note is 400 INVALID_REQUEST and writes nothing", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		log, lines := newPatchLogger(t)
+		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(notesPatchSheet(), nil).Once()
+
+		_, err := newPatchService(t, repo, log, dag).PartialUpdate(ctx, notesPatch(strings.Repeat("a", 61)))
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+		assert.Equal(t, 400, appErr.HttpStatus())
+		assert.Contains(t, appErr.Message, "attacks.attack1.notes")
+		assert.Contains(t, appErr.Message, "limit 60")
+		assert.Empty(t, *lines)
+
+		repo.AssertNotCalled(t, "PartialUpdate", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 	})
 }
 

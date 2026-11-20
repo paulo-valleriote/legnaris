@@ -160,9 +160,11 @@ is 409 `SHEET_LIMIT_REACHED` and on duplicate 403 `PLAN_LIMIT_REACHED`.
 ### PATCH and preview
 
 `data` is a nested map of editable leaves, flattened to DAG dot-keys. An unknown key or group
-prefix is 400 `UNKNOWN_FIELD`; a derived leaf is 400 `INVALID_REQUEST`. Each touched exclusive
-group may have at most one non-zero member in the payload: two is 400, a non-numeric member is
-400, and a member set to zero leaves siblings unchanged.
+prefix is 400 `UNKNOWN_FIELD`; a derived leaf is 400 `INVALID_REQUEST`. A text leaf longer than its
+schema `max_length` (counted in runes) is 400 `INVALID_REQUEST`, checked on every PATCH and preview
+that carries the leaf; stored text is never re-validated, so a legacy sheet still saves an unrelated
+delta. Each touched exclusive group may have at most one non-zero member in the payload: two is 400,
+a non-numeric member is 400, and a member set to zero leaves siblings unchanged.
 
 `dice` is `{"section": {sectionKey: expr | null}, "row": {rowKey: expr | null}}`. A present block
 replaces the whole block (an empty block clears it); an absent or `null` block leaves it
@@ -216,7 +218,7 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 | Code | Status | Raised when |
 | --- | --- | --- |
 | `INVALID_JSON` | 400 | malformed body, wrong value type, unknown body key |
-| `INVALID_REQUEST` | 400 | non-editable field, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id |
+| `INVALID_REQUEST` | 400 | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id |
 | `UNKNOWN_FIELD` | 400 | data key or group prefix absent from the DAG |
 | `NOT_FOUND` | 404 | sheet or template missing, including a foreign sheet |
 | `CONFLICT` | 409 | value/Dice save lost the version race; `Retry-After: 1` |
@@ -371,9 +373,13 @@ The row grammar `skills.<skill>` is the table Row key the Dice store resolves.
 
 Attack cards follow (`fantasy/attacks.tsx`). The four `attacks.attack1..4` table Rows draw only
 while their `name` is non-empty (the pure `attackFilled` trims it), so a template without a filled
-attack draws no section. Play draws no add control: adding an attack stays in Edit, whose generic
-form shows every slot of the template. Each card carries an inline-editable name, a rollable bonus
-and a rollable damage expression. The to-hit pill draws a decorative d20 (`aria-hidden`) beside
+attack draws no section and a slot carrying only a note stays empty. Play draws no add control:
+adding an attack stays in Edit, whose generic form shows every slot of the template, with the
+attack table's Notes column as the place to write a note that is not shown yet. Each card carries
+an inline-editable name, a rollable bonus and a rollable damage expression. An optional
+`attacks.attackN.notes` text leaf (60 characters) draws as a muted subtitle under the name, editable
+in place; an empty note draws nothing at all, not an invitation, so Play never pads a card. The
+to-hit pill draws a decorative d20 (`aria-hidden`) beside
 the signed bonus, so it reads as an attack roll rather than a bare number; its accessible name and
 title are `Attack roll, <attack name>, <signed bonus>`. The damage pill stays the dice expression,
 with the matching `Damage roll, <attack name>, <expression>` name and title. The bonus is the
@@ -467,7 +473,8 @@ equal columns from 1100px: attacks and spells in the combat column, the ability 
 trait prose in the traits column. Below 1100px it stays one column with attacks and spells ahead
 of the traits, so a phone shows armor class, hit points and the first attack row without scrolling.
 An empty combat or traits column collapses and the other fills the card. The attack cards carry no
-add control (attacks are added in Edit). The spellcasting panel draws its `compact` variant: one
+add control (attacks are added in Edit) and keep the same note subtitle under each name. The
+spellcasting panel draws its `compact` variant: one
 summary line holds the ability select beside the rollable spell attack and the save DC, one slot row
 is drawn per level that has slots (level, pips, remaining), and the at-will and spell lists read as
 one prose line each with the template label as its term. Empty spell lists draw no line, and a

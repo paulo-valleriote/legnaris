@@ -270,16 +270,31 @@ func TestFantasyV1_Structure(t *testing.T) {
 		}
 	})
 
-	t.Run("Happy path: attacks expose four name/bonus/damage slots", func(t *testing.T) {
+	t.Run("Happy path: attacks expose four name/bonus/damage/notes slots", func(t *testing.T) {
 		attackGroup := fantasyV1Template.Fields["attacks"].Children
 		require.Len(t, attackGroup, 4)
 		for i := 1; i <= 4; i++ {
 			slot := attackGroup[fmt.Sprintf("attack%d", i)].Children
 			require.NotNil(t, slot, "missing attack slot %d", i)
-			require.Len(t, slot, 3)
+			require.Len(t, slot, 4)
 			assert.Equal(t, fieldTypeText, slot["name"].Schema.Type)
 			assert.Equal(t, fieldTypeNumber, slot["bonus"].Schema.Type)
 			assert.Equal(t, fieldTypeText, slot["damage"].Schema.Type)
+			assert.Equal(t, fieldTypeText, slot["notes"].Schema.Type)
+		}
+	})
+
+	t.Run("Happy path: every attack note is generatable and capped at 60 characters", func(t *testing.T) {
+		attackGroup := fantasyV1Template.Fields["attacks"].Children
+		for i := 1; i <= 4; i++ {
+			schema := attackGroup[fmt.Sprintf("attack%d", i)].Children["notes"].Schema
+			require.NotNil(t, schema)
+			assert.True(t, schema.IsEditable)
+			assert.True(t, schema.Generatable)
+			assert.Nil(t, schema.Min)
+			assert.Nil(t, schema.Max)
+			require.NotNil(t, schema.MaxLength)
+			assert.Equal(t, 60, *schema.MaxLength)
 		}
 	})
 
@@ -334,18 +349,19 @@ func TestFantasyV1_TableMetadata(t *testing.T) {
 		}
 	})
 
-	t.Run("Happy path: every attack is a name/damage/bonus table row", func(t *testing.T) {
+	t.Run("Happy path: every attack is a name/damage/bonus/notes table row", func(t *testing.T) {
 		attackGroup := fantasyV1Template.Fields["attacks"].Children
 		for i := 1; i <= 4; i++ {
 			key := fmt.Sprintf("attack%d", i)
 			node := attackGroup[key]
 			require.NotNil(t, node.Children, "missing %s", key)
 			assert.Equal(t, fmt.Sprintf("Attack %d", i), node.Label)
-			assert.Equal(t, []string{"name", "damage", fieldNameBonus}, node.Columns,
+			assert.Equal(t, []string{"name", "damage", fieldNameBonus, "notes"}, node.Columns,
 				"%s column order", key)
 			assert.Equal(t, "Name", node.Children["name"].Schema.ColumnLabel)
 			assert.Equal(t, "Damage", node.Children["damage"].Schema.ColumnLabel)
 			assert.Equal(t, "Bonus", node.Children[fieldNameBonus].Schema.ColumnLabel)
+			assert.Equal(t, "Notes", node.Children["notes"].Schema.ColumnLabel)
 		}
 	})
 
@@ -400,7 +416,7 @@ func TestFantasyV1_TableMetadata(t *testing.T) {
 
 func TestFantasyV1_LeafContracts(t *testing.T) {
 	schemas, paths := collectLeaves(fantasyV1Template.Fields)
-	require.Len(t, schemas, 130, "the sheet must stay complete")
+	require.Len(t, schemas, 134, "the sheet must stay complete")
 
 	for i, schema := range schemas {
 		key := paths[i].String()
@@ -478,6 +494,7 @@ func TestFantasyV1_LeafContracts(t *testing.T) {
 		wantColumned[Path{"attacks", key, "name"}.String()] = "Name"
 		wantColumned[Path{"attacks", key, "damage"}.String()] = "Damage"
 		wantColumned[Path{"attacks", key, fieldNameBonus}.String()] = "Bonus"
+		wantColumned[Path{"attacks", key, "notes"}.String()] = "Notes"
 	}
 	for level := 1; level <= 9; level++ {
 		key := fmt.Sprintf("slot%d", level)
