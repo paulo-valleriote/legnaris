@@ -185,6 +185,42 @@ describe('damage and healing', () => {
     expect(screen.queryByTestId('sheet-pending-card')).not.toBeInTheDocument();
   });
 
+  it('Edge: an inline current above the maximum clamps to the maximum', async () => {
+    const { user } = await openHealth({ current: 10, max: 20, temp: 0 });
+
+    await user.click(screen.getByRole('button', { name: 'Current hit points' }));
+    const current = screen.getByRole('textbox', { name: 'Current hit points' });
+    await user.clear(current);
+    await user.type(current, '40{Enter}');
+
+    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('20 / 20');
+    expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent(
+      'Current hit points 10 → 20',
+    );
+  });
+
+  it('Edge: lowering the maximum below the current value lowers the current value too', async () => {
+    const { user } = await openHealth({ current: 10, max: 10, temp: 0 });
+
+    await user.click(screen.getByRole('button', { name: 'Hit points (maximum)' }));
+    const maximum = screen.getByRole('textbox', { name: 'Hit points (maximum)' });
+    await user.clear(maximum);
+    await user.type(maximum, '6{Enter}');
+
+    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('6 / 6');
+    expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent(
+      'Current hit points 10 → 6',
+    );
+    expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent(
+      'Hit points (maximum) 10 → 6',
+    );
+
+    await apply(user, '2', 'damage');
+
+    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('4 / 6');
+    expect(meter()).toHaveAttribute('aria-valuenow', '4');
+  });
+
   it('Edge: damage beyond the current value floors it at zero', async () => {
     const { user } = await openHealth({ current: 2, max: 20, temp: 0 });
 

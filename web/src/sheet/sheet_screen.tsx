@@ -208,16 +208,18 @@ function ConnectedExclusive({ store, group }: ConnectedExclusiveProps) {
 interface SheetFooterProps {
   readonly store: SheetEditStore;
   readonly reveal: RevealView;
+  readonly playing: boolean;
 }
 
 interface FooterStatusProps {
   readonly pending: boolean;
   readonly marks: PreviewMarks | undefined;
   readonly reveal: RevealView;
+  readonly jump: boolean;
   readonly children?: ReactNode;
 }
 
-function FooterStatus({ pending, marks, reveal, children }: FooterStatusProps) {
+function FooterStatus({ pending, marks, reveal, jump, children }: FooterStatusProps) {
   const count = marks === undefined ? undefined : recalculatedCount(marks);
   const summary = count === undefined ? '' : recalculatedSummary(count);
   const status = footerStatus(pending, count);
@@ -237,7 +239,7 @@ function FooterStatus({ pending, marks, reveal, children }: FooterStatusProps) {
             >
               {status}
             </p>
-            {count !== undefined && count > 0 && (
+            {jump && count !== undefined && count > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -256,7 +258,7 @@ function FooterStatus({ pending, marks, reveal, children }: FooterStatusProps) {
   );
 }
 
-function SheetFooter({ store, reveal }: SheetFooterProps) {
+function SheetFooter({ store, reveal, playing }: SheetFooterProps) {
   const state = useEditState(store);
   const [savedRevision, setSavedRevision] = useState<number | undefined>(undefined);
   const pending = isPending(state);
@@ -293,7 +295,7 @@ function SheetFooter({ store, reveal }: SheetFooterProps) {
       className={`lg-sheet__footer ${quiet ? 'lg-sheet__footer--clean' : 'lg-sheet__footer--dirty'}`}
       {...{ [FLOATING_FLOOR_ATTRIBUTE]: '' }}
     >
-      <FooterStatus pending={pending} marks={state.previewMarks} reveal={reveal}>
+      <FooterStatus pending={pending} marks={state.previewMarks} reveal={reveal} jump={!playing}>
         {state.previewError !== undefined && (
           <p
             className={errorClass(state.previewErrorKind)}
@@ -928,7 +930,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       {arranging ? (
         <ArrangeFooter store={layoutStore} />
       ) : (
-        <SheetFooter store={editStore} reveal={view.reveal} />
+        <SheetFooter store={editStore} reveal={view.reveal} playing={playing} />
       )}
       {confirmation !== null && (
         <SheetConfirmation

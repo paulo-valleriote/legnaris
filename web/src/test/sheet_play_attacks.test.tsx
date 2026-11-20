@@ -75,6 +75,12 @@ function attackFieldTree(): Record<string, unknown> {
   };
 }
 
+function attackFieldTreeWithoutFirstSlot(): Record<string, unknown> {
+  const fields = attackFieldTree();
+  delete (fields.attacks as { children: Record<string, unknown> }).children.attack1;
+  return fields;
+}
+
 function attackSlotData(values: AttackValues): Record<string, unknown> {
   return {
     name: values.name ?? '',
@@ -203,6 +209,21 @@ describe('attack cards in play mode', () => {
 
     await user.click(addButton() as HTMLElement);
 
+    expect(screen.getByTestId('sheet-attack-2')).toBeInTheDocument();
+    expect(addButton()).toHaveTextContent('+ Add attack (2 free)');
+  });
+
+  it('Edge: a template without attack1 reveals the next present slot when adding', async () => {
+    const { user } = await openAttacks({
+      template: { fields: attackFieldTreeWithoutFirstSlot() },
+    });
+
+    expect(screen.queryByTestId('sheet-attack-1')).toBeNull();
+    expect(addButton()).toHaveTextContent('+ Add attack (3 free)');
+
+    await user.click(addButton() as HTMLElement);
+
+    expect(screen.queryByTestId('sheet-attack-1')).toBeNull();
     expect(screen.getByTestId('sheet-attack-2')).toBeInTheDocument();
     expect(addButton()).toHaveTextContent('+ Add attack (2 free)');
   });

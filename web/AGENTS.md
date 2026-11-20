@@ -160,7 +160,8 @@ rebuilt through the engine's `setPathValue`; a save merges the returned cascade 
 the baseline, a preview merges it **without** advancing it and marks the changed and
 recalculated rows through the F4 `rowMarkBuilder`/`markLabel` seam.
 
-**Footer status and `revealRow`.** The footer has one status line (`FooterStatus`): `footerStatus(pending, count)` in `preview_summary.ts` merges the unsaved state and the cascade ("Unsaved, 3 recalculated"), derived from the store's `previewMarks`, so it clears whenever the marks clear. Jump (a ghost button) sits on the same line; the footer's polite live region announces only the cascade and the visible phrase is `aria-hidden` while a Preview shows (the Play-only pending card owns the value delta). The derived readout draws no "Calculated" caption: `ReadOnlyValue` keeps it as a visually hidden `aria-describedby` target. `reveal_row.ts` owns
+**Footer status and `revealRow`.** The footer has one status line (`FooterStatus`): `footerStatus(pending, count)` in `preview_summary.ts` merges the unsaved state and the cascade ("Unsaved, 3 recalculated"), derived from the store's `previewMarks`, so it clears whenever the marks clear. Jump (a ghost button) sits on the same line in Edit mode
+and is not drawn in Play, where the pending card owns the actions; the status line stays in both. The footer's polite live region announces only the cascade and the visible phrase is `aria-hidden` while a Preview shows (the Play-only pending card owns the value delta). The derived readout draws no "Calculated" caption: `ReadOnlyValue` keeps it as a visually hidden `aria-describedby` target. `reveal_row.ts` owns
 bringing a Row or a Section into view by its `data-row-key` / `data-section-key` (`revealRow`,
 `revealSection`, `revealFirstRecalculated`); handed the view controls (`RevealView`), it first turns
 the pinned filter off and expands a collapsed Section, synchronously, so no caller does either. Auto-preview on

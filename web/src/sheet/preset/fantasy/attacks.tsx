@@ -141,7 +141,8 @@ export function FantasyAttacks() {
     const slot = present[position - 1];
     return slot === undefined ? [] : [slot];
   });
-  const next = visibility.next === undefined ? undefined : present[visibility.next - 1];
+  const nextPosition = visibility.next;
+  const next = nextPosition === undefined ? undefined : present[nextPosition - 1];
 
   return (
     <section
@@ -165,7 +166,11 @@ export function FantasyAttacks() {
           variant="ghost"
           size="sm"
           label={messageWith('sheet.play.addAttack', { count: visibility.free.length })}
-          onClick={() => setRevealed((current) => [...current, next.slot])}
+          onClick={() =>
+            setRevealed((current) =>
+              nextPosition === undefined ? current : [...current, nextPosition],
+            )
+          }
         />
       )}
     </section>

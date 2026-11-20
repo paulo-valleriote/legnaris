@@ -123,13 +123,23 @@ describe('parseSkillBonus', () => {
     ['-', undefined],
     ['.', undefined],
     ['1e999', undefined],
+  ])('Edge: %j resolves to %j', (text, expected) => {
+    expect(parseSkillBonus(text)).toBe(expected);
+  });
+
+  it.each([
     ['0', 0],
     ['3', 3],
     ['+3', 3],
     ['-3', -3],
+  ])('Happy path: %j resolves to %j', (text, expected) => {
+    expect(parseSkillBonus(text)).toBe(expected);
+  });
+
+  it.each([
     ['1.4', 1],
     ['1.6', 2],
-  ])('Edge: %j resolves to %j', (text, expected) => {
+  ])('Edge: %j rounds to %j', (text, expected) => {
     expect(parseSkillBonus(text)).toBe(expected);
   });
 

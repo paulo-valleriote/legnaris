@@ -29,7 +29,6 @@ import {
 import './saves_skills.css';
 
 function ProficiencyDot({ path, label }: { readonly path: string; readonly label: string }) {
-  const { store } = usePresetContext();
   const value = usePresetValue(path);
   const commit = usePresetCommit(path);
 
@@ -42,7 +41,6 @@ function ProficiencyDot({ path, label }: { readonly path: string; readonly label
       data-edit-path={path}
       onClick={() => {
         commit(nextProficiency(value));
-        void store.preview();
       }}
     >
       <span className="lg-prof-dot__mark" aria-hidden="true" />

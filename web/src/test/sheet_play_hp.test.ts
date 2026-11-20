@@ -166,8 +166,14 @@ describe('the amount parser', () => {
     expect(parseHitPointsAmount('-3')).toBeUndefined();
   });
 
+  it('Edge: a fractional amount rounds to the nearest whole number', () => {
+    expect(parseHitPointsAmount('2.5')).toBe(3);
+    expect(parseHitPointsAmount('2.4')).toBe(2);
+    expect(parseHitPointsAmount('0.4')).toBeUndefined();
+  });
+
   it('Happy path: a positive amount reads as a finite number, surrounding blanks trimmed', () => {
     expect(parseHitPointsAmount(' 4 ')).toBe(4);
-    expect(parseHitPointsAmount('2.5')).toBe(2.5);
+    expect(parseHitPointsAmount('+3')).toBe(3);
   });
 });

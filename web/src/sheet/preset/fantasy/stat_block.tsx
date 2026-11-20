@@ -15,7 +15,7 @@ import { numberValue, textValue } from '../values';
 import { FantasyAbilities } from './abilities';
 import { ABILITY_KEYS, formatModifier } from './abilities_data';
 import { ArmorClassShield } from './ac_breakdown';
-import { INITIATIVE_PATH } from './armor_class';
+import { INITIATIVE_PATH, parseInitiative } from './armor_class';
 import { FantasyAttacks } from './attacks';
 import { HitPointsCard } from './hp_card';
 import {
@@ -32,7 +32,7 @@ import {
   type SkillKey,
 } from './saves_skills_data';
 import { FantasySpells } from './spells';
-import { parseInitiative, statBlockKindLabelKey } from './stat_block_data';
+import { statBlockKindLabelKey } from './stat_block_data';
 import './stat_block.css';
 
 function useSkillLabel(skill: SkillKey): string {

@@ -4,11 +4,14 @@ import {
   ARMOR_ABILITY_KEYS,
   BASE_ARMOR_MAX,
   BASE_ARMOR_MIN,
+  INITIATIVE_MAX,
+  INITIATIVE_MIN,
   SPEED_MAX,
   SPEED_MIN,
   armorAbilityConfigPaths,
   armorAbilityFromValues,
   parseBaseArmor,
+  parseInitiative,
   parseSpeed,
 } from '../sheet/preset/fantasy/armor_class';
 
@@ -51,12 +54,17 @@ describe('parsing the base armor class', () => {
     [' 7 ', 7],
     ['1', BASE_ARMOR_MIN],
     ['30', BASE_ARMOR_MAX],
+  ] as const)('Happy path: "%s" reads as %i inside the range', (text, expected) => {
+    expect(parseBaseArmor(text)).toBe(expected);
+  });
+
+  it.each([
     ['0', BASE_ARMOR_MIN],
     ['-4', BASE_ARMOR_MIN],
     ['99', BASE_ARMOR_MAX],
     ['12.6', 13],
     ['12.4', 12],
-  ] as const)('Happy path: "%s" reads as %i', (text, expected) => {
+  ] as const)('Edge: "%s" clamps or rounds to %i', (text, expected) => {
     expect(parseBaseArmor(text)).toBe(expected);
   });
 
@@ -72,14 +80,45 @@ describe('parsing the speed', () => {
   it.each([
     ['30', 30],
     [' 0 ', 0],
+  ] as const)('Happy path: "%s" reads as %i inside the range', (text, expected) => {
+    expect(parseSpeed(text)).toBe(expected);
+  });
+
+  it.each([
     ['-2', SPEED_MIN],
     ['200', SPEED_MAX],
     ['119.5', 120],
-  ] as const)('Happy path: "%s" reads as %i', (text, expected) => {
+  ] as const)('Edge: "%s" clamps or rounds to %i', (text, expected) => {
     expect(parseSpeed(text)).toBe(expected);
   });
 
   it.each(['', '  ', 'fast', '30ft'])('Edge: "%s" never reaches the store', (text) => {
     expect(parseSpeed(text)).toBeUndefined();
+  });
+});
+
+describe('parsing the initiative', () => {
+  it.each(['', '   ', 'abc', 'Infinity', '1e999'])('Edge: %j never reports a value', (text) => {
+    expect(parseInitiative(text)).toBeUndefined();
+  });
+
+  it.each([
+    [' 7 ', 7],
+    ['+3', 3],
+  ] as const)('Happy path: "%s" reads as %i inside the bounds', (text, expected) => {
+    expect(parseInitiative(text)).toBe(expected);
+  });
+
+  it.each([
+    ['99', INITIATIVE_MAX],
+    ['-99', INITIATIVE_MIN],
+    ['3.6', 4],
+    ['3.4', 3],
+  ] as const)('Edge: "%s" clamps or rounds to %i', (text, expected) => {
+    expect(parseInitiative(text)).toBe(expected);
+  });
+
+  it('Edge: a negative zero is normalised', () => {
+    expect(Object.is(parseInitiative('-0'), 0)).toBe(true);
   });
 });

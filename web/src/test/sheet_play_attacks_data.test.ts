@@ -30,12 +30,17 @@ describe('attack filled state', () => {
   it.each([
     { name: 'a name', expected: true },
     { name: '  padded  ', expected: true },
+  ])('Happy path: "$name" is filled: $expected', ({ name, expected }) => {
+    expect(attackFilled(name)).toBe(expected);
+  });
+
+  it.each([
     { name: '', expected: false },
     { name: '   ', expected: false },
     { name: undefined, expected: false },
     { name: null, expected: false },
     { name: 3, expected: false },
-  ])('Edge: "$name" is filled: $expected', ({ name, expected }) => {
+  ])('Edge: "$name" is not filled: $expected', ({ name, expected }) => {
     expect(attackFilled(name)).toBe(expected);
   });
 });
@@ -96,12 +101,22 @@ describe('attack bonus parsing', () => {
     { text: '', expected: undefined },
     { text: '   ', expected: undefined },
     { text: 'two', expected: undefined },
+  ])('Edge: "$text" parses as $expected', ({ text, expected }) => {
+    expect(parseAttackBonus(text)).toBe(expected);
+  });
+
+  it.each([
     { text: '+4', expected: 4 },
     { text: ' -2 ', expected: -2 },
+  ])('Happy path: "$text" parses as $expected', ({ text, expected }) => {
+    expect(parseAttackBonus(text)).toBe(expected);
+  });
+
+  it.each([
     { text: '3.6', expected: 4 },
     { text: `${ATTACK_BONUS_MAX + 5}`, expected: ATTACK_BONUS_MAX },
     { text: `${ATTACK_BONUS_MIN - 5}`, expected: ATTACK_BONUS_MIN },
-  ])('Edge: "$text" parses as $expected', ({ text, expected }) => {
+  ])('Edge: "$text" clamps or rounds to $expected', ({ text, expected }) => {
     expect(parseAttackBonus(text)).toBe(expected);
   });
 });

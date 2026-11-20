@@ -130,12 +130,17 @@ describe('saving throws', () => {
     expect(fake.requests.some((request) => request.method === 'PATCH')).toBe(false);
   });
 
-  it('Error: a failed preview keeps the dot pressed and shows the mapped error', async () => {
+  it('Error: an explicit Preview after a toggle fails and keeps the dot pressed', async () => {
     const { user } = await openFantasy({
       preview: errorOutcome('INTERNAL_ERROR', 'boom', 500),
     });
 
     await user.click(dot('Strength save'));
+    await user.click(
+      within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
+        name: message('sheet.pending.preview'),
+      }),
+    );
 
     await waitFor(() =>
       expect(screen.getByTestId('sheet-pending-preview-error')).toHaveTextContent(
@@ -145,38 +150,42 @@ describe('saving throws', () => {
     expect(dot('Strength save')).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('Happy path: an unpressed dot writes 1 to its config leaf and previews the total', async () => {
-    const { fake, user } = await openFantasy({
-      preview: successOutcome({ saves: { strength: 6 } }),
-    });
+  it('Happy path: an unpressed dot writes 1 to its config leaf and leaves Preview to the card', async () => {
+    const { fake, user } = await openFantasy();
 
     await user.click(dot('Strength save'));
 
-    await waitFor(() =>
-      expect(
-        within(saveRow('strength')).getByRole('button', { name: rollName('Strength save') }),
-      ).toHaveTextContent('+6'),
-    );
     expect(dot('Strength save')).toHaveAttribute('aria-pressed', 'true');
-    expect(previewBody(fake)).toEqual({ data: { config: { saveStrengthProf: 1 } } });
+    expect(previewRequest(fake)).toBeUndefined();
     expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent(
       'Strength save proficiency 0 → 1',
     );
+    expect(
+      within(saveRow('strength')).getByRole('button', { name: rollName('Strength save') }),
+    ).toHaveTextContent('+3');
   });
 
-  it('Happy path: a pressed dot writes 0 and previews the new total', async () => {
+  it('Happy path: a pressed dot writes 0 and Preview updates the new total when asked', async () => {
     const { fake, user } = await openFantasy({
       preview: successOutcome({ saves: { dexterity: 2 } }),
     });
 
     await user.click(dot('Dexterity save'));
 
+    expect(dot('Dexterity save')).toHaveAttribute('aria-pressed', 'false');
+    expect(previewRequest(fake)).toBeUndefined();
+
+    await user.click(
+      within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
+        name: message('sheet.pending.preview'),
+      }),
+    );
+
     await waitFor(() =>
       expect(
         within(saveRow('dexterity')).getByRole('button', { name: rollName('Dexterity save') }),
       ).toHaveTextContent('+2'),
     );
-    expect(dot('Dexterity save')).toHaveAttribute('aria-pressed', 'false');
     expect(previewBody(fake)).toEqual({ data: { config: { saveDexterityProf: 0 } } });
   });
 

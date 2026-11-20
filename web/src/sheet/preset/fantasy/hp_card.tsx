@@ -51,6 +51,7 @@ export function HitPointsCard() {
   const storedCurrent = withinRange(stored.current, max);
   const temp = Math.max(0, hitPoints.temp);
   const storedTemp = Math.max(0, stored.temp);
+  const points = { current, max, temp };
 
   const percent = hitPointsPercent(current, max);
   const storedPercent = hitPointsPercent(storedCurrent, max);
@@ -103,7 +104,7 @@ export function HitPointsCard() {
               onCommit={(text) => {
                 const next = parseHitPointsCurrent(text);
                 if (next !== undefined) {
-                  commitCurrent(next);
+                  commitCurrent(withinRange(next, max));
                 }
               }}
             />
@@ -121,6 +122,10 @@ export function HitPointsCard() {
                 const next = parseHitPointsMaximum(text);
                 if (next !== undefined) {
                   commitMax(next);
+                  const clamped = withinRange(hitPoints.current, next);
+                  if (clamped !== hitPoints.current) {
+                    commitCurrent(clamped);
+                  }
                 }
               }}
             />
@@ -217,7 +222,7 @@ export function HitPointsCard() {
           <Field
             label={message('sheet.play.amount')}
             type="number"
-            inputMode="decimal"
+            inputMode="numeric"
             numeric
             value={amount}
             onChange={setAmount}
@@ -228,7 +233,7 @@ export function HitPointsCard() {
           size="sm"
           label={message('sheet.play.damage')}
           onClick={() =>
-            commit(amountValue === undefined ? undefined : applyDamage(hitPoints, amountValue))
+            commit(amountValue === undefined ? undefined : applyDamage(points, amountValue))
           }
         />
         <Button
@@ -236,7 +241,7 @@ export function HitPointsCard() {
           size="sm"
           label={message('sheet.play.heal')}
           onClick={() =>
-            commit(amountValue === undefined ? undefined : applyHeal(hitPoints, amountValue))
+            commit(amountValue === undefined ? undefined : applyHeal(points, amountValue))
           }
         />
       </div>

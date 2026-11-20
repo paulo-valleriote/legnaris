@@ -84,12 +84,8 @@ export function hitPointsBand(percent: number): HitPointsBand {
 }
 
 export function parseHitPointsAmount(text: string): number | undefined {
-  const trimmed = text.trim();
-  if (trimmed === '') {
-    return undefined;
-  }
-  const amount = Number(trimmed);
-  return isAmount(amount) ? amount : undefined;
+  const amount = parseClampedInt(text, 0, UNBOUNDED);
+  return amount === undefined || amount <= 0 ? undefined : amount;
 }
 
 export function parseHitPointsCurrent(text: string): number | undefined {

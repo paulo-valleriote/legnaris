@@ -166,9 +166,15 @@ describe('the experience gain parser', () => {
     expect(parseXpGain('-25')).toBeUndefined();
   });
 
+  it('Edge: a fractional gain rounds to the nearest whole number', () => {
+    expect(parseXpGain('2.5')).toBe(3);
+    expect(parseXpGain('2.4')).toBe(2);
+    expect(parseXpGain('0.4')).toBeUndefined();
+  });
+
   it('Happy path: a positive gain reads as a finite number, surrounding blanks trimmed', () => {
     expect(parseXpGain(' 250 ')).toBe(250);
-    expect(parseXpGain('2.5')).toBe(2.5);
+    expect(parseXpGain('+25')).toBe(25);
   });
 });
 

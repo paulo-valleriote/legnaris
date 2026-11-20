@@ -78,12 +78,8 @@ export function xpProgress(level: unknown, xp: unknown): XpProgress {
 }
 
 export function parseXpGain(text: string): number | undefined {
-  const trimmed = text.trim();
-  if (trimmed === '') {
-    return undefined;
-  }
-  const amount = Number(trimmed);
-  return Number.isFinite(amount) && amount > 0 ? amount : undefined;
+  const amount = parseClampedInt(text, 0, UNBOUNDED);
+  return amount === undefined || amount <= 0 ? undefined : amount;
 }
 
 export function parseXpTotal(text: string): number | undefined {

@@ -99,7 +99,7 @@ export function XpBar() {
               id="sheet-xp-gain"
               label={message('sheet.play.xpGain')}
               type="number"
-              inputMode="decimal"
+              inputMode="numeric"
               numeric
               value={gain}
               onChange={setGain}

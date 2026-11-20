@@ -241,8 +241,8 @@ the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with 
 `fantasy/identity.ts`). The hero also carries the experience bar
 (`fantasy/xp_panel.tsx` over the pure `fantasy/xp_progress.ts`): a `progressbar` running from the
 current level's floor to the next 5e threshold, whose disclosure shows the `identity.xp` total as an
-inline edit and adds a positive gain to it in the pending delta (the total rounds to whole XP and
-floors at zero, with no upper cap); when the total reaches the threshold it offers
+inline edit and adds a positive gain to it in the pending delta (the total and the gain round to
+whole XP and floor at zero, with no upper cap); when the total reaches the threshold it offers
 `Level up to N?`, which writes the next `identity.level` in the pending delta. Level 20 draws a
 full bar and never offers a level. Under it the combat strip holds the armor class
 shield, the initiative and speed tiles and the hit-points card (below), then the six
@@ -279,7 +279,11 @@ amber at 25–50, red under 25), adds a temporary-points segment and offers an a
 Damage and Heal; the three values are themselves inline edits (`parseHitPointsCurrent`,
 `parseHitPointsMaximum`, `parseHitPointsTemp`). Each rounds to a whole number and floors at zero
 (the maximum at 1); a larger typed value is kept rather than silently capped, and the parsers share
-the pure `parse_number.ts` clamp with the other Play edits. Damage and Heal call the pure `fantasy/hit_points.ts`: damage spends temporary
+the pure `parse_number.ts` clamp with the other Play edits, as does the amount input (a fractional
+amount rounds to a whole one). The card draws every value clamped to the maximum: an inline current
+above it is written back as the maximum, and committing a maximum below the current value also
+writes `current = max`. Damage and Heal call the pure `fantasy/hit_points.ts` with that clamped
+current, so `10 / 10 → max 6 → 2 damage` leaves `4 / 6`: damage spends temporary
 points first and floors the current value at zero, healing caps at the maximum, and a zero,
 negative or unreadable amount changes nothing. The two writes go to the pending delta through
 `setPath` without a save; until the baseline advances the bar draws the difference as a hatched
@@ -288,21 +292,21 @@ and band helpers, and both the card and the math are exported for the NPC and en
 
 Saving throws and skills follow as two card sections (`saves_skills.tsx`). Each row draws a
 proficiency dot: one control-sized toggle with `aria-pressed` whose `setPath` writes 1 or 0 to the
-matching `config.save<A>Prof` / `config.skill<S>Prof` leaf and then asks the store for a preview, so
-the derived total updates without leaving Play mode (the Preview throttle and the pending card still
-apply). The save row shows the template label and a rollable `saves.<ability>` total over the
+matching `config.save<A>Prof` / `config.skill<S>Prof` leaf in the pending delta. Preview stays
+explicit: the toggle does not call it, so the derived total updates when the player asks for
+Preview (the Preview throttle and the pending card still apply). The save row shows the template label and a rollable `saves.<ability>` total over the
 `saves` Section dice; the skill row shows its name, its ability abbreviation, an inline-editable
 `skills.<skill>.bonus` and a rollable `skills.<skill>.total` over the `skills` Section dice. The
 skill name comes from the template group (falling back to the key). The config Section itself is
 never drawn in Play mode; the pure `saves_skills_data.ts` holds the skill-to-ability table, the path
-builders, the abbreviation keys and the bonus parser that clamps to the template range. Dot presses
-are the only edit that previews by itself, because the toggle's whole effect is a derived value.
+builders, the abbreviation keys and the bonus parser that clamps to the template range.
 The row grammar `skills.<skill>` is the table Row key the Dice store resolves.
 
 Attack cards follow (`fantasy/attacks.tsx`). The four `attacks.attack1..4` table Rows draw only
 while their `name` is non-empty; the remaining empty slots collapse into one
 `+ Add attack (N free)` button, hidden when nothing is free, which reveals the next empty slot for
-inline editing. Each card carries an inline-editable name, a rollable bonus and a rollable damage
+inline editing; the revealed set holds positions within the slots the template carries, so a
+template without `attack1` still reveals `attack2` first. Each card carries an inline-editable name, a rollable bonus and a rollable damage
 expression. The bonus is the attack Row through the `attacks` Section dice and the preset
 `1d20 + @.bonus` default, so it shares the Dice panel and per-sheet overrides. Damage is a literal
 expression validated by the pure `fantasy/attacks_data.ts` (`parseAttackDamage`: at least one die,
@@ -357,7 +361,7 @@ with a `when(kind)` predicate, a header and a body. The header is the same
 `Enemy sheet`); the body reuses the armor class shield, the hit-points card over the pure `hit_points.ts`,
 the ability medallions, the attack cards and the spellcasting panel, and adds an initiative tile
 (rollable through the `combat.initiative` Row plus a pencil inline edit clamped to −5–20 by the pure
-`stat_block_data.ts`) and a compact proficiency card that draws only the proficient saving throws
+`armor_class.ts` parser) and a compact proficiency card that draws only the proficient saving throws
 (ability abbreviation plus the rollable `saves.<ability>` total) and skills (template name, an
 inline-editable `skills.<skill>.bonus`, the rollable total) from the
 `config.save<A>Prof` / `config.skill<S>Prof` leaves; with none proficient the card is not drawn.
@@ -418,8 +422,7 @@ Web:
   `parse_number.ts` (the shared clamped-integer and percent helpers) and
   `xp_progress.ts` helpers and the hero experience bar in `xp_panel.tsx`; `fantasy/stat_block.tsx` —
   the compact NPC/enemy stat block that reuses the combat shield, hit-points card, ability medallions,
-  attack cards and spellcasting panel; `fantasy/stat_block_data.ts` — its kind selection and clamped
-  initiative parsing;
+  attack cards and spellcasting panel; `fantasy/stat_block_data.ts` — its kind selection;
   `fantasy/combat_strip.tsx` — the combat strip container; `fantasy/ac_breakdown.tsx` — the armor
   class shield and its breakdown with the DEX/CON segmented exclusive choice;
   `fantasy/armor_class.ts` — the AC/speed paths, the exactly-one-ability selector and the clamped
