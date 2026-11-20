@@ -338,4 +338,12 @@
   .lg-dice-button--roll .lg-dice-icon {
     display: none;
   }
+
+  .lg-dice-panel {
+    inset-inline: 0;
+    max-inline-size: none;
+    border-end-start-radius: 0;
+    border-end-end-radius: 0;
+    padding-block-end: calc(var(--lg-space-12) + env(safe-area-inset-bottom, 0));
+  }
 }

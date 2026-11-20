@@ -1,0 +1,109 @@
+.lg-attacks__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: var(--lg-space-12);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lg-attack-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+  min-inline-size: 0;
+  padding: var(--lg-space-16);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-md);
+  background-color: var(--lg-color-raised);
+}
+
+.lg-attack-card__name {
+  margin: 0;
+  font-size: var(--lg-type-18);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  color: var(--lg-color-text);
+}
+
+.lg-attack-card__name-value {
+  justify-self: start;
+  text-align: start;
+}
+
+.lg-attack-card__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lg-space-8) var(--lg-space-16);
+  margin: 0;
+}
+
+.lg-attack-card__stat {
+  display: flex;
+  flex: 1 1 8rem;
+  flex-direction: column;
+  gap: var(--lg-space-2);
+  min-inline-size: 0;
+}
+
+.lg-attack-card__label {
+  font-size: var(--lg-type-12);
+  font-weight: var(--lg-font-weight-medium);
+  line-height: var(--lg-line-normal);
+  letter-spacing: var(--lg-tracking-wide);
+  text-transform: uppercase;
+  color: var(--lg-color-text-muted);
+}
+
+.lg-attack-card__value {
+  display: flex;
+  align-items: center;
+  gap: var(--lg-space-4);
+  min-inline-size: 0;
+  margin: 0;
+}
+
+.lg-attack-card__value .lg-rollable {
+  font-size: var(--lg-type-20);
+  line-height: var(--lg-line-tight);
+}
+
+.lg-attack-card__value .lg-rollable--button {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lg-attack-card__edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: var(--lg-size-control);
+  min-block-size: var(--lg-size-control);
+  padding: 0;
+  border: 0;
+  border-radius: var(--lg-radius-sm);
+  background-color: transparent;
+  color: var(--lg-color-text-muted);
+  cursor: pointer;
+}
+
+.lg-attack-card__edit:hover {
+  background-color: var(--lg-color-surface-hover);
+  color: var(--lg-color-text);
+}
+
+.lg-attack-card__pencil {
+  flex: none;
+  inline-size: var(--lg-space-16);
+  block-size: var(--lg-space-16);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--lg-space-2);
+}
+
+@media (max-width: 40rem) {
+  .lg-attacks__list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

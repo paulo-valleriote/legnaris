@@ -134,7 +134,16 @@ the F2 client and the F4 engine and owns no wire model.
   network, never counts as unsaved work and never reaches the leave guard. `sheet_view.tsx` resolves
   it against the modes (the filter reads off while arranging or pinning and Sections draw open while
   arranging, the state untouched); `section_index.tsx` / `use_active_section.ts` are the sticky strip (roving `nav`, not
-  tabs) and its scrollspy, which announces through the sheet's one polite live region.
+  tabs) and its scrollspy, which announces through the sheet's polite live region.
+- `src/sheet/preset/` — the template-id Play preset registry and the `fantasy_v1` preset.
+  Working rules: a preset is chosen by template id (no preset keeps the generic form); Play draws the
+  preset body, Edit keeps the generic form, Arrange and the pinned filter; a preset composes the
+  shared edit store, Dice context and decoded template through `preset_context.tsx` and owns no wire
+  model, state or request; one file per Play section, so a new panel is one `sections` entry; every
+  string resolves through `src/l10n/strings.ts`, every visual value is a `--lg-*` token and data is
+  rendered as text; an NPC/enemy sheet may swap the body through the optional kind-selected
+  `statBlock`. Section-by-section detail, the pure helpers and their tests live in
+  [../context/sheets.md](../context/sheets.md).
 - `src/shell/shortcut_registry.ts` — the one action → key map (`Ctrl+S`/`Cmd+S` save, `F5`
   refresh), with the mounted screen registering and unregistering its handlers;
   `src/shell/leave_guard.ts` — the shell-level leave registry the navigation asks before it
@@ -151,7 +160,8 @@ rebuilt through the engine's `setPathValue`; a save merges the returned cascade 
 the baseline, a preview merges it **without** advancing it and marks the changed and
 recalculated rows through the F4 `rowMarkBuilder`/`markLabel` seam.
 
-**Footer status and `revealRow`.** The footer has one status line (`FooterStatus`): `footerStatus(pending, count)` in `preview_summary.ts` merges the unsaved state and the cascade ("Unsaved, 3 recalculated"), derived from the store's `previewMarks`, so it clears whenever the marks clear. Jump (a ghost button) sits on the same line; the one polite live region announces only the cascade and the visible phrase is `aria-hidden` while a Preview shows. The derived readout draws no "Calculated" caption: `ReadOnlyValue` keeps it as a visually hidden `aria-describedby` target. `reveal_row.ts` owns
+**Footer status and `revealRow`.** The footer has one status line (`FooterStatus`): `footerStatus(pending, count)` in `preview_summary.ts` merges the unsaved state and the cascade ("Unsaved, 3 recalculated"), derived from the store's `previewMarks`, so it clears whenever the marks clear. Jump (a ghost button) sits on the same line in Edit mode
+and is not drawn in Play, where the pending card owns the actions; the status line stays in both. The footer's polite live region announces only the cascade and the visible phrase is `aria-hidden` while a Preview shows (the Play-only pending card owns the value delta). The derived readout draws no "Calculated" caption: `ReadOnlyValue` keeps it as a visually hidden `aria-describedby` target. `reveal_row.ts` owns
 bringing a Row or a Section into view by its `data-row-key` / `data-section-key` (`revealRow`,
 `revealSection`, `revealFirstRecalculated`); handed the view controls (`RevealView`), it first turns
 the pinned filter off and expands a collapsed Section, synchronously, so no caller does either. Auto-preview on

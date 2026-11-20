@@ -1,0 +1,196 @@
+.lg-spells__ability,
+.lg-spells__text,
+.lg-spells__stat,
+.lg-spells__slot-total {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: center;
+  gap: var(--lg-space-4) var(--lg-space-16);
+  min-inline-size: 0;
+}
+
+.lg-spells__label {
+  min-inline-size: 0;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-medium);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-spells__ability .lg-segmented {
+  justify-self: end;
+}
+
+.lg-spells__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lg-space-8) var(--lg-space-24);
+}
+
+.lg-spells__stat {
+  flex: 1 1 12rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.lg-spells__stat-value {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--lg-space-8);
+  min-inline-size: 0;
+}
+
+.lg-spells__stat-value .lg-rollable {
+  font-size: var(--lg-type-24);
+  line-height: var(--lg-line-tight);
+}
+
+.lg-spells__number {
+  font-size: var(--lg-type-24);
+  font-weight: var(--lg-font-weight-bold);
+  line-height: var(--lg-line-tight);
+  font-variant-numeric: tabular-nums;
+  color: var(--lg-color-text);
+}
+
+.lg-spells__text-value {
+  justify-self: end;
+  max-inline-size: 100%;
+  text-align: end;
+}
+
+.lg-spells__slots {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+  min-inline-size: 0;
+  padding-block-start: var(--lg-space-12);
+  border-block-start: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
+.lg-spells__subtitle {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-normal);
+  letter-spacing: var(--lg-tracking-wide);
+  text-transform: uppercase;
+  color: var(--lg-color-text-muted);
+}
+
+.lg-spells__slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lg-spells__slot {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: center;
+  gap: var(--lg-space-4) var(--lg-space-16);
+  min-inline-size: 0;
+}
+
+.lg-spells__slot-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-2);
+  min-inline-size: 0;
+}
+
+.lg-spells__slot-level {
+  font-size: var(--lg-type-15);
+  font-weight: var(--lg-font-weight-medium);
+  line-height: var(--lg-line-tight);
+  color: var(--lg-color-text);
+}
+
+.lg-spells__slot-remaining {
+  font-size: var(--lg-type-12);
+  line-height: var(--lg-line-tight);
+  font-variant-numeric: tabular-nums;
+  color: var(--lg-color-text-muted);
+}
+
+.lg-spells__pips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lg-space-2);
+  justify-self: end;
+}
+
+.lg-spells__pip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: var(--lg-size-control);
+  min-block-size: var(--lg-size-control);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.lg-spells__pip::before {
+  inline-size: var(--lg-space-16);
+  block-size: var(--lg-space-16);
+  border: var(--lg-size-hairline) solid var(--lg-color-accent);
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-accent);
+  content: '';
+}
+
+.lg-spells__pip[data-spent]::before {
+  border-color: var(--lg-color-border-strong);
+  background-color: transparent;
+}
+
+.lg-spells__pip:hover::before {
+  border-color: var(--lg-color-accent-hover);
+  background-color: var(--lg-color-accent-hover);
+}
+
+.lg-spells__pip[data-spent]:hover::before {
+  border-color: var(--lg-color-text-muted);
+  background-color: var(--lg-color-surface-hover);
+}
+
+.lg-spells__pip:focus-visible {
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
+  outline-offset: var(--lg-focus-offset);
+  border-radius: var(--lg-radius-sm);
+}
+
+.lg-spells__slot-total {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.lg-spells__slot-total .lg-field__slot {
+  max-inline-size: var(--lg-space-128);
+}
+
+.lg-spells__slot-total-control {
+  display: flex;
+  justify-content: flex-end;
+  min-inline-size: 0;
+}
+
+@media (max-width: 40rem) {
+  .lg-spells__ability,
+  .lg-spells__text,
+  .lg-spells__slot {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lg-spells__ability .lg-segmented,
+  .lg-spells__text-value,
+  .lg-spells__pips {
+    justify-self: start;
+  }
+}

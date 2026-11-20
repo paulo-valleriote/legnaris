@@ -1,0 +1,112 @@
+.lg-xp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+  min-width: 0;
+}
+
+.lg-xp__trigger {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+  width: 100%;
+  min-height: var(--lg-size-control);
+  padding: var(--lg-space-8);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-md);
+  background-color: var(--lg-color-surface);
+  color: var(--lg-color-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.lg-xp__trigger:hover {
+  background-color: var(--lg-color-surface-hover);
+}
+
+.lg-xp__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--lg-space-4) var(--lg-space-12);
+  font-size: var(--lg-type-13);
+  line-height: var(--lg-line-normal);
+}
+
+.lg-xp__label {
+  color: var(--lg-color-text-muted);
+}
+
+.lg-xp__total,
+.lg-xp__panel-total {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--lg-font-weight-medium);
+}
+
+.lg-xp__bar {
+  position: relative;
+  display: block;
+  height: var(--lg-space-8);
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-inset);
+  overflow: hidden;
+}
+
+.lg-xp__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-accent);
+  transition: width var(--lg-motion-240) var(--lg-ease-standard);
+}
+
+.lg-xp__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-12);
+  padding: var(--lg-space-16);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-md);
+  background-color: var(--lg-color-raised);
+}
+
+.lg-xp__panel-total {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  line-height: var(--lg-line-tight);
+}
+
+.lg-xp__panel-total-value {
+  font: inherit;
+  font-variant-numeric: inherit;
+}
+
+.lg-xp__panel-name {
+  margin: 0;
+  font-size: var(--lg-type-12);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-xp__gain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--lg-space-8);
+}
+
+.lg-xp__gain .lg-form-field {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+.lg-xp__level-up {
+  align-self: flex-start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-xp__fill {
+    transition: none;
+  }
+}

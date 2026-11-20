@@ -11,8 +11,9 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import type { DiceBlock } from '../api/models/dice';
-import { performRoll, type RollResult } from '../dice/roll';
+import { performRoll, rollExpression, type RollResult } from '../dice/roll';
 import type { DiceResult } from '../dice/errors';
+import type { Expression } from '../dice/parse';
 import type { DiceSchema } from '../dice/fit';
 import type { DiceDefaults, Resolution } from '../dice/resolve';
 import { message, messageWith } from '../l10n/strings';
@@ -278,12 +279,53 @@ function useRowResolution(rowKey: string, sectionKey: string): Resolution {
   });
 }
 
-export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
+export interface RowRoll {
+  readonly resolution: Resolution;
+  readonly roll: () => void;
+}
+
+export function useRowRoll(rowKey: string, sectionKey: string, label: string): RowRoll {
   const dice = useDiceContext();
-  const { editing, openEditor, sendRoll } = useContext(DiceSessionContext);
+  const { sendRoll } = useContext(DiceSessionContext);
+  const resolution = useRowResolution(rowKey, sectionKey);
+  const roll = useCallback(() => {
+    sendRoll({
+      rowKey,
+      label,
+      outcome: performRoll(resolution, {
+        rowKey,
+        values: dice.savedValues(),
+        draft: dice.draftValues(),
+      }),
+    });
+  }, [dice, resolution, rowKey, label, sendRoll]);
+  return { resolution, roll };
+}
+
+export function useExpressionRoll(rowKey: string, label: string): (expression: Expression) => void {
+  const dice = useDiceContext();
+  const { sendRoll } = useContext(DiceSessionContext);
+  return useCallback(
+    (expression: Expression) => {
+      sendRoll({
+        rowKey,
+        label,
+        outcome: rollExpression(expression, {
+          rowKey,
+          values: dice.savedValues(),
+          draft: dice.draftValues(),
+        }),
+      });
+    },
+    [dice, rowKey, label, sendRoll],
+  );
+}
+
+export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
+  const { editing, openEditor } = useContext(DiceSessionContext);
   const pressTimer = useRef<number | undefined>(undefined);
   const longPressed = useRef(false);
-  const resolution = useRowResolution(rowKey, sectionKey);
+  const { resolution, roll } = useRowRoll(rowKey, sectionKey, label);
   const isEditing = editing === editKeyOf('row', rowKey);
   const showEdit = rowOffersEdit(resolution);
   const edit = () =>
@@ -297,18 +339,6 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
   };
 
   useEffect(() => cancelPress, []);
-
-  const roll = () => {
-    sendRoll({
-      rowKey,
-      label,
-      outcome: performRoll(resolution, {
-        rowKey,
-        values: dice.savedValues(),
-        draft: dice.draftValues(),
-      }),
-    });
-  };
 
   if (!resolution.rollable && !showEdit) {
     return null;

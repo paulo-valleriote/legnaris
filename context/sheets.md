@@ -225,6 +225,153 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 | `SHEET_KIND_MISMATCH` | 422 | duplicate of a character sheet |
 | `RATE_LIMITED` | 429 | shared per-user budget (`USER_RATE_LIMIT_*`, 80 per minute) |
 
+### Play and Edit presentation
+
+A sheet whose template id has a preset opens in **Play**; every other template opens in **Edit**,
+today's form. The preset registry maps a template id to a header component, an optional
+kind-selected stat block and ordered section slots, so later gameplay surfaces are additions to the
+preset rather than branches in the screen.
+The `fantasy_v1` preset currently draws the hero header, the combat strip, the attack cards, the
+ability medallions, the spellcasting panel and the table-rules disclosure. A preset declares an
+ordered body layout: full-width Section blocks and column blocks. The fantasy body draws the combat
+strip across the top, then three columns (abilities / saving throws with skills / attacks with
+spells), then the table rules; the columns fall to two around 1100px and to one on a phone, without
+a horizontal scroll at 360px. The title is
+`identity.characterName` with
+the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper,
+`played by <player>` and the proficiency badge (an inline edit clamped to 2–6 by the pure
+`fantasy/identity.ts`). The hero also carries the experience bar
+(`fantasy/xp_panel.tsx` over the pure `fantasy/xp_progress.ts`): a `progressbar` running from the
+current level's floor to the next 5e threshold, whose disclosure shows the `identity.xp` total as an
+inline edit and adds a positive gain to it in the pending delta (the total and the gain round to
+whole XP and floor at zero, with no upper cap); when the total reaches the threshold it offers
+`Level up to N?`, which writes the next `identity.level` in the pending delta. Level 20 draws a
+full bar and never offers a level. Under it the combat strip holds the armor class
+shield, the initiative and speed tiles and the hit-points card (below), then the six
+`stats.<ability>` scores render as medallions: the `modifiers.<ability>Mod`
+derived value is the large, read-only roll target (accent-coloured through `rollable_value.tsx`,
+rolling the `stats.<ability>` Row through the Dice store and its sheet overrides), while the raw
+score sits in an `inline_edit.tsx` badge whose writes go to the pending delta; the two are separate
+targets. The `derived.passiveAwareness` pill closes the column. `RollableValue` and the `useRowRoll`
+hook it uses are the reusable roll surface for later gameplay sections. The attack cards, saving
+throws, skills, spellcasting panel and table-rules disclosure follow (see below). Edit keeps the
+generic form, Arrange and the pinned filter; Play ignores the layout and the view filters.
+
+The combat strip (`fantasy/combat_strip.tsx`) is the container later gameplay cards extend; it
+holds the armor class shield, the initiative tile, the speed tile and the hit-points card
+(`fantasy/hp_card.tsx`) at the top of the Play view and is sticky on a desktop only (a media
+query turns it static and the strip into a three-column grid on a phone, with the card across
+all three). The shield (`fantasy/ac_breakdown.tsx`) reads `derived.armorClass` and opens a
+breakdown popover with `role="dialog"`: the base armor (`combat.baseArmorClass`) as an inline
+edit clamped to 1–30, the AC ability as DEX/CON segmented buttons that write the
+`armorClassAbility` exclusive group through `setExclusive` (`config.acUsesDex` /
+`config.acUsesCon`, exactly one non-zero member in the delta), that ability's
+`modifiers.<ability>Mod` and the derived total. It closes on Escape, on an outside click and on
+its close button, returns focus to the shield and keeps focus in the panel while open; the
+derived value itself only changes after Preview, since the client evaluates no formula. On a
+phone the same panel is a fixed bottom sheet so a scrolling container cannot clip it. The
+initiative tile is the large, read-only roll target over the `combat.initiative` Row, with an
+inline edit pencil for that Row, and the
+speed tile inline-edits `combat.speed` (clamped to 0–120). `fantasy/armor_class.ts` owns the
+paths, the 1–30 / 0–120 / −5–20 parsing and the exactly-one-ability selector. The hit-points card reads
+`combat.hitPoints`, `combat.hitPointsMax` and `combat.hitPointsTemp`, draws the bar as a
+`role="meter"` with
+`aria-valuemin`/`aria-valuemax`/`aria-valuenow`, colours the fill by percentage (green above 50,
+amber at 25–50, red under 25), adds a temporary-points segment and offers an amount input with
+Damage and Heal; the three values are themselves inline edits (`parseHitPointsCurrent`,
+`parseHitPointsMaximum`, `parseHitPointsTemp`). Each rounds to a whole number and floors at zero
+(the maximum at 1); a larger typed value is kept rather than silently capped, and the parsers share
+the pure `parse_number.ts` clamp with the other Play edits, as does the amount input (a fractional
+amount rounds to a whole one). The card draws every value clamped to the maximum: an inline current
+above it is written back as the maximum, and committing a maximum below the current value also
+writes `current = max`. Damage and Heal call the pure `fantasy/hit_points.ts` with that clamped
+current, so `10 / 10 → max 6 → 2 damage` leaves `4 / 6`: damage spends temporary
+points first and floors the current value at zero, healing caps at the maximum, and a zero,
+negative or unreadable amount changes nothing. The two writes go to the pending delta through
+`setPath` without a save; until the baseline advances the bar draws the difference as a hatched
+segment and the card reports `was <n>` / `temp was <n>`. `hit_points.ts` also owns the percentage
+and band helpers, and both the card and the math are exported for the NPC and enemy stat block.
+
+Saving throws and skills follow as two card sections (`saves_skills.tsx`). Each row draws a
+proficiency dot: one control-sized toggle with `aria-pressed` whose `setPath` writes 1 or 0 to the
+matching `config.save<A>Prof` / `config.skill<S>Prof` leaf in the pending delta. Preview stays
+explicit: the toggle does not call it, so the derived total updates when the player asks for
+Preview (the Preview throttle and the pending card still apply). The save row shows the template label and a rollable `saves.<ability>` total over the
+`saves` Section dice; the skill row shows its name, its ability abbreviation, an inline-editable
+`skills.<skill>.bonus` and a rollable `skills.<skill>.total` over the `skills` Section dice. The
+skill name comes from the template group (falling back to the key). The config Section itself is
+never drawn in Play mode; the pure `saves_skills_data.ts` holds the skill-to-ability table, the path
+builders, the abbreviation keys and the bonus parser that clamps to the template range.
+The row grammar `skills.<skill>` is the table Row key the Dice store resolves.
+
+Attack cards follow (`fantasy/attacks.tsx`). The four `attacks.attack1..4` table Rows draw only
+while their `name` is non-empty; the remaining empty slots collapse into one
+`+ Add attack (N free)` button, hidden when nothing is free, which reveals the next empty slot for
+inline editing; the revealed set holds positions within the slots the template carries, so a
+template without `attack1` still reveals `attack2` first. Each card carries an inline-editable name, a rollable bonus and a rollable damage
+expression. The bonus is the attack Row through the `attacks` Section dice and the preset
+`1d20 + @.bonus` default, so it shares the Dice panel and per-sheet overrides. Damage is a literal
+expression validated by the pure `fantasy/attacks_data.ts` (`parseAttackDamage`: at least one die,
+no field reference) and rolled through `useExpressionRoll` (`dice_row.tsx`), which keeps the Dice
+panel, saved/draft values and result copy while leaving the attack Row's own dice setting alone.
+Bonus edits clamp to the template range; name, bonus and damage write the pending delta.
+`attackVisibility` decides which slots show and how many are still free.
+
+The mode is component state for the open screen, local to the viewer, never persisted and never
+sent. Preset edits go through the same edit store (`setPath`), so Preview, Save, the draft cadence
+and both guards behave exactly as in Edit. The reusable inline-edit control (`inline_edit.tsx`)
+opens on click or Enter, commits on Enter or blur, cancels on Escape, writes one dotted path and
+shows `Add <label>` while the value is empty; its accessible name is the template's field label,
+and an optional display node can replace the shown value (the attack cards and the initiative tile
+use a pencil trigger). On one column (`max-width: 40rem`, the single exported `NARROW_QUERY` that
+every preset CSS media query matches) the same control keeps its trigger and
+opens a bottom-sheet `Dialog` instead: the input takes `type` and `inputMode` from the field schema
+(`number`/`numeric` for numbers), Enter commits, and Escape or the close button cancels without
+writing. The narrow check reads `matchMedia` through `useNarrowViewport`; a browser without it edits
+inline. The hit points and experience bars animate their width and the roll toast animates in, and
+every one of those animations is switched off under `prefers-reduced-motion`; on a phone the roll
+toast is flush with the bottom edge.
+
+Any Play-mode value edit also floats the pending-changes card (`pending_card.tsx`, fed by the pure
+`pending_changes.ts`): a `role="status"` polite region listing each changed field as
+`<label> <old> → <new>`, the `not saved yet` copy, a muted table-sync placeholder and Discard,
+Preview and Save wired to the same edit store. The card appears while the edited values differ from
+the saved baseline and hides on Save or Discard, or when every edit is reverted; a failed save or
+preview keeps it and shows the mapped failure copy. Only value edits are summarised: a Dice-only
+change still counts as unsaved work for the footer and the leave guard but draws no card.
+
+The spellcasting panel (`preset/fantasy/spells.tsx`) reads the decoded template instead of fixed
+paths. It shows the `spellcastingAbility` exclusive group as a segmented choice
+(`preset/segmented_choice.tsx`, no native select): a choice writes 1 to the chosen member and 0 to
+every sibling in one `setExclusive` call, so exactly one member is non-zero. The derived spell
+attack bonus carries the Row's dice action with the preset row default `1d20 + @`, so a roll shares
+the Dice store, pendings and result panel; the save DC is a plain derived readout. The at-will and
+prepared lists use the same one-path inline editor. One slot row is drawn per level whose total is
+non-zero: `total` pips with the remaining ones first, each a `--lg-size-control` target that writes
+`spells.slotN.expended` (a remaining pip spends one, a spent pip recovers one), and the total stays
+inline-editable through the engine's numeric guard. `preset/fantasy/slot_pips.ts` is pure
+(`slotPool`, `spendSlot`, `recoverSlot`, `slotPips`): a missing, non-numeric or negative count reads
+as zero, fractional counts truncate, `expended` clamps to the total, and spend or recover at a cap
+returns the same pool. A level stays visible while its total is being edited, and hides once a saved
+total of zero is the stored value. `preset/fantasy/rules.tsx` draws the four `rules.*` leaves as a
+disclosure collapsed by default, editable through the same numeric guard when opened.
+
+An NPC or enemy sheet (`sheet.kind` `npc` / `enemy`) of `fantasy_v1` swaps the character preset for
+the compact stat block (`preset/fantasy/stat_block.tsx`): the preset carries an optional `statBlock`
+with a `when(kind)` predicate, a header and a body. The header is the same
+`identity.characterName` inline edit with the sheet name as fallback plus a kind tag (`NPC sheet` /
+`Enemy sheet`); the body reuses the armor class shield, the hit-points card over the pure `hit_points.ts`,
+the ability medallions, the attack cards and the spellcasting panel, and adds an initiative tile
+(rollable through the `combat.initiative` Row plus a pencil inline edit clamped to −5–20 by the pure
+`armor_class.ts` parser) and a compact proficiency card that draws only the proficient saving throws
+(ability abbreviation plus the rollable `saves.<ability>` total) and skills (template name, an
+inline-editable `skills.<skill>.bonus`, the rollable total) from the
+`config.save<A>Prof` / `config.skill<S>Prof` leaves; with none proficient the card is not drawn.
+Every value keeps its pending-delta path, so the stat block saves, previews and drafts like the full
+sheet. A character sheet, or a sheet with no kind, keeps the full preset. `stat_block.css` draws
+body text at `--lg-type-15` with every control on a `--lg-size-control` target, and folds the combat
+row to two columns with a full-width hit-points card on a phone.
+
 ### Web local records
 
 IndexedDB database `legnaris-sheets` (`SCHEMA_VERSION` 3) with stores `sheets`, `drafts` and
@@ -270,6 +417,25 @@ Web:
   throttle and restore; `save_retry.ts` — 409 retry.
 - `web/src/sheet/sheet_screen.tsx` — mounted screen, footer and guards; `layout_store.ts` —
   committed/staged layout, commit and backup.
+- `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
+  optional kind-selected `statBlock`, ordered section slots and the responsive body layout);
+  `fantasy/` — the hero, the combat strip, the attack cards, the ability medallions, the
+  saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
+  `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`, `attacks_data.ts`, `slot_pips.ts`,
+  `parse_number.ts` (the shared clamped-integer and percent helpers) and
+  `xp_progress.ts` helpers and the hero experience bar in `xp_panel.tsx`; `fantasy/stat_block.tsx` —
+  the compact NPC/enemy stat block that reuses the combat shield, hit-points card, ability medallions,
+  attack cards and spellcasting panel; `fantasy/stat_block_data.ts` — its kind selection;
+  `fantasy/combat_strip.tsx` — the combat strip container; `fantasy/ac_breakdown.tsx` — the armor
+  class shield and its breakdown with the DEX/CON segmented exclusive choice;
+  `fantasy/armor_class.ts` — the AC/speed paths, the exactly-one-ability selector and the clamped
+  parsing; `fantasy/hp_card.tsx` — the hit-points card; `fantasy/attacks.tsx` — the attack cards;
+  `segmented_choice.tsx` — the reusable exclusive-group control that writes through `setExclusive`;
+  `rollable_value.tsx` — the
+  reusable roll target (`useRowRoll` in `dice_row.tsx`); `pending_card.tsx`, `pending_changes.ts` —
+  the floating unsaved-delta card and its pure summary; `mode_toggle.tsx` — the local Play/Edit
+  switch; `inline_edit.tsx` — the reusable single-path inline editor (inline on a wide viewport, a
+  schema-typed bottom sheet on a phone).
 - `web/src/sheet/view_store.ts`, `sheet_view.tsx`, `section_index.tsx` — local view state,
   collapse/filter and section strip; `dice_store.ts`, `dice_row.tsx`, `dice_panel.tsx`,
   `dice_view.ts` — Dice choices over the edit store (see [dice](dice.md)).
@@ -311,6 +477,12 @@ Web:
   there is no pin cap.
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
+- Play mode presents the `fantasy_v1` hero header with its experience bar, the armor class shield,
+  the initiative and speed tiles and the hit-points card in the combat strip, the attack cards, the
+  ability medallions, the saving throws and skills, the spellcasting panel with its table-rules
+  disclosure, and the pending-changes card today. An NPC or enemy sheet draws the compact stat
+  block instead of the character sections; a template without a preset always keeps the generic
+  form.
 - `GET /sheets` still returns one arbitrary owned sheet for the legacy `/your-sheet` surface; the
   catalog uses `GET /sheets/owned` with an explicit kind.
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are

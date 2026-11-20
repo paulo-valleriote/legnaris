@@ -97,6 +97,7 @@ test.describe('sheet accessibility', () => {
     page,
   }) => {
     await page.goto(`/sheets/${SHEET_ID}`);
+    await page.getByRole('button', { name: 'Edit mode' }).click();
 
     await expect(page.getByRole('heading', { name: 'Aragorn' })).toBeVisible();
     await expect(page.getByRole('textbox', { name: 'Name' })).toBeVisible();
@@ -113,6 +114,7 @@ test.describe('sheet accessibility', () => {
     page,
   }) => {
     await page.goto(`/sheets/${SHEET_ID}`);
+    await page.getByRole('button', { name: 'Edit mode' }).click();
 
     const level = page.getByRole('textbox', { name: 'Level' });
     await expect(level).toBeVisible();

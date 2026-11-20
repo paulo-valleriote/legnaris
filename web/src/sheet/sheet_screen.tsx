@@ -71,6 +71,11 @@ import { revealFirstRecalculated, revealSection, revealTop } from './reveal_row'
 import { SectionIndex } from './section_index';
 import { CollapseAllButton, PinnedEmpty, TemplateSettingsArea, useSheetView } from './sheet_view';
 import { isTemplateSettingsKey } from './view_store';
+import { SheetModeToggle } from './mode_toggle';
+import type { SheetMode } from './mode_toggle';
+import { PresetPlayView } from './preset/play_view';
+import { PresetProvider } from './preset/preset_context';
+import { presetFor } from './preset/registry';
 import { HelpPanel, HelpToggle } from './sheet_help';
 import type { SheetOpenResult } from './sheet_open';
 import { useSheetOpen } from './sheet_open';
@@ -203,16 +208,18 @@ function ConnectedExclusive({ store, group }: ConnectedExclusiveProps) {
 interface SheetFooterProps {
   readonly store: SheetEditStore;
   readonly reveal: RevealView;
+  readonly playing: boolean;
 }
 
 interface FooterStatusProps {
   readonly pending: boolean;
   readonly marks: PreviewMarks | undefined;
   readonly reveal: RevealView;
+  readonly jump: boolean;
   readonly children?: ReactNode;
 }
 
-function FooterStatus({ pending, marks, reveal, children }: FooterStatusProps) {
+function FooterStatus({ pending, marks, reveal, jump, children }: FooterStatusProps) {
   const count = marks === undefined ? undefined : recalculatedCount(marks);
   const summary = count === undefined ? '' : recalculatedSummary(count);
   const status = footerStatus(pending, count);
@@ -232,7 +239,7 @@ function FooterStatus({ pending, marks, reveal, children }: FooterStatusProps) {
             >
               {status}
             </p>
-            {count !== undefined && count > 0 && (
+            {jump && count !== undefined && count > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -251,7 +258,7 @@ function FooterStatus({ pending, marks, reveal, children }: FooterStatusProps) {
   );
 }
 
-function SheetFooter({ store, reveal }: SheetFooterProps) {
+function SheetFooter({ store, reveal, playing }: SheetFooterProps) {
   const state = useEditState(store);
   const [savedRevision, setSavedRevision] = useState<number | undefined>(undefined);
   const pending = isPending(state);
@@ -288,7 +295,7 @@ function SheetFooter({ store, reveal }: SheetFooterProps) {
       className={`lg-sheet__footer ${quiet ? 'lg-sheet__footer--clean' : 'lg-sheet__footer--dirty'}`}
       {...{ [FLOATING_FLOOR_ATTRIBUTE]: '' }}
     >
-      <FooterStatus pending={pending} marks={state.previewMarks} reveal={reveal}>
+      <FooterStatus pending={pending} marks={state.previewMarks} reveal={reveal} jump={!playing}>
         {state.previewError !== undefined && (
           <p
             className={errorClass(state.previewErrorKind)}
@@ -494,6 +501,9 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       ),
     [client, storePort, sheetId, sheetData, sheetDice, template],
   );
+  const preset = useMemo(() => presetFor(template), [template]);
+  const [mode, setMode] = useState<SheetMode>(() => (preset === undefined ? 'edit' : 'play'));
+  const playing = preset !== undefined && mode === 'play';
   const sections = useMemo(() => buildSections(template.fields), [template]);
   const mainSections = useMemo(
     () => sections.filter((section) => !isTemplateSettingsKey(section.key)),
@@ -536,6 +546,10 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     [diceStore, diceSchema, diceSectionRowKeys, diceCheck, template, sections, editStore],
   );
   const eyebrow = template.name.trim() === '' ? message('sheet.headerTitle') : template.name;
+  const presetValue = useMemo(
+    () => ({ store: editStore, template, sheet, dice: diceValue }),
+    [editStore, template, sheet, diceValue],
+  );
   const layoutStore = useMemo(
     () =>
       createLayoutStore(
@@ -766,17 +780,30 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     onRefresh: requestRefresh,
   });
 
+  const StatBlockHeader =
+    playing && preset !== undefined && preset.statBlock?.when(sheet.kind)
+      ? preset.statBlock.Header
+      : undefined;
+
   return (
-    <>
+    <PresetProvider {...presetValue}>
       <header className="lg-sheet__header">
         <div className="lg-sheet__heading">
           <div className="lg-sheet__heading-text">
-            <h1 className="lg-sheet__title" data-testid="sheet-name">
-              {sheet.name}
-            </h1>
-            <p className="lg-sheet__template" data-testid="sheet-eyebrow">
-              {eyebrow}
-            </p>
+            {StatBlockHeader !== undefined ? (
+              <StatBlockHeader />
+            ) : playing && preset !== undefined ? (
+              <preset.Header />
+            ) : (
+              <>
+                <h1 className="lg-sheet__title" data-testid="sheet-name">
+                  {sheet.name}
+                </h1>
+                <p className="lg-sheet__template" data-testid="sheet-eyebrow">
+                  {eyebrow}
+                </p>
+              </>
+            )}
           </div>
           {sections.length > 0 && (
             <div className="lg-sheet__header-actions">
@@ -790,14 +817,21 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
                   onClick={requestDuplicate}
                 />
               )}
-              {hasCalculated && (
+              {!playing && hasCalculated && (
                 <HelpToggle
                   open={helpOpen}
                   buttonRef={helpToggleRef}
                   onToggle={() => (helpOpen ? closeHelp() : setHelpOpen(true))}
                 />
               )}
-              <ArrangeToggle store={layoutStore} onStart={startArranging} />
+              {!playing && <ArrangeToggle store={layoutStore} onStart={startArranging} />}
+              {preset !== undefined && (
+                <SheetModeToggle
+                  mode={playing ? 'play' : 'edit'}
+                  disabled={arranging}
+                  onChange={setMode}
+                />
+              )}
             </div>
           )}
         </div>
@@ -811,7 +845,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
             {message('arrange.hint')}
           </p>
         )}
-        {hasCalculated && helpOpen && (
+        {!playing && hasCalculated && helpOpen && (
           <HelpPanel
             onDismiss={() => {
               closeHelp();
@@ -829,6 +863,10 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
         <div data-testid="sheet-empty-fields">
           <EmptyState message={message('sheet.emptyFields')} />
         </div>
+      ) : playing && preset !== undefined ? (
+        <DiceProvider value={diceValue}>
+          <PresetPlayView preset={preset} />
+        </DiceProvider>
       ) : (
         <ArrangeProvider store={layoutStore}>
           <SectionIndex
@@ -892,7 +930,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       {arranging ? (
         <ArrangeFooter store={layoutStore} />
       ) : (
-        <SheetFooter store={editStore} reveal={view.reveal} />
+        <SheetFooter store={editStore} reveal={view.reveal} playing={playing} />
       )}
       {confirmation !== null && (
         <SheetConfirmation
@@ -901,7 +939,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
           onConfirm={() => resolveConfirmation(true)}
         />
       )}
-    </>
+    </PresetProvider>
   );
 }
 
