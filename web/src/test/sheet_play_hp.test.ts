@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   applyDamage,
   applyHeal,
+  applyTemp,
   formatHitPointsDelta,
   HIT_POINTS_CURRENT,
   HIT_POINTS_MAX,
@@ -123,6 +124,34 @@ describe('healing', () => {
 
   it('Happy path: healing past the maximum caps the current value', () => {
     expect(applyHeal({ current: 19, max: 20, temp: 0 }, 5)).toEqual({ current: 20, temp: 0 });
+  });
+});
+
+describe('temporary points', () => {
+  it('Edge: a zero, negative or non-finite amount is ignored', () => {
+    const hitPoints = { current: 10, max: 20, temp: 2 };
+
+    expect(applyTemp(hitPoints, 0)).toBeUndefined();
+    expect(applyTemp(hitPoints, -3)).toBeUndefined();
+    expect(applyTemp(hitPoints, Number.NaN)).toBeUndefined();
+    expect(applyTemp(hitPoints, Number.POSITIVE_INFINITY)).toBeUndefined();
+  });
+
+  it('Edge: an amount below the current temporary points keeps the higher value', () => {
+    expect(applyTemp({ current: 10, max: 20, temp: 5 }, 3)).toEqual({ current: 10, temp: 5 });
+  });
+
+  it('Edge: an amount equal to the current temporary points keeps them', () => {
+    expect(applyTemp({ current: 10, max: 20, temp: 5 }, 5)).toEqual({ current: 10, temp: 5 });
+  });
+
+  it('Edge: a stored negative temporary value counts as zero', () => {
+    expect(applyTemp({ current: 10, max: 20, temp: -4 }, 2)).toEqual({ current: 10, temp: 2 });
+  });
+
+  it('Happy path: a higher amount replaces the temporary points and leaves the current value', () => {
+    expect(applyTemp({ current: 10, max: 20, temp: 2 }, 5)).toEqual({ current: 10, temp: 5 });
+    expect(applyTemp({ current: 10, max: 20, temp: 0 }, 5)).toEqual({ current: 10, temp: 5 });
   });
 });
 
