@@ -287,8 +287,8 @@
 
 .lg-stat-block .lg-ability-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--lg-space-12) 0;
   padding: var(--lg-space-12) var(--lg-space-8);
   border: 0;
   border-radius: 0;
@@ -307,7 +307,13 @@
 
 .lg-stat-block .lg-ability__name {
   max-width: 100%;
+  overflow: visible;
   font-size: var(--lg-type-11);
+  line-height: var(--lg-line-tight);
+  text-align: center;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
   color: var(--lg-color-text-subtle);
 }
 
@@ -353,7 +359,6 @@
   }
 
   .lg-stat-block .lg-ability-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
     row-gap: var(--lg-space-8);
     padding: var(--lg-space-8) 0;
   }

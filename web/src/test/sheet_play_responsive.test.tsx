@@ -270,6 +270,14 @@ describe('the responsive Play layout', () => {
     );
   });
 
+  it('Edge: the hit point actions wrap and stay inside the card on a phone', () => {
+    const mobile = mobileCss(presetCss);
+    expect(mobile).toMatch(
+      /\.lg-hp-card__actions\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\)/,
+    );
+    expect(mobile).toMatch(/\.lg-hp-card__actions\s*\{[^}]*justify-items:\s*stretch/);
+  });
+
   it('Edge: reduced motion switches off the hit point and experience bar animations', () => {
     const reduced = presetCss.slice(presetCss.indexOf('@media (prefers-reduced-motion: reduce)'));
     expect(reduced).toMatch(/\.lg-hp-card__fill\s*\{[^}]*transition:\s*none/);

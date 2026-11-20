@@ -73,7 +73,7 @@
   flex-direction: column-reverse;
   align-items: center;
   justify-content: center;
-  gap: var(--lg-space-2);
+  gap: var(--lg-space-4);
   width: 86px;
   padding: var(--lg-space-8) var(--lg-space-4);
   border: var(--lg-size-hairline) solid var(--lg-color-border);
@@ -100,6 +100,10 @@
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   text-align: center;
+}
+
+.lg-combat-stat .lg-combat-stat__value.lg-rollable {
+  text-underline-offset: var(--lg-space-4);
 }
 
 .lg-combat-stat .lg-combat-stat__value .lg-dice-icon {
