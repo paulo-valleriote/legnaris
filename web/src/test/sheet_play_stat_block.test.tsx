@@ -348,6 +348,94 @@ describe('the stat block body', () => {
   });
 });
 
+describe('the stat block vitals band', () => {
+  function vitalsBand() {
+    return screen.getByTestId('sheet-stat-band');
+  }
+
+  function hitPointsMeter() {
+    return within(vitalsBand()).getByRole('meter', { name: message('sheet.play.hitPoints') });
+  }
+
+  it('Happy path: armor class, initiative and hit points share one band under the header', async () => {
+    await openFantasy({ kind: 'npc' });
+
+    const band = vitalsBand();
+    expect(statBlock()).toContainElement(band);
+    expect(within(band).getByTestId('sheet-ac')).toBeInTheDocument();
+    expect(within(band).getByTestId('sheet-stat-initiative')).toBeInTheDocument();
+    expect(within(band).getByTestId('sheet-hp-card')).toBeInTheDocument();
+    expect(within(band).getByTestId('sheet-hp-value')).toHaveTextContent('10 / 20');
+  });
+
+  it('Edge: a zero maximum draws an empty band instead of a full bar', async () => {
+    await openFantasy({
+      kind: 'npc',
+      data: { combat: { hitPoints: 0, hitPointsMax: 0, hitPointsTemp: 0 } },
+    });
+
+    expect(within(vitalsBand()).getByTestId('sheet-hp-value')).toHaveTextContent('0 / 0');
+    expect(hitPointsMeter()).toHaveAttribute('aria-valuemax', '0');
+    expect(hitPointsMeter()).toHaveAttribute('aria-valuenow', '0');
+    expect(hitPointsMeter()).toHaveAttribute('data-band', 'low');
+  });
+
+  it('Edge: editing the current hit points above the maximum keeps them at the maximum', async () => {
+    const { user } = await openFantasy({
+      kind: 'npc',
+      data: { combat: { hitPoints: 10, hitPointsMax: 20, hitPointsTemp: 0 } },
+    });
+
+    await user.click(within(vitalsBand()).getByRole('button', { name: 'Current hit points' }));
+    const input = within(vitalsBand()).getByRole('textbox', { name: 'Current hit points' });
+    await user.clear(input);
+    await user.type(input, '40{Enter}');
+
+    expect(within(vitalsBand()).getByTestId('sheet-hp-value')).toHaveTextContent('20 / 20');
+    expect(hitPointsMeter()).toHaveAttribute('aria-valuenow', '20');
+    expect(within(vitalsBand()).getByTestId('sheet-hp-pending')).toBeInTheDocument();
+    expect(within(vitalsBand()).getByTestId('sheet-hp-change')).toHaveTextContent('10 → 20 (+10)');
+  });
+
+  it('Edge: an enemy at zero hit points draws no fill and a low band', async () => {
+    await openFantasy({
+      kind: 'enemy',
+      data: { combat: { hitPoints: 0, hitPointsMax: 20, hitPointsTemp: 0 } },
+    });
+
+    expect(within(vitalsBand()).getByTestId('sheet-hp-value')).toHaveTextContent('0 / 20');
+    expect(hitPointsMeter()).toHaveAttribute('aria-valuenow', '0');
+    expect(hitPointsMeter()).toHaveAttribute('data-band', 'low');
+    expect(vitalsBand().querySelector('.lg-hp-card__fill')).toHaveStyle({ width: '0%' });
+  });
+
+  it('Happy path: temporary hit points draw their value and segment inside the band', async () => {
+    await openFantasy({
+      kind: 'npc',
+      data: { combat: { hitPoints: 10, hitPointsMax: 20, hitPointsTemp: 5 } },
+    });
+
+    expect(within(vitalsBand()).getByTestId('sheet-hp-temp-value')).toHaveTextContent('+5 temp');
+    expect(within(vitalsBand()).getByTestId('sheet-hp-temp')).toBeInTheDocument();
+  });
+
+  it('Happy path: damage and healing move the band and draw the pending preview', async () => {
+    const { user } = await openFantasy({ kind: 'npc' });
+
+    await user.type(
+      within(vitalsBand()).getByRole('spinbutton', { name: message('sheet.play.amount') }),
+      '3',
+    );
+    await user.click(
+      within(vitalsBand()).getByRole('button', { name: message('sheet.play.damage') }),
+    );
+
+    expect(within(vitalsBand()).getByTestId('sheet-hp-value')).toHaveTextContent('7 / 20');
+    expect(within(vitalsBand()).getByTestId('sheet-hp-pending')).toBeInTheDocument();
+    expect(within(vitalsBand()).getByTestId('sheet-hp-change')).toBeInTheDocument();
+  });
+});
+
 describe('the stat block proficiencies', () => {
   it('Edge: no proficient saves or skills hides the proficiency block', async () => {
     await openFantasy({
@@ -445,6 +533,33 @@ describe('the stat block styles', () => {
       /\.lg-stat-block__combat\s*\{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\)/,
     );
     expect(mobile).toMatch(/\.lg-stat-block__hp\s*\{[^}]*grid-column:\s*1 \/ -1/);
+  });
+
+  it('Edge: the vitals band draws a compact shield beside an inline initiative', () => {
+    expect(css).toMatch(
+      /\.lg-stat-block__combat\s*\{[^}]*grid-template-columns:\s*auto auto minmax\(0, 1fr\)/,
+    );
+    expect(css).toMatch(/\.lg-stat-block \.lg-ac\s*\{[^}]*width:\s*3\.5rem/);
+    expect(css).toMatch(/\.lg-stat-block \.lg-ac__shield\s*\{[^}]*min-height:\s*4rem/);
+    expect(css).toMatch(/\.lg-stat-block__stat\s*\{[^}]*flex-direction:\s*row/);
+  });
+
+  it('Edge: the hit points card folds into one row with a 74px amount field', () => {
+    expect(css).toMatch(
+      /\.lg-stat-block \.lg-hp-card\s*\{[^}]*grid-template-areas:\s*'head bar actions'\s*'notes notes notes'/,
+    );
+    expect(css).toMatch(/\.lg-stat-block \.lg-hp-card__amount\s*\{[^}]*width:\s*4\.625rem/);
+  });
+
+  it('Edge: the phone band keeps AC and initiative together above the hit points', () => {
+    const mobile = css.slice(css.indexOf('@media (max-width: 40rem)'));
+    expect(mobile).toMatch(
+      /\.lg-stat-block__combat\s*\{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\)/,
+    );
+    expect(mobile).toMatch(/\.lg-stat-block__hp\s*\{[^}]*grid-column:\s*1 \/ -1/);
+    expect(mobile).toMatch(
+      /\.lg-stat-block \.lg-hp-card__actions > \.lg-button\s*\{[^}]*min-block-size:\s*var\(--lg-size-control\)/,
+    );
   });
 
   it('Happy path: one centred card holds the block, capped near 45rem', () => {
