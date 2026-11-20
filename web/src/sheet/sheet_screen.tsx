@@ -838,7 +838,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
             )}
           </div>
           {sections.length > 0 && (
-            <div className="lg-sheet__header-actions">
+            <div className="lg-sheet__header-actions" data-testid="sheet-header-actions">
               {isLinkableSheetKind(sheet.kind) && (
                 <Button
                   variant="ghost"
