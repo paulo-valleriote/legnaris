@@ -66,6 +66,7 @@ test.describe('narrow viewport (the top bar and full-width content)', () => {
     test(`the sheet fits ${phone.name} with its actions reachable`, async ({ page }) => {
       await page.setViewportSize({ width: phone.width, height: phone.height });
       await page.goto(`/sheets/${SHEET_ID}`);
+      await page.getByRole('button', { name: 'Edit mode' }).click();
       await expect(page.getByRole('heading', { name: 'Aragorn' })).toBeVisible();
 
       const overflow = await page.evaluate(() => ({
@@ -137,6 +138,7 @@ test.describe('narrow viewport (the top bar and full-width content)', () => {
   test('the switch input is at least the control height', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`/sheets/${SHEET_ID}`);
+    await page.getByRole('button', { name: 'Edit mode' }).click();
 
     const box = await page.getByRole('checkbox', { name: 'Guarded' }).boundingBox();
     expect(box!.height).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
@@ -195,6 +197,7 @@ test.describe('preview marks never move rows', () => {
     }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto(`/sheets/${SHEET_ID}`);
+      await page.getByRole('button', { name: 'Edit mode' }).click();
       const row = page.locator('[data-row-key="identity.ancestry"]');
       await expect(row).toBeVisible();
       const before = (await row.boundingBox())!.height;
@@ -250,6 +253,7 @@ test.describe('the sticky strip leading slot', () => {
       );
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto(`/sheets/${SHEET_ID}`);
+      await page.getByRole('button', { name: 'Edit mode' }).click();
 
       const bar = page.getByTestId('section-strip');
       const filter = bar.getByRole('button', { name: 'Pinned only' });
@@ -313,6 +317,7 @@ test.describe('the footer after a Preview', () => {
       );
       await page.setViewportSize({ width: phone.width, height: phone.height });
       await page.goto(`/sheets/${SHEET_ID}`);
+      await page.getByRole('button', { name: 'Edit mode' }).click();
 
       await page.getByRole('textbox', { name: 'Level' }).fill('9');
       await page.getByRole('button', { name: 'Preview', exact: true }).click();
@@ -389,6 +394,7 @@ test.describe('dice controls keep the value column on one guide', () => {
     test(`every Row's value starts on the same guide at ${viewport.name}`, async ({ page }) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto(`/sheets/${SHEET_ID}`);
+      await page.getByRole('button', { name: 'Edit mode' }).click();
       await expect(page.getByRole('button', { name: /^Roll Damage/ })).toBeVisible();
 
       const starts = await page
