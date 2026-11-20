@@ -21,6 +21,10 @@ export interface PresetStatBlock {
   readonly Body: ComponentType;
 }
 
+export interface PresetSectionNav {
+  readonly after: string;
+}
+
 export interface SheetPreset {
   readonly templateId: string;
   readonly Header: ComponentType;
@@ -29,4 +33,5 @@ export interface SheetPreset {
   readonly sections: readonly PresetSection[];
   readonly layout?: readonly PresetLayoutBlock[];
   readonly narrowLayout?: readonly PresetLayoutBlock[];
+  readonly sectionNav?: PresetSectionNav;
 }
