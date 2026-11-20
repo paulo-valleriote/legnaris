@@ -405,6 +405,26 @@ describe('the stat block body', () => {
     ).toHaveTextContent('+3');
   });
 
+  it('Happy path: attacks and spells lead the body while abilities and prose follow', async () => {
+    await openFantasy({ kind: 'enemy' });
+
+    const combat = screen.getByTestId('sheet-stat-column-combat');
+    const traits = screen.getByTestId('sheet-stat-column-traits');
+    expect(within(combat).getByTestId('sheet-attacks')).toBeInTheDocument();
+    expect(within(combat).getByTestId('sheet-spells')).toBeInTheDocument();
+    expect(within(traits).getAllByTestId(/^sheet-ability-/)).toHaveLength(6);
+    expect(within(traits).getByTestId('sheet-stat-prose')).toBeInTheDocument();
+    expect(within(traits).queryByTestId('sheet-attacks')).not.toBeInTheDocument();
+    expect(within(traits).queryByTestId('sheet-spells')).not.toBeInTheDocument();
+  });
+
+  it('Edge: a sheet with no attacks or spells leaves the combat column empty', async () => {
+    await openFantasy({ kind: 'npc', template: fantasyFieldTree() });
+
+    expect(screen.getByTestId('sheet-stat-column-combat')).toBeEmptyDOMElement();
+    expect(screen.getByTestId('sheet-stat-column-traits')).not.toBeEmptyDOMElement();
+  });
+
   it('Happy path: damage and healing move the mini hit point bar', async () => {
     const { user } = await openFantasy({ kind: 'npc' });
 
@@ -968,7 +988,35 @@ describe('the stat block styles', () => {
     );
   });
 
-  it('Happy path: one centred card holds the block, capped near 45rem', () => {
+  it('Happy path: the body stacks below 1100 px and splits into two columns from it', () => {
+    expect(css).toMatch(
+      /\.lg-stat-block__body\s*\{[^}]*display:\s*flex[^}]*flex-direction:\s*column/,
+    );
+    expect(css).toMatch(/\.lg-stat-block__column\s*\{[^}]*display:\s*flex[^}]*min-width:\s*0/);
+
+    const wide = css.slice(css.indexOf('@media (min-width: 68.75rem)'));
+    expect(wide).toMatch(/\.lg-stat-block__body\s*\{[^}]*display:\s*grid/);
+    expect(wide).toMatch(/grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+    expect(wide).toMatch(
+      /\.lg-stat-block__column \+ \.lg-stat-block__column\s*\{[^}]*border-inline-start:\s*var\(--lg-size-hairline\)/,
+    );
+    expect(wide).toMatch(/\.lg-stat-block\s*\{[^}]*max-width:\s*var\(--lg-size-content-max\)/);
+  });
+
+  it('Edge: the phone body pads tighter and keeps the ability score beside its medallion', () => {
+    const mobile = css.slice(css.indexOf('@media (max-width: 40rem)'));
+    expect(mobile).toMatch(/\.lg-stat-block__column > \*\s*\{[^}]*padding:\s*var\(--lg-space-12\)/);
+    expect(mobile).toMatch(
+      /\.lg-stat-block \.lg-ability-grid\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/,
+    );
+    expect(mobile).toMatch(/\.lg-stat-block \.lg-ability__name\s*\{[^}]*var\(--lg-type-12\)/);
+    expect(mobile).toMatch(
+      /\.lg-stat-block \.lg-ability \.lg-ability__score\s*\{[^}]*position:\s*absolute/,
+    );
+    expect(mobile).toMatch(/\.lg-stat-block__line\s*\{[^}]*font-size:\s*var\(--lg-type-13\)/);
+  });
+
+  it('Edge: one centred card holds the block, capped near 45rem', () => {
     expect(css).toMatch(/\.lg-stat-block\s*\{[^}]*max-width:\s*44rem[^}]*margin-inline:\s*auto/);
     expect(css).toMatch(
       /\.lg-stat-block\s*\{[^}]*border:\s*var\(--lg-size-hairline\) solid var\(--lg-color-border\)/,

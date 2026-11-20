@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
+import type { Page } from '@playwright/test';
 import { seedSession } from './auth_seed';
+import { STAT_BLOCK_DETAIL, STAT_BLOCK_SHEET, STAT_BLOCK_SHEET_ID } from './stat_block_fixture';
 
 test.use({ serviceWorkers: 'block' });
 
@@ -426,6 +428,109 @@ test.describe('the footer after a Preview', () => {
       );
     });
   }
+});
+
+test.describe('the enemy stat block', () => {
+  test.beforeEach(async ({ page }) => {
+    await seedSession(page);
+    await page.route('**/me/plan', (route) =>
+      route.fulfill({
+        json: {
+          data: {
+            plan: 'free',
+            sheets: {
+              character: { used: 0, limit: 1 },
+              npc: { used: 0, limit: 2 },
+              enemy: { used: 0, limit: 2 },
+            },
+            owned_campaigns: { used: 0, limit: 1 },
+          },
+        },
+      }),
+    );
+    await page.route('**/templates/*', (route) =>
+      route.fulfill({ json: { data: STAT_BLOCK_DETAIL } }),
+    );
+    await page.route('**/templates', (route) =>
+      route.fulfill({
+        json: {
+          data: [
+            { id: STAT_BLOCK_DETAIL.id, name: STAT_BLOCK_DETAIL.name, default: true, fields: {} },
+          ],
+        },
+      }),
+    );
+    await page.route('**/sheets/*', (route) =>
+      route.request().resourceType() === 'document'
+        ? route.fallback()
+        : route.fulfill({ json: { data: STAT_BLOCK_SHEET } }),
+    );
+  });
+
+  async function openStatBlock(page: Page) {
+    await page.goto(`/sheets/${STAT_BLOCK_SHEET_ID}`);
+    const block = page.getByTestId('sheet-stat-block');
+    await expect(block).toBeVisible();
+    return block;
+  }
+
+  for (const viewport of [
+    { name: '1440', width: 1440, height: 900, budget: 900 },
+    { name: '390', width: 390, height: 844, budget: 1200 },
+  ]) {
+    test(`the stat block height fits its ${viewport.name} px budget`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      const block = await openStatBlock(page);
+
+      expect((await block.boundingBox())!.height).toBeLessThanOrEqual(viewport.budget);
+    });
+  }
+
+  test('a 390 px phone shows armor class, hit points and the first attack at a glance', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await openStatBlock(page);
+
+    for (const testId of ['sheet-ac', 'sheet-hp-card', 'sheet-attack-1']) {
+      const box = (await page.getByTestId(testId).boundingBox())!;
+      expect(box.y + box.height).toBeLessThanOrEqual(844);
+    }
+
+    const label = page.getByTestId('sheet-ability-strength').locator('.lg-ability__name');
+    expect(await label.evaluate((element) => getComputedStyle(element).fontSize)).toBe('12px');
+
+    const grid = page.locator('.lg-ability-grid').first();
+    const columns = await grid.evaluate((element) => getComputedStyle(element).gridTemplateColumns);
+    expect(columns.split(' ')).toHaveLength(3);
+  });
+
+  test('the body splits into two columns from 1100 px and stacks below it', async ({ page }) => {
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await openStatBlock(page);
+
+    const wideCombat = (await page.getByTestId('sheet-stat-column-combat').boundingBox())!;
+    const wideTraits = (await page.getByTestId('sheet-stat-column-traits').boundingBox())!;
+    expect(wideTraits.x).toBeGreaterThanOrEqual(wideCombat.x + wideCombat.width);
+
+    await page.setViewportSize({ width: 1099, height: 900 });
+    await openStatBlock(page);
+
+    const narrowCombat = (await page.getByTestId('sheet-stat-column-combat').boundingBox())!;
+    const narrowTraits = (await page.getByTestId('sheet-stat-column-traits').boundingBox())!;
+    expect(narrowTraits.x).toBe(narrowCombat.x);
+    expect(narrowTraits.y).toBeGreaterThanOrEqual(narrowCombat.y + narrowCombat.height);
+  });
+
+  test('a 360 px phone keeps the stat block free of horizontal overflow', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 780 });
+    await openStatBlock(page);
+
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+    expect(overflow).toBe(0);
+  });
 });
 
 const dieField = (label: string) => ({
