@@ -254,10 +254,19 @@ describe('the responsive Play layout', () => {
 
   it('Edge: the damage and heal buttons are 40px on a desktop and 44px on a phone', () => {
     expect(presetCss).toMatch(
-      /\.lg-hp-card__actions > \.lg-button\s*\{[^}]*min-height:\s*var\(--lg-size-control-compact\)/,
+      /\.lg-hp-card__entry > \.lg-button\s*\{[^}]*min-height:\s*var\(--lg-size-control-compact\)/,
     );
     expect(mobileCss(presetCss)).toMatch(
-      /\.lg-hp-card__actions > \.lg-button\s*\{[^}]*min-height:\s*var\(--lg-size-control\)/,
+      /\.lg-hp-card__entry > \.lg-button\s*\{[^}]*min-height:\s*var\(--lg-size-control\)/,
+    );
+  });
+
+  it('Edge: the quick hit point actions keep a 44px touch target on a phone', () => {
+    expect(mobileCss(presetCss)).toMatch(
+      /\.lg-hp-card__quick > \.lg-button\s*\{[^}]*min-height:\s*var\(--lg-size-control\)/,
+    );
+    expect(mobileCss(presetCss)).toMatch(
+      /\.lg-hp-card__quick > \.lg-button\s*\{[^}]*min-width:\s*var\(--lg-size-control\)/,
     );
   });
 

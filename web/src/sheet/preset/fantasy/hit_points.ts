@@ -78,6 +78,16 @@ export function applyHeal(hitPoints: HitPoints, amount: number): HitPointsChange
   };
 }
 
+export function applyTemp(hitPoints: HitPoints, amount: number): HitPointsChange | undefined {
+  if (!isAmount(amount)) {
+    return undefined;
+  }
+  return {
+    current: hitPoints.current,
+    temp: Math.max(atLeastZero(hitPoints.temp), amount),
+  };
+}
+
 function previewLine(before: number, after: number): HitPointsPreviewLine | undefined {
   const delta = after - before;
   return delta === 0 ? undefined : { before, after, delta };

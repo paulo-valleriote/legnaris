@@ -12,6 +12,7 @@ import {
 import {
   applyDamage,
   applyHeal,
+  applyTemp,
   formatHitPointsDelta,
   HIT_POINTS_CURRENT,
   HIT_POINTS_MAX,
@@ -93,12 +94,27 @@ export function HitPointsCard() {
     }
     store.setPath(HIT_POINTS_CURRENT, change.current);
     store.setPath(HIT_POINTS_TEMP, change.temp);
+  };
+
+  const applyAmount = (change: HitPointsChange | undefined) => {
+    if (change === undefined) {
+      return;
+    }
+    commit(change);
     setAmount('');
   };
 
   const amountValue = parseHitPointsAmount(amount);
   const applyDamageAmount = () => {
-    commit(amountValue === undefined ? undefined : applyDamage(points, amountValue));
+    applyAmount(amountValue === undefined ? undefined : applyDamage(points, amountValue));
+  };
+  const applyTempAmount = () => {
+    const change = amountValue === undefined ? undefined : applyTemp(points, amountValue);
+    if (change === undefined) {
+      return;
+    }
+    store.setPath(HIT_POINTS_TEMP, change.temp);
+    setAmount('');
   };
 
   return (
@@ -249,36 +265,85 @@ export function HitPointsCard() {
         </p>
       )}
       <div className="lg-hp-card__actions">
-        <div className="lg-hp-card__amount">
-          <Field
-            label={message('sheet.play.amount')}
-            type="number"
-            inputMode="numeric"
-            numeric
-            value={amount}
-            onChange={setAmount}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                applyDamageAmount();
-              }
-            }}
+        <div className="lg-hp-card__quick">
+          <Button
+            variant="secondary"
+            size="sm"
+            className="lg-hp-card__quick-damage"
+            name={messageWith('sheet.play.damageAmount', { count: 5 })}
+            onClick={() => commit(applyDamage(points, 5))}
+          >
+            {message('sheet.play.damage5Short')}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="lg-hp-card__quick-damage"
+            name={messageWith('sheet.play.damageAmount', { count: 1 })}
+            onClick={() => commit(applyDamage(points, 1))}
+          >
+            {message('sheet.play.damage1Short')}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="lg-hp-card__quick-heal"
+            name={messageWith('sheet.play.healAmount', { count: 1 })}
+            onClick={() => commit(applyHeal(points, 1))}
+          >
+            {message('sheet.play.heal1Short')}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="lg-hp-card__quick-heal"
+            name={messageWith('sheet.play.healAmount', { count: 5 })}
+            onClick={() => commit(applyHeal(points, 5))}
+          >
+            {message('sheet.play.heal5Short')}
+          </Button>
+          <Button
+            variant="secondary"
+            size="sm"
+            name={message('sheet.play.addTemp')}
+            disabled={amountValue === undefined}
+            onClick={applyTempAmount}
+          >
+            {message('sheet.play.tempAddShort')}
+          </Button>
+        </div>
+        <div className="lg-hp-card__entry">
+          <div className="lg-hp-card__amount">
+            <Field
+              label={message('sheet.play.amount')}
+              type="number"
+              inputMode="numeric"
+              numeric
+              value={amount}
+              onChange={setAmount}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  applyDamageAmount();
+                }
+              }}
+            />
+          </div>
+          <Button
+            variant="danger"
+            size="sm"
+            label={message('sheet.play.damage')}
+            onClick={applyDamageAmount}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            label={message('sheet.play.heal')}
+            onClick={() =>
+              applyAmount(amountValue === undefined ? undefined : applyHeal(points, amountValue))
+            }
           />
         </div>
-        <Button
-          variant="danger"
-          size="sm"
-          label={message('sheet.play.damage')}
-          onClick={applyDamageAmount}
-        />
-        <Button
-          variant="secondary"
-          size="sm"
-          label={message('sheet.play.heal')}
-          onClick={() =>
-            commit(amountValue === undefined ? undefined : applyHeal(points, amountValue))
-          }
-        />
       </div>
     </div>
   );

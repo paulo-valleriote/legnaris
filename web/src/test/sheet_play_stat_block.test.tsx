@@ -419,6 +419,19 @@ describe('the stat block vitals band', () => {
     expect(within(vitalsBand()).getByTestId('sheet-hp-temp')).toBeInTheDocument();
   });
 
+  it('Happy path: the quick actions work in the band too', async () => {
+    const { user } = await openFantasy({ kind: 'npc' });
+
+    await user.click(
+      within(vitalsBand()).getByRole('button', {
+        name: messageWith('sheet.play.healAmount', { count: 1 }),
+      }),
+    );
+
+    expect(within(vitalsBand()).getByTestId('sheet-hp-value')).toHaveTextContent('11 / 20');
+    expect(within(vitalsBand()).getByTestId('sheet-hp-change')).toHaveTextContent('10 → 11 (+1)');
+  });
+
   it('Happy path: damage and healing move the band and draw the pending preview', async () => {
     const { user } = await openFantasy({ kind: 'npc' });
 
@@ -558,7 +571,7 @@ describe('the stat block styles', () => {
     );
     expect(mobile).toMatch(/\.lg-stat-block__hp\s*\{[^}]*grid-column:\s*1 \/ -1/);
     expect(mobile).toMatch(
-      /\.lg-stat-block \.lg-hp-card__actions > \.lg-button\s*\{[^}]*min-block-size:\s*var\(--lg-size-control\)/,
+      /\.lg-stat-block \.lg-hp-card__entry > \.lg-button\s*\{[^}]*min-block-size:\s*var\(--lg-size-control\)/,
     );
   });
 
@@ -589,10 +602,16 @@ describe('the stat block styles', () => {
   it('Edge: the block keeps the damage and heal buttons at 40px on a desktop and 44px on a phone', () => {
     const mobile = css.slice(css.indexOf('@media (max-width: 40rem)'));
     expect(css).toMatch(
-      /\.lg-stat-block \.lg-hp-card__actions > \.lg-button\s*\{[^}]*min-block-size:\s*var\(--lg-size-control-compact\)/,
+      /\.lg-stat-block \.lg-hp-card__entry > \.lg-button\s*\{[^}]*min-block-size:\s*var\(--lg-size-control-compact\)/,
     );
     expect(mobile).toMatch(
-      /\.lg-stat-block \.lg-hp-card__actions > \.lg-button\s*\{[^}]*min-block-size:\s*var\(--lg-size-control\)/,
+      /\.lg-stat-block \.lg-hp-card__entry > \.lg-button\s*\{[^}]*min-block-size:\s*var\(--lg-size-control\)/,
+    );
+    expect(mobile).toMatch(
+      /\.lg-stat-block \.lg-hp-card__quick > \.lg-button\s*\{[^}]*min-block-size:\s*var\(--lg-size-control\)/,
+    );
+    expect(mobile).toMatch(
+      /\.lg-stat-block \.lg-hp-card__quick > \.lg-button\s*\{[^}]*min-inline-size:\s*var\(--lg-size-control\)/,
     );
   });
 });

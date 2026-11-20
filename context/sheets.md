@@ -304,10 +304,22 @@ segment, red for a loss and green for a gain, and the card spells the change out
 move (a loss that stays inside them lists only that line). The pure `hitPointsPreview` decides
 each changed line and the overall direction, and `formatHitPointsDelta` writes the sign (`+5`,
 `−7`). Pressing Enter in the amount field applies damage, and an empty or zero amount does
-nothing. The Damage and Heal buttons sit on `--lg-size-control-compact` on a desktop and
-`--lg-size-control` at phone widths, in the combat strip and in the stat block alike. The stat
-block folds the card into one row (numbers, bar, then a 74px amount field with Damage and Heal,
-with any pending line across the full width), so the vitals band stays compact. `hit_points.ts`
+nothing.
+
+Above the amount field the card offers the quick actions `−5`, `−1`, `+1`, `+5` and `+ Temp`, one
+tap through the same pending flow. The four signed buttons apply their amount to the current
+values and leave the amount field alone, so repeated taps accumulate into one pending line; damage
+spends temporary points first and healing caps at the maximum, exactly like the named actions.
+`+ Temp` takes its value from the amount field (disabled while that is empty or zero, cleared once
+applied) and writes the higher of the current temporary points and the amount, so a lower value
+never reduces them; it writes only `combat.hitPointsTemp` and never rewrites the current value.
+Each button states its effect as its accessible name (`Damage 5`, `Heal 1`, `Add temporary hit
+points`). The Damage and Heal buttons and the quick strip sit on `--lg-size-control-compact` on a
+desktop and `--lg-size-control` at phone widths, the quick buttons as 44px squares, in the combat
+strip and in the stat block alike. The stat block folds the card into one row (numbers, bar, then a
+74px amount field with Damage and Heal under the quick strip, with any pending line across the
+full width), so the vitals band stays compact; on a phone the actions drop to their own row under
+the numbers. `hit_points.ts`
 also owns the percentage
 and band helpers, and both the card and the math are exported for the NPC and enemy stat block.
 

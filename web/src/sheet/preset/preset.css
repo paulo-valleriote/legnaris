@@ -420,13 +420,48 @@
 
 .lg-hp-card__actions {
   grid-area: actions;
+  display: grid;
+  justify-items: end;
+  align-content: center;
+  gap: var(--lg-space-8);
+}
+
+.lg-hp-card__quick {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--lg-space-4);
+}
+
+.lg-hp-card__quick > .lg-button {
+  min-width: var(--lg-size-control);
+  min-height: var(--lg-size-control-compact);
+  padding-inline: var(--lg-space-4);
+  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
+  background-color: transparent;
+  color: var(--lg-color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.lg-hp-card .lg-hp-card__quick-damage {
+  color: var(--lg-danger-400);
+}
+
+.lg-hp-card .lg-hp-card__quick-heal {
+  color: var(--lg-success-400);
+}
+
+.lg-hp-card__quick > .lg-button:hover {
+  background-color: var(--lg-color-surface-hover);
+}
+
+.lg-hp-card__entry {
   display: flex;
   align-items: center;
   gap: var(--lg-space-8);
 }
 
 .lg-hp-card__amount {
-  order: 2;
   width: 5rem;
 }
 
@@ -444,23 +479,21 @@
   font-size: var(--lg-type-16);
 }
 
-.lg-hp-card__actions > .lg-button {
+.lg-hp-card__entry > .lg-button {
   min-height: var(--lg-size-control-compact);
   border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
   background-color: transparent;
 }
 
-.lg-hp-card__actions > .lg-button:first-of-type {
-  order: 1;
+.lg-hp-card__entry > .lg-button:first-of-type {
   color: var(--lg-danger-400);
 }
 
-.lg-hp-card__actions > .lg-button:last-of-type {
-  order: 3;
+.lg-hp-card__entry > .lg-button:last-of-type {
   color: var(--lg-success-400);
 }
 
-.lg-hp-card__actions > .lg-button:hover {
+.lg-hp-card__entry > .lg-button:hover {
   background-color: var(--lg-color-surface-hover);
 }
 
@@ -486,9 +519,23 @@
 
   .lg-hp-card__actions {
     min-width: 0;
+    width: 100%;
   }
 
-  .lg-hp-card__actions > .lg-button {
+  .lg-hp-card__quick {
+    justify-content: flex-start;
+  }
+
+  .lg-hp-card__quick > .lg-button {
+    min-height: var(--lg-size-control);
+    min-width: var(--lg-size-control);
+  }
+
+  .lg-hp-card__entry {
+    width: 100%;
+  }
+
+  .lg-hp-card__entry > .lg-button {
     flex: none;
     min-height: var(--lg-size-control);
   }

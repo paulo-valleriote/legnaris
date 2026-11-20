@@ -419,6 +419,12 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   `--lg-color-text-muted`.
 - **Numbers lead.** Numeric values are `--lg-type-20` semibold (derived `--lg-type-24` bold),
   right-aligned with tabular figures.
+- **Hit point quick actions.** The hit-points card puts a strip of common changes (`−5`, `−1`, `+1`,
+  `+5`, `+ Temp`) above the amount field and Damage/Heal: ghost-weight `sm` buttons on a hairline
+  border with tabular figures, the damage pair in `--lg-color-danger-400` and the heal pair in
+  `--lg-success-400`. Each is named by its effect ("Damage 5"), and `+ Temp` stays disabled until the
+  amount is positive. They sit on `--lg-size-control-compact` on a desktop and a
+  `--lg-size-control` square on a phone, so a touch target never falls under 44 px.
 - **Booleans are switches.** A toggle is a pill track (`--lg-radius-pill`) with a knob drawn on
   the native checkbox: accent track and `--lg-color-accent-text` knob when on, the knob position
   carrying the state as well as the colour. The touch area is at least `--lg-size-control` high: the native input itself is that tall, its track
