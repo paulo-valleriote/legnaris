@@ -67,6 +67,13 @@
 .lg-attack-card .lg-attack-card__roll {
   min-block-size: 30px;
   padding-inline: var(--lg-space-12);
+  gap: var(--lg-space-4);
+}
+
+.lg-attack-card .lg-attack-card__roll .lg-dice-icon {
+  inline-size: var(--lg-space-16);
+  block-size: var(--lg-space-16);
+  color: var(--lg-color-link);
 }
 
 .lg-attack-card .lg-attack-card__edit {

@@ -498,10 +498,14 @@ describe('the stat block attacks and spells', () => {
 
     const card = screen.getByTestId('sheet-attack-1');
     expect(
-      within(card).getByRole('button', { name: rollName('Attack 1 bonus') }),
+      within(card).getByRole('button', {
+        name: messageWith('sheet.play.attackRoll', { name: 'Longsword', value: '+5' }),
+      }),
     ).toHaveTextContent('+5');
     expect(
-      within(card).getByRole('button', { name: rollName('Attack 1 damage') }),
+      within(card).getByRole('button', {
+        name: messageWith('sheet.play.damageRoll', { name: 'Longsword', value: '1d8 + 3' }),
+      }),
     ).toHaveTextContent('1d8 + 3');
   });
 
