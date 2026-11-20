@@ -365,6 +365,8 @@ export const messages = {
   'sheet.play.noValue': '—',
   'sheet.play.attackRoll': 'Attack roll, {name}, {value}',
   'sheet.play.damageRoll': 'Damage roll, {name}, {value}',
+  'sheet.play.initiativeRoll': 'Roll initiative, {value}',
+  'sheet.play.editInitiative': 'Edit initiative',
   'sheet.play.spellcasting': 'Spellcasting',
   'sheet.play.spellSlots': 'Spell slots',
   'sheet.play.slotGroup': 'Level {count} spell slots',

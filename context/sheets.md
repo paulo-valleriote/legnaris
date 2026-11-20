@@ -286,8 +286,11 @@ edit clamped to 1–30, the AC ability as DEX/CON segmented buttons that write t
 its close button, returns focus to the shield and keeps focus in the panel while open; the
 derived value itself only changes after Preview, since the client evaluates no formula. On a
 phone the same panel is a fixed bottom sheet so a scrolling container cannot clip it. The
-initiative tile is the large, read-only roll target over the `combat.initiative` Row, with an
-inline edit pencil for that Row, and the
+initiative tile is the large, read-only roll target over the `combat.initiative` Row, drawing a
+decorative d20 beside the signed total at all times, with the accessible name and title
+`Roll initiative, <signed value>`; its inline edit pencil waits for hover or focus on a desktop, is
+a full `--lg-size-control` target on a phone and is named `Edit initiative` (the inline editor keeps
+the field label as its name). The
 speed tile inline-edits `combat.speed` (clamped to 0–120). `fantasy/armor_class.ts` owns the
 paths, the 1–30 / 0–120 / −5–20 parsing and the exactly-one-ability selector. The hit-points card reads
 `combat.hitPoints`, `combat.hitPointsMax` and `combat.hitPointsTemp`, draws the bar as a
@@ -368,7 +371,7 @@ and both guards behave exactly as in Edit. The reusable inline-edit control (`in
 opens on click or Enter, commits on Enter or blur, cancels on Escape, writes one dotted path and
 shows `Add <label>` while the value is empty; its accessible name is the template's field label,
 and an optional display node can replace the shown value (the attack cards and the initiative tile
-use a pencil trigger). On one column (`max-width: 40rem`, the single exported `NARROW_QUERY` that
+use a pencil trigger) with an optional `editLabel` naming that trigger separately. On one column (`max-width: 40rem`, the single exported `NARROW_QUERY` that
 every preset CSS media query matches) the same control keeps its trigger and
 opens a bottom-sheet `Dialog` instead: the input takes `type` and `inputMode` from the field schema
 (`number`/`numeric` for numbers), Enter commits, and Escape or the close button cancels without
@@ -434,7 +437,8 @@ non-empty parts of `identity.ancestry`, `identity.origin` and `identity.level` (
 `statBlockSubtitleParts`) and disappears when all are empty; the badge reads `NPC` or `Enemy`
 (`kind.npc` / `kind.enemy`) and the enemy badge takes the danger role. The body opens with one
 vitals band under the header: a compact 56px armor class shield that still opens its breakdown, the
-inline rollable initiative beside it (pencil inline edit clamped to −5–20 by `armor_class.ts`) and
+inline rollable initiative beside it (the same d20, `Roll initiative, <signed value>` name and
+hover-or-focus `Edit initiative` pencil, with the inline edit clamped to −5–20 by `armor_class.ts`) and
 the one-row hit-points card (`hit_points.ts`), with its
 amount field and Damage and Heal actions on the same line. Below it the body reuses the ability
 medallions (without the passive pill) and adds a short prose block from the

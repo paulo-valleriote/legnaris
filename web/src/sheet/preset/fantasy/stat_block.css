@@ -154,10 +154,17 @@
 
 .lg-stat-block__roll {
   justify-content: flex-start;
+  gap: var(--lg-space-4);
   padding-inline: 0;
   font-size: inherit;
   font-weight: inherit;
   text-align: start;
+}
+
+.lg-stat-block__roll .lg-dice-icon {
+  inline-size: var(--lg-space-16);
+  block-size: var(--lg-space-16);
+  color: var(--lg-color-link);
 }
 
 .lg-stat-block__edit {
@@ -167,6 +174,13 @@
   min-inline-size: var(--lg-size-control);
   padding-inline: var(--lg-space-4);
   color: var(--lg-color-text-muted);
+  opacity: 0;
+  transition: opacity var(--lg-motion-120) var(--lg-ease-standard);
+}
+
+.lg-stat-block__stat:hover .lg-stat-block__edit,
+.lg-stat-block__edit:focus-visible {
+  opacity: 1;
 }
 
 .lg-stat-block__pencil {
@@ -307,6 +321,10 @@
 
   .lg-stat-block .lg-ability__name {
     font-size: var(--lg-type-12);
+  }
+
+  .lg-stat-block__edit {
+    opacity: 1;
   }
 }
 
