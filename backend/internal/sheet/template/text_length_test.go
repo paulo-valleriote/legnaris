@@ -12,13 +12,19 @@ import (
 
 const textLengthSheetKey = "attacks.attack1.notes"
 
+const textLengthNameKey = "attacks.attack1.name"
+
+const textLengthNameLimit = 40
+
 func textLengthDAG(t *testing.T, noteMaxLength *int) *DAG {
 	t.Helper()
 
 	fields := FieldGroup{
 		"attacks": {Children: FieldGroup{
 			"attack1": {Children: FieldGroup{
-				"name": {Schema: &FieldSchema{Type: fieldTypeText, IsEditable: true}},
+				"name": {Schema: &FieldSchema{
+					Type: fieldTypeText, IsEditable: true, MaxLength: intPtr(textLengthNameLimit),
+				}},
 				"notes": {
 					Schema: &FieldSchema{Type: fieldTypeText, IsEditable: true, MaxLength: noteMaxLength},
 				},
@@ -34,6 +40,62 @@ func textLengthDAG(t *testing.T, noteMaxLength *int) *DAG {
 
 func emptyTextLengthSheet() map[string]any {
 	return map[string]any{"attacks": map[string]any{"attack1": map[string]any{}}}
+}
+
+func TestDAG_TextMaxLengthKeyDeterminism(t *testing.T) {
+	sortedFirst := strings.Repeat("b", textLengthNameLimit+1)
+	overLongNote := strings.Repeat("a", 61)
+
+	tests := []struct {
+		name    string
+		updates map[string]any
+		wantKey string
+		wantLen int
+		repeat  int
+	}{
+		{
+			name:    "Happy path: the only over-long field reports its own key",
+			updates: map[string]any{textLengthNameKey: sortedFirst},
+			wantKey: textLengthNameKey,
+			wantLen: textLengthNameLimit + 1,
+			repeat:  1,
+		},
+		{
+			name: "Edge: two over-long fields always report the first key in sorted order",
+			updates: map[string]any{
+				textLengthSheetKey: overLongNote,
+				textLengthNameKey:  sortedFirst,
+			},
+			wantKey: textLengthNameKey,
+			wantLen: textLengthNameLimit + 1,
+			repeat:  64,
+		},
+		{
+			name: "Error: writing the note first does not move the reported key",
+			updates: map[string]any{
+				textLengthSheetKey: overLongNote,
+				textLengthNameKey:  sortedFirst,
+			},
+			wantKey: textLengthNameKey,
+			wantLen: textLengthNameLimit + 1,
+			repeat:  1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dag := textLengthDAG(t, intPtr(60))
+
+			for range tc.repeat {
+				_, _, err := dag.NormalizeAndRecalculate(emptyTextLengthSheet(), tc.updates)
+
+				var tooLong *TextTooLongError
+				require.ErrorAs(t, err, &tooLong)
+				assert.Equal(t, tc.wantKey, tooLong.Key)
+				assert.Equal(t, tc.wantLen, tooLong.Length)
+			}
+		})
+	}
 }
 
 func TestDAG_TextMaxLength(t *testing.T) {
