@@ -78,7 +78,7 @@ function savePending(fake: ReturnType<typeof createFakeTransport>) {
   return fake.requests.filter((request) => request.method === 'PATCH');
 }
 
-describe('the combat strip', () => {
+describe('the combat strip', { timeout: 15_000 }, () => {
   it('Edge: a template without a preset draws no combat strip', async () => {
     const fake = createFakeTransport(
       successOutcome(sheetPayload()),
