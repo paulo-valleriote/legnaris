@@ -126,23 +126,37 @@
 
   .lg-save,
   .lg-skill {
-    min-height: var(--lg-size-control);
+    min-height: 36px;
   }
 
   .lg-prof-dot {
-    width: 36px;
-    height: 36px;
+    width: var(--lg-size-control);
+    height: var(--lg-size-control);
+    margin-block: calc(var(--lg-space-4) * -1);
   }
 
   .lg-save {
-    grid-template-columns: 36px minmax(0, 1fr) auto;
+    grid-template-columns: var(--lg-size-control) minmax(0, 1fr) auto;
   }
 
   .lg-skill {
-    grid-template-columns: 36px auto minmax(0, 1fr) auto auto;
+    grid-template-columns: var(--lg-size-control) auto minmax(0, 1fr) auto auto;
+  }
+
+  .lg-save__total,
+  .lg-skill__total {
+    min-inline-size: var(--lg-size-control);
+    min-block-size: var(--lg-size-control);
+    margin-block: calc(var(--lg-space-4) * -1);
   }
 
   .lg-skill .lg-skill__bonus {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-inline-size: var(--lg-size-control);
+    min-block-size: var(--lg-size-control);
+    margin-block: calc(var(--lg-space-4) * -1);
     opacity: 1;
   }
 
