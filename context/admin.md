@@ -47,6 +47,8 @@ sequenceDiagram
 
 ## Contracts
 
+- **Traefik dynamic config is a directory mount.** `deploy/traefik/` is mounted read-only at `/etc/traefik/dynamic` and watched by the file provider, so a deploy that replaces `dynamic.yml` (new inode) reaches the running proxy without a restart; a single-file bind mount would keep serving the old file.
+
 - **AdSense settings (LGN-335).** `ADSENSE_CLIENT` and `ADSENSE_SLOT_{CATALOG,CAMPAIGNS,LANDING}` are optional deploy env keys (commented in `deploy/.env.example`, so the CD key check never requires them) passed to the web container, which writes them into `/config.json` and publishes `/ads.txt`; empty or invalid values turn ads off. The Traefik `web-security-headers` CSP admits the Google ad and CMP origins (`script-src`, `connect-src`, `frame-src`, `img-src https:`) and must stay identical to `web/config/security_headers.ts`.
 
 | Method | Path | Body | Success |
