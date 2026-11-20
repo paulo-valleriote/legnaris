@@ -44,7 +44,7 @@ test.describe('auth surface, signed-in shell and own-sheet accessibility', () =>
     expect(criticalViolations(results)).toEqual([]);
 
     await page.getByRole('link', { name: 'Start your archive' }).first().click();
-    await expect(page).toHaveURL(/\/sign-up$/);
+    await expect(page).toHaveURL(/\/sign-up\?start=fantasy$/);
     await expect(page.getByRole('textbox', { name: 'Username' })).toBeVisible();
   });
 

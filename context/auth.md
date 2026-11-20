@@ -41,6 +41,8 @@ sequenceDiagram
 
 An address that already belongs to a verified account gets the same `201` shape with a challenge identity no code can redeem; the owner receives a code-free `account_exists` notice, paced to one per window. An unverified account is claimed instead: its username and password are replaced, its refresh tokens revoked, and a fresh verification code is sent.
 
+Registration started from the landing page carries `?start=fantasy` on `/sign-up`; the intent survives the credential and code steps. Once the gate is authenticated, it creates one Fantasy `character` sheet through `POST /sheets` and opens it; a failed creation, a missing or unknown intent, or any other sign-up entry point lands on the catalog. The intent is ignored on `/sign-in`. See [product](product.md) for the CTA contract.
+
 ### Login → challenge → session
 
 ```mermaid
@@ -194,7 +196,7 @@ The bearer subject is the only identity: controllers copy `auth.UserID(c)` into 
 - `backend/internal/app/` — `auth.go` and `auth_challenge.go` (HTTP controllers and cookie handling), `router.go` (route wiring), `ratelimit.go` and `limiters.go`, `origin.go`, `email_intent.go`.
 - `backend/shared/env/env.go` — keys and defaults; `backend/shared/db/indexes.go` — unique and TTL indexes; `backend/internal/platform/ratelimit/`, `clientip/`, `metrics/` — shared limiter, trusted-proxy client address, auth metrics.
 - `backend/internal/email/outbox/` and `backend/cmd/relay` — asynchronous delivery and the deletion sweeper; owned by `events-and-email`.
-- `web/src/auth/` — `auth_session.ts` (state machine, single-flight refresh/logout, pending code step), `auth_gate.tsx`, `auth_screen.tsx`, `auth_code_screen.tsx`, `auth_stage.tsx`, `next_path.ts`.
+- `web/src/auth/` — `auth_session.ts` (state machine, single-flight refresh/logout, pending code step), `auth_gate.tsx` (including the home start intent), `auth_screen.tsx`, `auth_code_screen.tsx`, `auth_stage.tsx`, `auth_busy.tsx`, `next_path.ts`.
 - `web/src/api/` — `auth_api.ts` (auth operations and CSRF header), `csrf.ts`, `authenticated_transport.ts` (Bearer, one refresh and replay on `401`), `error_mapper.ts` (auth codes to failure kinds).
 - `web/src/app/providers.tsx` — session and transport wiring; `web/src/library/session_data.ts` — session-local data sweep; `web/src/account/account_screen.tsx` — account surface (plan, consent, privacy; no deletion controls).
 

@@ -5,11 +5,13 @@ import { useAuthSession } from '../app/providers';
 import { LANDING_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
 import { LandingScreen } from '../landing/landing_screen';
+import { readStartIntent, startTemplateId } from '../landing/start_intent';
+import { StartSheet } from '../landing/start_sheet';
 import { Toast } from '../ui/toast';
 import '../ui/ui.css';
+import { AuthBusy } from './auth_busy';
 import { AuthCodeScreen } from './auth_code_screen';
 import { AuthScreen } from './auth_screen';
-import { AuthStage } from './auth_stage';
 import './auth.css';
 
 const AUTH_PATHS: ReadonlySet<string> = new Set([SIGN_IN_PATH, SIGN_UP_PATH]);
@@ -33,25 +35,12 @@ export function AuthGate() {
     }
   }, [snapshot.state, location.pathname, location.search, location.hash, navigate]);
 
-  const next = sanitizeNextPath(new URLSearchParams(location.search).get(NEXT_PARAM));
+  const params = new URLSearchParams(location.search);
+  const next = sanitizeNextPath(params.get(NEXT_PARAM));
+  const startIntent = location.pathname === SIGN_UP_PATH ? readStartIntent(params) : null;
 
   if (snapshot.state === 'restoring') {
-    return (
-      <div className="lg-auth">
-        <AuthStage />
-        <section className="lg-auth__panel">
-          <div
-            className="lg-auth__restoring"
-            role="status"
-            aria-busy="true"
-            data-testid="auth-restoring"
-          >
-            <span className="lg-spinner" aria-hidden="true" />
-            <span>{message('auth.restoring')}</span>
-          </div>
-        </section>
-      </div>
-    );
+    return <AuthBusy testId="auth-restoring" label={message('auth.restoring')} />;
   }
 
   if (snapshot.state === 'pendingCode') {
@@ -82,7 +71,11 @@ export function AuthGate() {
         />
       )}
       {AUTH_PATHS.has(location.pathname) ? (
-        <Navigate to={next ?? LANDING_PATH} replace />
+        startIntent !== null && next === null ? (
+          <StartSheet templateId={startTemplateId(startIntent)} />
+        ) : (
+          <Navigate to={next ?? LANDING_PATH} replace />
+        )
       ) : (
         <Outlet />
       )}

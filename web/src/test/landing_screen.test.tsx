@@ -30,7 +30,7 @@ describe('landing screen', () => {
     const hero = screen.getByRole('banner');
     expect(within(hero).getByRole('link', { name: message('landing.create') })).toHaveAttribute(
       'href',
-      '/sign-up',
+      '/sign-up?start=fantasy',
     );
     expect(within(hero).getByRole('link', { name: message('auth.submitLogin') })).toHaveAttribute(
       'href',
@@ -54,7 +54,7 @@ describe('landing screen', () => {
       within(hero)
         .getAllByRole('link')
         .map((link) => link.getAttribute('href')),
-    ).toEqual(['/', '/sign-in', '/sign-up']);
+    ).toEqual(['/', '/sign-in', '/sign-up?start=fantasy']);
   });
 
   it('Edge: the footer carries only the closing call to action and the legal line, no second photograph', async () => {
