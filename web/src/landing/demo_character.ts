@@ -54,8 +54,8 @@ function keyOf(path: string): string {
   return path.slice(path.lastIndexOf('.') + 1);
 }
 
-export function castingConfigPath(ability: AbilityKey): string {
-  return `config.cast${capitalize(ability)}`;
+export function spellUsesConfigPath(ability: AbilityKey): string {
+  return `config.spellUses${capitalize(ability)}`;
 }
 
 function numberLeaf(
@@ -167,10 +167,11 @@ function attackNodes(): Record<string, FieldNode> {
   return Object.fromEntries(
     ATTACK_SLOTS.map((slot) => [
       `attack${slot}`,
-      tableGroup(`Attack ${slot}`, ['name', 'bonus', 'damage'], {
+      tableGroup(`Attack ${slot}`, ['name', 'damage', 'bonus', 'notes'], {
         name: textLeaf('Attack name', { columnLabel: 'Name' }),
-        bonus: numberLeaf('Attack bonus', 0, { columnLabel: 'Bonus' }),
         damage: textLeaf('Damage', { columnLabel: 'Damage' }),
+        bonus: numberLeaf('Attack bonus', 0, { columnLabel: 'Bonus' }),
+        notes: textLeaf('Attack notes', { columnLabel: 'Notes' }),
       }),
     ]),
   );
@@ -202,7 +203,7 @@ function configNodes(): Record<string, FieldNode> {
     }),
     ...Object.fromEntries(
       ABILITY_KEYS.map((ability) => [
-        keyOf(castingConfigPath(ability)),
+        keyOf(spellUsesConfigPath(ability)),
         numberLeaf(`Focus uses ${ABILITY_LABELS[ability]}`, 0, {
           exclusiveGroup: 'spellcastingAbility',
           optionLabel: ABILITY_LABELS[ability],
@@ -297,14 +298,14 @@ const SAMPLE_SKILLS: Readonly<Record<SkillKey, number>> = {
 
 const SAMPLE_CONFIG: Readonly<Record<string, number>> = {
   ...Object.fromEntries(ABILITY_KEYS.map((ability) => [keyOf(saveProficiencyPath(ability)), 0])),
-  ...Object.fromEntries(ABILITY_KEYS.map((ability) => [keyOf(castingConfigPath(ability)), 0])),
+  ...Object.fromEntries(ABILITY_KEYS.map((ability) => [keyOf(spellUsesConfigPath(ability)), 0])),
   ...Object.fromEntries(SKILL_KEYS.map((skill) => [keyOf(skillProficiencyPath(skill)), 0])),
   saveDexterityProf: 1,
   skillStealthProf: 1,
   skillPerceptionProf: 1,
   acUsesDex: 1,
   acUsesCon: 0,
-  castCharisma: 1,
+  spellUsesCharisma: 1,
 };
 
 export const DEMO_SHEET: Sheet = {
@@ -340,10 +341,10 @@ export const DEMO_SHEET: Sheet = {
     skills: Object.fromEntries(SKILL_KEYS.map((skill) => [skill, { bonus: SAMPLE_SKILLS[skill] }])),
     config: SAMPLE_CONFIG,
     attacks: {
-      attack1: { name: 'Oak staff', bonus: 5, damage: '1d6 + 3' },
-      attack2: { name: 'Throwing stone', bonus: 4, damage: '1d4 + 2' },
-      attack3: { name: '', bonus: 0, damage: '' },
-      attack4: { name: '', bonus: 0, damage: '' },
+      attack1: { name: 'Oak staff', bonus: 5, damage: '1d6 + 3', notes: 'Reach 5 ft' },
+      attack2: { name: 'Throwing stone', bonus: 4, damage: '1d4 + 2', notes: '' },
+      attack3: { name: '', bonus: 0, damage: '', notes: '' },
+      attack4: { name: '', bonus: 0, damage: '', notes: '' },
     },
     spells: {
       atWill: 'Ember',

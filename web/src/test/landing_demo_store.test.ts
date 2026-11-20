@@ -124,6 +124,50 @@ describe('the demo edit store', () => {
     expect(Number.isFinite(read(store, 'modifiers.dexterityMod'))).toBe(true);
   });
 
+  it('Edge: a fractional proficiency flag floors its share like the server template', () => {
+    const store = openDemo();
+
+    store.setPath('config.saveDexterityProf', 0.5);
+
+    expect(read(store, 'saves.dexterity')).toBe(3);
+  });
+
+  it('Edge: two armor switches on add both ability modifiers like the server formula', () => {
+    const store = openDemo();
+
+    store.setPath('config.acUsesCon', 1);
+
+    expect(read(store, 'derived.armorClass')).toBe(13);
+  });
+
+  it('Edge: two casting switches on sum both modifiers like the server formula', () => {
+    const store = openDemo();
+
+    store.setPath('config.spellUsesDexterity', 1);
+
+    expect(read(store, 'spells.attackBonus')).toBe(5);
+    expect(read(store, 'spells.saveDC')).toBe(13);
+  });
+
+  it('Happy path: the demo template carries the server fantasy_v1 config and attack keys', () => {
+    const config = DEMO_TEMPLATE.fields.config;
+    const attacks = DEMO_TEMPLATE.fields.attacks;
+
+    expect(config).toMatchObject({ kind: 'group' });
+    expect(attacks).toMatchObject({ kind: 'group' });
+    if (config.kind !== 'group' || attacks.kind !== 'group') {
+      return;
+    }
+    expect(Object.keys(config.children)).toContain('spellUsesCharisma');
+    expect(Object.keys(config.children)).not.toContain('castCharisma');
+    expect(Object.keys(attacks.children)).toContain('attack1');
+    const attack = attacks.children.attack1;
+    if (attack.kind !== 'group') {
+      return;
+    }
+    expect(attack.columns).toEqual(['name', 'damage', 'bonus', 'notes']);
+  });
+
   it('Happy path: hit points change without touching the derived values', () => {
     const store = openDemo();
 

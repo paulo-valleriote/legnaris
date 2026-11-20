@@ -83,6 +83,13 @@ describe('the landing demo sheet', () => {
     expect(screen.queryByText('Strength')).not.toBeInTheDocument();
   });
 
+  it('Happy path: the demo attack cards draw their notes subtitle', () => {
+    render(<DemoSheet />);
+
+    expect(screen.getByTestId('sheet-attack-notes-1')).toHaveTextContent('Reach 5 ft');
+    expect(screen.queryByTestId('sheet-attack-notes-2')).not.toBeInTheDocument();
+  });
+
   it('Happy path: editing an attribute recalculates the modifier in place', async () => {
     const user = userEvent.setup();
     render(<DemoSheet />);
