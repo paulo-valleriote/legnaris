@@ -1,7 +1,7 @@
-import { useCallback, useSyncExternalStore } from 'react';
+import { Fragment, useCallback, useSyncExternalStore } from 'react';
 import { valueAtPath } from '../../../api/models/sheet';
 import { groupDisplayName } from '../../../engine/field_grouping';
-import { message } from '../../../l10n/strings';
+import { message, messageWith } from '../../../l10n/strings';
 import { PencilIcon } from '../../../ui/icons';
 import { InlineEdit } from '../../inline_edit';
 import {
@@ -32,7 +32,7 @@ import {
   type SkillKey,
 } from './saves_skills_data';
 import { FantasySpells } from './spells';
-import { statBlockKindLabelKey } from './stat_block_data';
+import { statBlockKindLabelKey, statBlockSubtitleParts } from './stat_block_data';
 import './stat_block.css';
 
 function useSkillLabel(skill: SkillKey): string {
@@ -45,23 +45,45 @@ function useSkillLabel(skill: SkillKey): string {
 export function StatBlockHeader() {
   const { sheet } = usePresetContext();
   const name = textValue(usePresetValue('identity.characterName'));
+  const ancestry = textValue(usePresetValue('identity.ancestry'));
+  const origin = textValue(usePresetValue('identity.origin'));
+  const level = numberValue(usePresetValue('identity.level'));
   const commitName = usePresetCommit('identity.characterName');
   const nameLabel = usePresetLabel('identity.characterName');
   const kindKey = statBlockKindLabelKey(sheet.kind);
+  const subtitleParts = statBlockSubtitleParts({ ancestry, origin, level }, (count) =>
+    messageWith('sheet.play.level', { count }),
+  );
 
   return (
     <div className="lg-stat-block__header" data-testid="sheet-stat-block-header">
-      <h1 className="lg-sheet__title" data-testid="sheet-name">
-        <InlineEdit
-          className="lg-stat-block__name"
-          label={nameLabel}
-          value={name}
-          fallback={sheet.name}
-          onCommit={commitName}
-        />
-      </h1>
+      <div className="lg-stat-block__heading">
+        <h1 className="lg-sheet__title" data-testid="sheet-name">
+          <InlineEdit
+            className="lg-stat-block__name"
+            label={nameLabel}
+            value={name}
+            fallback={sheet.name}
+            onCommit={commitName}
+          />
+        </h1>
+        {subtitleParts.length > 0 && (
+          <p className="lg-stat-block__subtitle" data-testid="sheet-stat-subtitle">
+            {subtitleParts.map((part, index) => (
+              <Fragment key={`${part}-${index}`}>
+                {index > 0 && (
+                  <span className="lg-stat-block__separator" data-separator aria-hidden="true">
+                    {' · '}
+                  </span>
+                )}
+                {part}
+              </Fragment>
+            ))}
+          </p>
+        )}
+      </div>
       {kindKey !== undefined && (
-        <span className="lg-stat-block__kind" data-testid="sheet-stat-kind">
+        <span className="lg-stat-block__kind" data-testid="sheet-stat-kind" data-kind={sheet.kind}>
           {message(kindKey)}
         </span>
       )}
@@ -214,6 +236,7 @@ function StatProficiencies() {
 export function FantasyStatBlock() {
   return (
     <div className="lg-stat-block" data-testid="sheet-stat-block">
+      <StatBlockHeader />
       <div className="lg-stat-block__combat">
         <ArmorClassShield />
         <InitiativeTile />

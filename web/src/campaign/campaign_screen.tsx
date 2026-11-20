@@ -229,7 +229,7 @@ function LinkedSheets({ campaign }: { campaign: Campaign }) {
 }
 
 function npcKindLabel(kind: NpcKind): string {
-  return kind === 'enemy' ? message('campaign.kindEnemy') : message('campaign.kindNpc');
+  return kind === 'enemy' ? message('kind.enemy') : message('kind.npc');
 }
 
 function LinkNpcForm({
