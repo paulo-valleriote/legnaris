@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { reportHomeFunnel } from '../landing/funnel_beacon';
+import { reportCtaClick, reportHomeFunnel } from '../landing/funnel_beacon';
 import type { FunnelSink } from '../landing/funnel_beacon';
 
 function fakeSink(beaconResult: boolean) {
@@ -23,6 +23,18 @@ describe('home funnel beacon', () => {
     const sink = fakeSink(true);
 
     reportHomeFunnel('http://api.test', 'cta_click', sink);
+
+    expect(sink.beacon).toHaveBeenCalledWith(
+      'http://api.test/funnel/home',
+      '{"event":"cta_click"}',
+    );
+    expect(sink.keepalive).not.toHaveBeenCalled();
+  });
+
+  it('Happy path: reportCtaClick sends a click event through the same sink', () => {
+    const sink = fakeSink(true);
+
+    reportCtaClick('http://api.test', sink);
 
     expect(sink.beacon).toHaveBeenCalledWith(
       'http://api.test/funnel/home',

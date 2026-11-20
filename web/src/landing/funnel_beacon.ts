@@ -55,6 +55,10 @@ export function reportHomeFunnel(
   }
 }
 
+export function reportCtaClick(baseUrl: string, sink: FunnelSink = browserFunnelSink()): void {
+  reportHomeFunnel(baseUrl, 'cta_click', sink);
+}
+
 let homeVisitReported = false;
 
 export function reportHomeVisit(baseUrl: string, sink: FunnelSink = browserFunnelSink()): void {

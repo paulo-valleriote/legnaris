@@ -1,18 +1,16 @@
-import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useApiBaseUrl } from '../app/providers';
-import { PRIVACY_PATH, SIGN_IN_PATH } from '../app/routes';
+import { DEMO_PATH, PRIVACY_PATH, SIGN_IN_PATH } from '../app/routes';
 import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
 import { BrandMark } from '../shell/brand_mark';
 import { ChevronDownIcon } from '../ui/icons';
-import { reportHomeFunnel, reportHomeVisit } from './funnel_beacon';
+import { reportCtaClick, reportHomeVisit } from './funnel_beacon';
 import { signUpCtaPath } from './start_intent';
 import { useStageThemeColor } from './use_stage_theme_color';
 import './landing.css';
-
-const DemoSheet = lazy(() => import('./demo_sheet'));
 
 const GameMoments = lazy(() => import('./game_moments'));
 
@@ -21,14 +19,6 @@ const HERO_SRCSET = ['/images/hero-lava-1280.webp 1280w', '/images/hero-lava-192
 );
 
 const FANTASY_SIGN_UP_PATH = signUpCtaPath('fantasy');
-
-function DemoLoading() {
-  return (
-    <div className="lg-landing__demo-loading" data-testid="landing-demo-loading">
-      {message('landing.demoLoading')}
-    </div>
-  );
-}
 
 function MomentsLoading() {
   return (
@@ -107,14 +97,12 @@ const FAQ: readonly { readonly question: MessageKey; readonly answer: MessageKey
 export function LandingScreen() {
   useStageThemeColor();
   const apiBaseUrl = useApiBaseUrl();
-  const [interacted, setInteracted] = useState(false);
 
   useEffect(() => {
     reportHomeVisit(apiBaseUrl);
   }, [apiBaseUrl]);
 
-  const reportCtaClick = () => reportHomeFunnel(apiBaseUrl, 'cta_click');
-  const reportInteraction = useCallback(() => setInteracted(true), []);
+  const onCtaClick = () => reportCtaClick(apiBaseUrl);
 
   return (
     <div className="lg-landing" data-testid="landing">
@@ -151,30 +139,15 @@ export function LandingScreen() {
             <Link
               className="lg-landing__cta lg-landing__cta--primary"
               to={FANTASY_SIGN_UP_PATH}
-              onClick={reportCtaClick}
+              onClick={onCtaClick}
             >
               {message('landing.create')}
             </Link>
+            <Link className="lg-landing__cta lg-landing__cta--outline" to={DEMO_PATH}>
+              {message('landing.tryDemo')}
+            </Link>
           </div>
         </div>
-
-        <section className="lg-landing__hero-demo" aria-label={message('landing.demoSheetLabel')}>
-          <Suspense fallback={<DemoLoading />}>
-            <DemoSheet onInteract={reportInteraction} />
-          </Suspense>
-          {interacted && (
-            <div className="lg-landing__demo-cta" data-testid="landing-demo-cta">
-              <p className="lg-landing__demo-cta-text">{message('landing.demoCtaText')}</p>
-              <Link
-                className="lg-landing__cta lg-landing__cta--primary"
-                to={FANTASY_SIGN_UP_PATH}
-                onClick={reportCtaClick}
-              >
-                {message('landing.demoCtaAction')}
-              </Link>
-            </div>
-          )}
-        </section>
       </header>
 
       <main>
@@ -248,7 +221,7 @@ export function LandingScreen() {
         <Link
           className="lg-landing__cta lg-landing__cta--primary"
           to={FANTASY_SIGN_UP_PATH}
-          onClick={reportCtaClick}
+          onClick={onCtaClick}
         >
           {message('landing.stickyCta')}
         </Link>
@@ -266,7 +239,7 @@ export function LandingScreen() {
             <Link
               className="lg-landing__cta lg-landing__cta--primary"
               to={FANTASY_SIGN_UP_PATH}
-              onClick={reportCtaClick}
+              onClick={onCtaClick}
             >
               {message('landing.create')}
             </Link>

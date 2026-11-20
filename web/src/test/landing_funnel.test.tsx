@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { message } from '../l10n/strings';
+import { DEMO_PATH } from '../app/routes';
 import { resetHomeVisitReport } from '../landing/funnel_beacon';
 import { renderApp } from './render';
 import { rollName } from './dice_names';
@@ -76,13 +77,12 @@ describe('landing funnel counters', () => {
     expect(beacon).not.toHaveBeenCalled();
   });
 
-  it('Happy path: the contextual demo action reports a CTA click', async () => {
+  it('Happy path: the contextual demo action on its own page reports a CTA click', async () => {
     const beacon = stubBeacon();
     const user = userEvent.setup();
-    await visit();
+    renderApp(DEMO_PATH, { session: 'unauthenticated', apiBaseUrl: 'http://api.test' });
     await waitFor(() => expect(screen.getByTestId('landing-demo-sheet')).toBeInTheDocument());
-    await waitFor(() => expect(beacon).toHaveBeenCalledTimes(1));
-    beacon.mockClear();
+    expect(beacon).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: rollName('Might modifier') }));
     await user.click(

@@ -479,6 +479,7 @@ export const messages = {
   'landing.heroTitle': 'The living character sheet for players who have outgrown paper.',
   'landing.heroLead':
     'Replace the printed sheet and the PDF: enter a value once and every modifier, total and derived number recalculates in place while you play. No pencil, no erased boxes, no formulas to redo.',
+  'landing.tryDemo': 'Try the live sheet',
   'landing.demoSheetLabel': 'Live character sheet demo',
   'landing.demoLoading': 'Loading the live sheet…',
   'landing.demoCtaText': 'That is the sheet doing the math. Start your own and keep playing.',
@@ -537,6 +538,9 @@ export const messages = {
   'landing.footerLabel': 'Site',
   'landing.footer.privacy': 'Privacy policy',
   'landing.copyright': '© {year} Legnaris',
+  'demo.title': 'The whole sheet, out of the page.',
+  'demo.lead': 'Edit a value or roll a die. The real Fantasy sheet, no account, no network.',
+  'demo.backHome': 'Back to home',
   'campaigns.title': 'Your campaigns',
   'campaigns.loading': 'Loading your campaigns',
   'campaigns.loadFailed': 'Your campaigns could not be loaded.',

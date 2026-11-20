@@ -40,6 +40,11 @@ test.describe('auth surface, signed-in shell and own-sheet accessibility', () =>
     ).toBeVisible();
     await expect(page.getByRole('main')).toBeVisible();
     await expect(page.getByRole('link', { name: message('landing.create') }).first()).toBeVisible();
+    await expect(page.getByRole('link', { name: message('landing.tryDemo') })).toHaveAttribute(
+      'href',
+      '/demo',
+    );
+    await expect(page.getByTestId('landing-demo-sheet')).toHaveCount(0);
 
     const results = await new AxeBuilder({ page }).analyze();
     expect(criticalViolations(results)).toEqual([]);
@@ -50,6 +55,28 @@ test.describe('auth surface, signed-in shell and own-sheet accessibility', () =>
       .click();
     await expect(page).toHaveURL(/\/sign-up\?start=fantasy$/);
     await expect(page.getByRole('textbox', { name: 'Username' })).toBeVisible();
+  });
+
+  test('the live sheet has its own public page away from the landing', async ({ page }) => {
+    await page.route('**/auth/refresh', (route) =>
+      route.fulfill({
+        status: 401,
+        json: { error: { code: 'UNAUTHORIZED', message: 'no cookie' } },
+      }),
+    );
+    await page.goto('/demo');
+
+    await expect(
+      page.getByRole('heading', { level: 1, name: message('demo.title') }),
+    ).toBeVisible();
+    await expect(page.getByTestId('landing-demo-sheet')).toBeVisible();
+    await expect(page.getByRole('link', { name: message('demo.backHome') })).toHaveAttribute(
+      'href',
+      '/',
+    );
+
+    const results = await new AxeBuilder({ page }).analyze();
+    expect(criticalViolations(results)).toEqual([]);
   });
 
   test('the auth surface has no critical violations and names its controls', async ({ page }) => {

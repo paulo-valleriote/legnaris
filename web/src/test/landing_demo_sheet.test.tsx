@@ -144,11 +144,11 @@ describe('the landing demo sheet', () => {
 
   it('Edge: the demo is a separate module with a default export', async () => {
     const module = await import('../landing/demo_sheet');
-    const landing = readFileSync(path.resolve(here, '../landing/landing_screen.tsx'), 'utf8');
+    const demo = readFileSync(path.resolve(here, '../landing/demo_screen.tsx'), 'utf8');
 
     expect(module.default).toBeTypeOf('function');
-    expect(landing).not.toContain("from './demo_sheet'");
-    expect(landing).toContain("lazy(() => import('./demo_sheet'))");
+    expect(demo).not.toContain("from './demo_sheet'");
+    expect(demo).toContain("lazy(() => import('./demo_sheet'))");
   });
 
   it('Happy path: an edit and a roll each report the first demo interaction', async () => {

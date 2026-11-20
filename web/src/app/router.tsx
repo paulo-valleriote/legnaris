@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import type { ReactElement } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import { AccountScreen } from '../account/account_screen';
@@ -20,10 +21,13 @@ import {
   CAMPAIGN_SHEET_PATH,
   CAMPAIGNS_PATH,
   DECLARED_ROUTES,
+  DEMO_PATH,
   NOT_FOUND_PATH,
   PLANS_PATH,
   PRIVACY_PATH,
 } from './routes';
+
+const DemoScreen = lazy(() => import('../landing/demo_screen'));
 
 const SCREENS: Record<string, ReactElement> = {
   '/': <CatalogScreen />,
@@ -37,6 +41,11 @@ const SCREENS: Record<string, ReactElement> = {
   [CAMPAIGN_SHEET_PATH]: <GmSheetScreen />,
   [CAMPAIGN_NPC_PATH]: <GmNpcSheetScreen />,
   '/generate/:templateId': <GenerateScreen />,
+  [DEMO_PATH]: (
+    <Suspense fallback={null}>
+      <DemoScreen />
+    </Suspense>
+  ),
   [PRIVACY_PATH]: <PrivacyScreen />,
   [NOT_FOUND_PATH]: <NotFound />,
 };

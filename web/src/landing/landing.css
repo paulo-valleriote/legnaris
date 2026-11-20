@@ -149,15 +149,6 @@ body:has(.lg-landing) {
     both;
 }
 
-.lg-landing__hero-demo {
-  display: flex;
-  flex-direction: column;
-  gap: var(--lg-space-24);
-  width: 100%;
-  max-width: var(--lg-size-landing-max);
-  margin-inline: auto;
-}
-
 .lg-landing__demo-loading {
   display: grid;
   place-items: center;
