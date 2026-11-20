@@ -359,12 +359,13 @@ no display-scale heading.
 
 ## Signed-in app
 
-While the shell is mounted, `:root:has(.lg-shell)` in `tokens.css` remaps the semantic layer onto the
-stage roles, always dark whatever the stored or system theme: page and inset are the stage ground,
-surface is the stage band (the navigation, dialogs, the sheet footer), raised and surface-hover are
-the stage raised layer, text pairs are the stage text roles, border is the stage line, and the
-accent is the lava orange with `--lg-color-stage-accent-text` on its fill. Components keep reading
-semantics, so no route, dialog or control carries its own colour for this world.
+While the shell or the landing is mounted, `:root:has(.lg-shell), :root:has(.lg-landing)` in
+`tokens.css` remaps the semantic layer onto the stage roles, always dark whatever the stored or
+system theme: page and inset are the stage ground, surface is the stage band (the navigation,
+dialogs, the sheet footer, the landing demo's cards), raised and surface-hover are the stage raised
+layer, text pairs are the stage text roles, border is the stage line, and the accent is the lava
+orange with `--lg-color-stage-accent-text` on its fill. Components keep reading semantics, so no
+route, dialog, portaled panel or control carries its own colour for this world.
 
 - **Same ground, quieter voice.** The app is an operating surface: page titles use
   `--lg-type-30` with `--lg-tracking-display` and `--lg-line-display`, list-row and card names use
