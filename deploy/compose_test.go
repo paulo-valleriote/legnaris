@@ -1209,4 +1209,13 @@ func TestProductionTraefikIsConfiguredOnlyByFlags(t *testing.T) {
 			assert.Contains(t, traefik.Command, want)
 		}
 	})
+	t.Run("Happy path: the dynamic config directory is mounted so edits reach the running proxy", func(t *testing.T) {
+		assert.Contains(t, traefik.Volumes, "./traefik:/etc/traefik/dynamic:ro")
+		assert.Contains(t, traefik.Command, "--providers.file.watch=true")
+	})
+	t.Run("Edge: a single-file bind mount would pin the inode a deploy replaces", func(t *testing.T) {
+		for _, v := range traefik.Volumes {
+			assert.NotContains(t, v, "dynamic.yml")
+		}
+	})
 }
