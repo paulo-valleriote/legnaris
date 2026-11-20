@@ -473,12 +473,17 @@ export const messages = {
   'arrange.instructions':
     'Press Space to lift, the arrow keys to move, Space to drop, Escape to cancel.',
   'arrange.toolbar': 'Arrange mode',
-  'landing.create': 'Start your archive',
+  'landing.create': 'Create your character sheet',
   'landing.startSheetName': 'New character',
   'landing.startSheetPreparing': 'Preparing your sheet',
-  'landing.heroTitle': 'A character sheet that does its own math.',
+  'landing.heroTitle': 'The living character sheet for players who have outgrown paper.',
   'landing.heroLead':
-    'Legnaris models any tabletop RPG as typed fields and formulas, so modifiers and skills recalculate the moment you change a number.',
+    'Replace the printed sheet and the PDF: enter a value once and every modifier, total and derived number recalculates in place while you play. No pencil, no erased boxes, no formulas to redo.',
+  'landing.demoSheetLabel': 'Live character sheet demo',
+  'landing.demoLoading': 'Loading the live sheet…',
+  'landing.demoCtaText': 'That is the sheet doing the math. Start your own and keep playing.',
+  'landing.demoCtaAction': 'Start my sheet',
+  'landing.stickyCta': 'Create your sheet',
   'landing.principlesTitle': 'Built for the table, not the spreadsheet.',
   'landing.principle1Title': 'No game content, ever',
   'landing.principle1Body':

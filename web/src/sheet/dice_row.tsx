@@ -92,19 +92,25 @@ function editKeyOf(target: DiceTarget, keyName: string): string {
 export function DiceProvider({
   value,
   children,
+  onRoll,
 }: {
   readonly value: DiceContextValue;
   readonly children: ReactNode;
+  readonly onRoll?: () => void;
 }) {
   const [roll, setRoll] = useState<(RollSession & { readonly id: number }) | null>(null);
   const [request, setRequest] = useState<EditRequest | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const rollCount = useRef(0);
   const dismiss = useCallback(() => setRoll(null), []);
-  const sendRoll = useCallback((next: RollSession) => {
-    rollCount.current += 1;
-    setRoll({ ...next, id: rollCount.current });
-  }, []);
+  const sendRoll = useCallback(
+    (next: RollSession) => {
+      rollCount.current += 1;
+      setRoll({ ...next, id: rollCount.current });
+      onRoll?.();
+    },
+    [onRoll],
+  );
   const openEditor = useCallback((next: EditRequest) => {
     returnFocus.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;

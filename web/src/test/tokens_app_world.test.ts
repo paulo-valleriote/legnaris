@@ -54,12 +54,13 @@ const textPairs: readonly (readonly [string, string, number])[] = [
 ];
 
 describe('the signed-in app world remaps the semantic layer onto the stage roles', () => {
-  it('Edge: the remap block exists and declares dark color-scheme', () => {
+  it('Edge: the remap block exists, serves the landing too, and declares dark color-scheme', () => {
     const block = readAppWorldBlock();
+    const css = readFileSync(tokensCss, 'utf8');
 
     expect(block.size).toBeGreaterThan(0);
-    expect(readFileSync(tokensCss, 'utf8')).toMatch(
-      /:root:has\(\.lg-shell\)\s*{\s*color-scheme: dark;/,
+    expect(css).toMatch(
+      /:root:has\(\.lg-shell\),\s*:root:has\(\.lg-landing\)\s*\{\s*color-scheme: dark;/,
     );
   });
 

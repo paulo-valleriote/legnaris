@@ -130,6 +130,30 @@ describe('the landing demo sheet', () => {
 
     expect(module.default).toBeTypeOf('function');
     expect(landing).not.toContain("from './demo_sheet'");
+    expect(landing).toContain("lazy(() => import('./demo_sheet'))");
+  });
+
+  it('Happy path: an edit and a roll each report the first demo interaction', async () => {
+    const onInteract = vi.fn();
+    const user = userEvent.setup();
+    render(<DemoSheet onInteract={onInteract} />);
+
+    expect(onInteract).not.toHaveBeenCalled();
+
+    await editAttribute(user, 'strength', '18');
+    expect(onInteract).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: rollName('Might modifier') }));
+    expect(onInteract).toHaveBeenCalledTimes(2);
+  });
+
+  it('Edge: the demo runs without an interaction callback', async () => {
+    const user = userEvent.setup();
+    render(<DemoSheet />);
+
+    await changeHitPoints(user, '5', 'damage');
+
+    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent(/19\s*\/\s*30/);
   });
 
   it('Edge: every mount starts from the sample character again', async () => {

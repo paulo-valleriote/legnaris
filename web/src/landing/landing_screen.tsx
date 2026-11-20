@@ -1,3 +1,4 @@
+import { lazy, Suspense, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AdSlot } from '../ads/ad_slot';
 import { PRIVACY_PATH, SIGN_IN_PATH } from '../app/routes';
@@ -10,11 +11,21 @@ import { signUpCtaPath } from './start_intent';
 import { useStageThemeColor } from './use_stage_theme_color';
 import './landing.css';
 
+const DemoSheet = lazy(() => import('./demo_sheet'));
+
 const HERO_SRCSET = ['/images/hero-lava-1280.webp 1280w', '/images/hero-lava-1920.webp 1920w'].join(
   ', ',
 );
 
 const FANTASY_SIGN_UP_PATH = signUpCtaPath('fantasy');
+
+function DemoLoading() {
+  return (
+    <div className="lg-landing__demo-loading" data-testid="landing-demo-loading">
+      {message('landing.demoLoading')}
+    </div>
+  );
+}
 
 interface Entry {
   readonly title: MessageKey;
@@ -44,6 +55,7 @@ const FAQ: readonly { readonly question: MessageKey; readonly answer: MessageKey
 
 export function LandingScreen() {
   useStageThemeColor();
+  const [interacted, setInteracted] = useState(false);
 
   return (
     <div className="lg-landing" data-testid="landing">
@@ -75,15 +87,27 @@ export function LandingScreen() {
 
         <div className="lg-landing__hero-body">
           <h1 className="lg-landing__hero-title">{message('landing.heroTitle')}</h1>
-          <div className="lg-landing__hero-side">
-            <p className="lg-landing__hero-lead">{message('landing.heroLead')}</p>
-            <div className="lg-landing__actions">
-              <Link className="lg-landing__cta lg-landing__cta--primary" to={FANTASY_SIGN_UP_PATH}>
-                {message('landing.create')}
-              </Link>
-            </div>
+          <p className="lg-landing__hero-lead">{message('landing.heroLead')}</p>
+          <div className="lg-landing__actions">
+            <Link className="lg-landing__cta lg-landing__cta--primary" to={FANTASY_SIGN_UP_PATH}>
+              {message('landing.create')}
+            </Link>
           </div>
         </div>
+
+        <section className="lg-landing__hero-demo" aria-label={message('landing.demoSheetLabel')}>
+          <Suspense fallback={<DemoLoading />}>
+            <DemoSheet onInteract={() => setInteracted(true)} />
+          </Suspense>
+          {interacted && (
+            <div className="lg-landing__demo-cta" data-testid="landing-demo-cta">
+              <p className="lg-landing__demo-cta-text">{message('landing.demoCtaText')}</p>
+              <Link className="lg-landing__cta lg-landing__cta--primary" to={FANTASY_SIGN_UP_PATH}>
+                {message('landing.demoCtaAction')}
+              </Link>
+            </div>
+          )}
+        </section>
       </header>
 
       <main>
@@ -149,6 +173,12 @@ export function LandingScreen() {
           </div>
         </section>
       </main>
+
+      <div className="lg-landing__sticky" data-testid="landing-sticky-cta">
+        <Link className="lg-landing__cta lg-landing__cta--primary" to={FANTASY_SIGN_UP_PATH}>
+          {message('landing.stickyCta')}
+        </Link>
+      </div>
 
       <footer
         className="lg-landing__section lg-landing__close"

@@ -330,17 +330,27 @@ no display-scale heading.
   core, the step numerals and the derived values of the example.
 - **Display type.** Geist 600 at `--lg-type-display-lg` (hero) and `--lg-type-display-md`
   (section titles), `--lg-line-display` and `--lg-tracking-display`.
+- **Hero demo.** The static hero copy (one H1, the lead and the sign-up action) renders first;
+  below it a `Suspense` fallback reserves the stage and the real Fantasy Play preset mounts as a
+  lazy chunk over the same in-memory sample character. Its character name is the demo's heading at
+  level 2, under the page's one H1. A first edit or roll reveals the contextual sign-up action,
+  and the demo's own live regions announce the changed values and dice results. A sticky sign-up
+  action sits at the viewport foot below `40rem` and is withdrawn above it.
 - **Rhythm.** Section padding uses `--lg-space-96` and, from the wide breakpoint, `--lg-space-128`.
   Content is capped at `--lg-size-landing-max`. Rows and questions are hairline-divided, never
-  cards; the one bounded object is the recalculating example, on `--lg-color-stage-raised`.
-- **Proof, not claims.** The example recalculates real values with invented names and formulas and
-  says so in its caption. The page carries no testimonial, statistic, price or customer claim.
+  cards; the bounded objects are the demo sheet's own cards and the contextual action on
+  `--lg-color-stage-raised`.
+- **Proof, not claims.** The hero demo mounts the product's real Play components over invented
+  values, with no network request; the cascade example below repeats the arithmetic proof with
+  invented names and formulas and says so in its caption. The page carries no testimonial,
+  statistic, price or customer claim.
 - **Motion.** One authored entrance: the photograph settles (`--lg-motion-1200`) and the hero
   content rises (`--lg-motion-600`, `--lg-ease-out`), staggered by `--lg-motion-120` steps.
   Changing a base value replays a short rise on the derived values. Everything is zeroed under
   `prefers-reduced-motion` and content is visible by default.
-- **Actions.** "Start your archive" leads to `/sign-up` and "Sign in" to `/sign-in`; both are
-  links. Buttons keep `--lg-radius-md`, never a pill.
+- **Actions.** "Create your character sheet" leads to the Fantasy start intent and "Sign in" to
+  `/sign-in`; both are links. Every conversion action (hero, contextual, sticky, close) carries the
+  same start intent. Buttons keep `--lg-radius-md`, never a pill.
 - **Accessibility.** Landmarks are `header`, `main` and `footer`; the questions are native
   `details` disclosures; the stage focus ring is `--lg-color-stage-focus`; the stage text pairs are
   asserted in both themes like every other pair.

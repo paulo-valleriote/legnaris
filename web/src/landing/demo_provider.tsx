@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { buildSections, rowKey } from '../engine/field_grouping';
 import { createDiceStore } from '../sheet/dice_store';
@@ -50,12 +50,32 @@ export function createDemoRuntime(): DemoRuntime {
   };
 }
 
-export function DemoProvider({ children }: { readonly children: ReactNode }) {
+export function DemoProvider({
+  children,
+  onInteract,
+}: {
+  readonly children: ReactNode;
+  readonly onInteract?: () => void;
+}) {
   const [runtime] = useState(createDemoRuntime);
+
+  useEffect(() => {
+    const store = runtime.preset.store;
+    let revision = store.getState().revision;
+    return store.subscribe(() => {
+      const next = store.getState().revision;
+      if (next !== revision) {
+        revision = next;
+        onInteract?.();
+      }
+    });
+  }, [runtime, onInteract]);
 
   return (
     <PresetProvider {...runtime.preset}>
-      <DiceProvider value={runtime.dice}>{children}</DiceProvider>
+      <DiceProvider value={runtime.dice} onRoll={onInteract}>
+        {children}
+      </DiceProvider>
     </PresetProvider>
   );
 }

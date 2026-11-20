@@ -246,11 +246,13 @@
 }
 
 /*
- * The signed-in app lives in the landing's world: while the shell is mounted the semantic layer
- * is remapped onto the stage roles, always dark whatever the theme. Components keep reading the
- * semantics, so every route, dialog and control under the shell follows without its own rules.
+ * The signed-in app and the mounted landing demo live in the landing's world: while the shell or
+ * the landing is mounted the semantic layer is remapped onto the stage roles, always dark whatever
+ * the theme. Components keep reading the semantics, so every route, dialog, control and portaled
+ * panel follows without its own rules.
  */
-:root:has(.lg-shell) {
+:root:has(.lg-shell),
+:root:has(.lg-landing) {
   color-scheme: dark;
 
   --lg-color-bg: var(--lg-color-stage);

@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { message, messageWith } from '../l10n/strings';
 import { PRIVACY_PATH } from '../app/routes';
+import { signUpCtaPath } from '../landing/start_intent';
 import { MIGHT_MAX, MIGHT_MIN } from '../landing/cascade';
 import { renderApp } from './render';
+import { rollName } from './dice_names';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
 
 async function visit(path: string) {
   const view = renderApp(path, { session: 'unauthenticated' });
@@ -12,14 +19,22 @@ async function visit(path: string) {
   return view;
 }
 
+async function visitDemo() {
+  const view = await visit('/');
+  await waitFor(() => expect(screen.getByTestId('landing-demo-sheet')).toBeInTheDocument());
+  return view;
+}
+
+const FANTASY_SIGN_UP_PATH = signUpCtaPath('fantasy');
+
 describe('landing screen', () => {
   it('Happy path: a visitor on the root sees the landing, not the sign-in form or the catalog', async () => {
     await visit('/');
 
     expect(screen.getByTestId('landing')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent(
-      message('landing.heroTitle'),
-    );
+    expect(
+      screen.getByRole('heading', { level: 1, name: message('landing.heroTitle') }),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('catalog')).not.toBeInTheDocument();
     expect(screen.queryByLabelText(message('auth.passwordLabel'))).not.toBeInTheDocument();
   });
@@ -311,5 +326,126 @@ describe('landing recalculation example', () => {
     await visit('/');
 
     expect(demo().getByText(message('landing.demoNote'))).toBeInTheDocument();
+  });
+});
+
+describe('landing hero conversion', () => {
+  it('Happy path: the hero copy and action render around the lazily loaded demo sheet', async () => {
+    await visitDemo();
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: message('landing.heroTitle') }),
+    ).toBeVisible();
+    expect(screen.getByText(message('landing.heroLead'))).toBeVisible();
+    expect(
+      within(screen.getByRole('banner')).getByRole('link', { name: message('landing.create') }),
+    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    expect(screen.getByTestId('landing-demo-sheet')).toBeInTheDocument();
+    expect(screen.queryByTestId('landing-demo-loading')).not.toBeInTheDocument();
+  });
+
+  it('Edge: the demo loads behind a reserved fallback after the static copy', () => {
+    const text = readFileSync(path.resolve(here, '../landing/landing_screen.tsx'), 'utf8');
+
+    expect(text).toContain("lazy(() => import('./demo_sheet'))");
+    expect(text).toMatch(/<Suspense[\s\S]*fallback=/);
+    expect(text.indexOf('landing.heroTitle')).toBeLessThan(text.indexOf('<Suspense'));
+  });
+
+  it('Edge: the demo names its character below the page heading, never as a second H1', async () => {
+    await visitDemo();
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 2, name: 'Rowan Vale' })).toBeInTheDocument();
+  });
+
+  it('Edge: the contextual CTA is absent until the visitor interacts with the demo', async () => {
+    await visitDemo();
+
+    expect(screen.queryByTestId('landing-demo-cta')).not.toBeInTheDocument();
+  });
+
+  it('Happy path: editing an ability reveals the sign-up CTA and keeps the demo state', async () => {
+    const user = userEvent.setup();
+    await visitDemo();
+    const medallion = screen.getByTestId('sheet-ability-strength');
+    const modifier = within(medallion).getByRole('button', { name: rollName('Might modifier') });
+
+    expect(modifier).toHaveTextContent('+3');
+    await user.click(within(medallion).getByRole('button', { name: 'Might' }));
+    const input = within(medallion).getByRole('textbox', { name: 'Might' });
+    await user.clear(input);
+    await user.type(input, '18{Enter}');
+
+    const cta = screen.getByTestId('landing-demo-cta');
+    expect(
+      within(cta).getByRole('link', { name: message('landing.demoCtaAction') }),
+    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    expect(modifier).toHaveTextContent('+4');
+  });
+
+  it('Happy path: changing hit points reveals the CTA and announces the pending change', async () => {
+    const user = userEvent.setup();
+    await visitDemo();
+    const card = screen.getByTestId('sheet-hp-card');
+    const input = within(card).getByLabelText(message('sheet.play.amount'));
+
+    await user.clear(input);
+    await user.type(input, '5');
+    await user.click(within(card).getByRole('button', { name: message('sheet.play.damage') }));
+
+    expect(screen.getByTestId('landing-demo-cta')).toBeInTheDocument();
+    expect(screen.getByTestId('sheet-pending-card')).toHaveAttribute('aria-live', 'polite');
+  });
+
+  it('Happy path: a keyboard roll opens the announced dice result and reveals the CTA', async () => {
+    const user = userEvent.setup();
+    await visitDemo();
+    const roll = screen.getByRole('button', { name: rollName('Might modifier') });
+
+    roll.focus();
+    await user.keyboard('{Enter}');
+
+    const panel = document.querySelector('.lg-dice-panel');
+    expect(panel).not.toBeNull();
+    const live = panel!.querySelector('[role="status"]');
+    expect(live).toHaveAttribute('aria-live', 'polite');
+    expect(live).toHaveTextContent('Might modifier');
+    expect(screen.getByTestId('landing-demo-cta')).toBeInTheDocument();
+  });
+
+  it('Edge: the mobile sticky CTA is a sign-up action present for narrow viewports', async () => {
+    await visit('/');
+
+    const sticky = screen.getByTestId('landing-sticky-cta');
+    expect(
+      within(sticky).getByRole('link', { name: message('landing.stickyCta') }),
+    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+  });
+
+  it('Edge: every conversion CTA on the page carries the Fantasy start intent', async () => {
+    const user = userEvent.setup();
+    await visitDemo();
+
+    await user.click(screen.getByRole('button', { name: rollName('Might modifier') }));
+
+    expect(
+      within(screen.getByRole('banner')).getByRole('link', { name: message('landing.create') }),
+    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    expect(
+      within(screen.getByRole('contentinfo')).getByRole('link', {
+        name: message('landing.create'),
+      }),
+    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    expect(
+      within(screen.getByTestId('landing-demo-cta')).getByRole('link', {
+        name: message('landing.demoCtaAction'),
+      }),
+    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    expect(
+      within(screen.getByTestId('landing-sticky-cta')).getByRole('link', {
+        name: message('landing.stickyCta'),
+      }),
+    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
   });
 });

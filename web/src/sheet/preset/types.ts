@@ -22,9 +22,13 @@ export interface PresetStatBlock {
   readonly Body: ComponentType;
 }
 
+export interface PresetHeaderProps {
+  readonly level?: 1 | 2;
+}
+
 export interface SheetPreset {
   readonly templateId: string;
-  readonly Header: ComponentType;
+  readonly Header: ComponentType<PresetHeaderProps>;
   readonly statBlock?: PresetStatBlock;
   readonly sections: readonly PresetSection[];
   readonly layout?: readonly PresetLayoutBlock[];
