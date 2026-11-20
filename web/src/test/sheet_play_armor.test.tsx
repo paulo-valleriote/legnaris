@@ -16,7 +16,7 @@ import {
 import type { FakeOutcome } from './fake_transport';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
-import { rollName } from './dice_names';
+import { initiativeRollName } from './dice_names';
 
 const BASE_URL = 'http://api.test';
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -408,7 +408,7 @@ describe('the initiative and speed tiles', () => {
     });
 
     expect(screen.getByTestId('sheet-initiative')).toHaveTextContent(message('sheet.play.noValue'));
-    expect(screen.queryByRole('button', { name: rollName('Initiative') })).toBeNull();
+    expect(screen.queryByRole('button', { name: initiativeRollName('+3') })).toBeNull();
 
     expect(screen.getByTestId('sheet-ac-shield')).toBeInTheDocument();
     await user.click(shield());
@@ -432,15 +432,68 @@ describe('the initiative and speed tiles', () => {
     await openFantasy();
 
     expect(screen.getByTestId('sheet-initiative')).toHaveTextContent('Initiative');
-    expect(screen.getByRole('button', { name: rollName('Initiative') })).toHaveTextContent('+3');
+    expect(screen.getByRole('button', { name: initiativeRollName('+3') })).toHaveTextContent('+3');
     expect(screen.getByTestId('sheet-speed')).toHaveTextContent('Speed');
     expect(screen.getByRole('button', { name: 'Speed' })).toHaveTextContent('30');
+  });
+
+  it('Edge: a zero or negative initiative keeps the die and names the signed roll', async () => {
+    for (const [initiative, signed] of [
+      [0, '+0'],
+      [-1, '-1'],
+    ] as const) {
+      const { unmount } = renderApp(`/sheets/${FANTASY_SHEET_ID}`, {
+        client: createApiClient({
+          baseUrl: BASE_URL,
+          transport: createFakeTransport(
+            successOutcome(
+              fantasySheetPayload({ data: fantasySheetData({ combat: { initiative } }) }),
+            ),
+            successOutcome(fantasyTemplatePayload()),
+            successOutcome({}),
+          ).transport,
+        }),
+      });
+      await screen.findByTestId('sheet-name');
+
+      const tile = screen.getByTestId('sheet-initiative');
+      expect(tile.querySelector('.lg-dice-icon')).toHaveAttribute('data-die-shape', 'd20');
+      expect(tile.querySelector('.lg-dice-icon')).toHaveAttribute('aria-hidden', 'true');
+      expect(
+        within(tile).getByRole('button', { name: initiativeRollName(signed) }),
+      ).toHaveTextContent(signed);
+
+      unmount();
+    }
+  });
+
+  it('Edge: Edit mode hides the initiative die', async () => {
+    const { user } = await openFantasy();
+    expect(screen.getByTestId('sheet-initiative').querySelector('.lg-dice-icon')).not.toBeNull();
+
+    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+
+    expect(screen.queryByTestId('sheet-initiative')).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Initiative' })).toBeInTheDocument();
+  });
+
+  it('Happy path: the initiative tile pairs the always-visible die with an Edit initiative pencil', async () => {
+    await openFantasy();
+
+    const tile = screen.getByTestId('sheet-initiative');
+    expect(tile.querySelector('.lg-dice-icon')).toHaveAttribute('data-die-shape', 'd20');
+    expect(
+      within(tile).getByRole('button', { name: message('sheet.play.editInitiative') }),
+    ).toBeInTheDocument();
+    expect(within(tile).getByRole('button', { name: initiativeRollName('+3') })).toHaveTextContent(
+      '+3',
+    );
   });
 
   it('Happy path: clicking initiative rolls it through the dice store', async () => {
     const { user } = await openFantasy();
 
-    await user.click(screen.getByRole('button', { name: rollName('Initiative') }));
+    await user.click(screen.getByRole('button', { name: initiativeRollName('+3') }));
 
     await waitFor(() => expect(document.querySelector('.lg-dice-panel')).not.toBeNull());
     expect(document.querySelector('.lg-dice-panel__total-label')).toHaveTextContent('Initiative');
@@ -479,5 +532,18 @@ describe('the phone layout', () => {
     expect(mobile).toMatch(/\.lg-ac-breakdown\s*\{[^}]*position:\s*fixed/);
     expect(mobile).toMatch(/\.lg-ac-breakdown\s*\{[^}]*inset-block-end:\s*0/);
     expect(mobile).toMatch(/\.lg-ac-breakdown\s*\{[^}]*overflow-y:\s*auto/);
+  });
+
+  it('Edge: the initiative pencil waits for hover or focus and is a 44px target on a phone', () => {
+    expect(css).toMatch(/\.lg-combat-stat \.lg-combat-stat__edit\s*\{[^}]*opacity:\s*0/);
+    expect(css).toMatch(
+      /\.lg-combat-stat:hover \.lg-combat-stat__edit,\s*\.lg-combat-stat \.lg-combat-stat__edit:focus-visible\s*\{[^}]*opacity:\s*1/,
+    );
+    expect(mobile).toMatch(
+      /\.lg-combat-stat \.lg-combat-stat__edit\s*\{[^}]*inline-size:\s*var\(--lg-size-control\)/,
+    );
+    expect(mobile).toMatch(
+      /\.lg-combat-stat \.lg-combat-stat__edit\s*\{[^}]*block-size:\s*var\(--lg-size-control\)/,
+    );
   });
 });

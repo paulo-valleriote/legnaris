@@ -92,6 +92,7 @@
 
 .lg-combat-stat .lg-combat-stat__value {
   justify-content: center;
+  gap: var(--lg-space-4);
   min-block-size: 0;
   padding: 0 var(--lg-space-4);
   font-size: 26px;
@@ -99,6 +100,12 @@
   line-height: 1.1;
   font-variant-numeric: tabular-nums;
   text-align: center;
+}
+
+.lg-combat-stat .lg-combat-stat__value .lg-dice-icon {
+  inline-size: var(--lg-space-16);
+  block-size: var(--lg-space-16);
+  color: var(--lg-color-link);
 }
 
 .lg-combat-stat__value-row {
@@ -312,8 +319,10 @@
 
   .lg-combat-stat .lg-combat-stat__edit {
     opacity: 1;
-    inline-size: 36px;
-    block-size: 36px;
+    top: 0;
+    right: 0;
+    inline-size: var(--lg-size-control);
+    block-size: var(--lg-size-control);
   }
 
   .lg-ac-breakdown {

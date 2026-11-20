@@ -411,7 +411,10 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   `--lg-color-accent-text`. Filled accent stays for the proficiency dot and the primary action, so
   "proficient" and "rollable" never share a shape. Read-only Play text (the at-will and prepared
   spell lists) draws no input edge until hover or focus, while Edit keeps the generic input
-  affordance. No Play label renders below `--lg-type-11`, or below `--lg-type-12` on a phone.
+  affordance. Initiative reads as a roll before hover: a decorative d20 sits beside its signed total
+  at all times, named `Roll initiative, <signed value>`, and its ghost pencil waits for hover or
+  focus on a desktop, is a full `--lg-size-control` target on a phone and is named
+  `Edit initiative`. No Play label renders below `--lg-type-11`, or below `--lg-type-12` on a phone.
 - **Derived beside its input.** An editable number Row whose value directly feeds one or two derived
   leaves (`schema.dependsOn`, direct edges only; none or three and more draw nothing; a `config.*`
   switch, a text or a table cell never does) carries a second line inside the same Row, under the

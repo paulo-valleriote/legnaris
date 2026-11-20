@@ -13,7 +13,7 @@ import {
   fantasySheetPayload,
   fantasyTemplatePayload,
 } from './fantasy_fixtures';
-import { rollName } from './dice_names';
+import { rollName, initiativeRollName } from './dice_names';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
 
@@ -270,7 +270,7 @@ describe('the one rollable affordance', () => {
       name: rollName('Insight'),
     });
     const negativeInitiative = within(screen.getByTestId('sheet-initiative')).getByRole('button', {
-      name: rollName('Initiative'),
+      name: initiativeRollName('-1'),
     });
     const zeroAttack = within(screen.getByTestId('sheet-attack-1')).getByRole('button', {
       name: messageWith('sheet.play.attackRoll', { name: 'Longsword', value: '+0' }),

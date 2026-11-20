@@ -7,7 +7,7 @@ import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
 import { FLOATING_FLOOR_ATTRIBUTE } from '../sheet/dice_panel';
-import { rollName } from './dice_names';
+import { initiativeRollName } from './dice_names';
 import { FANTASY_SHEET_ID, fantasySheetPayload, fantasyTemplatePayload } from './fantasy_fixtures';
 import type { FakeTransport } from './fake_transport';
 import { createFakeTransport, successOutcome } from './fake_transport';
@@ -56,7 +56,7 @@ function levelStep(): HTMLElement {
 }
 
 async function roll(user: ReturnType<typeof userEvent.setup>): Promise<void> {
-  await user.click(screen.getByRole('button', { name: rollName('Initiative') }));
+  await user.click(screen.getByRole('button', { name: initiativeRollName('+3') }));
   await waitFor(() => expect(document.querySelector('.lg-dice-panel')).not.toBeNull());
 }
 
