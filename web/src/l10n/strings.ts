@@ -343,6 +343,8 @@ export const messages = {
   'sheet.play.proficiencyFor': 'Proficiency for {label}',
   'sheet.play.saves': 'Saving throws',
   'sheet.play.skills': 'Skills',
+  'sheet.play.proficient': 'proficient',
+  'sheet.play.rollHint': 'Tap a number to roll',
   'sheet.play.ability.strength': 'STR',
   'sheet.play.ability.dexterity': 'DEX',
   'sheet.play.ability.constitution': 'CON',

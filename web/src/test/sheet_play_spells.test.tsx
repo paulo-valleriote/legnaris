@@ -482,6 +482,26 @@ describe('the table rules', () => {
     expect(within(rules).queryByRole('textbox', { name: 'Ability modifier base' })).toBeNull();
   });
 
+  it('Edge: toggling the disclosure updates aria-expanded and the chevron state', async () => {
+    const { user } = await openSpells();
+
+    const rules = screen.getByTestId('sheet-table-rules');
+    const toggle = within(rules).getByRole('button', { name: message('sheet.play.rules') });
+    const chevron = rules.querySelector('.lg-rules__chevron');
+    expect(chevron).not.toBeNull();
+    expect(chevron).not.toHaveClass('lg-rules__chevron--open');
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(chevron).toHaveClass('lg-rules__chevron--open');
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(chevron).not.toHaveClass('lg-rules__chevron--open');
+  });
+
   it('Happy path: opening the section reveals the editable rules and writes one value', async () => {
     const { fake, user } = await openSpells();
 

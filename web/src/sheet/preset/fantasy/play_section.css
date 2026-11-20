@@ -18,3 +18,28 @@
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);
 }
+
+.lg-play-section__title--split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--lg-space-4) var(--lg-space-8);
+}
+
+.lg-play-section__note {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--lg-space-4);
+  font-size: var(--lg-type-11);
+  font-weight: var(--lg-font-weight-regular);
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--lg-color-text-muted);
+}
+
+@media (max-width: 40rem) {
+  .lg-play-section__note {
+    font-size: var(--lg-type-12);
+  }
+}

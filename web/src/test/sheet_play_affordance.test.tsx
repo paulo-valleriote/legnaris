@@ -29,6 +29,8 @@ const attacksCss = readPresetCss('fantasy/attacks.css');
 const combatCss = readPresetCss('fantasy/combat_strip.css');
 const savesCss = readPresetCss('fantasy/saves_skills.css');
 const spellsCss = readPresetCss('fantasy/spells.css');
+const rulesCss = readPresetCss('fantasy/rules.css');
+const playSectionCss = readPresetCss('fantasy/play_section.css');
 const statBlockCss = readPresetCss('fantasy/stat_block.css');
 const tokensCss = readFileSync(path.resolve(here, '../theme/tokens.css'), 'utf8');
 
@@ -398,6 +400,19 @@ describe('the rollable style contract', () => {
   });
 });
 
+describe('the table rules chevron contract', () => {
+  it('Edge: the chevron points right when closed and down when open', () => {
+    expect(ruleBody(rulesCss, '.lg-rules__chevron')).toMatch(/transform:\s*rotate\(0deg\)/);
+    expect(ruleBody(rulesCss, '.lg-rules__chevron--open')).toMatch(/transform:\s*rotate\(90deg\)/);
+  });
+
+  it('Edge: reduced motion removes the chevron transition', () => {
+    const reduced = rulesCss.slice(rulesCss.indexOf('@media (prefers-reduced-motion: reduce)'));
+    expect(reduced).not.toBe('');
+    expect(ruleBody(reduced, '.lg-rules__chevron')).toMatch(/transition:\s*none/);
+  });
+});
+
 describe('the Play label size floor', () => {
   const labels: readonly (readonly [string, string])[] = [
     ['hero proficiency badge label', presetCss],
@@ -408,6 +423,7 @@ describe('the Play label size floor', () => {
     ['stat block ability label', statBlockCss],
     ['ability name label', abilitiesCss],
     ['skill ability label', savesCss],
+    ['play section note', playSectionCss],
   ];
 
   const selectors: Record<string, string> = {
@@ -419,6 +435,7 @@ describe('the Play label size floor', () => {
     'stat block ability label': '.lg-stat-block .lg-ability__name',
     'ability name label': '.lg-ability__name',
     'skill ability label': '.lg-skill__ability',
+    'play section note': '.lg-play-section__note',
   };
 
   it.each(labels)('Edge: the desktop %s clears the 11px floor', (name, css) => {

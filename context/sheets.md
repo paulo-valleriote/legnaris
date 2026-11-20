@@ -329,7 +329,12 @@ the numbers. `hit_points.ts`
 also owns the percentage
 and band helpers, and both the card and the math are exported for the NPC and enemy stat block.
 
-Saving throws and skills follow as two card sections (`saves_skills.tsx`). Each row draws a
+Saving throws and skills follow as two card sections (`saves_skills.tsx`). Each panel header carries
+a first-time legend: the saving throws title repeats the row dot (the same `lg-prof-dot__mark`
+mark, filled through the `--on` modifier) beside `proficient`, and the skills title says
+`Tap a number to roll`; both strings resolve through `sheet.play.proficient` /
+`sheet.play.rollHint` and sit in the shared `.lg-play-section__note` at the label floor (11px
+desktop, 12px phone). The panels exist only in Play, so Edit draws neither legend. Each row draws a
 proficiency dot: one control-sized toggle with `aria-pressed` whose `setPath` writes 1 or 0 to the
 matching `config.save<A>Prof` / `config.skill<S>Prof` leaf in the pending delta. The toggle changes
 the filled dot only; the total's rollable style is independent of proficiency. Preview stays
@@ -412,7 +417,9 @@ inline-editable through the engine's numeric guard. `preset/fantasy/slot_pips.ts
 as zero, fractional counts truncate, `expended` clamps to the total, and spend or recover at a cap
 returns the same pool. A level stays visible while its total is being edited, and hides once a saved
 total of zero is the stored value. `preset/fantasy/rules.tsx` draws the four `rules.*` leaves as a
-disclosure collapsed by default, editable through the same numeric guard when opened.
+disclosure collapsed by default, editable through the same numeric guard when opened; its chevron
+points right while closed and rotates down while open (a class modifier off the open state), and
+reduced motion drops the transition.
 
 An NPC or enemy sheet (`sheet.kind` `npc` / `enemy`) of `fantasy_v1` swaps the character preset for
 the compact stat block (`preset/fantasy/stat_block.tsx`): the preset carries an optional `statBlock`
