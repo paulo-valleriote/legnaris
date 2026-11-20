@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { formatLevelRanges } from '../sheet/preset/fantasy/hidden_levels';
 import {
   recoverSlot,
   slotPips,
@@ -91,6 +92,28 @@ describe('recovering a slot', () => {
     const first: SlotPool = slotPool(2, 0);
 
     expect(recoverSlot(spendSlot(first))).toEqual(first);
+  });
+});
+
+describe('the hidden level ranges', () => {
+  it('Edge: no levels read as an empty label', () => {
+    expect(formatLevelRanges([])).toBe('');
+  });
+
+  it('Edge: unsorted and repeated levels collapse into one ordered list', () => {
+    expect(formatLevelRanges([9, 4, 5, 4])).toBe('4–5, 9');
+  });
+
+  it('Edge: a gap splits the levels into a list', () => {
+    expect(formatLevelRanges([2, 4, 5, 6])).toBe('2, 4–6');
+  });
+
+  it('Happy path: one level draws itself', () => {
+    expect(formatLevelRanges([5])).toBe('5');
+  });
+
+  it('Happy path: consecutive levels draw one range', () => {
+    expect(formatLevelRanges([4, 5, 6, 7, 8, 9])).toBe('4–9');
   });
 });
 

@@ -402,9 +402,10 @@ sits fully above it and moves with it when it appears, changes height or leaves.
 are summarised: a Dice-only change still counts as unsaved work for the leave guard but draws no bar.
 
 The spellcasting panel (`preset/fantasy/spells.tsx`) reads the decoded template instead of fixed
-paths. It shows the `spellcastingAbility` exclusive group as a segmented choice
-(`preset/segmented_choice.tsx`, no native select): a choice writes 1 to the chosen member and 0 to
-every sibling in one `setExclusive` call, so exactly one member is non-zero. The derived spell
+paths. It shows the `spellcastingAbility` exclusive group as one compact native select beside the
+spell attack and save DC tiles, showing the chosen ability and naming the group as its label: a
+choice writes 1 to the chosen member and 0 to every sibling in one `setExclusive` call, so exactly
+one member is non-zero. Edit keeps the generic form's own exclusive-group control. The derived spell
 attack bonus carries the Row's dice action with the preset row default `1d20 + @`, so a roll shares
 the Dice store, pendings and result panel; the save DC is a plain derived readout. The at-will and
 prepared lists use the same one-path inline editor in its quiet variant: Play draws no dashed input
@@ -416,7 +417,10 @@ inline-editable through the engine's numeric guard. `preset/fantasy/slot_pips.ts
 (`slotPool`, `spendSlot`, `recoverSlot`, `slotPips`): a missing, non-numeric or negative count reads
 as zero, fractional counts truncate, `expended` clamps to the total, and spend or recover at a cap
 returns the same pool. A level stays visible while its total is being edited, and hides once a saved
-total of zero is the stored value. `preset/fantasy/rules.tsx` draws the four `rules.*` leaves as a
+total of zero is the stored value. A quiet footnote under the rows names every hidden level as a
+range or a list (`preset/fantasy/hidden_levels.ts` sorts and deduplicates them and draws one range
+per contiguous run); it is absent when no level is hidden, and it names only the levels the template
+carries. `preset/fantasy/rules.tsx` draws the four `rules.*` leaves as a
 disclosure collapsed by default, editable through the same numeric guard when opened; its chevron
 points right while closed and rotates down while open (a class modifier off the open state), and
 reduced motion drops the transition.
@@ -501,7 +505,7 @@ Web:
   `fantasy/` — the hero, the combat strip, the attack cards, the ability medallions, the
   saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
   `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`, `attacks_data.ts`, `slot_pips.ts`,
-  `parse_number.ts` (the shared clamped-integer and percent helpers) and
+  `hidden_levels.ts`, `parse_number.ts` (the shared clamped-integer and percent helpers) and
   `xp_progress.ts` helpers and the hero experience bar in `xp_panel.tsx`; `fantasy/stat_block.tsx` —
   the compact NPC/enemy stat block card and its inner header, reusing the combat shield, hit-points
   card, ability medallions, attack cards and spellcasting panel; `fantasy/stat_block_data.ts` — its
@@ -510,7 +514,6 @@ Web:
   class shield and its breakdown with the DEX/CON segmented exclusive choice;
   `fantasy/armor_class.ts` — the AC/speed paths, the exactly-one-ability selector and the clamped
   parsing; `fantasy/hp_card.tsx` — the hit-points card; `fantasy/attacks.tsx` — the attack cards;
-  `segmented_choice.tsx` — the reusable exclusive-group control that writes through `setExclusive`;
   `rollable_value.tsx` — the
   reusable roll target and its one affordance style (`useRowRoll` in `dice_row.tsx`), with an
   optional explicit accessible name and title (the attack cards) and a leading decorative icon slot; `pending_card.tsx`, `pending_changes.ts` —

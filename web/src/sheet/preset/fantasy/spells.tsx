@@ -14,9 +14,8 @@ import {
   usePresetValue,
 } from '../preset_context';
 import { RollableValue } from '../rollable_value';
-import { SegmentedChoice } from '../segmented_choice';
-import type { SegmentedChoiceOption } from '../segmented_choice';
 import { numberValue, textValue } from '../values';
+import { formatLevelRanges } from './hidden_levels';
 import { parseClampedInt, UNBOUNDED } from './parse_number';
 import { recoverSlot, slotPips, slotPool, spendSlot } from './slot_pips';
 import type { SlotPool } from './slot_pips';
@@ -50,18 +49,24 @@ function signedValue(value: unknown): string {
   return number >= 0 ? `+${number}` : String(number);
 }
 
-function abilityOptions(fields: ReadonlyMap<string, SheetField>): SegmentedChoiceOption[] {
+interface AbilityOption {
+  readonly value: string;
+  readonly label: string;
+}
+
+function abilityOptions(fields: ReadonlyMap<string, SheetField>): AbilityOption[] {
   return [...fields.values()]
     .filter((field) => field.schema.exclusiveGroup === SPELLCASTING_ABILITY_GROUP)
-    .map((field) => {
-      const label =
-        field.schema.optionLabel?.trim() || fieldDisplayName(lastSegment(field.path), field.schema);
-      return { value: field.path, label, short: label.slice(0, 3).toUpperCase() };
-    });
+    .map((field) => ({
+      value: field.path,
+      label:
+        field.schema.optionLabel?.trim() || fieldDisplayName(lastSegment(field.path), field.schema),
+    }));
 }
 
 function SpellcastingAbility() {
   const { store, fields } = usePresetContext();
+  const selectId = useId();
   const options = useMemo(() => abilityOptions(fields), [fields]);
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
   const state = useSyncExternalStore(subscribe, store.getState);
@@ -74,21 +79,35 @@ function SpellcastingAbility() {
     const value = numberValue(valueAtPath(state.data, option.value));
     return value !== undefined && value !== 0;
   })?.value;
+  const label = groupDisplayName(SPELLCASTING_ABILITY_GROUP);
 
   return (
     <div className="lg-spells__ability">
-      <span className="lg-spells__label">{groupDisplayName(SPELLCASTING_ABILITY_GROUP)}</span>
-      <SegmentedChoice
-        label={groupDisplayName(SPELLCASTING_ABILITY_GROUP)}
-        options={options}
-        selected={selected}
-        onChange={(path) =>
+      <label className="lg-spells__label" htmlFor={selectId}>
+        {label}
+      </label>
+      <select
+        id={selectId}
+        className="lg-spells__ability-select"
+        value={selected ?? ''}
+        onChange={(event) =>
           store.setExclusive(
-            path,
+            event.target.value,
             options.map((option) => option.value),
           )
         }
-      />
+      >
+        {selected === undefined && (
+          <option value="" disabled>
+            {message('engine.none')}
+          </option>
+        )}
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -138,7 +157,7 @@ function SpellStats() {
   }
 
   return (
-    <div className="lg-spells__stats">
+    <>
       {fields.has(SPELL_ATTACK_PATH) && (
         <div className="lg-spells__stat" data-testid="sheet-spell-attack">
           <span className="lg-spells__label">{attackLabel}</span>
@@ -153,7 +172,7 @@ function SpellStats() {
           <span className="lg-spells__number">{numberOrMissing(saveDC)}</span>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
@@ -260,44 +279,60 @@ function SpellSlots() {
   const { store, fields } = usePresetContext();
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
   const state = useSyncExternalStore(subscribe, store.getState);
-  const levels = useMemo(
-    () =>
-      SLOT_LEVELS.flatMap((level) => {
-        const totalField = fields.get(slotPath(level, 'total'));
-        if (totalField === undefined) {
-          return [];
-        }
-        const totalValue = valueAtPath(state.data, totalField.path);
-        const pooled = slotPool(totalValue, valueAtPath(state.data, slotPath(level, 'expended')));
-        const edited = state.editedPaths.has(totalField.path);
-        return pooled.total === 0 && !edited
-          ? []
-          : [{ level, field: totalField, pool: pooled, totalValue }];
-      }),
-    [fields, state.data, state.editedPaths],
-  );
+  const { rows, hidden } = useMemo(() => {
+    const drawn: { level: number; field: SheetField; pool: SlotPool; totalValue: unknown }[] = [];
+    const hiddenLevels: number[] = [];
+    for (const level of SLOT_LEVELS) {
+      const totalField = fields.get(slotPath(level, 'total'));
+      if (totalField === undefined) {
+        continue;
+      }
+      const totalValue = valueAtPath(state.data, totalField.path);
+      const pooled = slotPool(totalValue, valueAtPath(state.data, slotPath(level, 'expended')));
+      const edited = state.editedPaths.has(totalField.path);
+      if (pooled.total === 0 && !edited) {
+        hiddenLevels.push(level);
+      } else {
+        drawn.push({ level, field: totalField, pool: pooled, totalValue });
+      }
+    }
+    return { rows: drawn, hidden: hiddenLevels };
+  }, [fields, state.data, state.editedPaths]);
 
-  if (levels.length === 0) {
+  if (rows.length === 0 && hidden.length === 0) {
     return null;
   }
 
   return (
     <div className="lg-spells__slots" data-testid="sheet-spell-slots">
-      <h3 className="lg-spells__subtitle">{message('sheet.play.spellSlots')}</h3>
-      <ul className="lg-spells__slot-list">
-        {levels.map(({ level, field, pool, totalValue }) => (
-          <SlotLevel
-            key={level}
-            level={level}
-            pool={pool}
-            totalValue={totalValue}
-            totalSchema={field}
-            onSpend={() => store.setPath(slotPath(level, 'expended'), spendSlot(pool).expended)}
-            onRecover={() => store.setPath(slotPath(level, 'expended'), recoverSlot(pool).expended)}
-            onTotal={(value) => store.setPath(slotPath(level, 'total'), value)}
-          />
-        ))}
-      </ul>
+      {rows.length > 0 && (
+        <>
+          <h3 className="lg-spells__subtitle">{message('sheet.play.spellSlots')}</h3>
+          <ul className="lg-spells__slot-list">
+            {rows.map(({ level, field, pool, totalValue }) => (
+              <SlotLevel
+                key={level}
+                level={level}
+                pool={pool}
+                totalValue={totalValue}
+                totalSchema={field}
+                onSpend={() => store.setPath(slotPath(level, 'expended'), spendSlot(pool).expended)}
+                onRecover={() =>
+                  store.setPath(slotPath(level, 'expended'), recoverSlot(pool).expended)
+                }
+                onTotal={(value) => store.setPath(slotPath(level, 'total'), value)}
+              />
+            ))}
+          </ul>
+        </>
+      )}
+      {hidden.length > 0 && (
+        <p className="lg-spells__hidden-levels" data-testid="sheet-spell-hidden-levels">
+          {hidden.length === 1
+            ? messageWith('sheet.play.hiddenLevel', { levels: formatLevelRanges(hidden) })
+            : messageWith('sheet.play.hiddenLevels', { levels: formatLevelRanges(hidden) })}
+        </p>
+      )}
     </div>
   );
 }
@@ -325,8 +360,10 @@ export function FantasySpells() {
       <h2 id={titleId} className="lg-play-section__title">
         {message('sheet.play.spellcasting')}
       </h2>
-      <SpellcastingAbility />
-      <SpellStats />
+      <div className="lg-spells__top">
+        <SpellcastingAbility />
+        <SpellStats />
+      </div>
       <SpellSlots />
       <SpellText path="spells.atWill" />
       <SpellText path="spells.list" />

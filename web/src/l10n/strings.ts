@@ -372,6 +372,8 @@ export const messages = {
   'sheet.play.slotRecover': 'Recover a level {count} spell slot',
   'sheet.play.slotsLeft': '{remaining} of {total} left',
   'sheet.play.slotTotal': 'Total',
+  'sheet.play.hiddenLevel': 'Level {levels} hidden · no slots',
+  'sheet.play.hiddenLevels': 'Levels {levels} hidden · no slots',
   'sheet.play.rules': 'Table rules',
   'sheet.play.hitPoints': 'Hit points',
   'sheet.play.hitPointsValue': '{count} / {max}',

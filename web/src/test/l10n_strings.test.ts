@@ -190,6 +190,7 @@ describe('the parameterized copy resolution', () => {
           mode: 'new account',
           year: 2026,
           label: 'Strength',
+          levels: '4–9',
           position: 2,
           count: 5,
           dice: 'd20',

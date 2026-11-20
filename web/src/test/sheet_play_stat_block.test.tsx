@@ -132,13 +132,46 @@ function statBlockFieldTree(): Record<string, unknown> {
 }
 
 function statBlockData(data: Record<string, unknown> = {}): Record<string, unknown> {
+  const spells = data.spells as Record<string, unknown> | undefined;
   return {
     ...fantasySheetData(data),
     attacks: {
       attack1: { name: 'Longsword', damage: '1d8 + 3', bonus: 5 },
       attack2: { name: '', damage: '', bonus: 0 },
     },
-    spells: { attackBonus: 6, saveDC: 14, slot1: { total: 2, expended: 1, remaining: 1 } },
+    spells: {
+      attackBonus: 6,
+      saveDC: 14,
+      slot1: { total: 2, expended: 1, remaining: 1 },
+      ...spells,
+    },
+  };
+}
+
+function spellAbilityGroup(): Record<string, unknown> {
+  return Object.fromEntries(
+    ['Wisdom', 'Intelligence'].map((ability) => [
+      `spellUses${ability}`,
+      {
+        schema: {
+          type: 'number',
+          label: `Spellcasting uses ${ability.toLowerCase()}`,
+          is_editable: true,
+          default: 0,
+          exclusive_group: 'spellcastingAbility',
+          option_label: ability,
+        },
+      },
+    ]),
+  );
+}
+
+function statBlockSpellAbilityFieldTree(): Record<string, unknown> {
+  const tree = statBlockFieldTree();
+  const config = tree.config as { label: string; children: Record<string, unknown> };
+  return {
+    ...tree,
+    config: { ...config, children: { ...config.children, ...spellAbilityGroup() } },
   };
 }
 
@@ -584,6 +617,38 @@ describe('the stat block attacks and spells', () => {
         name: messageWith('sheet.play.damageRoll', { name: 'Longsword', value: '1d8 + 3' }),
       }),
     ).toHaveTextContent('1d8 + 3');
+  });
+
+  it('Happy path: the spellcasting ability is one select that writes the exclusive group', async () => {
+    const { fake, user } = await openFantasy({
+      kind: 'npc',
+      template: statBlockSpellAbilityFieldTree(),
+      data: { config: { spellUsesWisdom: 1, spellUsesIntelligence: 0 } },
+    });
+
+    const select = within(statBlock()).getByRole('combobox', { name: 'Spellcasting ability' });
+    expect(select).toHaveValue('config.spellUsesWisdom');
+
+    await user.selectOptions(select, 'Intelligence');
+
+    expect(select).toHaveValue('config.spellUsesIntelligence');
+    await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
+    await waitFor(() => expect(savedData(fake)).toBeDefined());
+    const config = (savedData(fake) as { data: { config: Record<string, number> } }).data.config;
+    expect(config.spellUsesIntelligence).toBe(1);
+    expect(config.spellUsesWisdom).toBe(0);
+  });
+
+  it('Edge: the stat block names a single hidden level', async () => {
+    await openFantasy({
+      kind: 'npc',
+      data: { spells: { slot1: { total: 0, expended: 0, remaining: 0 } } },
+    });
+
+    expect(screen.queryByTestId('sheet-slot-1')).not.toBeInTheDocument();
+    expect(screen.getByTestId('sheet-spell-hidden-levels')).toHaveTextContent(
+      'Level 1 hidden · no slots',
+    );
   });
 
   it('Happy path: spells keep their slot pips', async () => {

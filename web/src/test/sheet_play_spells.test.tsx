@@ -30,6 +30,10 @@ function spellUsesKey(ability: string): string {
   return `spellUses${ability}`;
 }
 
+function spellUsesPath(ability: string): string {
+  return `config.${spellUsesKey(ability)}`;
+}
+
 function slotTree(level: number): Record<string, unknown> {
   return {
     label: `Level ${level}`,
@@ -184,6 +188,20 @@ function spellData(overrides: Record<string, unknown> = {}): Record<string, unkn
   };
 }
 
+function spellDataWithSlots(levels: readonly number[]): Record<string, unknown> {
+  return spellData({
+    spells: {
+      attackBonus: 5,
+      saveDC: 13,
+      atWill: 'Light',
+      list: 'Magic missile',
+      ...spellSlots(
+        Object.fromEntries(levels.map((level) => [level, { total: 1, expended: 0, remaining: 1 }])),
+      ),
+    },
+  });
+}
+
 interface OpenSpellsOptions {
   readonly data?: Record<string, unknown>;
   readonly save?: FakeOutcome;
@@ -214,8 +232,12 @@ async function save(user: ReturnType<typeof userEvent.setup>) {
 
 const spellPanel = () => screen.getByTestId('sheet-spells');
 
-function abilityGroup() {
-  return within(spellPanel()).getByRole('group', { name: 'Spellcasting ability' });
+function abilitySelect() {
+  return within(spellPanel()).getByRole('combobox', { name: 'Spellcasting ability' });
+}
+
+function hiddenLevelsNote() {
+  return screen.queryByTestId('sheet-spell-hidden-levels');
 }
 
 function totalButton(level: number): HTMLElement {
@@ -264,20 +286,24 @@ describe('the spellcasting panel', () => {
     ).toBeInTheDocument();
   });
 
-  it('Edge: a sheet with every spellcasting ability off draws no pressed segment', async () => {
+  it('Edge: a sheet with every spellcasting ability off leaves the select empty', async () => {
     await openSpells({
       data: spellData({ config: spellUses() }),
     });
 
-    expect(within(abilityGroup()).queryByRole('button', { pressed: true })).toBeNull();
+    expect(abilitySelect()).toHaveValue('');
+    for (const ability of ABILITIES) {
+      expect(within(abilitySelect()).getByRole('option', { name: ability })).toBeInTheDocument();
+    }
   });
 
   it('Happy path: the panel shows the ability, attack, save DC, lists and slot rows', async () => {
     await openSpells();
 
     expect(spellPanel()).toHaveTextContent(message('sheet.play.spellcasting'));
+    expect(abilitySelect()).toHaveValue(spellUsesPath('Wisdom'));
     for (const ability of ABILITIES) {
-      expect(within(abilityGroup()).getByRole('button', { name: ability })).toBeInTheDocument();
+      expect(within(abilitySelect()).getByRole('option', { name: ability })).toBeInTheDocument();
     }
     expect(screen.getByTestId('sheet-spell-attack')).toHaveTextContent('Spell attack bonus');
     expect(screen.getByTestId('sheet-spell-attack')).toHaveTextContent('+5');
@@ -288,6 +314,7 @@ describe('the spellcasting panel', () => {
     expect(screen.getByTestId('sheet-slot-1')).toHaveTextContent(
       messageWith('sheet.play.slotsLeft', { remaining: 1, total: 2 }),
     );
+    expect(hiddenLevelsNote()).toHaveTextContent('Levels 2, 4–9 hidden · no slots');
   });
 
   it('Happy path: the spell attack rolls d20 plus the bonus through the dice panel', async () => {
@@ -310,20 +337,13 @@ describe('the spellcasting panel', () => {
   });
 });
 
-describe('the spellcasting ability segments', () => {
+describe('the spellcasting ability select', () => {
   it('Happy path: choosing an ability writes exactly one non-zero member of the group', async () => {
     const { fake, user } = await openSpells();
 
-    await user.click(within(abilityGroup()).getByRole('button', { name: 'Intelligence' }));
+    await user.selectOptions(abilitySelect(), 'Intelligence');
 
-    expect(within(abilityGroup()).getByRole('button', { name: 'Intelligence' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(within(abilityGroup()).getByRole('button', { name: 'Wisdom' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    expect(abilitySelect()).toHaveValue(spellUsesPath('Intelligence'));
 
     await save(user);
     await waitFor(() => expect(savedData(fake)).toBeDefined());
@@ -332,10 +352,26 @@ describe('the spellcasting ability segments', () => {
     expect(config[spellUsesKey('Intelligence')]).toBe(1);
   });
 
+  it('Edge: the select takes keyboard focus and writes the chosen ability', async () => {
+    const { fake, user } = await openSpells();
+
+    abilitySelect().focus();
+    expect(abilitySelect()).toHaveFocus();
+
+    await user.selectOptions(abilitySelect(), 'Charisma');
+
+    expect(abilitySelect()).toHaveValue(spellUsesPath('Charisma'));
+    await save(user);
+    await waitFor(() => expect(savedData(fake)).toBeDefined());
+    const config = (savedData(fake) as { data: { config: Record<string, number> } }).data.config;
+    expect(Object.values(config).filter((value) => value !== 0)).toEqual([1]);
+    expect(config[spellUsesKey('Charisma')]).toBe(1);
+  });
+
   it('Edge: choosing the ability already on writes nothing', async () => {
     const { fake, user } = await openSpells();
 
-    await user.click(within(abilityGroup()).getByRole('button', { name: 'Wisdom' }));
+    await user.selectOptions(abilitySelect(), 'Wisdom');
 
     expect(
       screen.queryByRole('button', { name: message('sheet.pending.save') }),
@@ -345,6 +381,25 @@ describe('the spellcasting ability segments', () => {
 });
 
 describe('the spell slots', () => {
+  it('Edge: when every level is hidden the note names them all and no slot row is drawn', async () => {
+    await openSpells({ data: spellDataWithSlots([]) });
+
+    expect(screen.queryByTestId('sheet-slot-1')).not.toBeInTheDocument();
+    expect(hiddenLevelsNote()).toHaveTextContent('Levels 1–9 hidden · no slots');
+  });
+
+  it('Edge: hidden levels that are not contiguous draw a list of ranges', async () => {
+    await openSpells({ data: spellDataWithSlots([1, 2, 4, 6]) });
+
+    expect(hiddenLevelsNote()).toHaveTextContent('Levels 3, 5, 7–9 hidden · no slots');
+  });
+
+  it('Edge: no note is drawn when no level is hidden', async () => {
+    await openSpells({ data: spellDataWithSlots([1, 2, 3, 4, 5, 6, 7, 8, 9]) });
+
+    expect(hiddenLevelsNote()).not.toBeInTheDocument();
+  });
+
   it('Happy path: tapping a remaining pip spends one slot', async () => {
     const { fake, user } = await openSpells();
 
