@@ -118,6 +118,8 @@ The web list at `/campaigns` orders owned Campaigns first, then GM roles, then P
 
 ## Contracts
 
+- **Ad slot on the campaign list.** The campaign list (`campaigns_screen.tsx`) ends with an `AdSlot` (`campaigns` surface) shown only to Free accounts; the campaign detail, play session and shared sheets never show ads (see web-client Ads).
+
 All routes are under `/campaigns` behind authentication, an active account and the per-user rate limit. `POST /campaigns/join` also has an IP limiter middleware.
 
 | Method and path | Caller | Result |

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
+import { AdSlot } from '../ads/ad_slot';
 import { failureCopy, failureKind } from '../api/error_mapper';
 import type { CampaignRole, CampaignSummary } from '../api/models/campaign';
 import type { TemplateSummary } from '../api/models/template';
@@ -307,6 +308,7 @@ export function CampaignsScreen() {
         </Notice>
       ) : null}
       {listing}
+      <AdSlot surface="campaigns" />
       <Dialog
         open={createOpen}
         title={message('campaigns.create')}

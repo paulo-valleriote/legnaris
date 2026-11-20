@@ -15,7 +15,6 @@ Owns account lifecycle and access control: registration with email verification,
 - **A resource the caller does not own answers `404`, not `403`.** A sheet or campaign the caller does not own or belong to is indistinguishable from a missing one, so the API leaks no existence. Cost: clients cannot tell "not yours" from "deleted", and there is no support view.
 - **Two-step deletion with an email code over a one-click delete.** The code proves mailbox possession before an irreversible cascade; the account is marked first and erased asynchronously. Cost: deletion depends on email delivery again and cannot be cancelled once marked.
 - **CSRF token served over HTTP when the cookie is unreadable.** Because `__Host-` cookies belong to the API host, the web app on its own host fetches the token from `GET /auth/csrf` instead of reading the cookie directly. Cost: one extra request before the first refresh/logout after a reload.
-- **Free trial granted at verification, capped per client address.** The trial follows proven mailbox ownership, and 3 accounts per IP per 24 hours limits farming. Cost: shared addresses (offices, campuses) hit the cap together.
 
 ## Flows
 
@@ -36,7 +35,7 @@ sequenceDiagram
   end
   B->>A: POST /auth/challenge/verify {challenge_id, code}
   A->>A: claim attempt, compare HMAC digest, consume once
-  A->>A: set email_verified_at, evaluate the trial gate
+  A->>A: set email_verified_at
   A-->>B: 200 session body + refresh and CSRF cookies
 ```
 
@@ -165,7 +164,6 @@ Registration validates a canonical address (at most 254 bytes), a username of 1�
 | refresh, csrf, logout | client IP | 120/1m |
 | most authenticated routes (generation has its own buckets) | user id | 80/1m |
 | code issuance per account | user id | 10/h |
-| trial grant | client IP | 3/24h |
 | email sends | global, per UTC day | 80; resends capped at 30% |
 
 The limits are shared through Redis when `REDIS_URL` is set and fall back to a per-process counter (with a warning) when it is not. For a rate-limit refusal, `Retry-After` is the remaining window.
@@ -192,9 +190,8 @@ The bearer subject is the only identity: controllers copy `auth.UserID(c)` into 
 
 - `backend/internal/auth/` — `service.go` (register, login, refresh, logout, sessions), `challenge*.go` (policy, repository, issuance, verify, resend, notices, observer), `code.go` (HMAC digest and generator), `cookie.go`, `csrf.go`, `token.go`, `refresh_repository.go`, `middleware.go` (bearer and active-account gate), `password.go`, `deletion.go`, `profile.go`, `errors.go`, `events.go`.
 - `backend/internal/user/` — account record and DTO, canonical email, repository and unique-key translation, cached repository, deletion store.
-- `backend/internal/trial/` — gate that grants the free trial on first verification and caps accounts per client address.
 - `backend/internal/accountdeletion/` — deletion cascade and the `users_deleting` sweeper queue.
-- `backend/internal/app/` — `auth.go` and `auth_challenge.go` (HTTP controllers and cookie handling), `router.go` (route wiring), `ratelimit.go` and `limiters.go`, `origin.go`, `trial.go`, `email_intent.go`.
+- `backend/internal/app/` — `auth.go` and `auth_challenge.go` (HTTP controllers and cookie handling), `router.go` (route wiring), `ratelimit.go` and `limiters.go`, `origin.go`, `email_intent.go`.
 - `backend/shared/env/env.go` — keys and defaults; `backend/shared/db/indexes.go` — unique and TTL indexes; `backend/internal/platform/ratelimit/`, `clientip/`, `metrics/` — shared limiter, trusted-proxy client address, auth metrics.
 - `backend/internal/email/outbox/` and `backend/cmd/relay` — asynchronous delivery and the deletion sweeper; owned by `events-and-email`.
 - `web/src/auth/` — `auth_session.ts` (state machine, single-flight refresh/logout, pending code step), `auth_gate.tsx`, `auth_screen.tsx`, `auth_code_screen.tsx`, `auth_stage.tsx`, `next_path.ts`.

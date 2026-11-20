@@ -64,18 +64,17 @@ func staticResolver(paid bool) app.PlanResolver {
 }
 
 func TestPlanController_Get(t *testing.T) {
-	t.Run("Happy path: a Free account reports its trial used and remaining", func(t *testing.T) {
+	t.Run("Happy path: a Free account reports only its plan and no generation allowance", func(t *testing.T) {
 		store := mocks.NewMockStore(t)
-		store.EXPECT().FetchTrial(mock.Anything, planUserID).
-			Return(quota.TrialRow{UserID: planUserID, Allowance: 3, Used: 1}, nil).Once()
 
 		rec := getPlan(t, planEngine(t, store, staticResolver(false), planUserID))
 
 		require.Equal(t, http.StatusOK, rec.Code)
 		body := planBody(t, rec)
 		assert.Equal(t, "free", body["plan"])
-		assert.Equal(t, map[string]any{"used": float64(1), "remaining": float64(2)}, body["trial"])
-		assert.NotContains(t, body, "generations", "a Free account must not expose the paid quota")
+		assert.NotContains(t, body, "trial")
+		assert.NotContains(t, body, "last_free_generation")
+		assert.NotContains(t, body, "generations")
 	})
 
 	t.Run("Happy path: a paid account reports its daily quota and the next reset", func(t *testing.T) {
@@ -93,50 +92,7 @@ func TestPlanController_Get(t *testing.T) {
 		assert.InDelta(t, float64(25), generations["remaining"], 1e-9)
 		assert.Equal(t, "2026-11-15T00:00:00Z", generations["resets_at"])
 		assert.NotContains(t, body, "trial", "a paid account must not expose the Free trial")
-	})
-
-	t.Run("Happy path: a Free account with one trial generation left flags the last free generation", func(t *testing.T) {
-		store := mocks.NewMockStore(t)
-		store.EXPECT().FetchTrial(mock.Anything, planUserID).
-			Return(quota.TrialRow{UserID: planUserID, Allowance: 3, Used: 2}, nil).Once()
-
-		rec := getPlan(t, planEngine(t, store, staticResolver(false), planUserID))
-
-		require.Equal(t, http.StatusOK, rec.Code)
-		assert.Equal(t, true, planBody(t, rec)["last_free_generation"])
-	})
-
-	t.Run("Edge: a Free account with several or no generations left is not on its last one", func(t *testing.T) {
-		for _, used := range []int{0, 1, 3} {
-			store := mocks.NewMockStore(t)
-			store.EXPECT().FetchTrial(mock.Anything, planUserID).
-				Return(quota.TrialRow{UserID: planUserID, Allowance: 3, Used: used}, nil).Once()
-
-			rec := getPlan(t, planEngine(t, store, staticResolver(false), planUserID))
-
-			require.Equal(t, http.StatusOK, rec.Code)
-			assert.Equal(t, false, planBody(t, rec)["last_free_generation"], "used=%d", used)
-		}
-	})
-
-	t.Run("Edge: a paid account never flags a last free generation", func(t *testing.T) {
-		store := mocks.NewMockStore(t)
-		store.EXPECT().FetchDaily(mock.Anything, planUserID, "2026-11-14").Return(quota.PaidDailyLimit-1, nil).Once()
-
-		rec := getPlan(t, planEngine(t, store, staticResolver(true), planUserID))
-
-		require.Equal(t, http.StatusOK, rec.Code)
-		assert.Equal(t, false, planBody(t, rec)["last_free_generation"])
-	})
-
-	t.Run("Edge: a Free account without a trial row reads as zero allowance", func(t *testing.T) {
-		store := mocks.NewMockStore(t)
-		store.EXPECT().FetchTrial(mock.Anything, planUserID).Return(quota.TrialRow{}, nil).Once()
-
-		rec := getPlan(t, planEngine(t, store, staticResolver(false), planUserID))
-
-		require.Equal(t, http.StatusOK, rec.Code)
-		assert.Equal(t, map[string]any{"used": float64(0), "remaining": float64(0)}, planBody(t, rec)["trial"])
+		assert.NotContains(t, body, "last_free_generation")
 	})
 
 	t.Run("Edge: a paid account with a full day reports zero remaining", func(t *testing.T) {
@@ -174,15 +130,6 @@ func TestPlanController_Get(t *testing.T) {
 
 		assert.Equal(t, http.StatusInternalServerError, rec.Code)
 		assert.Contains(t, rec.Body.String(), `"INTERNAL_ERROR"`)
-	})
-
-	t.Run("Error: a trial read failure is 500", func(t *testing.T) {
-		store := mocks.NewMockStore(t)
-		store.EXPECT().FetchTrial(mock.Anything, planUserID).Return(quota.TrialRow{}, errors.New("timeout")).Once()
-
-		rec := getPlan(t, planEngine(t, store, staticResolver(false), planUserID))
-
-		assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	})
 
 	t.Run("Error: a daily read failure is 500", func(t *testing.T) {

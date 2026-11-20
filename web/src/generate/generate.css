@@ -63,25 +63,6 @@
   color: var(--lg-color-danger);
 }
 
-.lg-generate__quota {
-  margin: 0;
-  font-size: var(--lg-type-13);
-  line-height: var(--lg-line-normal);
-  color: var(--lg-color-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.lg-generate__quota-link {
-  font-size: var(--lg-type-15);
-  font-weight: var(--lg-font-weight-medium);
-  color: var(--lg-color-link);
-  text-underline-offset: var(--lg-underline-offset);
-}
-
-.lg-generate__quota-link:hover {
-  color: var(--lg-color-link-hover);
-}
-
 .lg-generate__actions {
   display: flex;
   flex-wrap: wrap;

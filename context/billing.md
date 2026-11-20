@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Billing turns a payment into a Plan. It owns the single paid monthly Plan, the Free allowance, provider checkout and portal, the signed webhook inbox, the subscription lifecycle, refunds, and the enforcement data the rest of the API reads. A user's Plan lives in `users.plan`; nothing else stores or interprets a subscription status.
+Billing turns a payment into a Plan. It owns the single paid monthly Plan, provider checkout and portal, the signed webhook inbox, the subscription lifecycle, refunds, and the enforcement data the rest of the API reads. A user's Plan lives in `users.plan`; nothing else stores or interprets a subscription status.
 
 ## Why
 
@@ -15,7 +15,7 @@ Billing turns a payment into a Plan. It owns the single paid monthly Plan, the F
 - **One monthly Plan, with cancellation as the only downgrade, over proration and switching because no paid-to-paid change exists; cost is that upgrading means a new subscription.**
 - **Hosted checkout and portal over a card form because card data stays out of PCI scope; cost is redirects and dashboard setup that code cannot enforce.**
 - **No grace period on failed renewal because no payment means no paid Plan; cost is an immediate drop to Free until a retry succeeds.**
-- **A lifetime Free allowance over a paid-plan trial because trials attract abuse and cost; cost is three generations, not a month of the paid Plan.**
+- **Paid-only AI generation over a Free allowance because every call costs money; cost is that Free users hit an upgrade modal instead of getting a draft.**
 - **An asynchronous refund queue over a synchronous refund because provider calls fail or time out; cost is eventual state, including a refund whose cancellation fails.**
 - **Keeping subscription records five years for fiscal retention while erasing the account; cost is a retained subscription row after deletion.**
 
@@ -110,6 +110,8 @@ Account deletion settles billing first: live provider subscriptions are canceled
 
 ## Contracts
 
+- **Ads follow the plan.** The web client hides ad slots (and never loads the AdSense script) when `isPaidPlan` is true; plan or unknown/loading plan shows no ads. The client reads the cached `['me','plan']` query, so an upgrade or downgrade toggles ads without a reload. The Paid plan lists "No ads" as an advantage.
+
 ### Endpoints
 
 All routes except the webhook require an authenticated, non-deleting user and the per-user rate limit. Success bodies use `{ "data": ... }`.
@@ -148,12 +150,11 @@ An event whose owner cannot be resolved from metadata, subscription ID or custom
 
 | Entitlement | Free | Paid |
 | --- | --- | --- |
-| Lifetime generations | 3 (`generation_trial`) | unused |
-| Daily generations | unused | 30 per UTC day (`generation_usage`) |
+| AI generations | none (upgrade modal) | 30 per UTC day (`generation_usage`) |
 | Character / NPC / enemy sheets | 1 / 2 / 2 | 10 / 50 / 50 |
 | Owned campaigns | 1 | 5 |
 
-The Free allowance needs a verified, non-disposable email and at most three accounts per IP in 24 hours; accounts over the limit exist without an allowance. It is reserved before a generation and refunded on failure. Exhausting it returns `403 PLAN_UPGRADE_REQUIRED`. Limits apply when a sheet or campaign is created or duplicated; existing rows are neither deleted nor locked when the Plan drops.
+Free accounts cannot generate or accept LLM consent: every attempt returns `403 PLAN_UPGRADE_REQUIRED`. A paid generation spends one unit of the daily counter, reserved before a generation and refunded on failure. Limits apply when a sheet or campaign is created or duplicated; existing rows are neither deleted nor locked when the Plan drops.
 
 ### Errors
 
@@ -164,7 +165,7 @@ The Free allowance needs a verified, non-disposable email and at most three acco
 | `NO_SUBSCRIPTION` | 404 | Portal without a customer; cancellation without an active provider subscription. |
 | `INVALID_SIGNATURE` | 400 | Webhook signature rejected. |
 | `REFUND_NOT_ELIGIBLE` | 409 | `details.reason` is `window_expired`, `already_used` or `not_subscribed`. |
-| `PLAN_UPGRADE_REQUIRED` | 403 | Free generation allowance exhausted. |
+| `PLAN_UPGRADE_REQUIRED` | 403 | Generation or LLM consent attempted on a Free Plan. |
 | `QUOTA_EXCEEDED` | 429 | Paid daily quota exhausted; `Retry-After` points to the next UTC day. |
 | `SHEET_LIMIT_REACHED` | 409 | Creating or duplicating past the sheet limit. |
 | `PLAN_LIMIT_REACHED` | 403 | Creating past the owned-campaign limit. |
@@ -186,8 +187,7 @@ Provider rejections on checkout or portal surface as `500 INTERNAL_ERROR`; timeo
 - `backend/internal/billing/stripe` — Stripe adapter: customers, Checkout, status mapping, webhook parsing, portal, cancel, refund and customer scrubbing.
 - `backend/internal/billing/billingtest` — fake provider and ledger.
 - `backend/internal/plan` — Plan IDs and sheet and campaign limits.
-- `backend/internal/quota` — lifetime trial allowance, paid daily quota, reserve and refund.
-- `backend/internal/trial` — verification, disposable-domain and per-IP trial gate.
+- `backend/internal/quota` — paid daily quota, reserve and refund.
 - `backend/internal/user/plan_source.go` — reads `users.plan`.
 - `backend/internal/app/billing.go`, `billing_portal.go` — `/billing/*` and webhook controllers; `plan.go` — `/me/plan` billing fields; `router.go`, `bootstrap.go` — wiring and provider selection.
 - `backend/internal/accountdeletion` — deletion queue that calls billing settlement.
@@ -198,7 +198,7 @@ Provider rejections on checkout or portal surface as `500 INTERNAL_ERROR`; timeo
 ## Tools & dependencies
 
 - **Stripe** through `stripe-go` v87: hosted Checkout and portal, signed webhooks, subscription retrieval, refunds and customer updates.
-- **MongoDB** collections `subscriptions`, `billing_events`, `billing_user_locks`, `event_outbox`, `users`, `generation_trial`, `generation_usage`.
+- **MongoDB** collections `subscriptions`, `billing_events`, `billing_user_locks`, `event_outbox`, `users`, `generation_usage`.
 - **The relay process** — billing consumer, refund queue, daily reconciler and deletion settlement.
 - **The event outbox and AMQP** — `plan.changed` to downstream consumers.
 - **Prometheus** — reconciliation corrections by kind.

@@ -43,10 +43,8 @@ export function mergeCascade(
   return merged;
 }
 
-export function isLastGeneration(
-  plan: { readonly lastFreeGeneration: boolean } | undefined,
-): boolean {
-  return plan?.lastFreeGeneration === true;
+export function isFreePlan(plan: { readonly plan: string } | undefined): boolean {
+  return plan !== undefined && plan.plan === 'free';
 }
 
 export const CONCEPT_MIN_LENGTH = 10;
@@ -115,16 +113,6 @@ export function decideWait(generation: Generation | undefined, elapsedMs: number
   }
 }
 
-export type Allowance =
-  { readonly kind: 'trial'; readonly remaining: number } | { readonly kind: 'unknown' };
-
 export function generationKind(param: string | null | undefined): SheetKind {
   return SHEET_KINDS.find((kind) => kind === param) ?? 'character';
-}
-
-export function trialAllowance(plan: { readonly trialRemaining: number | undefined }): Allowance {
-  if (plan.trialRemaining === undefined) {
-    return { kind: 'unknown' };
-  }
-  return { kind: 'trial', remaining: plan.trialRemaining };
 }

@@ -117,6 +117,8 @@ never marks values as unsaved and `Ctrl+S` saves nothing.
 
 ## Contracts
 
+- **Ad slot on the catalog.** The catalog (`catalog_screen.tsx`, the sheet list) ends with an `AdSlot` (`catalog` surface) shown only to Free accounts; the sheet screen, dice and Arrange mode never show ads (see web-client Ads).
+
 ### Template DTO
 
 `GET /templates` returns an array and `GET /templates/:id` one object; both require an
@@ -404,7 +406,8 @@ Backend:
 Web:
 
 - `web/src/catalog/catalog_screen.tsx`, `create_sheet_dialog.tsx`, `queries.ts` — catalog,
-  creation surface and query keys.
+  creation surface and query keys; on Free the dialog's `Generate with AI` entry carries a Pro
+  badge and opens the upgrade dialog (see [web-client](web-client.md)).
 - `web/src/engine/field_grouping.ts` — schema → Sections and Rows, row keys; `layout.ts`,
   `arrange_ops.ts` — arrangement resolution, view and staging.
 - `web/src/engine/sheet_form.tsx`, `field_control.tsx`, `exclusive_control.tsx`,

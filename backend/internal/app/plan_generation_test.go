@@ -66,8 +66,6 @@ func TestPlanController_GenerationStatus(t *testing.T) {
 	tests := []struct {
 		name        string
 		paid        bool
-		trial       quota.TrialRow
-		daily       bool
 		consent     app.ConsentChecker
 		active      app.ActiveGenerationReader
 		wantConsent bool
@@ -75,31 +73,14 @@ func TestPlanController_GenerationStatus(t *testing.T) {
 		wantErr     bool
 	}{
 		{
-			name:        "Happy path: a Free account with allowance and no consent is asked for it",
-			trial:       quota.TrialRow{UserID: planUserID, Allowance: 3, Used: 0},
-			consent:     fakeConsent{err: consentMissing},
-			active:      fakeActive{},
-			wantConsent: true,
-			wantActive:  nil,
-		},
-		{
-			name:        "Edge: a Free account with exhausted allowance is never asked for consent",
-			trial:       quota.TrialRow{UserID: planUserID, Allowance: 3, Used: 3},
+			name:        "Happy path: a Free account without consent is never asked for it",
 			consent:     fakeConsent{err: consentMissing},
 			active:      fakeActive{},
 			wantConsent: false,
 			wantActive:  nil,
-		},
-		{
-			name:        "Edge: a Free account with no trial row is never asked for consent",
-			trial:       quota.TrialRow{},
-			consent:     fakeConsent{err: consentMissing},
-			active:      fakeActive{},
-			wantConsent: false,
 		},
 		{
 			name:        "Edge: a Free account that already consented is not asked again",
-			trial:       quota.TrialRow{UserID: planUserID, Allowance: 3, Used: 1},
 			consent:     fakeConsent{},
 			active:      fakeActive{},
 			wantConsent: false,
@@ -108,28 +89,24 @@ func TestPlanController_GenerationStatus(t *testing.T) {
 		{
 			name:        "Happy path: a paid account without consent is asked for it",
 			paid:        true,
-			daily:       true,
 			consent:     fakeConsent{err: consentMissing},
 			active:      fakeActive{},
 			wantConsent: true,
 		},
 		{
 			name:       "Happy path: a queued generation is reported by id",
-			trial:      quota.TrialRow{UserID: planUserID, Allowance: 3, Used: 1},
 			consent:    fakeConsent{},
 			active:     fakeActive{id: jobID, active: true},
 			wantActive: jobID,
 		},
 		{
-			name:    "Error: a consent check that fails for another reason is a 500",
-			trial:   quota.TrialRow{UserID: planUserID, Allowance: 3, Used: 0},
-			consent: fakeConsent{err: errors.New("store down")},
+			name:    "Error: a consent read that fails for another reason is a 500",
+			consent: fakeConsent{statusErr: errors.New("store down")},
 			active:  fakeActive{},
 			wantErr: true,
 		},
 		{
 			name:    "Error: an active-generation lookup failure is a 500",
-			trial:   quota.TrialRow{UserID: planUserID, Allowance: 3, Used: 1},
 			consent: fakeConsent{},
 			active:  fakeActive{err: errors.New("store down")},
 			wantErr: true,
@@ -139,7 +116,6 @@ func TestPlanController_GenerationStatus(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			store := mocks.NewMockStore(t)
-			store.EXPECT().FetchTrial(mock.Anything, planUserID).Return(tc.trial, nil).Maybe()
 			store.EXPECT().FetchDaily(mock.Anything, planUserID, mock.Anything).Return(0, nil).Maybe()
 
 			rec := getPlan(t, planGenerationEngine(t, store, tc.paid, tc.consent, tc.active))
@@ -158,8 +134,6 @@ func TestPlanController_GenerationStatus(t *testing.T) {
 
 func TestPlanController_GenerationStatusAbsentWithoutOption(t *testing.T) {
 	store := mocks.NewMockStore(t)
-	store.EXPECT().FetchTrial(mock.Anything, planUserID).
-		Return(quota.TrialRow{UserID: planUserID, Allowance: 3, Used: 0}, nil).Once()
 
 	rec := getPlan(t, planEngine(t, store, staticResolver(false), planUserID))
 
@@ -215,8 +189,6 @@ func TestPlanController_ConsentRecord(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			store := mocks.NewMockStore(t)
-			store.EXPECT().FetchTrial(mock.Anything, planUserID).
-				Return(quota.TrialRow{UserID: planUserID, Allowance: 3, Used: 0}, nil).Maybe()
 
 			rec := getPlan(t, planGenerationEngine(t, store, false, tc.consent, fakeActive{}))
 			require.Equal(t, tc.wantStatus, rec.Code)

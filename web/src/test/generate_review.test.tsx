@@ -174,79 +174,36 @@ describe('review step derived values (LGN-196, throttled preview)', () => {
   });
 });
 
-describe('regenerate and the last generation (LGN-196)', () => {
-  it('Edge: with several left, regenerate goes straight back to the concept', async () => {
-    const { user } = await reachReview({}, { trial: { used: 1, remaining: 2 } });
+describe('regenerate (LGN-196, LGN-342)', () => {
+  it('Happy path: regenerate goes back to the concept step', async () => {
+    const { user } = await reachReview();
 
-    await user.click(screen.getByRole('button', { name: 'Regenerate (2 left)' }));
+    await user.click(screen.getByRole('button', { name: 'Regenerate' }));
 
     expect(await screen.findByLabelText('Describe your character')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).toBeNull();
   });
 
-  it('Edge: on the last generation, regenerate asks first and keeps the review until confirmed', async () => {
-    const { user } = await reachReview(
-      {},
-      { trial: { used: 2, remaining: 1 }, last_free_generation: true },
-    );
+  it('Edge: regenerating with unsaved edits asks before discarding them', async () => {
+    const { user } = await reachReview();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Level' }), { target: { value: '4' } });
 
-    await user.click(screen.getByRole('button', { name: 'Regenerate (1 left)' }));
+    await user.click(screen.getByRole('button', { name: 'Regenerate' }));
 
     expect(
-      await screen.findByRole('dialog', { name: /last free generation/i }),
+      await screen.findByRole('dialog', { name: 'Leave without saving?' }),
     ).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Review your character' })).toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: 'Keep this character' }));
-    expect(screen.getByRole('heading', { name: 'Review your character' })).toBeInTheDocument();
   });
 
-  it('Edge: the count alone never asks; only the server flag does', async () => {
-    const { user } = await reachReview({}, { trial: { used: 2, remaining: 1 } });
+  it('Happy path: confirming the discard returns to the concept step', async () => {
+    const { user } = await reachReview();
+    fireEvent.change(screen.getByRole('textbox', { name: 'Level' }), { target: { value: '4' } });
+    await user.click(screen.getByRole('button', { name: 'Regenerate' }));
 
-    await user.click(screen.getByRole('button', { name: 'Regenerate (1 left)' }));
+    await user.click(await screen.findByRole('button', { name: 'Leave' }));
 
     expect(await screen.findByLabelText('Describe your character')).toBeInTheDocument();
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('Happy path: confirming the last generation returns to the concept', async () => {
-    const { user } = await reachReview(
-      {},
-      { trial: { used: 2, remaining: 1 }, last_free_generation: true },
-    );
-    await user.click(screen.getByRole('button', { name: 'Regenerate (1 left)' }));
-
-    await user.click(await screen.findByRole('button', { name: 'Use my last one' }));
-
-    expect(await screen.findByLabelText('Describe your character')).toBeInTheDocument();
-  });
-
-  it('Edge: once the server has spent the last generation, regenerate is disabled', async () => {
-    let plansRead = 0;
-    const user = userEvent.setup();
-    renderGenerate({
-      ...succeededRoutes(),
-      'GET /me/plan': () => {
-        plansRead += 1;
-        return ok(
-          planWith(
-            plansRead === 1
-              ? { trial: { used: 2, remaining: 1 }, last_free_generation: true }
-              : { trial: { used: 3, remaining: 0 } },
-          ),
-        );
-      },
-    });
-    await screen.findByLabelText('Describe your character');
-    fireEvent.change(conceptField(), { target: { value: VALID_CONCEPT } });
-    await user.click(generateButton());
-    await screen.findByRole('heading', { name: 'Review your character' });
-
-    expect(screen.getByRole('button', { name: 'Regenerate (0 left)' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    );
   });
 });
 

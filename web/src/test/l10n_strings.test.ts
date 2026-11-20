@@ -208,6 +208,9 @@ describe('the parameterized copy resolution', () => {
           carry: 105,
           before: '3',
           after: '4',
+          characters: 10,
+          npcs: 50,
+          enemies: 50,
         }),
       ).not.toMatch(/\{(\w+)\}/);
     }

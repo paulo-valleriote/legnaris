@@ -17,6 +17,7 @@ Generation turns a short free-text concept into a draft of values for a Template
 - **Excluding the player name over asking the model for it:** the model cannot know it, so it never enters the prompt or schema; the field stays editable and seeds empty, and the Sheet name is suggested only from the character name.
 - **Keeping concept and output out of logs over rich debugging:** both may hold the player's text; the cost is logs limited to identifiers, counters, timing and classified errors.
 - **One open job plus a global daily cap over per-user limits alone:** both bound provider spend and keep the UI unambiguous; the cost is that a second request conflicts and a shared cap can refuse everyone for a day.
+- **Paid-only generation over a Free allowance:** every call costs money; the cost is that a Free account sees an upgrade modal instead of a draft.
 
 ## Flows
 
@@ -29,7 +30,7 @@ sequenceDiagram
     participant K as Worker
     participant L as OpenRouter
     W->>A: GET /me/plan
-    A-->>W: consent required?, allowance, active generation
+    A-->>W: consent required?, paid quota, active generation
     opt consent missing or outdated
         W->>A: PUT /me/llm-consent {version}
         A->>M: set llm_consent_at, llm_consent_version
@@ -77,15 +78,17 @@ stateDiagram-v2
 
 ## Contracts
 
+- **Upgrade dialog lists No ads.** The Free upgrade dialog (`upgrade_dialog.tsx`) lists "No ads" next to the paid limits; generation screens never show ads.
+
 ### Endpoints
 
 | Endpoint | Success | Contract |
 | --- | --- | --- |
-| `POST /generations` | `202 {id}` | Body `{template_id, kind, concept}`; `kind` is `character`, `npc` or `enemy` and `concept` is 10–1000 runes after sanitizing. Gates: kill switch, shape, Template accepts the kind, consent, read-only Sheet limit, no open job, then one transaction for cap, quota and the `queued` insert. The publish follows the commit; a failed publish still answers 202. |
+| `POST /generations` | `202 {id}` | Body `{template_id, kind, concept}`; `kind` is `character`, `npc` or `enemy` and `concept` is 10–1000 runes after sanitizing. Gates: kill switch, shape, Template accepts the kind, paid Plan, consent, read-only Sheet limit, no open job, then one transaction for cap, quota and the `queued` insert. The publish follows the commit; a failed publish still answers 202. A Free account is refused with 403 `PLAN_UPGRADE_REQUIRED` before any reservation. |
 | `GET /generations/{id}` | `200` | `{id, status, kind, template_id, values?, error_code?, suggested_name, created_at}`. `values` appears on `succeeded`/`accepted`, `error_code` on `failed`, and `suggested_name` is always present, `null` when absent. A missing or foreign id is 404. |
 | `POST /generations/{id}/accept` | `201 {sheet_id}`, `200` on repeat | Body `{sheet_name, values}`. Values go through the normal DAG path used by a Sheet create; derived (non-editable) leaves sent back from the preview are dropped and recalculated, while unknown keys are still refused, then the slot is reserved and the Sheet created in one transaction. A job that is not `succeeded` is 409. |
-| `PUT`/`DELETE /me/llm-consent` | `204` | `PUT {version}` records consent idempotently; another version is 400 `VALIDATION`. `DELETE` clears consent, refunds open reservations and deletes the user's generation documents. |
-| `GET /me/plan` | `200` | Adds `llm_consent_required`, `llm_consent_at`, `llm_consent_version`, `last_free_generation` and `active_generation_id` beside the trial or daily counters. `last_free_generation` is server-derived (remaining == 1), so every client shows the same confirmation, and `active_generation_id` lets the screen resume polling. |
+| `PUT`/`DELETE /me/llm-consent` | `204` | `PUT {version}` records consent idempotently; another version is 400 `VALIDATION` and a Free Plan is 403 `PLAN_UPGRADE_REQUIRED`. `DELETE` clears consent, refunds open reservations and deletes the user's generation documents. |
+| `GET /me/plan` | `200` | Adds `llm_consent_required`, `llm_consent_at`, `llm_consent_version` and `active_generation_id` beside the paid daily counter. A Free account returns only `plan: "free"`: no counter and no `llm_consent_required`. `active_generation_id` lets the screen resume polling. |
 
 Create and accept share 5 requests/min per user (`GENERATION_CREATE_RATE_LIMIT_*`); reads allow 30/min (`GENERATION_READ_RATE_LIMIT_*`); refusals are 429 `RATE_LIMITED` with `Retry-After`.
 
@@ -93,22 +96,21 @@ Create and accept share 5 requests/min per user (`GENERATION_CREATE_RATE_LIMIT_*
 
 Statuses are `queued`, `running`, `succeeded`, `failed` and `accepted`. Failure codes stored on the document are `publish_failed`, `provider_unavailable`, `provider_failed`, `invalid_output`, `template_unavailable` and `lease_expired`.
 
-API errors: `INVALID_REQUEST` and `INVALID_JSON` 400; `UNAUTHORIZED` 401; `LLM_CONSENT_REQUIRED` 403; `PLAN_UPGRADE_REQUIRED` 403 when the trial is spent; `NOT_FOUND` 404; `SHEET_LIMIT_REACHED` 409 with `{kind, limit}`; `GENERATION_IN_PROGRESS` 409; `CONFLICT` 409 for an accept that is not ready; `QUOTA_EXCEEDED` 429 and `GENERATION_CAP_REACHED` 503 with `Retry-After` until the next UTC midnight; `PROVIDER_UNAVAILABLE` 503 for the kill switch or no eligible provider; `VALIDATION` 400 for a consent version mismatch.
+API errors: `INVALID_REQUEST` and `INVALID_JSON` 400; `UNAUTHORIZED` 401; `LLM_CONSENT_REQUIRED` 403; `PLAN_UPGRADE_REQUIRED` 403 for a Free account requesting a generation or accepting consent; `NOT_FOUND` 404; `SHEET_LIMIT_REACHED` 409 with `{kind, limit}`; `GENERATION_IN_PROGRESS` 409; `CONFLICT` 409 for an accept that is not ready; `QUOTA_EXCEEDED` 429 and `GENERATION_CAP_REACHED` 503 with `Retry-After` until the next UTC midnight; `PROVIDER_UNAVAILABLE` 503 for the kill switch or no eligible provider; `VALIDATION` 400 for a consent version mismatch.
 
 ### Persisted shapes and indexes
 
 - `generations` — UUID v7 id, `user_id`, `template_id`, `kind`, sanitized `concept`, `status`, `active_user_id`, `attempts`, `lease_until`, `publish_lease_until`, `publish_attempts`, `reap_attempts`, `values`, `error_code`, `sheet_id`, `quota {kind, day_utc}`, `created_at`, `expires_at`. A sparse unique index on `active_user_id` enforces one open job per user; a TTL index on `expires_at` removes the document 24 h after creation.
 - `generation_cap` — one row per UTC day with `count`, expiring after 48 h; the cap is reserved atomically before the insert and is never refunded.
-- `generation_usage` — `{user_id, day_utc, count}` for the paid daily quota, unique per user and day, expiring after 48 h.
-- `generation_trial` — `{_id: user_id, allowance, used}` for the free lifetime trial. `users` carries `llm_consent_at` and `llm_consent_version`.
+- `generation_usage` — `{user_id, day_utc, count}` for the paid daily quota, unique per user and day, expiring after 48 h. `users` carries `llm_consent_at` and `llm_consent_version`.
 
 ### Quotas
 
-Free accounts spend a lifetime allowance of 3; paid accounts spend 30 per UTC day. Both are reserved in the job's insert transaction and refunded when a job ends `failed` (provider, invalid output, expired lease or exhausted publish). Schema and transport retries are free, republishing is free, and regenerating is a new job that spends one. The global cap defaults to 200 jobs per UTC day (`GENERATION_DAILY_CAP`) and is shared by every kind and Plan.
+Paid accounts spend 30 per UTC day. Only a paid Plan may generate: a Free request is refused before any reservation with 403 `PLAN_UPGRADE_REQUIRED`. The quota is reserved in the job's insert transaction and refunded when a job ends `failed` (provider, invalid output, expired lease or exhausted publish). Schema and transport retries are free, republishing is free, and regenerating is a new job that spends one. The global cap defaults to 200 jobs per UTC day (`GENERATION_DAILY_CAP`) and is shared by every kind and Plan.
 
 ### Consent and legal copies
 
-The consent version is the constant `3`. `docs/legal/llm-consent.json` is the source of truth for the version and wording (English and pt-BR): OpenRouter as gateway, DeepSeek V4.1 Flash as model, transfer outside Brazil including China, 24 h retention in Legnaris, each provider's own retention and training terms, and how to revoke. A user with no allowance is never asked: `llm_consent_required` is set only when the Plan can generate. A copy lives in `backend/internal/llmconsent/llm-consent.json` beside the version constant, and the web imports `web/src/generate/llm_consent.json`. Both copies must match the source: `TestVersionMatchesDisclosure` compares the backend copy byte-for-byte and the constant's version, while `llm_consent_sync.test.ts` compares the web copy's parsed JSON. Bump the version and all three copies whenever provider, model, region, retention or revocation changes. `docs/legal/privacy-policy.en.md` and `privacy-policy.pt-BR.md` are equally authoritative, with web copies pinned by `privacy_policy_sync.test.ts`.
+The consent version is the constant `3`. `docs/legal/llm-consent.json` is the source of truth for the version and wording (English and pt-BR): OpenRouter as gateway, DeepSeek V4.1 Flash as model, transfer outside Brazil including China, 24 h retention in Legnaris, each provider's own retention and training terms, and how to revoke. Consent is offered and accepted only on a paid Plan: a Free account cannot record it and is never asked, because `llm_consent_required` is set only when the Plan can generate. A copy lives in `backend/internal/llmconsent/llm-consent.json` beside the version constant, and the web imports `web/src/generate/llm_consent.json`. Both copies must match the source: `TestVersionMatchesDisclosure` compares the backend copy byte-for-byte and the constant's version, while `llm_consent_sync.test.ts` compares the web copy's parsed JSON. Bump the version and all three copies whenever provider, model, region, retention or revocation changes. `docs/legal/privacy-policy.en.md` and `privacy-policy.pt-BR.md` are equally authoritative, with web copies pinned by `privacy_policy_sync.test.ts`.
 
 ### Prompt, schema and validation
 
@@ -131,7 +133,7 @@ Output is parsed as strict JSON (1 MiB bound), rejected on unknown keys, checked
 - `backend/internal/llm` — `Client` port, request/response types and transient/permanent/unavailable errors.
 - `backend/internal/llm/factory` and `backend/internal/llm/openrouter` — adapter selection and the OpenAI-compatible HTTP client, routing and logging.
 - `backend/internal/llmconsent` — consent service, Mongo stores, version check and the embedded disclosure.
-- `backend/internal/quota` — trial and daily counters, reservation and refund.
+- `backend/internal/quota` — paid daily counter, reservation and refund.
 - `backend/internal/sheet` — `create_values.go` (accept) and `limits.go` (limit check and slot reservation).
 - `backend/internal/sheet/template` — generation metadata, name leaf, seeding and the registry.
 - `backend/internal/app` — `generation.go`, `llm_consent.go`, `plan.go`, `router.go` and `bootstrap.go`.
@@ -156,7 +158,7 @@ Output is parsed as strict JSON (1 MiB bound), rejected on unknown keys, checked
 - There is no streaming and no cancel endpoint; regenerate is a new paid job.
 - Only one generation may be open per user, so a second request conflicts even when the first is nearly done.
 - No Campaign data reaches the prompt, because it may hold other users' data that the consent does not cover.
-- The paid daily counter exists alongside the Free trial; a Free account whose trial is spent is refused with `PLAN_UPGRADE_REQUIRED` until it upgrades.
+- Generation is paid-only; a Free account sees an upgrade modal and every request is refused with `PLAN_UPGRADE_REQUIRED`.
 - The cap and quota are shared across kinds; there is no per-kind budget, and the cap is not refunded for failed jobs.
 - Provider availability and routing are outside Legnaris' control; there is no zero-retention guarantee, and an outage or refusal ends the job with a refund.
 - Generation documents disappear only when Mongo's TTL monitor runs, so 24 h is a floor rather than an exact deadline; deletion and revocation remove them explicitly.

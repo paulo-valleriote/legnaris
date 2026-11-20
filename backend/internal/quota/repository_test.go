@@ -27,20 +27,6 @@ func newMongoStore(t *testing.T) (*quota.MongoStore, *mongo.Database) {
 	return quota.NewMongoStore(mdb), mdb
 }
 
-func seedTrial(t *testing.T, mdb *mongo.Database, userID string, allowance, used int) {
-	t.Helper()
-	_, err := mdb.Collection(quota.TrialCollection).InsertOne(context.Background(),
-		quota.TrialRow{UserID: userID, Allowance: allowance, Used: used})
-	require.NoError(t, err)
-}
-
-func trialUsed(t *testing.T, mdb *mongo.Database, userID string) int {
-	t.Helper()
-	var row quota.TrialRow
-	require.NoError(t, mdb.Collection(quota.TrialCollection).FindOne(context.Background(), bson.D{{Key: "_id", Value: userID}}).Decode(&row))
-	return row.Used
-}
-
 func countDailyRows(t *testing.T, mdb *mongo.Database, userID string) int64 {
 	t.Helper()
 	n, err := mdb.Collection(quota.UsageCollection).CountDocuments(context.Background(), bson.D{{Key: "user_id", Value: userID}})
@@ -63,119 +49,6 @@ const (
 	dayOne    = "2026-11-14"
 	dayTwo    = "2026-11-15"
 )
-
-func TestMongoStoreReserveTrial(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("Happy path: an unused allowance is reserved and counted", func(t *testing.T) {
-		store, mdb := newMongoStore(t)
-		seedTrial(t, mdb, storeUser, 3, 0)
-
-		ok, err := store.ReserveTrial(ctx, storeUser)
-		require.NoError(t, err)
-		assert.True(t, ok)
-		assert.Equal(t, 1, trialUsed(t, mdb, storeUser))
-	})
-
-	t.Run("Edge: an account without a trial row is refused and gets no row", func(t *testing.T) {
-		store, mdb := newMongoStore(t)
-
-		ok, err := store.ReserveTrial(ctx, storeUser)
-		require.NoError(t, err)
-		assert.False(t, ok)
-
-		n, err := mdb.Collection(quota.TrialCollection).CountDocuments(ctx, bson.D{})
-		require.NoError(t, err)
-		assert.Zero(t, n, "reserving must never create the allowance")
-	})
-
-	t.Run("Edge: a zero allowance is refused even with a row", func(t *testing.T) {
-		store, mdb := newMongoStore(t)
-		seedTrial(t, mdb, storeUser, 0, 0)
-
-		ok, err := store.ReserveTrial(ctx, storeUser)
-		require.NoError(t, err)
-		assert.False(t, ok)
-		assert.Equal(t, 0, trialUsed(t, mdb, storeUser))
-	})
-
-	t.Run("Edge: a spent allowance is refused and not counted past its limit", func(t *testing.T) {
-		store, mdb := newMongoStore(t)
-		seedTrial(t, mdb, storeUser, 3, 3)
-
-		ok, err := store.ReserveTrial(ctx, storeUser)
-		require.NoError(t, err)
-		assert.False(t, ok)
-		assert.Equal(t, 3, trialUsed(t, mdb, storeUser))
-	})
-
-	t.Run("Edge: concurrent reservations at the limit grant exactly the allowance", func(t *testing.T) {
-		store, mdb := newMongoStore(t)
-		seedTrial(t, mdb, storeUser, 3, 0)
-
-		var granted atomic.Int32
-		var wg sync.WaitGroup
-		for range 16 {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				ok, err := store.ReserveTrial(ctx, storeUser)
-				assert.NoError(t, err)
-				if ok {
-					granted.Add(1)
-				}
-			}()
-		}
-		wg.Wait()
-
-		assert.EqualValues(t, 3, granted.Load())
-		assert.Equal(t, 3, trialUsed(t, mdb, storeUser))
-	})
-
-	t.Run("Edge: another account's allowance is not touched", func(t *testing.T) {
-		store, mdb := newMongoStore(t)
-		seedTrial(t, mdb, otherUser, 3, 0)
-
-		ok, err := store.ReserveTrial(ctx, storeUser)
-		require.NoError(t, err)
-		assert.False(t, ok)
-		assert.Equal(t, 0, trialUsed(t, mdb, otherUser))
-	})
-}
-
-func TestMongoStoreRefundTrial(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("Happy path: a refund returns one generation and frees a slot", func(t *testing.T) {
-		store, mdb := newMongoStore(t)
-		seedTrial(t, mdb, storeUser, 3, 3)
-
-		require.NoError(t, store.RefundTrial(ctx, storeUser))
-		assert.Equal(t, 2, trialUsed(t, mdb, storeUser))
-
-		ok, err := store.ReserveTrial(ctx, storeUser)
-		require.NoError(t, err)
-		assert.True(t, ok, "the refunded slot must be reservable again")
-	})
-
-	t.Run("Edge: a refund on an unused allowance never goes negative", func(t *testing.T) {
-		store, mdb := newMongoStore(t)
-		seedTrial(t, mdb, storeUser, 3, 0)
-
-		require.NoError(t, store.RefundTrial(ctx, storeUser))
-		assert.Equal(t, 0, trialUsed(t, mdb, storeUser))
-	})
-
-	t.Run("Edge: a refund for an account without a row is a no-op and creates nothing", func(t *testing.T) {
-		store, mdb := newMongoStore(t)
-
-		require.NoError(t, store.RefundTrial(ctx, storeUser))
-
-		n, err := mdb.Collection(quota.TrialCollection).CountDocuments(ctx, bson.D{})
-		require.NoError(t, err)
-		assert.Zero(t, n)
-	})
-}
 
 func TestMongoStoreReserveDaily(t *testing.T) {
 	ctx := context.Background()
@@ -316,23 +189,6 @@ func TestMongoStoreRefundDaily(t *testing.T) {
 func TestMongoStoreFetch(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("Edge: a missing trial row reads as the zero value", func(t *testing.T) {
-		store, _ := newMongoStore(t)
-
-		row, err := store.FetchTrial(ctx, storeUser)
-		require.NoError(t, err)
-		assert.Equal(t, quota.TrialRow{}, row)
-	})
-
-	t.Run("Happy path: a trial row reads back with its allowance and used count", func(t *testing.T) {
-		store, mdb := newMongoStore(t)
-		seedTrial(t, mdb, storeUser, quota.TrialAllowance, 2)
-
-		row, err := store.FetchTrial(ctx, storeUser)
-		require.NoError(t, err)
-		assert.Equal(t, quota.TrialRow{UserID: storeUser, Allowance: quota.TrialAllowance, Used: 2}, row)
-	})
-
 	t.Run("Edge: a day with no counter reads as zero", func(t *testing.T) {
 		store, _ := newMongoStore(t)
 
@@ -345,17 +201,12 @@ func TestMongoStoreFetch(t *testing.T) {
 func TestMongoStoreInTransaction(t *testing.T) {
 	ctx := context.Background()
 
-	t.Run("Happy path: a committed transaction keeps both reservations", func(t *testing.T) {
+	t.Run("Happy path: a committed transaction keeps the daily reservation", func(t *testing.T) {
 		store, mdb := newMongoStore(t)
-		seedTrial(t, mdb, storeUser, 3, 0)
 		transactor := db.NewTransactor(mdb.Client(), nil)
 
 		err := transactor.WithTransaction(ctx, func(tx context.Context) error {
-			ok, err := store.ReserveTrial(tx, storeUser)
-			if err != nil || !ok {
-				return errors.Join(errNoAllowance, err)
-			}
-			ok, err = store.ReserveDaily(tx, storeUser, dayOne, time.Now().Add(time.Hour))
+			ok, err := store.ReserveDaily(tx, storeUser, dayOne, time.Now().Add(time.Hour))
 			if err != nil || !ok {
 				return errors.Join(errNoAllowance, err)
 			}
@@ -363,21 +214,16 @@ func TestMongoStoreInTransaction(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		assert.Equal(t, 1, trialUsed(t, mdb, storeUser))
 		used, err := store.FetchDaily(ctx, storeUser, dayOne)
 		require.NoError(t, err)
 		assert.Equal(t, 1, used)
 	})
 
-	t.Run("Edge: a rolled-back transaction leaves both counters untouched", func(t *testing.T) {
+	t.Run("Edge: a rolled-back transaction leaves the daily counter untouched", func(t *testing.T) {
 		store, mdb := newMongoStore(t)
-		seedTrial(t, mdb, storeUser, 3, 0)
 		transactor := db.NewTransactor(mdb.Client(), nil)
 
 		err := transactor.WithTransaction(ctx, func(tx context.Context) error {
-			if _, err := store.ReserveTrial(tx, storeUser); err != nil {
-				return err
-			}
 			if _, err := store.ReserveDaily(tx, storeUser, dayOne, time.Now().Add(time.Hour)); err != nil {
 				return err
 			}
@@ -386,25 +232,23 @@ func TestMongoStoreInTransaction(t *testing.T) {
 		require.ErrorIs(t, err, db.ErrTransactionAborted)
 		require.ErrorIs(t, err, errNoAllowance)
 
-		assert.Equal(t, 0, trialUsed(t, mdb, storeUser))
 		used, err := store.FetchDaily(ctx, storeUser, dayOne)
 		require.NoError(t, err)
 		assert.Zero(t, used)
 	})
 
-	t.Run("Edge: concurrent transactions at the trial limit grant exactly the allowance", func(t *testing.T) {
+	t.Run("Edge: concurrent transactions grant exactly the daily limit", func(t *testing.T) {
 		store, mdb := newMongoStore(t)
-		seedTrial(t, mdb, storeUser, 3, 0)
 		transactor := db.NewTransactor(mdb.Client(), nil)
 
 		var granted atomic.Int32
 		var wg sync.WaitGroup
-		for range 8 {
+		for range 40 {
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				err := transactor.WithTransaction(ctx, func(tx context.Context) error {
-					ok, err := store.ReserveTrial(tx, storeUser)
+					ok, err := store.ReserveDaily(tx, storeUser, dayOne, time.Now().Add(time.Hour))
 					if err != nil {
 						return err
 					}
@@ -420,7 +264,9 @@ func TestMongoStoreInTransaction(t *testing.T) {
 		}
 		wg.Wait()
 
-		assert.EqualValues(t, 3, granted.Load())
-		assert.Equal(t, 3, trialUsed(t, mdb, storeUser))
+		assert.EqualValues(t, quota.PaidDailyLimit, granted.Load())
+		used, err := store.FetchDaily(ctx, storeUser, dayOne)
+		require.NoError(t, err)
+		assert.Equal(t, quota.PaidDailyLimit, used)
 	})
 }

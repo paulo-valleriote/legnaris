@@ -49,8 +49,6 @@ type TemplateSource interface {
 }
 
 type Quota interface {
-	ReserveTrial(ctx context.Context, userID string) error
-	RefundTrial(ctx context.Context, userID string) error
 	ReserveDaily(ctx context.Context, userID string) (string, error)
 	RefundDaily(ctx context.Context, userID, dayUTC string) error
 }

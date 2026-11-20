@@ -331,6 +331,45 @@ describe('plans screen layout and standing conditions (DESIGN.md)', () => {
   });
 });
 
+describe('plans screen: paid advantages (LGN-340)', () => {
+  async function paidCard(): Promise<HTMLElement> {
+    const heading = await screen.findByRole('heading', { name: message('account.planPaid') });
+    const card = heading.closest('article');
+    expect(card).not.toBeNull();
+    return card as HTMLElement;
+  }
+
+  it('Happy path: a free account sees No ads as a Paid plan advantage', async () => {
+    const script = scriptedBilling({ plans: [json(FREE_NEVER_SUBSCRIBED)] });
+    renderApp('/plans', { client: script.client });
+
+    const paid = await paidCard();
+    const advantages = within(paid).getByRole('list', { name: message('plans.paidAdvantages') });
+    expect(within(advantages).getByText(message('plans.paidNoAds'))).toBeInTheDocument();
+  });
+
+  it('Edge: the Free plan card does not list the Paid advantages', async () => {
+    const script = scriptedBilling({ plans: [json(FREE_NEVER_SUBSCRIBED)] });
+    renderApp('/plans', { client: script.client });
+
+    const heading = await screen.findByRole('heading', { name: message('account.planFree') });
+    const free = heading.closest('article');
+    expect(free).not.toBeNull();
+    expect(within(free as HTMLElement).queryByText(message('plans.paidNoAds'))).toBeNull();
+  });
+
+  it('Edge: a paid account still sees No ads in its current plan card', async () => {
+    const script = scriptedBilling({ plans: [json(PAID_ACTIVE)] });
+    renderApp('/plans', { client: script.client });
+
+    const paid = await paidCard();
+    expect(
+      within(paid).getByText(messageWith('plans.current', { plan: message('account.planPaid') })),
+    ).toBeInTheDocument();
+    expect(within(paid).getByText(message('plans.paidNoAds'))).toBeInTheDocument();
+  });
+});
+
 describe('plans screen: return from checkout (LGN-256)', () => {
   beforeEach(() => {
     vi.useFakeTimers({

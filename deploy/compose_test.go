@@ -138,6 +138,38 @@ func TestWebServiceReadsApiOriginAtRuntime(t *testing.T) {
 	})
 }
 
+func TestWebServiceReadsAdSenseAtRuntime(t *testing.T) {
+	doc := readCompose(t)
+
+	web, ok := doc.Services["web"]
+	require.True(t, ok, "the stack must define a web service")
+
+	keys := []string{
+		"ADSENSE_CLIENT",
+		"ADSENSE_SLOT_CATALOG",
+		"ADSENSE_SLOT_CAMPAIGNS",
+		"ADSENSE_SLOT_LANDING",
+	}
+
+	t.Run("Happy path: the AdSense settings are optional interpolations", func(t *testing.T) {
+		for _, key := range keys {
+			value, present := web.Environment[key]
+			require.Truef(t, present, "web.environment must pass %s through", key)
+			assert.Equalf(t, "${"+key+":-}", value, "%s must default to empty", key)
+		}
+	})
+
+	t.Run("Edge: the deployment template documents the optional variables", func(t *testing.T) {
+		raw, err := os.ReadFile(envExampleFile)
+		require.NoErrorf(t, err, "read %s", envExampleFile)
+
+		for _, key := range keys {
+			assert.Containsf(t, string(raw), "\n# "+key+"=", "%s must be documented as optional in %s", key, envExampleFile)
+			assert.NotContainsf(t, string(raw), "\n"+key+"=", "%s must not be required by the CD key check", key)
+		}
+	})
+}
+
 func TestAppServiceTrustedProxyCIDRs(t *testing.T) {
 	doc := readCompose(t)
 
@@ -1175,6 +1207,15 @@ func TestProductionTraefikIsConfiguredOnlyByFlags(t *testing.T) {
 			"--providers.file.directory=/etc/traefik/dynamic",
 		} {
 			assert.Contains(t, traefik.Command, want)
+		}
+	})
+	t.Run("Happy path: the dynamic config directory is mounted so edits reach the running proxy", func(t *testing.T) {
+		assert.Contains(t, traefik.Volumes, "./traefik:/etc/traefik/dynamic:ro")
+		assert.Contains(t, traefik.Command, "--providers.file.watch=true")
+	})
+	t.Run("Edge: a single-file bind mount would pin the inode a deploy replaces", func(t *testing.T) {
+		for _, v := range traefik.Volumes {
+			assert.NotContains(t, v, "dynamic.yml")
 		}
 	})
 }

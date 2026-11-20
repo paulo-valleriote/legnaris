@@ -1,6 +1,8 @@
 import { createContext, useContext, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { AdsConfig } from '../ads/ads_config';
+import { AdsProvider } from '../ads/ads_provider';
 import type { AuthApi } from '../api/auth_api';
 import { createAuthApi } from '../api/auth_api';
 import { createAuthenticatedTransport } from '../api/authenticated_transport';
@@ -34,6 +36,9 @@ export interface AppProvidersProps {
   readonly queryClient?: QueryClient;
   readonly sheetStore?: SheetStore;
   readonly viewStorage?: ViewStorage;
+  readonly adsConfig?: AdsConfig | null;
+  readonly adsDocument?: Document;
+  readonly adsWindow?: Window;
 }
 
 function createDefaultQueryClient(): QueryClient {
@@ -78,6 +83,9 @@ export function AppProviders({
   queryClient,
   sheetStore,
   viewStorage,
+  adsConfig,
+  adsDocument,
+  adsWindow,
 }: AppProvidersProps) {
   const [baseUrl] = useState(() => apiBaseUrl ?? resolveApiConfigFromBuild().baseUrl);
   const [fallbackTransport] = useState(() => createFetchTransport(browserFetch));
@@ -129,7 +137,15 @@ export function AppProviders({
       <AuthSessionContext.Provider value={resolvedSession}>
         <SheetStoreContext.Provider value={resolvedSheetStore}>
           <ViewStorageContext.Provider value={viewStorage ?? fallbackViewStorage}>
-            <QueryClientProvider client={resolvedQueryClient}>{children}</QueryClientProvider>
+            <QueryClientProvider client={resolvedQueryClient}>
+              <AdsProvider
+                config={adsConfig ?? null}
+                {...(adsDocument === undefined ? {} : { document: adsDocument })}
+                {...(adsWindow === undefined ? {} : { window: adsWindow })}
+              >
+                {children}
+              </AdsProvider>
+            </QueryClientProvider>
           </ViewStorageContext.Provider>
         </SheetStoreContext.Provider>
       </AuthSessionContext.Provider>

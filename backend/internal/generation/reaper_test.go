@@ -58,14 +58,14 @@ func TestNewReapQueue(t *testing.T) {
 
 func TestReapQueue_Run(t *testing.T) {
 	expired := generation.Document{ID: jobID, UserID: userID, Status: generation.StatusRunning,
-		ReapAttempts: 2, Quota: generation.Reservation{Kind: generation.ReservationTrial}}
+		ReapAttempts: 2, Quota: generation.Reservation{Kind: generation.ReservationDaily, DayUTC: "2026-11-14"}}
 
-	t.Run("Happy path: an expired job is failed as lease_expired and its trial unit refunded", func(t *testing.T) {
+	t.Run("Happy path: an expired job is failed as lease_expired and its daily unit refunded", func(t *testing.T) {
 		deps, store, quota := reapDeps(t)
 		store.EXPECT().ClaimExpired(mock.Anything, reapNow, sweeper.Lease, 10).Return([]generation.Document{expired}, nil).Once()
 		store.EXPECT().FailExpired(mock.Anything, jobID, reapNow, generation.ErrorCodeLeaseExpired).
 			Return(expired, true, nil).Once()
-		quota.EXPECT().RefundTrial(mock.Anything, userID).Return(nil).Once()
+		quota.EXPECT().RefundDaily(mock.Anything, userID, "2026-11-14").Return(nil).Once()
 
 		queue, err := generation.NewReapQueue(deps, 5, 10)
 		require.NoError(t, err)

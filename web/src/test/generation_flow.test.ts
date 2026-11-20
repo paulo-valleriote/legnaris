@@ -8,7 +8,7 @@ import {
   conceptState,
   decideWait,
   generationKind,
-  trialAllowance,
+  isFreePlan,
   trimConcept,
 } from '../generate/generation_flow';
 
@@ -162,17 +162,21 @@ describe('decideWait (LGN-196 poll every 5 s, give up at 120 s)', () => {
   });
 });
 
-describe('trialAllowance (LGN-196 quota line)', () => {
-  it('Happy path: a Free plan with a trial reads the remaining allowance', () => {
-    expect(trialAllowance({ trialRemaining: 2 })).toEqual({ kind: 'trial', remaining: 2 });
+describe('isFreePlan (LGN-343 generation entry gating)', () => {
+  it('Happy path: the Free plan is detected from the plan payload', () => {
+    expect(isFreePlan({ plan: 'free' })).toBe(true);
   });
 
-  it('Edge: zero remaining is an exhausted trial', () => {
-    expect(trialAllowance({ trialRemaining: 0 })).toEqual({ kind: 'trial', remaining: 0 });
+  it('Edge: the paid plan is not gated', () => {
+    expect(isFreePlan({ plan: 'paid' })).toBe(false);
   });
 
-  it('Edge: no trial in the payload reads as unknown, never as zero', () => {
-    expect(trialAllowance({ trialRemaining: undefined })).toEqual({ kind: 'unknown' });
+  it('Edge: an unknown plan is not treated as Free', () => {
+    expect(isFreePlan({ plan: 'team' })).toBe(false);
+  });
+
+  it('Edge: a plan not yet read or failed to read never blocks generation', () => {
+    expect(isFreePlan(undefined)).toBe(false);
   });
 });
 

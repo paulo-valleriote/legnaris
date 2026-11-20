@@ -23,9 +23,7 @@ function planUsage(
     sheets: {},
     consentAt: null,
     consentVersion: null,
-    trialRemaining: undefined,
     llmConsentRequired: false,
-    lastFreeGeneration: false,
     activeGenerationId: null,
     billing: {
       subscriptionStatus,

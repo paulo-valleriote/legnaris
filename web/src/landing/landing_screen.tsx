@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { AdSlot } from '../ads/ad_slot';
 import { PRIVACY_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from '../app/routes';
 import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
@@ -162,6 +163,9 @@ export function LandingScreen() {
               {message('auth.submitLogin')}
             </Link>
           </div>
+        </div>
+        <div className="lg-landing__inner">
+          <AdSlot surface="landing" />
         </div>
         <div className="lg-landing__inner lg-landing__legal">
           <small className="lg-landing__copyright">

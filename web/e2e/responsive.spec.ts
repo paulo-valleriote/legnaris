@@ -33,6 +33,16 @@ const SHEET = {
   updated_at: '2026-10-02T09:00:00.000Z',
 };
 
+const FREE_PLAN = {
+  plan: 'free',
+  sheets: {
+    character: { used: 0, limit: 1 },
+    npc: { used: 0, limit: 2 },
+    enemy: { used: 0, limit: 2 },
+  },
+  owned_campaigns: { used: 0, limit: 1 },
+};
+
 const PHONES = [
   { name: 'a 320 px phone', width: 320, height: 640 },
   { name: 'a 390 px phone', width: 390, height: 844 },
@@ -41,6 +51,7 @@ const PHONES = [
 test.describe('narrow viewport (the top bar and full-width content)', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page);
+    await page.route('**/me/plan', (route) => route.fulfill({ json: { data: FREE_PLAN } }));
     await page.route('**/templates/*', (route) => route.fulfill({ json: { data: DETAIL } }));
     await page.route('**/templates', (route) => route.fulfill({ json: { data: CATALOG } }));
     await page.route('**/sheets/*', (route) =>
@@ -104,6 +115,12 @@ test.describe('narrow viewport (the top bar and full-width content)', () => {
       const dialog = page.getByRole('dialog');
       await expect(dialog).toBeVisible();
       await page.getByRole('textbox', { name: 'Sheet name' }).fill('Aragorn');
+
+      const entry = dialog.getByRole('button', { name: 'Generate with AI' });
+      await expect(entry.getByText('Pro')).toBeVisible();
+      const entryBox = await entry.boundingBox();
+      expect(entryBox!.x).toBeGreaterThanOrEqual(0);
+      expect(entryBox!.x + entryBox!.width).toBeLessThanOrEqual(phone.width);
 
       const box = await dialog.boundingBox();
       expect(box!.x).toBeGreaterThanOrEqual(0);

@@ -11,6 +11,8 @@ import {
   createDeferredTransport,
   createFakeTransport,
   errorOutcome,
+  FREE_PLAN_USAGE,
+  PAID_PLAN_USAGE,
   successOutcome,
   withPlanUsage,
 } from './fake_transport';
@@ -33,12 +35,12 @@ function detailEnvelope(name: string, id = 'dnd5e') {
   return successOutcome({ id, name, default: true, fields: {} });
 }
 
-async function openSurface(user: UserEvent) {
+async function openSurface(user: UserEvent, plan: unknown = FREE_PLAN_USAGE) {
   const fake = createFakeTransport(
     successOutcome(CATALOG),
     detailEnvelope('Dungeons & Dragons 5e'),
   );
-  renderApp('/', { client: clientWith(withPlanUsage(fake.transport)) });
+  renderApp('/', { client: clientWith(withPlanUsage(fake.transport, successOutcome(plan))) });
   await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
   await screen.findByTestId('detail-name');
   return fake;
@@ -267,13 +269,14 @@ describe('sheet-name field and validation', () => {
     expect(fake.attempts).toBe(before);
   });
 
-  it('Happy path: the Generate with AI entry is a link carrying the template and the chosen kind', async () => {
+  it('Happy path: on a paid plan the Generate with AI entry is a link carrying the template and the chosen kind', async () => {
     const user = userEvent.setup();
-    await openSurface(user);
+    await openSurface(user, PAID_PLAN_USAGE);
 
     const entry = screen.getByRole('link', { name: message('generate.entry') });
     expect(entry).toHaveAttribute('href', '/generate/dnd5e?kind=character');
     expect(entry).toHaveClass('lg-button', 'lg-button--secondary');
+    expect(screen.queryByText(message('generate.upgrade.badge'))).toBeNull();
 
     await user.selectOptions(screen.getByLabelText(message('catalog.kindLabel')), 'npc');
     expect(screen.getByRole('link', { name: message('generate.entry') })).toHaveAttribute(

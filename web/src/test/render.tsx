@@ -1,6 +1,7 @@
 import { render } from '@testing-library/react';
 import { QueryClient } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
+import type { AdsConfig } from '../ads/ads_config';
 import type { AuthApi } from '../api/auth_api';
 import type { ApiClient } from '../api/client';
 import { createApiClient } from '../api/client';
@@ -27,6 +28,9 @@ export interface RenderAppOptions {
   readonly session?: SessionOption | AuthSession;
   readonly authApi?: AuthApi;
   readonly routeState?: unknown;
+  readonly adsConfig?: AdsConfig | null;
+  readonly adsDocument?: Document;
+  readonly adsWindow?: Window;
 }
 
 function defaultClient(): ApiClient {
@@ -80,6 +84,9 @@ export function renderApp(path = '/', options: RenderAppOptions = {}) {
         sheetStore={sheetStore}
         viewStorage={viewStorage}
         session={session}
+        adsConfig={options.adsConfig ?? null}
+        {...(options.adsDocument === undefined ? {} : { adsDocument: options.adsDocument })}
+        {...(options.adsWindow === undefined ? {} : { adsWindow: options.adsWindow })}
       >
         <AppRoutes />
       </AppProviders>

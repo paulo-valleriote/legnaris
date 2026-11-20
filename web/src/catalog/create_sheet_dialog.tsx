@@ -8,6 +8,8 @@ import type { TemplateDetail } from '../api/models/template';
 import { useApiClient } from '../app/providers';
 import { isSheetLimitReached, SHEET_KINDS } from '../api/models/plan';
 import type { SheetKind } from '../api/models/plan';
+import { isFreePlan } from '../generate/generation_flow';
+import { UpgradeDialog } from '../generate/upgrade_dialog';
 import type { MessageKey } from '../l10n/strings';
 import { message, messageWith } from '../l10n/strings';
 import { Button } from '../ui/button';
@@ -109,6 +111,7 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
   const [kind, setKind] = useState<SheetKind>(DEFAULT_KIND);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const phase = resolveDetailPhase(query);
   const trimmedName = sheetName.trim();
@@ -139,86 +142,92 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
   }, [canSubmit, isSubmitting, client, templateId, kind, trimmedName, queryClient, navigate]);
 
   const generateTo = `/generate/${encodeURIComponent(templateId)}?kind=${encodeURIComponent(kind)}`;
+  const generateLabel = message('generate.entry');
   const generate = limitReached ? (
-    <Button
-      variant="secondary"
-      label={message('generate.entry')}
-      disabled
-      ariaDescribedBy={LIMIT_NOTICE_ID}
-    />
+    <Button variant="secondary" label={generateLabel} disabled ariaDescribedBy={LIMIT_NOTICE_ID} />
+  ) : isFreePlan(plan.data) ? (
+    <Button variant="secondary" name={generateLabel} onClick={() => setUpgradeOpen(true)}>
+      <span className="lg-create-sheet__generate">
+        <span>{generateLabel}</span>
+        <span className="lg-create-sheet__pro">{message('generate.upgrade.badge')}</span>
+      </span>
+    </Button>
   ) : (
-    <Button variant="secondary" label={message('generate.entry')} to={generateTo} />
+    <Button variant="secondary" label={generateLabel} to={generateTo} />
   );
 
   return (
-    <Dialog
-      open
-      title={message('sheet.dialogTitle')}
-      onClose={onClose}
-      closeLabel={message('sheet.close')}
-      initialFocusRef={inputRef}
-      actions={
-        <>
-          {generate}
-          <Button
-            variant="primary"
-            label={isSubmitting ? message('sheet.creating') : message('sheet.create')}
-            disabled={!canSubmit || isSubmitting}
-            loading={isSubmitting}
-            disabledReason={isSubmitting || limitReached ? undefined : reason}
-            ariaDescribedBy={limitReached ? LIMIT_NOTICE_ID : undefined}
-            onClick={handleCreate}
+    <>
+      <Dialog
+        open
+        title={message('sheet.dialogTitle')}
+        onClose={onClose}
+        closeLabel={message('sheet.close')}
+        initialFocusRef={inputRef}
+        actions={
+          <>
+            {generate}
+            <Button
+              variant="primary"
+              label={isSubmitting ? message('sheet.creating') : message('sheet.create')}
+              disabled={!canSubmit || isSubmitting}
+              loading={isSubmitting}
+              disabledReason={isSubmitting || limitReached ? undefined : reason}
+              ariaDescribedBy={limitReached ? LIMIT_NOTICE_ID : undefined}
+              onClick={handleCreate}
+            />
+          </>
+        }
+      >
+        <div className="lg-create-sheet">
+          <DetailBody
+            phase={phase}
+            templateId={templateId}
+            onRetry={() => {
+              void query.refetch();
+            }}
           />
-        </>
-      }
-    >
-      <div className="lg-create-sheet">
-        <DetailBody
-          phase={phase}
-          templateId={templateId}
-          onRetry={() => {
-            void query.refetch();
-          }}
-        />
-        <Field
-          label={message('sheet.nameLabel')}
-          id="sheet-name"
-          inputRef={inputRef}
-          value={sheetName}
-          placeholder={message('sheet.namePlaceholder')}
-          onChange={setSheetName}
-        />
-        <Select
-          label={message('catalog.kindLabel')}
-          id="sheet-kind"
-          value={kind}
-          hint={
-            kindUsage === undefined
-              ? undefined
-              : messageWith('sheet.usage', { used: kindUsage.used, limit: kindUsage.limit })
-          }
-          onChange={(value) => {
-            setKind(value as SheetKind);
-            setSubmitError(undefined);
-          }}
-        >
-          {SHEET_KINDS.map((option) => (
-            <option key={option} value={option}>
-              {message(KIND_LABEL_KEYS[option])}
-            </option>
-          ))}
-        </Select>
-        {limitReached ? (
-          <Notice tone="warning" live="off" id={LIMIT_NOTICE_ID}>
-            {message('sheet.limitReached')}
-          </Notice>
-        ) : null}
-        {submitError !== undefined && (
-          <p className="lg-create-sheet__error" role="alert" data-testid="create-error">
-            {submitError}
-          </p>
-        )}
-      </div>
-    </Dialog>
+          <Field
+            label={message('sheet.nameLabel')}
+            id="sheet-name"
+            inputRef={inputRef}
+            value={sheetName}
+            placeholder={message('sheet.namePlaceholder')}
+            onChange={setSheetName}
+          />
+          <Select
+            label={message('catalog.kindLabel')}
+            id="sheet-kind"
+            value={kind}
+            hint={
+              kindUsage === undefined
+                ? undefined
+                : messageWith('sheet.usage', { used: kindUsage.used, limit: kindUsage.limit })
+            }
+            onChange={(value) => {
+              setKind(value as SheetKind);
+              setSubmitError(undefined);
+            }}
+          >
+            {SHEET_KINDS.map((option) => (
+              <option key={option} value={option}>
+                {message(KIND_LABEL_KEYS[option])}
+              </option>
+            ))}
+          </Select>
+          {limitReached ? (
+            <Notice tone="warning" live="off" id={LIMIT_NOTICE_ID}>
+              {message('sheet.limitReached')}
+            </Notice>
+          ) : null}
+          {submitError !== undefined && (
+            <p className="lg-create-sheet__error" role="alert" data-testid="create-error">
+              {submitError}
+            </p>
+          )}
+        </div>
+      </Dialog>
+      <UpgradeDialog open={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
+    </>
   );
 }

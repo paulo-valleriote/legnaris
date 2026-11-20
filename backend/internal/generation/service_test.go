@@ -200,6 +200,7 @@ func TestCreate_Gates(t *testing.T) {
 			cmd:  generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "character", Concept: validText},
 			setup: func(f fixture) {
 				f.allowTemplate(plan.KindCharacter)
+				f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil)
 				f.consent.EXPECT().Gate(mock.Anything, userID).
 					Return(apperr.NewError(apperr.CodeLLMConsentRequired, "llm consent is required", nil))
 			},
@@ -210,6 +211,7 @@ func TestCreate_Gates(t *testing.T) {
 			cmd:  generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "character", Concept: validText},
 			setup: func(f fixture) {
 				f.allowTemplate(plan.KindCharacter)
+				f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil)
 				f.consent.EXPECT().Gate(mock.Anything, userID).Return(nil)
 				f.sheets.EXPECT().CheckSheetLimit(mock.Anything, userID, plan.KindCharacter).
 					Return(sheet.LimitStatus{Kind: plan.KindCharacter, Used: 1, Limit: 1}, nil)
@@ -221,6 +223,7 @@ func TestCreate_Gates(t *testing.T) {
 			cmd:  generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "npc", Concept: validText},
 			setup: func(f fixture) {
 				f.allowTemplate(plan.KindCharacter, plan.KindNPC)
+				f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil)
 				f.consent.EXPECT().Gate(mock.Anything, userID).Return(nil)
 				f.sheets.EXPECT().CheckSheetLimit(mock.Anything, userID, plan.KindNPC).
 					Return(sheet.LimitStatus{Kind: plan.KindNPC, Used: 2, Limit: 2}, nil)
@@ -232,6 +235,7 @@ func TestCreate_Gates(t *testing.T) {
 			cmd:  generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "character", Concept: validText},
 			setup: func(f fixture) {
 				f.allowTemplate(plan.KindCharacter)
+				f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil)
 				f.consent.EXPECT().Gate(mock.Anything, userID).Return(nil)
 				f.sheets.EXPECT().CheckSheetLimit(mock.Anything, userID, plan.KindCharacter).
 					Return(sheet.LimitStatus{Kind: plan.KindCharacter, Used: 0, Limit: 1}, nil)
@@ -244,32 +248,23 @@ func TestCreate_Gates(t *testing.T) {
 			cmd:  generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "character", Concept: validText},
 			setup: func(f fixture) {
 				f.allowTemplate(plan.KindCharacter)
+				f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil)
 				f.consent.EXPECT().Gate(mock.Anything, userID).Return(nil)
 				f.sheets.EXPECT().CheckSheetLimit(mock.Anything, userID, plan.KindCharacter).
 					Return(sheet.LimitStatus{Kind: plan.KindCharacter, Used: 0, Limit: 1}, nil)
 				f.store.EXPECT().ActiveByUser(mock.Anything, userID).Return("", false, nil)
 				f.runInline()
-				f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Free, nil)
 				f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(10, false, nil)
 				f.observer.EXPECT().GenerationCapUsage(10, 10)
 			},
 			wantCode: apperr.CodeGenerationCapReached, wantStatus: 503,
 		},
 		{
-			name: "Error: an exhausted trial refuses with PLAN_UPGRADE_REQUIRED and inserts nothing",
+			name: "Error: a Free account is refused with PLAN_UPGRADE_REQUIRED before any other gate or reservation",
 			cmd:  generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "character", Concept: validText},
 			setup: func(f fixture) {
 				f.allowTemplate(plan.KindCharacter)
-				f.consent.EXPECT().Gate(mock.Anything, userID).Return(nil)
-				f.sheets.EXPECT().CheckSheetLimit(mock.Anything, userID, plan.KindCharacter).
-					Return(sheet.LimitStatus{Kind: plan.KindCharacter, Used: 0, Limit: 1}, nil)
-				f.store.EXPECT().ActiveByUser(mock.Anything, userID).Return("", false, nil)
-				f.runInline()
-				f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil)
-				f.observer.EXPECT().GenerationCapUsage(1, 10)
 				f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Free, nil)
-				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).
-					Return(apperr.NewError(apperr.CodePlanUpgradeRequired, "upgrade", nil))
 			},
 			wantCode: apperr.CodePlanUpgradeRequired, wantStatus: 403,
 		},
@@ -278,6 +273,7 @@ func TestCreate_Gates(t *testing.T) {
 			cmd:  generation.CreateCommand{UserID: userID, TemplateID: templateID, Kind: "character", Concept: validText},
 			setup: func(f fixture) {
 				f.allowTemplate(plan.KindCharacter)
+				f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil)
 				f.consent.EXPECT().Gate(mock.Anything, userID).Return(nil)
 				f.sheets.EXPECT().CheckSheetLimit(mock.Anything, userID, plan.KindCharacter).
 					Return(sheet.LimitStatus{Kind: plan.KindCharacter, Used: 0, Limit: 1}, nil)
@@ -285,8 +281,7 @@ func TestCreate_Gates(t *testing.T) {
 				f.runInline()
 				f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil)
 				f.observer.EXPECT().GenerationCapUsage(1, 10)
-				f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Free, nil)
-				f.quota.EXPECT().ReserveTrial(mock.Anything, userID).Return(nil)
+				f.quota.EXPECT().ReserveDaily(mock.Anything, userID).Return("2026-11-14", nil)
 				f.store.EXPECT().Insert(mock.Anything, mock.Anything).Return(generation.ErrActiveExists)
 			},
 			wantCode: apperr.CodeGenerationInProgress, wantStatus: 409,

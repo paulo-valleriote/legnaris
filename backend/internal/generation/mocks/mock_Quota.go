@@ -69,53 +69,6 @@ func (_c *MockQuota_RefundDaily_Call) RunAndReturn(run func(context.Context, str
 	return _c
 }
 
-// RefundTrial provides a mock function with given fields: ctx, userID
-func (_m *MockQuota) RefundTrial(ctx context.Context, userID string) error {
-	ret := _m.Called(ctx, userID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for RefundTrial")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, userID)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// MockQuota_RefundTrial_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RefundTrial'
-type MockQuota_RefundTrial_Call struct {
-	*mock.Call
-}
-
-// RefundTrial is a helper method to define mock.On call
-//   - ctx context.Context
-//   - userID string
-func (_e *MockQuota_Expecter) RefundTrial(ctx interface{}, userID interface{}) *MockQuota_RefundTrial_Call {
-	return &MockQuota_RefundTrial_Call{Call: _e.mock.On("RefundTrial", ctx, userID)}
-}
-
-func (_c *MockQuota_RefundTrial_Call) Run(run func(ctx context.Context, userID string)) *MockQuota_RefundTrial_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *MockQuota_RefundTrial_Call) Return(_a0 error) *MockQuota_RefundTrial_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *MockQuota_RefundTrial_Call) RunAndReturn(run func(context.Context, string) error) *MockQuota_RefundTrial_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // ReserveDaily provides a mock function with given fields: ctx, userID
 func (_m *MockQuota) ReserveDaily(ctx context.Context, userID string) (string, error) {
 	ret := _m.Called(ctx, userID)
@@ -169,53 +122,6 @@ func (_c *MockQuota_ReserveDaily_Call) Return(_a0 string, _a1 error) *MockQuota_
 }
 
 func (_c *MockQuota_ReserveDaily_Call) RunAndReturn(run func(context.Context, string) (string, error)) *MockQuota_ReserveDaily_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// ReserveTrial provides a mock function with given fields: ctx, userID
-func (_m *MockQuota) ReserveTrial(ctx context.Context, userID string) error {
-	ret := _m.Called(ctx, userID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ReserveTrial")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) error); ok {
-		r0 = rf(ctx, userID)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// MockQuota_ReserveTrial_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReserveTrial'
-type MockQuota_ReserveTrial_Call struct {
-	*mock.Call
-}
-
-// ReserveTrial is a helper method to define mock.On call
-//   - ctx context.Context
-//   - userID string
-func (_e *MockQuota_Expecter) ReserveTrial(ctx interface{}, userID interface{}) *MockQuota_ReserveTrial_Call {
-	return &MockQuota_ReserveTrial_Call{Call: _e.mock.On("ReserveTrial", ctx, userID)}
-}
-
-func (_c *MockQuota_ReserveTrial_Call) Run(run func(ctx context.Context, userID string)) *MockQuota_ReserveTrial_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string))
-	})
-	return _c
-}
-
-func (_c *MockQuota_ReserveTrial_Call) Return(_a0 error) *MockQuota_ReserveTrial_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *MockQuota_ReserveTrial_Call) RunAndReturn(run func(context.Context, string) error) *MockQuota_ReserveTrial_Call {
 	_c.Call.Return(run)
 	return _c
 }

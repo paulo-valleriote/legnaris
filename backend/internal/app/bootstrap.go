@@ -23,7 +23,6 @@ import (
 	"legnaris/backend/internal/quota"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/template"
-	"legnaris/backend/internal/trial"
 	"legnaris/backend/internal/user"
 	"legnaris/backend/shared/db"
 	"legnaris/backend/shared/env"
@@ -214,13 +213,6 @@ func NewModules(
 		return newLimiter(limiterClient, namespace, attempts, window, report)
 	}
 
-	emailVerifier := newTrialVerifier(
-		quota.NewTrialGranter(quotaStore),
-		disposable.NewChecker(nil),
-		limiter("trial_ip", trial.MaxAccountsPerIP, trial.IPWindow),
-		log,
-	)
-
 	authService := auth.NewService(
 		userRepository,
 		refreshTokenRepository,
@@ -232,14 +224,13 @@ func NewModules(
 		authServiceConfig(cfg.Variables, now),
 		log,
 		auth.ChallengeDeps{
-			Repository:    challengeRepository,
-			Generator:     auth.NewCodeGenerator(),
-			Digest:        codeDigest,
-			Mailer:        codeMailer,
-			Notices:       auth.NewNoticeRepository(mdb),
-			Observer:      challengeObserver,
-			Policy:        challengePolicy,
-			EmailVerifier: emailVerifier,
+			Repository: challengeRepository,
+			Generator:  auth.NewCodeGenerator(),
+			Digest:     codeDigest,
+			Mailer:     codeMailer,
+			Notices:    auth.NewNoticeRepository(mdb),
+			Observer:   challengeObserver,
+			Policy:     challengePolicy,
 		},
 		publisher,
 	)
@@ -248,6 +239,7 @@ func NewModules(
 	quotaService := quota.NewService(quotaStore, nil)
 	llmConsentService := llmconsent.NewService(
 		llmconsent.NewAccountConsentStore(userRepository, llmconsent.NewConsentStore(mdb)),
+		user.NewPlanSource(userRepository),
 		llmconsent.NewGenerationStore(mdb),
 		generationQuotaRefunder{quota: quotaService},
 		db.NewTransactor(database.Client, nil),

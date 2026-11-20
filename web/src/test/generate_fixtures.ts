@@ -26,9 +26,8 @@ export function fail(code: string, status: number, retryAfter?: string): HttpRes
 
 export function planWith(overrides: Record<string, unknown> = {}) {
   return {
-    plan: 'free',
-    sheets: { character: { used: 0, limit: 1 } },
-    trial: { used: 0, remaining: 3 },
+    plan: 'paid',
+    sheets: { character: { used: 0, limit: 10 } },
     llm_consent_required: false,
     active_generation_id: null,
     ...overrides,

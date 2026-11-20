@@ -69,9 +69,6 @@ paths:
   - target: backend/internal/sweeper
     kind: directory
     context: platform
-  - target: backend/internal/trial
-    kind: directory
-    context: auth
   - target: backend/internal/user
     kind: directory
     context: auth
@@ -105,6 +102,9 @@ paths:
   - target: web/src/account
     kind: directory
     context: auth
+  - target: web/src/ads
+    kind: directory
+    context: web-client
   - target: web/src/api
     kind: directory
     context: web-client

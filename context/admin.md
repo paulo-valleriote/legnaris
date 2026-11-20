@@ -47,6 +47,14 @@ sequenceDiagram
 
 ## Contracts
 
+- **Apex domain for AdSense.** `ROOT_DOMAIN` (required deploy key, e.g. `paulovalleriote.io`) gets two Traefik routers: `root-ads-txt` serves `/ads.txt` from the web container (priority 1000), and `root` answers every other path with a 301 to `WEB_DOMAIN` (`root-to-web` redirectRegex). AdSense only accepts the apex domain, reads its `ads.txt` there and reviews whatever the apex serves. Its DNS record must resolve to the VPS so Let's Encrypt can issue the certificate.
+
+- **Deploy health gate excludes Prometheus.** `deploy/vps/deploy.sh` runs `up --wait --wait-timeout 180` on every service except `prometheus`, then starts `prometheus` without waiting: its WAL replay can outlast the gate, and monitoring must not roll back a healthy release.
+
+- **Traefik dynamic config is a directory mount.** `deploy/traefik/` is mounted read-only at `/etc/traefik/dynamic` and watched by the file provider, so a deploy that replaces `dynamic.yml` (new inode) reaches the running proxy without a restart; a single-file bind mount would keep serving the old file.
+
+- **AdSense settings (LGN-335).** `ADSENSE_CLIENT` and `ADSENSE_SLOT_{CATALOG,CAMPAIGNS,LANDING}` are optional deploy env keys (commented in `deploy/.env.example`, so the CD key check never requires them) passed to the web container, which writes them into `/config.json` and publishes `/ads.txt`; empty or invalid values turn ads off. The Traefik `web-security-headers` CSP admits the Google ad and CMP origins (`script-src`, `connect-src`, `frame-src`, `img-src https:`) and must stay identical to `web/config/security_headers.ts`.
+
 | Method | Path | Body | Success |
 | --- | --- | --- | --- |
 | GET | `/admin/users/{id}` | — | 200 consolidated view |
@@ -78,18 +86,16 @@ normal access token in `Authorization: Bearer`, not the cookie session.
 format characters, stored verbatim.
 
 **View.** `user{id,email}`, `plan` from `users.plan` (the single source of truth),
-`subscription` (null when none),
-`daily_quota{limit,used,remaining,resets_at,binding}` and
-`trial{allowance,used,remaining}`. `binding` is `trial` for a free plan, where
-`limit` is null and the lifetime trial block governs generation, and `daily`
-otherwise. The e-mail lookup tries the canonical lowercase address, then the
-parsed spelling.
+`subscription` (null when none) and
+`daily_quota{limit,used,remaining,resets_at}`. A Free account reports zero
+remaining; AI generation is paid-only. The e-mail lookup tries the canonical
+lowercase address, then the parsed spelling.
 
 **Operations.** `planId` must be a real non-free plan and `expiresAt` at least one
 hour ahead; an expired comp is CAS-canceled before the new one is inserted.
 Revoke cancels the live comp immediately, and repeating it after a concurrent
 cancel still answers 200 with a fresh audit row. Quota reset deletes today's
-counter (idempotent, trial untouched). `override` skips only the refund window,
+counter (idempotent). `override` skips only the refund window,
 never a second refund, a missing paid subscription or a comp.
 
 **Audit.** `_id` (UUID v7), `actor_user_id`, `action` (`comp.grant`,

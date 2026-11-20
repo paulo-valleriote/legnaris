@@ -138,6 +138,62 @@ func TestWebSecurityHeadersKeepContract(t *testing.T) {
 	})
 }
 
+func TestWebSecurityHeadersAllowAdSense(t *testing.T) {
+	doc := readDynamic(t)
+	middleware, ok := doc.HTTP.Middlewares["web-security-headers"]
+	require.True(t, ok, "web-security-headers must be defined")
+
+	csp, ok := middleware.Headers["contentSecurityPolicy"].(string)
+	require.True(t, ok, "contentSecurityPolicy must be a string")
+
+	directives := map[string]string{}
+	for _, raw := range strings.Split(csp, ";") {
+		fields := strings.Fields(raw)
+		if len(fields) >= 2 {
+			directives[fields[0]] = strings.Join(fields[1:], " ")
+		}
+	}
+
+	t.Run("Happy path: the ad and CMP origins are allowed", func(t *testing.T) {
+		scriptOrigins := []string{
+			"https://pagead2.googlesyndication.com",
+			"https://fundingchoicesmessages.google.com",
+			"https://*.adtrafficquality.google",
+			"https://www.googletagservices.com",
+		}
+		for _, origin := range scriptOrigins {
+			assert.Contains(t, directives["script-src"], origin)
+		}
+
+		frameOrigins := []string{
+			"https://googleads.g.doubleclick.net",
+			"https://tpc.googlesyndication.com",
+			"https://*.googlesyndication.com",
+			"https://fundingchoicesmessages.google.com",
+			"https://www.google.com",
+			"https://*.adtrafficquality.google",
+		}
+		assert.Equal(t, strings.Join(frameOrigins, " "), directives["frame-src"])
+
+		assert.Contains(t, directives["img-src"], "https:")
+
+		connectOrigins := []string{
+			"https://pagead2.googlesyndication.com",
+			"https://*.google.com",
+			"https://*.adtrafficquality.google",
+			"https://fundingchoicesmessages.google.com",
+		}
+		for _, origin := range connectOrigins {
+			assert.Contains(t, directives["connect-src"], origin)
+		}
+	})
+
+	t.Run("Edge: framing and object protections stay closed", func(t *testing.T) {
+		assert.Equal(t, "'none'", directives["object-src"])
+		assert.Equal(t, "'none'", directives["frame-ancestors"])
+	})
+}
+
 func TestSupportedHeaderOptionsHasNoDuplicates(t *testing.T) {
 	seen := make(map[string]struct{}, len(supportedHeaderOptions))
 	for _, option := range supportedHeaderOptions {
@@ -342,5 +398,57 @@ func TestPublicProbeExposure(t *testing.T) {
 		assert.Equal(t, 100, limit.Average)
 		assert.Equal(t, "1s", limit.Period)
 		assert.Equal(t, 200, limit.Burst)
+	})
+}
+
+func TestRootDomainServesAdsTxtAndRedirectsToWeb(t *testing.T) {
+	routes := readRoutes(t)
+	rootHost := "Host(`{{ env \"ROOT_DOMAIN\" }}`)"
+
+	t.Run("Happy path: ads.txt on the apex domain is served by the web client", func(t *testing.T) {
+		router, ok := routes.HTTP.Routers["root-ads-txt"]
+		require.True(t, ok, "root-ads-txt router must exist")
+		assert.Equal(t, rootHost+" && Path(`/ads.txt`)", router.Rule)
+		assert.Equal(t, "web", router.Service)
+		assert.NotContains(t, router.Middlewares, "root-to-web")
+	})
+
+	t.Run("Happy path: every other apex path redirects permanently to the web domain", func(t *testing.T) {
+		router, ok := routes.HTTP.Routers["root"]
+		require.True(t, ok, "root router must exist")
+		assert.Equal(t, rootHost, router.Rule)
+		assert.Equal(t, []string{"root-to-web"}, router.Middlewares)
+
+		raw, err := os.ReadFile(dynamicFile)
+		require.NoError(t, err)
+		var doc struct {
+			HTTP struct {
+				Middlewares map[string]struct {
+					RedirectRegex struct {
+						Regex       string `yaml:"regex"`
+						Replacement string `yaml:"replacement"`
+						Permanent   bool   `yaml:"permanent"`
+					} `yaml:"redirectRegex"`
+				} `yaml:"middlewares"`
+			} `yaml:"http"`
+		}
+		require.NoError(t, yaml.Unmarshal(raw, &doc))
+		redirect := doc.HTTP.Middlewares["root-to-web"].RedirectRegex
+		assert.Equal(t, "https://{{ env \"WEB_DOMAIN\" }}/${1}", redirect.Replacement)
+		assert.True(t, redirect.Permanent)
+	})
+
+	t.Run("Edge: the ads.txt route outranks the catch-all redirect", func(t *testing.T) {
+		raw, err := os.ReadFile(dynamicFile)
+		require.NoError(t, err)
+		var doc struct {
+			HTTP struct {
+				Routers map[string]struct {
+					Priority int `yaml:"priority"`
+				} `yaml:"routers"`
+			} `yaml:"http"`
+		}
+		require.NoError(t, yaml.Unmarshal(raw, &doc))
+		assert.Greater(t, doc.HTTP.Routers["root-ads-txt"].Priority, doc.HTTP.Routers["root"].Priority)
 	})
 }
