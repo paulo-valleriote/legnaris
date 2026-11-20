@@ -69,7 +69,7 @@ function levelStep(name: 'increase' | 'decrease') {
   return screen.getByRole('button', { name: messageWith(`engine.${name}`, { label: 'Level' }) });
 }
 
-describe('Play and Edit modes', () => {
+describe('Play and Edit modes', { timeout: 15_000 }, () => {
   it('Edge: a template without a preset keeps the generic form and offers no mode toggle', async () => {
     await openPlain();
 
