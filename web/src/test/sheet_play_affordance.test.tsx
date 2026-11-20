@@ -271,7 +271,7 @@ describe('the one rollable affordance', () => {
       name: rollName('Initiative'),
     });
     const zeroAttack = within(screen.getByTestId('sheet-attack-1')).getByRole('button', {
-      name: rollName('Attack 1 bonus'),
+      name: messageWith('sheet.play.attackRoll', { name: 'Longsword', value: '+0' }),
     });
     const zeroSpellAttack = within(screen.getByTestId('sheet-spell-attack')).getByRole('button', {
       name: rollName('Spell attack bonus'),

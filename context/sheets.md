@@ -347,7 +347,11 @@ while their `name` is non-empty; the remaining empty slots collapse into one
 `+ Add attack (N free)` button, hidden when nothing is free, which reveals the next empty slot for
 inline editing; the revealed set holds positions within the slots the template carries, so a
 template without `attack1` still reveals `attack2` first. Each card carries an inline-editable name, a rollable bonus and a rollable damage
-expression. The bonus is the attack Row through the `attacks` Section dice and the preset
+expression. The to-hit pill draws a decorative d20 (`aria-hidden`) beside the signed bonus, so it
+reads as an attack roll rather than a bare number; its accessible name and title are
+`Attack roll, <attack name>, <signed bonus>` (the template slot label stands in for an empty name).
+The damage pill stays the dice expression, with the matching `Damage roll, <attack name>,
+<expression>` name and title. The bonus is the attack Row through the `attacks` Section dice and the preset
 `1d20 + @.bonus` default, so it shares the Dice panel and per-sheet overrides. Damage is a literal
 expression validated by the pure `fantasy/attacks_data.ts` (`parseAttackDamage`: at least one die,
 no field reference) and rolled through `useExpressionRoll` (`dice_row.tsx`), which keeps the Dice
@@ -492,7 +496,8 @@ Web:
   parsing; `fantasy/hp_card.tsx` — the hit-points card; `fantasy/attacks.tsx` — the attack cards;
   `segmented_choice.tsx` — the reusable exclusive-group control that writes through `setExclusive`;
   `rollable_value.tsx` — the
-  reusable roll target and its one affordance style (`useRowRoll` in `dice_row.tsx`); `pending_card.tsx`, `pending_changes.ts` —
+  reusable roll target and its one affordance style (`useRowRoll` in `dice_row.tsx`), with an
+  optional explicit accessible name and title (the attack cards) and a leading decorative icon slot; `pending_card.tsx`, `pending_changes.ts` —
   the floating Play save bar, its debounced announcement and its pure summary; `mode_toggle.tsx` —
   the local Play/Edit switch; `inline_edit.tsx` — the reusable single-path inline editor (inline on
   a wide viewport, a schema-typed bottom sheet on a phone).
