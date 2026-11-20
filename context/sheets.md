@@ -376,6 +376,10 @@ toast is flush with the bottom edge. The roll result floats above the current bo
 sticky footer in Edit, or the pending bar in Play, which carries the same floor marker as the
 footer. A panel already open lifts or drops when that surface appears or disappears, through the
 floor observer, so the bar never covers the total, the parts or the `role="status"` announcement.
+The panel keeps the last three rolls of the session (`dice_history.ts`, `rememberRoll`), newest
+first: a fourth roll evicts the oldest, only the newest is announced through the one polite live
+region, and its × or Escape clears the whole history. The history is in memory only, so a reload
+starts empty.
 
 Any Play-mode value edit also floats the pending-changes bar (`pending_card.tsx`, fed by the pure
 `pending_changes.ts`): the only save surface in Play, because the screen draws no footer there.
@@ -506,7 +510,8 @@ Web:
   a wide viewport, a schema-typed bottom sheet on a phone).
 - `web/src/sheet/view_store.ts`, `sheet_view.tsx`, `section_index.tsx` — local view state,
   collapse/filter and section strip; `dice_store.ts`, `dice_row.tsx`, `dice_panel.tsx`,
-  `dice_view.ts` — Dice choices over the edit store (see [dice](dice.md)).
+  `dice_history.ts`, `dice_view.ts` — Dice choices over the edit store and the recent-roll
+  history (see [dice](dice.md)).
 - `web/src/library/sheet_store.ts`, `idb_sheet_store.ts`, `sheet_library.ts`, `draft_backup.ts`,
   `session_data.ts` — local cache, drafts, cadence, sign-out.
 

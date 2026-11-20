@@ -1,14 +1,13 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import type { DiceResult } from '../dice/errors';
 import type { RollResult } from '../dice/roll';
 import { message, messageWith } from '../l10n/strings';
 import { CloseIcon } from '../ui/icons';
+import type { RollEntry } from './dice_history';
 import { diceErrorMessageKey } from './dice_view';
 import './dice.css';
 
 export interface DicePanelProps {
-  readonly label: string;
-  readonly outcome: DiceResult<RollResult>;
+  readonly results: readonly RollEntry[];
   readonly onDismiss: () => void;
 }
 
@@ -28,6 +27,31 @@ function Breakdown({ result }: { readonly result: RollResult }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+function Result({ entry }: { readonly entry: RollEntry }) {
+  if (entry.outcome.ok) {
+    return (
+      <>
+        <p className="lg-dice-panel__total">
+          <span className="lg-dice-panel__total-label">{entry.label}</span>
+          <span className="lg-dice-panel__total-value">{entry.outcome.value.total}</span>
+        </p>
+        <Breakdown result={entry.outcome.value} />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <p className="lg-dice-panel__total">
+        <span className="lg-dice-panel__total-label">{entry.label}</span>
+      </p>
+      <p className="lg-dice-panel__error">
+        {message(diceErrorMessageKey(entry.outcome.error.class))}
+      </p>
+    </>
   );
 }
 
@@ -109,7 +133,7 @@ function useFloatAboveFloor(panel: React.RefObject<HTMLDivElement | null>) {
   }, [panel]);
 }
 
-export function DicePanel({ label, outcome, onDismiss }: DicePanelProps) {
+export function DicePanel({ results, onDismiss }: DicePanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   useFloatAboveFloor(panel);
   useEffect(() => {
@@ -124,26 +148,26 @@ export function DicePanel({ label, outcome, onDismiss }: DicePanelProps) {
     };
   }, [onDismiss]);
 
-  const announcement = outcome.ok
-    ? messageWith('dice.rolled', { label, total: outcome.value.total })
-    : message(diceErrorMessageKey(outcome.error.class));
+  const newest = results[0];
+  if (newest === undefined) {
+    return null;
+  }
+  const announcement = newest.outcome.ok
+    ? messageWith('dice.rolled', { label: newest.label, total: newest.outcome.value.total })
+    : message(diceErrorMessageKey(newest.outcome.error.class));
 
   return (
     <div ref={panel} className="lg-dice-panel">
       <p className="lg-dice-panel__sr" role="status" aria-live="polite" aria-atomic="true">
         {announcement}
       </p>
-      {outcome.ok ? (
-        <>
-          <p className="lg-dice-panel__total">
-            <span className="lg-dice-panel__total-label">{label}</span>
-            <span className="lg-dice-panel__total-value">{outcome.value.total}</span>
-          </p>
-          <Breakdown result={outcome.value} />
-        </>
-      ) : (
-        <p className="lg-dice-panel__error">{announcement}</p>
-      )}
+      <ol className="lg-dice-panel__history" aria-label={message('dice.history')}>
+        {results.map((entry) => (
+          <li className="lg-dice-panel__entry" key={entry.id}>
+            <Result entry={entry} />
+          </li>
+        ))}
+      </ol>
       <button
         type="button"
         className="lg-dice-panel__dismiss"

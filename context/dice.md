@@ -139,7 +139,7 @@ A grammar change starts in the vectors: add or amend the cases (bump `version` f
 - `testdata/dice/vectors.json` — the shared vectors.
 - `web/src/dice/` — `parse.ts`, `fit.ts`, `resolve.ts` (precedence), `roll.ts` (`performRoll`, `dieFromWords`, crypto source), `errors.ts`.
 - `web/src/sheet/dice_view.ts` — schema, pruning, error keys and Roll summary; `dice_store.ts` — local check and `setDice`; `sheet_edit.ts` — saved and pending blocks, drafts and the save.
-- `web/src/sheet/dice_row.tsx` — Roll/Edit controls, Section button and editor; `dice_panel.tsx` — the floating result; `die_icon.tsx`, `dice.css` — shapes.
+- `web/src/sheet/dice_row.tsx` — Roll/Edit controls, Section button and editor; `dice_panel.tsx` — the floating result with its recent-roll history (`dice_history.ts` keeps the last three, newest first); `die_icon.tsx`, `dice.css` — shapes.
 - `web/src/api/models/dice.ts`, `web/src/api/client.ts` — wire parsing and body.
 - `web/src/test/dice_*.test.ts`, `web/src/test/sheet_dice_*.test.*` — vector, resolution, Roll, store and screen suites.
 

@@ -322,6 +322,7 @@ export const messages = {
   'dice.expressionHint': 'For example 1d20+3',
   'dice.rolled': '{label} rolled {total}',
   'dice.rolls': '[{rolls}]',
+  'dice.history': 'Recent rolls',
   'dice.sectionNote':
     'Choosing dice for this Section does not replace the Rows this Template configures.',
   'sheet.error.saveOffline': 'Offline. Changes are kept on this device. Save again later.',
