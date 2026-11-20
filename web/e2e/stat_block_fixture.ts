@@ -192,6 +192,7 @@ export const STAT_BLOCK_DETAIL = {
       },
     },
   },
+  dice: { row: { 'combat.initiative': '1d20 + @' } },
 };
 
 const STAT_BLOCK_SKILLS = {

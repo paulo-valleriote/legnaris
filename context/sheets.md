@@ -347,7 +347,8 @@ points`). The Damage and Heal buttons and the quick strip sit on `--lg-size-cont
 desktop and `--lg-size-control` at phone widths, the quick buttons as 44px squares, in the combat
 strip and in the stat block alike. On a phone the actions sit in one full-width,
 min-width-zero track, so the quick strip and the amount/Damage/Heal row wrap and stay inside the
-card at 320 and 390 instead of running past its right edge. The stat block folds the card into one
+card at 320 and 390 instead of running past its right edge, and both rows start on the same left
+edge. The stat block folds the card into one
 row (numbers, bar, then a 74px amount field with Damage and Heal under the quick strip, with any
 pending line across the full width), so the vitals band stays compact; on a phone the actions drop
 to their own row under the numbers. `hit_points.ts`
@@ -528,7 +529,9 @@ body text at `--lg-type-15` with every control on a `--lg-size-control` target; 
 sticky under the top safe-area inset at every width, and its controls carry a scroll margin so a
 focused edit lands below it; on a phone the band
 puts armor class and initiative on one row with the full-width hit-points card below and
-control-sized 44px Damage and Heal actions, the body pads at `--lg-space-12` and the trait
+control-sized 44px Damage and Heal actions; the dashed underline is drawn by the value text
+itself (`text-decoration`) rather than by a control's border, so each underline hugs its value
+while the icon-only initiative pencil draws none, the body pads at `--lg-space-12` and the trait
 prose reads at `--lg-type-13`, keeping a sample enemy inside its 900px (1440) and 1200px (390)
 height budgets. At every width the six abilities sit in a three-column grid of two rows with
 their score pill under the medallion, so no ability name has to truncate; the labels read

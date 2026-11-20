@@ -980,6 +980,20 @@ describe('the stat block styles', () => {
     expect(mobile).toMatch(/\.lg-stat-block__edit\s*\{[^}]*opacity:\s*1/);
   });
 
+  it('Edge: the vitals band underlines a value on its text and never on the pencil', () => {
+    expect(css).toMatch(/\.lg-stat-block__edit\s*\{[^}]*border-bottom:\s*0/);
+    expect(css).toMatch(
+      /\.lg-stat-block \.lg-hp-card button\.lg-inline-edit\s*\{[^}]*border-bottom:\s*0[^}]*text-decoration-line:\s*underline[^}]*text-decoration-style:\s*dashed[^}]*text-underline-offset:\s*var\(--lg-underline-offset\)/,
+    );
+  });
+
+  it('Edge: the phone quick actions and the damage row start on one left edge', () => {
+    const mobile = css.slice(css.indexOf('@media (max-width: 40rem)'));
+    expect(mobile).toMatch(
+      /\.lg-stat-block \.lg-hp-card__actions\s*\{[^}]*justify-items:\s*stretch/,
+    );
+  });
+
   it('Edge: the hit points card folds into one row with a 74px amount field', () => {
     expect(css).toMatch(
       /\.lg-stat-block \.lg-hp-card\s*\{[^}]*grid-template-areas:\s*'head bar actions'\s*'notes notes notes'/,
