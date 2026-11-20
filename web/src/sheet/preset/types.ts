@@ -28,4 +28,5 @@ export interface SheetPreset {
   readonly statBlock?: PresetStatBlock;
   readonly sections: readonly PresetSection[];
   readonly layout?: readonly PresetLayoutBlock[];
+  readonly narrowLayout?: readonly PresetLayoutBlock[];
 }
