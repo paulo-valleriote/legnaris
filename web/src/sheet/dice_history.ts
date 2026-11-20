@@ -1,5 +1,5 @@
 import type { DiceResult } from '../dice/errors';
-import type { RollResult } from '../dice/roll';
+import type { RollMode, RollResult } from '../dice/roll';
 
 export const ROLL_HISTORY_LIMIT = 3;
 
@@ -7,6 +7,7 @@ export interface RollEntry {
   readonly id: number;
   readonly label: string;
   readonly outcome: DiceResult<RollResult>;
+  readonly mode?: RollMode;
 }
 
 export function rememberRoll(

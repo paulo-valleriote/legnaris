@@ -25,6 +25,9 @@
   text-decoration-color: var(--lg-color-link);
   text-underline-offset: var(--lg-underline-offset);
   cursor: pointer;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
   transition:
     color var(--lg-motion-120) var(--lg-ease-out),
     background-color var(--lg-motion-120) var(--lg-ease-out);

@@ -415,7 +415,10 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
 - **Rollable totals (Play).** A rollable total reads in `--lg-color-text` with a dashed
   `--lg-color-link` underline; hover and focus fill it with `--lg-color-accent` and
   `--lg-color-accent-text`. Filled accent stays for the proficiency dot and the primary action, so
-  "proficient" and "rollable" never share a shape. Read-only Play text (the at-will and prepared
+  "proficient" and "rollable" never share a shape. A d20 rollable takes a roll mode: Shift-click is
+  advantage, Alt-click is disadvantage, and a long press or the Context Menu key / Shift+F10 opens one
+  small dialog with Normal, Advantage and Disadvantage as full-width secondary buttons (the first
+  takes focus). A non-d20 roll ignores all of it. Read-only Play text (the at-will and prepared
   spell lists) draws no input edge until hover or focus, while Edit keeps the generic input
   affordance. Initiative reads as a roll before hover: a decorative d20 sits beside its signed total
   at all times, named `Roll initiative, <signed value>`, and its ghost pencil waits for hover or
@@ -697,8 +700,8 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
   app the same text opens in the Document dialog instead of navigating away.
 - **States (loading / empty / error / not found).** Each is designed: a short line of plain text
   and, where there is an action, one control. No illustration, no demo data.
-- **Overlays.** Creation flows, destructive confirmations, blocking errors and the dice expression
-  editor use the one dialog pattern; everything else stays inline.
+- **Overlays.** Creation flows, destructive confirmations, blocking errors, the dice expression
+  editor and the roll-mode choice use the one dialog pattern; everything else stays inline.
 - **Dice.** A Row's dice controls sit at the trailing edge of its label, in every Row kind, so they
   always sit right before the value; a label beside them keeps whole words. Roll is the action of the
   table and the only outlined control: raised fill, `--lg-color-border-strong` hairline (accent on
@@ -721,6 +724,9 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
   when it appears, grows or leaves, names the rolled Row beside its total and lists every die and
   number; it keeps the last three results of the session, newest first, separating them with a
   hairline (a fourth result drops off the oldest, and older totals step down to `--lg-type-18`).
+  A roll made with advantage or disadvantage names the mode beside its total at
+  `--lg-type-13` semibold, lists every thrown d20 in muted figures with the dropped one struck
+  through and the kept one in text colour semibold, and reads the whole thing in `dice.keptRolls`.
   It never traps focus and closes on its × or Escape, which also clears the history and starts the
   next roll from an empty panel.
 

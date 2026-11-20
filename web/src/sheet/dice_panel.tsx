@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
-import type { RollResult } from '../dice/roll';
+import type { RollPart, RollResult } from '../dice/roll';
 import { message, messageWith } from '../l10n/strings';
 import { CloseIcon } from '../ui/icons';
 import type { RollEntry } from './dice_history';
@@ -11,6 +11,46 @@ export interface DicePanelProps {
   readonly onDismiss: () => void;
 }
 
+function Rolls({ part }: { readonly part: RollPart }) {
+  if (part.rolls === undefined) {
+    return null;
+  }
+  if (part.discarded === undefined) {
+    return (
+      <span className="lg-dice-panel__rolls">
+        {messageWith('dice.rolls', { rolls: part.rolls.join(', ') })}
+      </span>
+    );
+  }
+  const kept = part.rolls.filter((_, index) => !part.discarded?.includes(index));
+  return (
+    <span className="lg-dice-panel__rolls">
+      <span aria-hidden="true">
+        {part.rolls.map((roll, index) => (
+          <span key={`${index}-${roll}`}>
+            {index === 0 ? null : ', '}
+            <span
+              className={
+                part.discarded?.includes(index)
+                  ? 'lg-dice-panel__die lg-dice-panel__die--dropped'
+                  : 'lg-dice-panel__die lg-dice-panel__die--kept'
+              }
+            >
+              {roll}
+            </span>
+          </span>
+        ))}
+      </span>
+      <span className="lg-dice-panel__sr">
+        {messageWith('dice.keptRolls', {
+          rolls: part.rolls.join(', '),
+          kept: kept.join(', '),
+        })}
+      </span>
+    </span>
+  );
+}
+
 function Breakdown({ result }: { readonly result: RollResult }) {
   return (
     <ul className="lg-dice-panel__parts">
@@ -18,11 +58,7 @@ function Breakdown({ result }: { readonly result: RollResult }) {
         <li className="lg-dice-panel__part" key={`${index}-${part.label}`}>
           <span className="lg-dice-panel__sign">{part.sign === 1 ? '+' : '-'}</span>
           <span className="lg-dice-panel__label">{part.label}</span>
-          {part.rolls !== undefined && (
-            <span className="lg-dice-panel__rolls">
-              {messageWith('dice.rolls', { rolls: part.rolls.join(', ') })}
-            </span>
-          )}
+          <Rolls part={part} />
           <span className="lg-dice-panel__value">{part.value}</span>
         </li>
       ))}
@@ -30,12 +66,25 @@ function Breakdown({ result }: { readonly result: RollResult }) {
   );
 }
 
+const MODE_KEYS = {
+  advantage: 'dice.mode.advantage',
+  disadvantage: 'dice.mode.disadvantage',
+} as const;
+
+function modeKey(mode: RollEntry['mode']) {
+  return mode === 'advantage' || mode === 'disadvantage' ? MODE_KEYS[mode] : undefined;
+}
+
 function Result({ entry }: { readonly entry: RollEntry }) {
+  const key = modeKey(entry.mode);
   if (entry.outcome.ok) {
     return (
       <>
         <p className="lg-dice-panel__total">
-          <span className="lg-dice-panel__total-label">{entry.label}</span>
+          <span className="lg-dice-panel__total-label">
+            {entry.label}
+            {key !== undefined && <span className="lg-dice-panel__mode">{message(key)}</span>}
+          </span>
           <span className="lg-dice-panel__total-value">{entry.outcome.value.total}</span>
         </p>
         <Breakdown result={entry.outcome.value} />
@@ -46,7 +95,10 @@ function Result({ entry }: { readonly entry: RollEntry }) {
   return (
     <>
       <p className="lg-dice-panel__total">
-        <span className="lg-dice-panel__total-label">{entry.label}</span>
+        <span className="lg-dice-panel__total-label">
+          {entry.label}
+          {key !== undefined && <span className="lg-dice-panel__mode">{message(key)}</span>}
+        </span>
       </p>
       <p className="lg-dice-panel__error">
         {message(diceErrorMessageKey(entry.outcome.error.class))}
@@ -152,9 +204,23 @@ export function DicePanel({ results, onDismiss }: DicePanelProps) {
   if (newest === undefined) {
     return null;
   }
-  const announcement = newest.outcome.ok
-    ? messageWith('dice.rolled', { label: newest.label, total: newest.outcome.value.total })
-    : message(diceErrorMessageKey(newest.outcome.error.class));
+  const announcement =
+    newest.outcome.ok === false
+      ? message(diceErrorMessageKey(newest.outcome.error.class))
+      : newest.mode === 'advantage'
+        ? messageWith('dice.rolledAdvantage', {
+            label: newest.label,
+            total: newest.outcome.value.total,
+          })
+        : newest.mode === 'disadvantage'
+          ? messageWith('dice.rolledDisadvantage', {
+              label: newest.label,
+              total: newest.outcome.value.total,
+            })
+          : messageWith('dice.rolled', {
+              label: newest.label,
+              total: newest.outcome.value.total,
+            });
 
   return (
     <div ref={panel} className="lg-dice-panel">
