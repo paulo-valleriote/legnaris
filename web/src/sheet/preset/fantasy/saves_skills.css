@@ -114,6 +114,11 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--lg-color-accent) 18%, transparent);
 }
 
+.lg-prof-dot__mark--on {
+  border-color: var(--lg-color-accent);
+  background-color: var(--lg-color-accent);
+}
+
 @media (max-width: 40rem) {
   .lg-preset-saves__list {
     grid-template-columns: minmax(0, 1fr);

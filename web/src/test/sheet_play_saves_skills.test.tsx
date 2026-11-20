@@ -350,6 +350,41 @@ describe('skills', () => {
   });
 });
 
+describe('the section legends', () => {
+  it('Edge: saving throws carry the proficiency legend with the same dot as their rows', async () => {
+    await openFantasy();
+
+    const saves = screen.getByTestId('sheet-play-saves');
+    const legend = within(saves).getByTestId('sheet-saves-legend');
+    expect(legend).toHaveTextContent(message('sheet.play.proficient'));
+
+    const legendDot = legend.querySelector('.lg-prof-dot__mark');
+    expect(legendDot).not.toBeNull();
+    expect(legendDot).toHaveClass('lg-prof-dot__mark--on');
+    expect(saveRow('strength').querySelector('.lg-prof-dot__mark')).toHaveClass(
+      'lg-prof-dot__mark',
+    );
+  });
+
+  it('Edge: skills carry the roll hint in their header', async () => {
+    await openFantasy();
+
+    const skills = screen.getByTestId('sheet-play-skills');
+    expect(within(skills).getByTestId('sheet-skills-roll-hint')).toHaveTextContent(
+      message('sheet.play.rollHint'),
+    );
+  });
+
+  it('Edge: Edit mode hides both legends', async () => {
+    const { user } = await openFantasy();
+
+    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+
+    expect(screen.queryByTestId('sheet-saves-legend')).toBeNull();
+    expect(screen.queryByTestId('sheet-skills-roll-hint')).toBeNull();
+  });
+});
+
 describe('config in Play mode', () => {
   it('Edge: the Config section and its proficiency leaves are not rendered', async () => {
     await openFantasy();
