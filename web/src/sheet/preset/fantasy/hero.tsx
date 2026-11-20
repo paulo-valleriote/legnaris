@@ -9,6 +9,7 @@ import {
   usePresetValue,
 } from '../preset_context';
 import { numberValue, textValue } from '../values';
+import type { PresetHeaderProps } from '../types';
 import { formatModifier } from './abilities_data';
 import { parseProficiencyBonus } from './identity';
 import { XpBar } from './xp_panel';
@@ -20,7 +21,7 @@ function clampLevel(level: number): number {
   return Math.min(LEVEL_MAX, Math.max(LEVEL_MIN, level));
 }
 
-export function FantasyHero() {
+export function FantasyHero({ level: headingLevel = 1 }: PresetHeaderProps) {
   const { sheet } = usePresetContext();
   const characterName = textValue(usePresetValue('identity.characterName'));
   const playerName = textValue(usePresetValue('identity.playerName'));
@@ -42,11 +43,12 @@ export function FantasyHero() {
   const proficiencyLabel = usePresetLabel('identity.proficiencyBonus');
   const proficiencySchema = usePresetSchema('identity.proficiencyBonus');
   const shownLevel = level ?? LEVEL_MIN;
+  const Heading = headingLevel === 2 ? 'h2' : 'h1';
 
   return (
     <div className="lg-preset-hero" data-testid="sheet-play-hero">
       <div className="lg-preset-hero__identity">
-        <h1 className="lg-sheet__title lg-preset-hero__name" data-testid="sheet-name">
+        <Heading className="lg-sheet__title lg-preset-hero__name" data-testid="sheet-name">
           <InlineEdit
             className="lg-preset-hero__title"
             label={characterNameLabel}
@@ -55,7 +57,7 @@ export function FantasyHero() {
             fallback={sheet.name}
             onCommit={commitCharacterName}
           />
-        </h1>
+        </Heading>
         <div className="lg-preset-hero__line">
           <p className="lg-preset-hero__meta">
             <InlineEdit

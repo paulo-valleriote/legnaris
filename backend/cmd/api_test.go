@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"legnaris/backend/internal/funnel"
+	"legnaris/backend/shared/logger"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -41,6 +44,47 @@ func (h *serveHandle) wait(t *testing.T) error {
 	case <-time.After(testWait):
 		t.Fatal("serve did not return in time")
 		return nil
+	}
+}
+
+type blockingStore struct {
+	started chan struct{}
+	release chan struct{}
+}
+
+func (s *blockingStore) Stats(context.Context) (funnel.Stats, error) {
+	close(s.started)
+	<-s.release
+	return funnel.Stats{}, nil
+}
+
+type noopObserver struct{}
+
+func (noopObserver) FunnelStats(funnel.Stats) {}
+
+func TestStartFunnelRefresherWaitsForTheRunToReturn(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	store := &blockingStore{started: make(chan struct{}), release: make(chan struct{})}
+	refresher := funnel.NewRefresher(store, noopObserver{}, logger.NewLogger(0), time.Hour)
+
+	stop := startFunnelRefresher(ctx, refresher, logger.NewLogger(0))
+	<-store.started
+	cancel()
+
+	stopped := make(chan struct{})
+	go func() { stop(); close(stopped) }()
+
+	select {
+	case <-stopped:
+		t.Fatal("the stop function returned before the refresher finished")
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	close(store.release)
+	select {
+	case <-stopped:
+	case <-time.After(testWait):
+		t.Fatal("the stop function did not return after the refresher finished")
 	}
 }
 

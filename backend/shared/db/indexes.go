@@ -18,6 +18,7 @@ const (
 	refreshTokensFamilyIndex        = "refresh_tokens_family_id"
 	refreshTokensExpiresAtTTLIndex  = "refresh_tokens_expires_at_ttl"
 	sheetsOwnerKindIndex            = "sheets_owner_id_kind"
+	sheetsOwnerCreatedAtIndex       = "sheets_owner_id_created_at"
 	sheetCountsUniqueIndex          = "sheet_counts_owner_id_kind_unique"
 	emailOutboxStatusNextAttempt    = "email_outbox_status_next_attempt"
 	emailOutboxCreatedAt            = "email_outbox_created_at"
@@ -45,6 +46,7 @@ const (
 	billingEventsNextAttemptField   = "next_attempt_at"
 	expiresAtField                  = "expires_at"
 	statusField                     = "status"
+	createdAtField                  = "created_at"
 	campaignsMembersUserIDField     = "members.user_id"
 	campaignsMembersUserStatusIndex = "campaigns_members_user_id_status"
 	sheetsCampaignIDIndex           = "sheets_campaign_id"
@@ -102,6 +104,13 @@ func EnsureIndexesWithRetention(ctx context.Context, database *mongo.Database, r
 		Options: options.Index().SetName(sheetsOwnerKindIndex),
 	}); err != nil {
 		return fmt.Errorf("create sheets.owner_id_kind index: %w", err)
+	}
+
+	if _, err := sheets.Indexes().CreateOne(ctx, mongo.IndexModel{
+		Keys:    bson.D{{Key: ownerIDField, Value: 1}, {Key: createdAtField, Value: 1}},
+		Options: options.Index().SetName(sheetsOwnerCreatedAtIndex),
+	}); err != nil {
+		return fmt.Errorf("create sheets.owner_id_created_at index: %w", err)
 	}
 
 	if _, err := sheets.Indexes().CreateOne(ctx, mongo.IndexModel{
@@ -252,7 +261,7 @@ func ensureGenerationIndexes(ctx context.Context, database *mongo.Database) erro
 			Options: options.Index().SetExpireAfterSeconds(0).SetName(generationsExpiresAtTTL),
 		},
 		{
-			Keys:    bson.D{{Key: statusField, Value: 1}, {Key: "created_at", Value: 1}},
+			Keys:    bson.D{{Key: statusField, Value: 1}, {Key: createdAtField, Value: 1}},
 			Options: options.Index().SetName(generationsStatusCreatedAt),
 		},
 	}); err != nil {
@@ -344,7 +353,7 @@ func ensureEmailOutboxIndexes(ctx context.Context, database *mongo.Database, ret
 	}
 
 	if _, err := emailOutbox.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys:    bson.D{{Key: "created_at", Value: 1}},
+		Keys:    bson.D{{Key: createdAtField, Value: 1}},
 		Options: options.Index().SetName(emailOutboxCreatedAt),
 	}); err != nil {
 		return fmt.Errorf("create email_outbox created_at index: %w", err)

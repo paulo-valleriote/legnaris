@@ -1,4 +1,4 @@
-export const AD_SURFACES = ['catalog', 'campaigns', 'landing'] as const;
+export const AD_SURFACES = ['catalog', 'campaigns'] as const;
 
 export type AdSurface = (typeof AD_SURFACES)[number];
 

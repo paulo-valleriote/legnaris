@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const css = readFileSync(path.resolve(here, '../landing/landing.css'), 'utf8');
 const baseCss = readFileSync(path.resolve(here, '../theme/base.css'), 'utf8');
+const tokensCss = readFileSync(path.resolve(here, '../theme/tokens.css'), 'utf8');
 
 function blockFor(selector: string): string {
   const start = css.indexOf(selector);
@@ -29,5 +30,15 @@ describe('landing polish contract', () => {
 
   it('Edge: the top-bar action keeps the full touch target', () => {
     expect(blockFor('.lg-landing__bar .lg-landing__cta')).not.toContain('min-height');
+  });
+
+  it('Edge: the sticky CTA sits at the viewport foot and leaves room on wide screens', () => {
+    expect(blockFor('.lg-landing__sticky')).toContain('position: fixed');
+    const wide = css.slice(css.indexOf('@media (min-width: 40rem)'));
+    expect(wide).toMatch(/\.lg-landing__sticky\s*\{[^}]*display:\s*none/);
+  });
+
+  it('Edge: the mounted demo inherits the stage world through the landing remap', () => {
+    expect(tokensCss).toMatch(/:root:has\(\.lg-shell\),\s*:root:has\(\.lg-landing\)/);
   });
 });

@@ -444,6 +444,15 @@ starts empty. A roll made with a mode names `Advantage` or `Disadvantage` beside
 every thrown d20 with the kept one in text colour and the dropped one struck through, and announces
 the newest as `<label> rolled <total> with advantage` (or `with disadvantage`).
 
+The landing demo (`web/src/landing/demo_sheet.tsx`) reuses the same preset components and the
+`SheetEditStore` interface without the sheet screen: `demo_provider.tsx` builds the real Dice
+context, `demo_store.ts` keeps the sample in memory and applies an original local cascade after
+every write (`demo_character.ts`), and the default export is a separate module so a later hero can
+lazy-load it. The demo template reuses the `fantasy_v1` field keys and formulas for its derived
+leaves (the modifier floor, the save and skill proficiency shares, the armor ability choice and the
+spell attack and save DC), so the sample behaves like the server template. It makes no API or auth
+call and resets on every mount.
+
 Any Play-mode value edit also floats the pending-changes bar (`pending_card.tsx`, fed by the pure
 `pending_changes.ts`): the only save surface in Play, because the screen draws no footer there.
 It lists each changed field as `<label> <old> → <new>`, the `not saved yet` copy, a small visible
@@ -654,6 +663,8 @@ Web:
   there is no pin cap.
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
+- The landing demo's cascade is local to `web/src/landing/demo_store.ts`; it is an original demo
+  approximation, not the server engine, and it is not a second template registry.
 - Play mode presents the `fantasy_v1` hero header with its experience bar, the armor class shield,
   the initiative and speed tiles and the hit-points card in the combat strip, the attack cards, the
   ability medallions, the saving throws and skills, the spellcasting panel with its table-rules

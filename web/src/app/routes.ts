@@ -10,6 +10,8 @@ export interface DeclaredRoute {
 
 export const LANDING_PATH = '/';
 
+export const DEMO_PATH = '/demo';
+
 export const SIGN_IN_PATH = '/sign-in';
 export const SIGN_UP_PATH = '/sign-up';
 
@@ -78,6 +80,13 @@ export const DECLARED_ROUTES: readonly DeclaredRoute[] = [
     path: '/generate/:templateId',
     label: 'Generate',
     audience: 'session',
+    deepLink: true,
+    notFound: false,
+  },
+  {
+    path: DEMO_PATH,
+    label: 'Live demo',
+    audience: 'public',
     deepLink: true,
     notFound: false,
   },

@@ -1,0 +1,99 @@
+.lg-moment-grid {
+  display: grid;
+  gap: var(--lg-space-24);
+  margin-top: var(--lg-space-48);
+}
+
+.lg-moment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-16);
+  min-width: 0;
+  padding: var(--lg-space-24);
+  border: var(--lg-size-hairline) solid var(--lg-color-stage-line);
+  border-radius: var(--lg-radius-lg);
+  background-color: var(--lg-color-stage-raised);
+}
+
+.lg-moment__title {
+  margin: 0;
+  font-size: var(--lg-type-20);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+}
+
+.lg-moment__body {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-stage-text-muted);
+}
+
+.lg-moment__stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-12);
+  min-width: 0;
+}
+
+.lg-moment__level {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  letter-spacing: var(--lg-tracking-wide);
+  text-transform: uppercase;
+  color: var(--lg-color-stage-accent);
+}
+
+.lg-moment__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lg-space-8);
+}
+
+.lg-moment__result {
+  min-height: calc(var(--lg-line-normal) * 1em);
+  margin: 0;
+  font-size: var(--lg-type-13);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-stage-text-muted);
+}
+
+.lg-moment__flash {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  height: var(--lg-space-2);
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-stage-accent);
+  transform-origin: left;
+  animation: lg-moment-flash var(--lg-motion-1200) var(--lg-ease-out) both;
+  pointer-events: none;
+}
+
+@keyframes lg-moment-flash {
+  from {
+    opacity: 1;
+    transform: scaleX(0);
+  }
+
+  40% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+
+  to {
+    opacity: 0;
+    transform: scaleX(1);
+  }
+}
+
+@media (min-width: 56rem) {
+  .lg-moment-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

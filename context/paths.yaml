@@ -45,6 +45,9 @@ paths:
   - target: backend/internal/events
     kind: directory
     context: events-and-email
+  - target: backend/internal/funnel
+    kind: directory
+    context: platform
   - target: backend/internal/generation
     kind: directory
     context: generation

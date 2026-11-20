@@ -314,7 +314,7 @@ function SlotLevel({
   );
 }
 
-function SpellSlots({ compact }: { readonly compact: boolean }) {
+export function SpellSlots({ compact = false }: { readonly compact?: boolean }) {
   const { store, fields } = usePresetContext();
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
   const state = useSyncExternalStore(subscribe, store.getState);

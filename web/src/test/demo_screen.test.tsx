@@ -1,0 +1,121 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { DECLARED_ROUTES, DEMO_PATH, LANDING_PATH } from '../app/routes';
+import { message } from '../l10n/strings';
+import { signUpCtaPath } from '../landing/start_intent';
+import { renderApp } from './render';
+import { rollName } from './dice_names';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+const FANTASY_SIGN_UP_PATH = signUpCtaPath('fantasy');
+const fetchSpy = vi.fn(() => Promise.reject(new Error('the demo page must stay offline')));
+
+beforeEach(() => {
+  vi.stubGlobal('fetch', fetchSpy);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+  fetchSpy.mockClear();
+});
+
+async function visitDemo(session: 'authenticated' | 'unauthenticated' = 'unauthenticated') {
+  const view = renderApp(DEMO_PATH, { session });
+  await waitFor(() => expect(screen.queryByTestId('auth-restoring')).not.toBeInTheDocument());
+  await waitFor(() => expect(screen.getByTestId('landing-demo-sheet')).toBeInTheDocument());
+  return view;
+}
+
+describe('demo page', () => {
+  it('Happy path: the demo route is declared public with a deep link', () => {
+    const route = DECLARED_ROUTES.find((declared) => declared.path === DEMO_PATH);
+
+    expect(route).toMatchObject({ audience: 'public', deepLink: true, notFound: false });
+  });
+
+  it('Happy path: a visitor reaches the live sheet on its own page', async () => {
+    await visitDemo();
+
+    expect(
+      screen.getByRole('heading', { level: 1, name: message('demo.title') }),
+    ).toBeInTheDocument();
+    expect(screen.getByText(message('demo.lead'))).toBeInTheDocument();
+    expect(screen.getByTestId('landing-demo-sheet')).toBeInTheDocument();
+    expect(screen.queryByTestId('landing')).not.toBeInTheDocument();
+  });
+
+  it('Happy path: the sample character sits below the page heading', async () => {
+    await visitDemo();
+
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 2, name: 'Rowan Vale' })).toBeInTheDocument();
+  });
+
+  it('Happy path: Back to home returns to the landing', async () => {
+    await visitDemo();
+
+    expect(screen.getByRole('link', { name: message('demo.backHome') })).toHaveAttribute(
+      'href',
+      LANDING_PATH,
+    );
+  });
+
+  it('Happy path: opening the demo page makes no network request', async () => {
+    await visitDemo();
+
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('Happy path: a signed-in visitor also reaches the public demo page', async () => {
+    await visitDemo('authenticated');
+
+    expect(screen.getByTestId('landing-demo-sheet')).toBeInTheDocument();
+    expect(screen.queryByTestId('catalog')).not.toBeInTheDocument();
+  });
+
+  it('Edge: the contextual CTA is absent until the visitor interacts with the demo', async () => {
+    await visitDemo();
+
+    expect(screen.queryByTestId('landing-demo-cta')).not.toBeInTheDocument();
+  });
+
+  it('Happy path: rolling a die reveals the sign-up CTA and keeps the demo state', async () => {
+    const user = userEvent.setup();
+    await visitDemo();
+    const modifier = screen.getByRole('button', { name: rollName('Might modifier') });
+
+    expect(modifier).toHaveTextContent('+3');
+    await user.click(modifier);
+
+    const cta = screen.getByTestId('landing-demo-cta');
+    expect(
+      within(cta).getByRole('link', { name: message('landing.demoCtaAction') }),
+    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
+  });
+
+  it('Happy path: the mobile sticky CTA carries the Fantasy start intent', async () => {
+    await visitDemo();
+
+    expect(
+      within(screen.getByTestId('landing-sticky-cta')).getByRole('link', {
+        name: message('landing.stickyCta'),
+      }),
+    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+  });
+
+  it('Edge: the demo page is its own lazy chunk over the lazily loaded sheet', () => {
+    const router = readFileSync(path.resolve(here, '../app/router.tsx'), 'utf8');
+    const demo = readFileSync(path.resolve(here, '../landing/demo_screen.tsx'), 'utf8');
+    const landing = readFileSync(path.resolve(here, '../landing/landing_screen.tsx'), 'utf8');
+
+    expect(router).toContain("lazy(() => import('../landing/demo_screen'))");
+    expect(demo).toContain("lazy(() => import('./demo_sheet'))");
+    expect(demo).not.toContain("from './demo_sheet'");
+    expect(landing).not.toContain('demo_sheet');
+  });
+});

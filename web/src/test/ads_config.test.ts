@@ -14,14 +14,22 @@ describe('ads runtime configuration', () => {
     const config = readAdsConfig({
       adsense: {
         client: CLIENT,
-        slots: { catalog: '1111111111', campaigns: '2222222222', landing: '3333333333' },
+        slots: { catalog: '1111111111', campaigns: '2222222222' },
       },
     });
 
     expect(config).toEqual({
       client: CLIENT,
-      slots: { catalog: '1111111111', campaigns: '2222222222', landing: '3333333333' },
+      slots: { catalog: '1111111111', campaigns: '2222222222' },
     });
+  });
+
+  it('Edge: the removed landing slot is ignored', () => {
+    const config = readAdsConfig({
+      adsense: { client: CLIENT, slots: { catalog: '1111111111', landing: '3333333333' } },
+    });
+
+    expect(config).toEqual({ client: CLIENT, slots: { catalog: '1111111111' } });
   });
 
   it('Edge: a missing slots object is a valid client with no slot', () => {
@@ -32,7 +40,7 @@ describe('ads runtime configuration', () => {
     const config = readAdsConfig({
       adsense: {
         client: CLIENT,
-        slots: { catalog: '123', campaigns: 'not-digits', landing: '123456789012345678901' },
+        slots: { catalog: '123', campaigns: 'not-digits' },
       },
     });
 
@@ -41,7 +49,7 @@ describe('ads runtime configuration', () => {
 
   it('Edge: unknown slot names are ignored', () => {
     const config = readAdsConfig({
-      adsense: { client: CLIENT, slots: { catalog: '1', sidebar: '2' } },
+      adsense: { client: CLIENT, slots: { catalog: '1', sidebar: '2', landing: '3' } },
     });
 
     expect(config).toEqual({ client: CLIENT, slots: { catalog: '1' } });
@@ -108,7 +116,7 @@ describe('ads runtime configuration', () => {
   it('Happy path: a build-time API address still reads the ads config from config.json', async () => {
     const fetcher = vi
       .fn()
-      .mockResolvedValue(response({ adsense: { client: CLIENT, slots: { landing: '7' } } }));
+      .mockResolvedValue(response({ adsense: { client: CLIENT, slots: { campaigns: '7' } } }));
 
     const result = await loadRuntimeConfiguration({
       fetcher,
@@ -117,7 +125,7 @@ describe('ads runtime configuration', () => {
 
     expect(result.configuration.baseUrl).toBe('http://localhost:8080');
     expect(fetcher).toHaveBeenCalledTimes(1);
-    expect(result.ads).toEqual({ client: CLIENT, slots: { landing: '7' } });
+    expect(result.ads).toEqual({ client: CLIENT, slots: { campaigns: '7' } });
   });
 
   it('Edge: a failed config.json read with a build-time API address yields no ads and no failure', async () => {
