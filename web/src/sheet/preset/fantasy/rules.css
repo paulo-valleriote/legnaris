@@ -32,11 +32,18 @@
   inline-size: var(--lg-space-16);
   block-size: var(--lg-space-16);
   color: var(--lg-color-text-muted);
+  transform: rotate(0deg);
   transition: transform var(--lg-motion-120) var(--lg-ease-standard);
 }
 
-.lg-rules__toggle[aria-expanded='true'] .lg-rules__chevron {
-  transform: rotate(180deg);
+.lg-rules__chevron--open {
+  transform: rotate(90deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-rules__chevron {
+    transition: none;
+  }
 }
 
 .lg-rules__fields {
