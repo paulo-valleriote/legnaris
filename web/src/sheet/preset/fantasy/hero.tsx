@@ -56,59 +56,61 @@ export function FantasyHero() {
             onCommit={commitCharacterName}
           />
         </h1>
-        <p className="lg-preset-hero__meta">
-          <InlineEdit
-            className="lg-preset-hero__meta-item"
-            label={ancestryLabel}
-            path="identity.ancestry"
-            value={ancestry}
-            onCommit={commitAncestry}
-          />
-          <span className="lg-preset-hero__separator" aria-hidden="true" />
-          <InlineEdit
-            className="lg-preset-hero__meta-item"
-            label={originLabel}
-            path="identity.origin"
-            value={origin}
-            onCommit={commitOrigin}
-          />
-          <span className="lg-preset-hero__separator" aria-hidden="true" />
-          <span className="lg-preset-hero__level">
-            <button
-              type="button"
-              className="lg-preset-hero__step"
-              aria-label={messageWith('engine.decrease', { label: levelLabel })}
-              data-edit-path="identity.level"
-              disabled={shownLevel <= LEVEL_MIN}
-              onClick={() => commitLevel(clampLevel(shownLevel - 1))}
-            >
-              <MinusIcon />
-            </button>
-            <span className="lg-preset-hero__level-text" data-testid="sheet-play-level">
-              {messageWith('sheet.play.level', { count: shownLevel })}
+        <div className="lg-preset-hero__line">
+          <p className="lg-preset-hero__meta">
+            <InlineEdit
+              className="lg-preset-hero__meta-item"
+              label={ancestryLabel}
+              path="identity.ancestry"
+              value={ancestry}
+              onCommit={commitAncestry}
+            />
+            <span className="lg-preset-hero__separator" aria-hidden="true" />
+            <InlineEdit
+              className="lg-preset-hero__meta-item"
+              label={originLabel}
+              path="identity.origin"
+              value={origin}
+              onCommit={commitOrigin}
+            />
+            <span className="lg-preset-hero__separator" aria-hidden="true" />
+            <span className="lg-preset-hero__level">
+              <button
+                type="button"
+                className="lg-preset-hero__step"
+                aria-label={messageWith('engine.decrease', { label: levelLabel })}
+                data-edit-path="identity.level"
+                disabled={shownLevel <= LEVEL_MIN}
+                onClick={() => commitLevel(clampLevel(shownLevel - 1))}
+              >
+                <MinusIcon />
+              </button>
+              <span className="lg-preset-hero__level-text" data-testid="sheet-play-level">
+                {messageWith('sheet.play.level', { count: shownLevel })}
+              </span>
+              <button
+                type="button"
+                className="lg-preset-hero__step"
+                aria-label={messageWith('engine.increase', { label: levelLabel })}
+                data-edit-path="identity.level"
+                disabled={shownLevel >= LEVEL_MAX}
+                onClick={() => commitLevel(clampLevel(shownLevel + 1))}
+              >
+                <PlusIcon />
+              </button>
             </span>
-            <button
-              type="button"
-              className="lg-preset-hero__step"
-              aria-label={messageWith('engine.increase', { label: levelLabel })}
-              data-edit-path="identity.level"
-              disabled={shownLevel >= LEVEL_MAX}
-              onClick={() => commitLevel(clampLevel(shownLevel + 1))}
-            >
-              <PlusIcon />
-            </button>
-          </span>
-        </p>
-        <p className="lg-preset-hero__played">
-          {playerName.trim() === '' ? null : <>{message('sheet.play.playedBy')} </>}
-          <InlineEdit
-            className="lg-preset-hero__player"
-            label={playerNameLabel}
-            path="identity.playerName"
-            value={playerName}
-            onCommit={commitPlayerName}
-          />
-        </p>
+          </p>
+          <p className="lg-preset-hero__played">
+            {playerName.trim() === '' ? null : <>{message('sheet.play.playedBy')} </>}
+            <InlineEdit
+              className="lg-preset-hero__player"
+              label={playerNameLabel}
+              path="identity.playerName"
+              value={playerName}
+              onCommit={commitPlayerName}
+            />
+          </p>
+        </div>
       </div>
       <div className="lg-preset-hero__progress">
         <XpBar />
