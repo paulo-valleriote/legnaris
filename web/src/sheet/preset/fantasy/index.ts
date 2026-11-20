@@ -8,11 +8,13 @@ import { FantasySaves, FantasySkills } from './saves_skills';
 import { FantasySpells } from './spells';
 import { FantasyStatBlock } from './stat_block';
 import { isStatBlockKind } from './stat_block_data';
+import { VitalsBar } from './vitals_bar';
 
 export const fantasyPreset: SheetPreset = {
   templateId: 'fantasy_v1',
   Header: FantasyHero,
   statBlock: { when: isStatBlockKind, Body: FantasyStatBlock },
+  Vitals: VitalsBar,
   sections: [
     { key: 'combat', Component: CombatStrip },
     { key: 'attacks', Component: FantasyAttacks },
