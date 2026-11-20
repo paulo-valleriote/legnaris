@@ -31,6 +31,7 @@ export interface RenderAppOptions {
   readonly adsConfig?: AdsConfig | null;
   readonly adsDocument?: Document;
   readonly adsWindow?: Window;
+  readonly apiBaseUrl?: string;
 }
 
 function defaultClient(): ApiClient {
@@ -79,6 +80,7 @@ export function renderApp(path = '/', options: RenderAppOptions = {}) {
   const result = render(
     <MemoryRouter initialEntries={[initialEntry(path, options.routeState)]}>
       <AppProviders
+        apiBaseUrl={options.apiBaseUrl ?? TEST_BASE_URL}
         client={options.client ?? defaultClient()}
         queryClient={queryClient}
         sheetStore={sheetStore}

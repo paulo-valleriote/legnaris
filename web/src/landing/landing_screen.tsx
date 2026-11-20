@@ -1,11 +1,14 @@
+import { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { AdSlot } from '../ads/ad_slot';
+import { useApiBaseUrl } from '../app/providers';
 import { PRIVACY_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from '../app/routes';
 import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
 import { BrandMark } from '../shell/brand_mark';
 import { ChevronDownIcon } from '../ui/icons';
 import { CascadeDemo } from './cascade_demo';
+import { reportHomeFunnel, reportHomeVisit } from './funnel_beacon';
 import { useStageThemeColor } from './use_stage_theme_color';
 import './landing.css';
 
@@ -41,6 +44,11 @@ const FAQ: readonly { readonly question: MessageKey; readonly answer: MessageKey
 
 export function LandingScreen() {
   useStageThemeColor();
+  const apiBaseUrl = useApiBaseUrl();
+
+  useEffect(() => {
+    reportHomeVisit(apiBaseUrl);
+  }, [apiBaseUrl]);
 
   return (
     <div className="lg-landing" data-testid="landing">
@@ -75,7 +83,11 @@ export function LandingScreen() {
           <div className="lg-landing__hero-side">
             <p className="lg-landing__hero-lead">{message('landing.heroLead')}</p>
             <div className="lg-landing__actions">
-              <Link className="lg-landing__cta lg-landing__cta--primary" to={SIGN_UP_PATH}>
+              <Link
+                className="lg-landing__cta lg-landing__cta--primary"
+                to={SIGN_UP_PATH}
+                onClick={() => reportHomeFunnel(apiBaseUrl, 'cta_click')}
+              >
                 {message('landing.create')}
               </Link>
             </div>

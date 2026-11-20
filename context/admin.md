@@ -115,6 +115,9 @@ resolved client address. There is no update or delete path; boot indexes
   for the `admin_audit` indexes.
 - `backend/internal/billing` — `comp_expiry.go`, `refund.go`, `store_comp.go`,
   `store_refund.go`, `plan_sync.go`: the rules the backoffice reuses.
+- `deploy/grafana/dashboards/` — the provisioned API, load-test, email and
+  `legnaris-funnel` dashboards; the funnel one covers home visits, hero CTA
+  clicks and the 24-hour first-Sheet activation baseline.
 - `.github/workflows/ci.yml` — the always-running `gate` job checks every
   tracked `.md` against `context/markdown-allowlist.txt` through
   `backend/cmd/markdown-check`; the same command backs the Claude Code

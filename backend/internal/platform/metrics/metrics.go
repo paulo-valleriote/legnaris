@@ -7,6 +7,7 @@ import (
 
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/billing"
+	"legnaris/backend/internal/funnel"
 	"legnaris/backend/internal/sweeper"
 
 	"github.com/labstack/echo/v5"
@@ -43,6 +44,11 @@ type Metrics struct {
 	generationCapLimit       prometheus.Gauge
 	generationCapUsedRatio   prometheus.Gauge
 	billingCorrections       *prometheus.CounterVec
+	funnelHomeVisits         prometheus.Counter
+	funnelHomeCTAClicks      prometheus.Counter
+	funnelAccounts           prometheus.Gauge
+	funnelFirstSheet24h      prometheus.Gauge
+	funnelFirstSheet24hRatio prometheus.Gauge
 }
 
 const metricsNamespace = "legnaris"
@@ -52,6 +58,8 @@ const sweeperSubsystem = "sweeper"
 const queueLabel = "queue"
 
 const billingSubsystem = "billing"
+
+const funnelSubsystem = "funnel"
 
 const kindLabel = "kind"
 
@@ -243,6 +251,41 @@ func New() *Metrics {
 		Help:      "Drift corrected by the daily billing reconciliation, by kind (subscription, plan, event).",
 	}, []string{kindLabel})
 
+	funnelHomeVisits := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: funnelSubsystem,
+		Name:      "home_visits_total",
+		Help:      "Aggregated visits to the public landing page, counted without cookies or identifiers.",
+	})
+
+	funnelHomeCTAClicks := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: funnelSubsystem,
+		Name:      "home_cta_clicks_total",
+		Help:      "Aggregated clicks on the landing hero call to action, counted without cookies or identifiers.",
+	})
+
+	funnelAccounts := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Subsystem: funnelSubsystem,
+		Name:      "accounts",
+		Help:      "Accounts present in the database, the conversion baseline of the home funnel.",
+	})
+
+	funnelFirstSheetWithin24h := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Subsystem: funnelSubsystem,
+		Name:      "first_sheet_within_24h",
+		Help:      "Accounts whose earliest Sheet was saved within 24 hours of account creation.",
+	})
+
+	funnelFirstSheetRatio := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Subsystem: funnelSubsystem,
+		Name:      "first_sheet_within_24h_ratio",
+		Help:      "Share of accounts whose earliest Sheet was saved within 24 hours, from 0 to 1.",
+	})
+
 	registry.MustRegister(requestDuration, requestsTotal, requestsInFlight, authLoginFailures, authRefreshReuseDetected, authRateLimited, cspReports, eventsDropped,
 		emailOutboxBacklog, emailPublishTotal, emailDeadTotal,
 		emailSendTotal, emailSendDuration, emailExpiredTotal,
@@ -250,7 +293,8 @@ func New() *Metrics {
 		authOTPIssued, authOTPVerify, authOTPResend, authOTPCapBlocked,
 		sweeperOldestPending, sweeperFailed,
 		generationCapUsed, generationCapLimit, generationCapUsedRatio,
-		billingCorrections)
+		billingCorrections,
+		funnelHomeVisits, funnelHomeCTAClicks, funnelAccounts, funnelFirstSheetWithin24h, funnelFirstSheetRatio)
 
 	registry.MustRegister(
 		collectors.NewGoCollector(),
@@ -285,6 +329,11 @@ func New() *Metrics {
 		generationCapLimit:       generationCapLimit,
 		generationCapUsedRatio:   generationCapUsedRatio,
 		billingCorrections:       billingCorrections,
+		funnelHomeVisits:         funnelHomeVisits,
+		funnelHomeCTAClicks:      funnelHomeCTAClicks,
+		funnelAccounts:           funnelAccounts,
+		funnelFirstSheet24h:      funnelFirstSheetWithin24h,
+		funnelFirstSheet24hRatio: funnelFirstSheetRatio,
 	}
 }
 
@@ -416,4 +465,27 @@ func (m *Metrics) GenerationCapUsage(used, limit int) {
 		ratio = float64(used) / float64(limit)
 	}
 	m.generationCapUsedRatio.Set(ratio)
+}
+
+func (m *Metrics) HomeVisited() {
+	m.funnelHomeVisits.Inc()
+}
+
+func (m *Metrics) HomeCTAClicked() {
+	m.funnelHomeCTAClicks.Inc()
+}
+
+var _ funnel.Observer = (*Metrics)(nil)
+
+func (m *Metrics) FunnelStats(stats funnel.Stats) {
+	accounts := max(stats.Accounts, 0)
+	within := max(stats.FirstSheetWithin24h, 0)
+	ratio := 0.0
+	if accounts > 0 {
+		ratio = min(float64(within)/float64(accounts), 1)
+	}
+
+	m.funnelAccounts.Set(float64(accounts))
+	m.funnelFirstSheet24h.Set(float64(within))
+	m.funnelFirstSheet24hRatio.Set(ratio)
 }
