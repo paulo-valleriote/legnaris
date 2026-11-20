@@ -11,7 +11,7 @@ export interface SheetModeToggleProps {
 
 export function SheetModeToggle({ mode, disabled = false, onChange }: SheetModeToggleProps) {
   return (
-    <>
+    <div className="lg-mode-toggle" role="group" aria-label={message('sheet.mode.group')}>
       <Button
         variant="ghost"
         size="sm"
@@ -28,6 +28,6 @@ export function SheetModeToggle({ mode, disabled = false, onChange }: SheetModeT
         label={message('sheet.mode.edit')}
         onClick={() => onChange('edit')}
       />
-    </>
+    </div>
   );
 }

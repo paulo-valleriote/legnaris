@@ -276,16 +276,15 @@ rolling the `stats.<ability>` Row through the Dice store and its sheet overrides
 score sits in an `inline_edit.tsx` badge whose writes go to the pending delta; the two are separate
 targets. The `derived.passiveAwareness` pill closes the column. `RollableValue` and the `useRowRoll`
 hook it uses are the reusable roll surface for later gameplay sections. Every rollable total shares
-one affordance: text colour, a dashed accent (`--lg-color-link`) underline, and an accent fill with
-on-accent text on hover or focus. Filled accent is reserved for the proficiency dot and the primary
+one affordance: text colour, a quiet dashed `--lg-color-border-strong` underline, and an accent fill
+with on-accent text on hover or focus. Filled accent is reserved for the proficiency dot and the primary
 action, so "proficient" and "rollable" never look alike; the style follows the value rather than its
 sign, so a zero or negative modifier keeps it. A d20 rollable also carries the roll mode: Shift-click
 rolls with advantage and Alt-click with disadvantage (Shift wins when both are held), while a long
 press, the Context Menu key or Shift+F10 opens one small dialog choosing Normal, Advantage or
 Disadvantage, so a phone and a keyboard reach the same choice. Only an expression with a d20 term
 reacts; a damage expression and every other non-d20 roll throws exactly its own dice. No Play label
-falls below `--lg-type-11` on a desktop
-or `--lg-type-12` on a phone (hero badge, HP, AC and combat chips, spellcasting, ability and skill
+falls below `--lg-type-12` on any width (hero badge, HP, AC and combat chips, spellcasting, ability and skill
 labels). The attack cards, saving throws, skills, spellcasting panel and table-rules disclosure
 follow (see below). Edit keeps the generic form, Arrange and the pinned filter; Play ignores the
 layout and the view filters.
@@ -343,7 +342,7 @@ spends temporary points first and healing caps at the maximum, exactly like the 
 applied) and writes the higher of the current temporary points and the amount, so a lower value
 never reduces them; it writes only `combat.hitPointsTemp` and never rewrites the current value.
 Each button states its effect as its accessible name (`Damage 5`, `Heal 1`, `Add temporary hit
-points`). The Damage and Heal buttons and the quick strip sit on `--lg-size-control-compact` on a
+points`), and the signed buttons repeat it as a tooltip; the amount field shows an `HP` placeholder. The Damage and Heal buttons and the quick strip sit on `--lg-size-control-compact` on a
 desktop and `--lg-size-control` at phone widths, the quick buttons as 44px squares, in the combat
 strip and in the stat block alike. On a phone the actions sit in one full-width,
 min-width-zero track, so the quick strip and the amount/Damage/Heal row wrap and stay inside the

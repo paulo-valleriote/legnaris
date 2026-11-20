@@ -60,7 +60,7 @@
 .lg-ac__label {
   position: relative;
   margin-top: var(--lg-space-2);
-  font-size: var(--lg-type-11);
+  font-size: var(--lg-type-12);
   letter-spacing: var(--lg-tracking-wide);
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);
@@ -82,7 +82,7 @@
 }
 
 .lg-combat-stat__label {
-  font-size: var(--lg-type-11);
+  font-size: var(--lg-type-12);
   line-height: var(--lg-line-tight);
   letter-spacing: var(--lg-tracking-wide);
   text-transform: uppercase;

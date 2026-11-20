@@ -321,7 +321,7 @@
 .lg-stat-block .lg-ability__name {
   max-width: 100%;
   overflow: visible;
-  font-size: var(--lg-type-11);
+  font-size: var(--lg-type-12);
   line-height: var(--lg-line-tight);
   text-align: center;
   text-overflow: clip;
@@ -461,7 +461,7 @@
 
 .lg-stat-block .lg-ac__label {
   margin-top: 0;
-  font-size: var(--lg-type-11);
+  font-size: var(--lg-type-12);
 }
 
 @media (min-width: 40.01rem) {

@@ -957,8 +957,8 @@ describe('the stat block styles', () => {
     expect(css).toMatch(/\.lg-stat-block__stat\s*\{[^}]*flex-direction:\s*row/);
   });
 
-  it('Edge: the armour class label clears the 11px floor on a desktop and 12px on a phone', () => {
-    expect(css).toMatch(/\.lg-stat-block \.lg-ac__label\s*\{[^}]*font-size:\s*var\(--lg-type-11\)/);
+  it('Edge: the armour class label clears the 12px floor on a desktop and a phone', () => {
+    expect(css).toMatch(/\.lg-stat-block \.lg-ac__label\s*\{[^}]*font-size:\s*var\(--lg-type-12\)/);
     const mobile = css.slice(css.indexOf('@media (max-width: 40rem)'));
     expect(mobile).toMatch(
       /\.lg-stat-block \.lg-ac__label\s*\{[^}]*font-size:\s*var\(--lg-type-12\)/,
@@ -1111,6 +1111,18 @@ describe('the stat block styles', () => {
     );
     expect(spellsCss).toMatch(
       /\.lg-spells--compact \.lg-spells__ability\s*\{[^}]*flex-direction:\s*row/,
+    );
+  });
+
+  it('Edge: a narrow spellcasting card stacks the ability above its two stats', () => {
+    const spellsCss = readFileSync(spellsStylesheet, 'utf8');
+    expect(spellsCss).toMatch(/\.lg-spells\s*\{[^}]*container:\s*lg-spells \/ inline-size/);
+    const narrow = spellsCss.slice(spellsCss.indexOf('@container lg-spells (max-width: 28rem)'));
+    expect(narrow).toMatch(
+      /\.lg-spells:not\(\.lg-spells--compact\) \.lg-spells__top\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/,
+    );
+    expect(narrow).toMatch(
+      /\.lg-spells:not\(\.lg-spells--compact\) \.lg-spells__ability\s*\{[^}]*grid-column:\s*1 \/ -1/,
     );
   });
 
