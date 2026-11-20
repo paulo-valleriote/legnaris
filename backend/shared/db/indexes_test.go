@@ -42,17 +42,29 @@ func indexIsUnique(idx bson.M) bool {
 	return ok && unique
 }
 
-func indexKeys(t *testing.T, idx bson.M) []string {
+func indexKeys(t *testing.T, mdb *mongo.Database, collection, name string) []string {
 	t.Helper()
 
-	key, ok := idx["key"].(bson.D)
-	require.True(t, ok, "index key must be a document, got %v", idx["key"])
+	cursor, err := mdb.Collection(collection).Indexes().List(context.Background())
+	require.NoError(t, err)
 
-	names := make([]string, 0, len(key))
-	for _, entry := range key {
-		names = append(names, entry.Key)
+	var listed []bson.Raw
+	require.NoError(t, cursor.All(context.Background(), &listed))
+
+	for _, raw := range listed {
+		if raw.Lookup("name").StringValue() != name {
+			continue
+		}
+		elements, err := raw.Lookup("key").Document().Elements()
+		require.NoError(t, err)
+		names := make([]string, 0, len(elements))
+		for _, element := range elements {
+			names = append(names, element.Key())
+		}
+		return names
 	}
-	return names
+	require.Failf(t, "index not found", "%s.%s", collection, name)
+	return nil
 }
 
 func indexExpireAfterSeconds(t *testing.T, idx bson.M) int32 {
@@ -100,7 +112,7 @@ func TestEnsureIndexes(t *testing.T) {
 		ownerCreatedAt, ok := sheets["sheets_owner_id_created_at"]
 		require.True(t, ok, "sheets (owner_id, created_at) index must exist, got %v", sheets)
 		assert.False(t, indexIsUnique(ownerCreatedAt), "one owner may hold several sheets, so the index is not unique")
-		assert.Equal(t, []string{"owner_id", "created_at"}, indexKeys(t, ownerCreatedAt))
+		assert.Equal(t, []string{"owner_id", "created_at"}, indexKeys(t, mdb, "sheets", "sheets_owner_id_created_at"))
 
 		counters := listIndexes(t, mdb, "sheet_counts")
 		counterKey, ok := counters["sheet_counts_owner_id_kind_unique"]
