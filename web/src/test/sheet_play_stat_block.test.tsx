@@ -16,7 +16,7 @@ import {
 import type { FakeOutcome } from './fake_transport';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
-import { rollName } from './dice_names';
+import { rollName, initiativeRollName } from './dice_names';
 import { SHEET_ID, sheetPayload, templateDetailPayload } from './sheet_fixtures';
 
 const BASE_URL = 'http://api.test';
@@ -229,8 +229,14 @@ async function save(user: User) {
   await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
 }
 
-async function editValue(user: User, scope: HTMLElement, label: string, text: string) {
-  await user.click(within(scope).getByRole('button', { name: label }));
+async function editValue(
+  user: User,
+  scope: HTMLElement,
+  label: string,
+  text: string,
+  trigger = label,
+) {
+  await user.click(within(scope).getByRole('button', { name: trigger }));
   const input = within(scope).getByRole('textbox', { name: label });
   await user.clear(input);
   await user.type(input, `${text}{Enter}`);
@@ -342,7 +348,7 @@ describe('the stat block body', () => {
     expect(screen.getByTestId('sheet-name')).toHaveTextContent('Aria');
     expect(screen.getByTestId('sheet-ac-value')).toHaveTextContent('12');
     expect(screen.getByTestId('sheet-stat-initiative')).toHaveTextContent('Initiative');
-    expect(screen.getByRole('button', { name: rollName('Initiative') })).toHaveTextContent('+3');
+    expect(screen.getByRole('button', { name: initiativeRollName('+3') })).toHaveTextContent('+3');
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('10 / 20');
   });
 
@@ -373,11 +379,73 @@ describe('the stat block body', () => {
   it('Happy path: an initiative edit clamps and reaches the pending delta', async () => {
     const { fake, user } = await openFantasy({ kind: 'npc' });
 
-    await editValue(user, screen.getByTestId('sheet-stat-initiative'), 'Initiative', '99');
-    expect(screen.getByRole('button', { name: rollName('Initiative') })).toHaveTextContent('+20');
+    await editValue(
+      user,
+      screen.getByTestId('sheet-stat-initiative'),
+      'Initiative',
+      '99',
+      message('sheet.play.editInitiative'),
+    );
+    expect(screen.getByRole('button', { name: initiativeRollName('+20') })).toHaveTextContent(
+      '+20',
+    );
 
     await save(user);
     await waitFor(() => expect(savedData(fake)).toEqual({ data: { combat: { initiative: 20 } } }));
+  });
+
+  it('Edge: a zero or negative stat block initiative names the signed roll', async () => {
+    for (const [initiative, signed] of [
+      [0, '+0'],
+      [-1, '-1'],
+    ] as const) {
+      const { unmount } = renderApp(`/sheets/${FANTASY_SHEET_ID}`, {
+        client: createApiClient({
+          baseUrl: BASE_URL,
+          transport: createFakeTransport(
+            successOutcome(
+              fantasySheetPayload({
+                kind: 'npc',
+                data: fantasySheetData({ combat: { initiative } }),
+              }),
+            ),
+            successOutcome(fantasyTemplatePayload()),
+            successOutcome({}),
+          ).transport,
+        }),
+      });
+      await screen.findByTestId('sheet-name');
+
+      const tile = screen.getByTestId('sheet-stat-initiative');
+      expect(tile.querySelector('.lg-dice-icon')).toHaveAttribute('data-die-shape', 'd20');
+      expect(
+        within(tile).getByRole('button', { name: initiativeRollName(signed) }),
+      ).toHaveTextContent(signed);
+
+      unmount();
+    }
+  });
+
+  it('Edge: Edit mode hides the stat block initiative die', async () => {
+    const { user } = await openFantasy({ kind: 'npc' });
+    expect(
+      screen.getByTestId('sheet-stat-initiative').querySelector('.lg-dice-icon'),
+    ).not.toBeNull();
+
+    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+
+    expect(screen.queryByTestId('sheet-stat-block')).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Initiative' })).toBeInTheDocument();
+  });
+
+  it('Happy path: the stat block initiative pairs the die with an Edit initiative pencil', async () => {
+    await openFantasy({ kind: 'npc' });
+
+    const tile = screen.getByTestId('sheet-stat-initiative');
+    expect(tile.querySelector('.lg-dice-icon')).toHaveAttribute('aria-hidden', 'true');
+    expect(
+      within(tile).getByRole('button', { name: message('sheet.play.editInitiative') }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -701,6 +769,21 @@ describe('the stat block styles', () => {
     expect(css).toMatch(/\.lg-stat-block \.lg-ac\s*\{[^}]*width:\s*3\.5rem/);
     expect(css).toMatch(/\.lg-stat-block \.lg-ac__shield\s*\{[^}]*min-height:\s*4rem/);
     expect(css).toMatch(/\.lg-stat-block__stat\s*\{[^}]*flex-direction:\s*row/);
+  });
+
+  it('Edge: the initiative pencil waits for hover or focus on a full 44px target', () => {
+    expect(css).toMatch(/\.lg-stat-block__edit\s*\{[^}]*opacity:\s*0/);
+    expect(css).toMatch(
+      /\.lg-stat-block__stat:hover \.lg-stat-block__edit,\s*\.lg-stat-block__edit:focus-visible\s*\{[^}]*opacity:\s*1/,
+    );
+    expect(css).toMatch(
+      /\.lg-stat-block__edit\s*\{[^}]*min-inline-size:\s*var\(--lg-size-control\)/,
+    );
+    expect(css).toMatch(
+      /\.lg-stat-block :is\(button, input\)\s*\{[^}]*min-block-size:\s*var\(--lg-size-control\)/,
+    );
+    const mobile = css.slice(css.indexOf('@media (max-width: 40rem)'));
+    expect(mobile).toMatch(/\.lg-stat-block__edit\s*\{[^}]*opacity:\s*1/);
   });
 
   it('Edge: the hit points card folds into one row with a 74px amount field', () => {

@@ -1,5 +1,6 @@
-import { message } from '../../../l10n/strings';
+import { message, messageWith } from '../../../l10n/strings';
 import { PencilIcon } from '../../../ui/icons';
+import { DieIcon } from '../../die_icon';
 import { InlineEdit } from '../../inline_edit';
 import {
   usePresetCommit,
@@ -20,6 +21,12 @@ function InitiativeTile() {
   const initiative = numberValue(usePresetValue(INITIATIVE_PATH));
   const schema = usePresetSchema(INITIATIVE_PATH);
   const commitInitiative = usePresetCommit(INITIATIVE_PATH);
+  const initiativeText =
+    initiative === undefined ? message('sheet.play.noValue') : formatModifier(initiative);
+  const initiativeRoll =
+    initiative === undefined
+      ? undefined
+      : messageWith('sheet.play.initiativeRoll', { value: initiativeText });
 
   return (
     <div className="lg-combat-stat" data-testid="sheet-initiative">
@@ -29,16 +36,17 @@ function InitiativeTile() {
           rowKey={INITIATIVE_PATH}
           sectionKey="combat"
           label={label}
-          text={
-            initiative === undefined ? message('sheet.play.noValue') : formatModifier(initiative)
-          }
+          text={initiativeText}
           allowRoll={initiative !== undefined}
           className="lg-combat-stat__value"
+          accessibleName={initiativeRoll}
+          icon={<DieIcon shape="d20" />}
         />
         <InlineEdit
           className="lg-combat-stat__edit"
           display={<PencilIcon className="lg-combat-stat__pencil" />}
           label={label}
+          editLabel={message('sheet.play.editInitiative')}
           path={INITIATIVE_PATH}
           schema={schema}
           value={initiative === undefined ? '' : String(initiative)}

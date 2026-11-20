@@ -7,3 +7,7 @@ function escapeRegExp(text: string): string {
 export function rollName(label: string): RegExp {
   return new RegExp(`^${escapeRegExp(messageWith('dice.roll', { label }))}(, .+)?$`);
 }
+
+export function initiativeRollName(value: string): string {
+  return messageWith('sheet.play.initiativeRoll', { value });
+}
