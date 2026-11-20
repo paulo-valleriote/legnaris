@@ -28,6 +28,9 @@ func NewRouter(deps env.Env, modules *Modules, httpMetrics *metrics.Metrics) *ec
 
 	httpMetrics.Register(router)
 
+	funnelController := NewFunnelController(httpMetrics)
+	router.POST("/funnel/home", funnelController.Home)
+
 	probes := router.Group("")
 	health.RegisterHealthRoutes(probes)
 	health.RegisterReadyRoute(probes, modules.Readiness, deps.Variables.DatabasePingTimeout)

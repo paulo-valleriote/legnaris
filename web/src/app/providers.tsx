@@ -22,6 +22,7 @@ import type { ViewStorage } from '../sheet/view_store';
 import { browserViewStorage } from '../sheet/view_store';
 
 const ApiClientContext = createContext<ApiClient | undefined>(undefined);
+const ApiBaseUrlContext = createContext<string | undefined>(undefined);
 const SheetStoreContext = createContext<SheetStore | undefined>(undefined);
 const AuthSessionContext = createContext<AuthSession | undefined>(undefined);
 const ViewStorageContext = createContext<ViewStorage | undefined>(undefined);
@@ -51,6 +52,14 @@ export function useApiClient(): ApiClient {
     throw new Error('useApiClient must be used within <AppProviders>.');
   }
   return client;
+}
+
+export function useApiBaseUrl(): string {
+  const baseUrl = useContext(ApiBaseUrlContext);
+  if (baseUrl === undefined) {
+    throw new Error('useApiBaseUrl must be used within <AppProviders>.');
+  }
+  return baseUrl;
 }
 
 export function useSheetStore(): SheetStore {
@@ -133,22 +142,24 @@ export function AppProviders({
   );
 
   return (
-    <ApiClientContext.Provider value={resolvedClient}>
-      <AuthSessionContext.Provider value={resolvedSession}>
-        <SheetStoreContext.Provider value={resolvedSheetStore}>
-          <ViewStorageContext.Provider value={viewStorage ?? fallbackViewStorage}>
-            <QueryClientProvider client={resolvedQueryClient}>
-              <AdsProvider
-                config={adsConfig ?? null}
-                {...(adsDocument === undefined ? {} : { document: adsDocument })}
-                {...(adsWindow === undefined ? {} : { window: adsWindow })}
-              >
-                {children}
-              </AdsProvider>
-            </QueryClientProvider>
-          </ViewStorageContext.Provider>
-        </SheetStoreContext.Provider>
-      </AuthSessionContext.Provider>
-    </ApiClientContext.Provider>
+    <ApiBaseUrlContext.Provider value={baseUrl}>
+      <ApiClientContext.Provider value={resolvedClient}>
+        <AuthSessionContext.Provider value={resolvedSession}>
+          <SheetStoreContext.Provider value={resolvedSheetStore}>
+            <ViewStorageContext.Provider value={viewStorage ?? fallbackViewStorage}>
+              <QueryClientProvider client={resolvedQueryClient}>
+                <AdsProvider
+                  config={adsConfig ?? null}
+                  {...(adsDocument === undefined ? {} : { document: adsDocument })}
+                  {...(adsWindow === undefined ? {} : { window: adsWindow })}
+                >
+                  {children}
+                </AdsProvider>
+              </QueryClientProvider>
+            </ViewStorageContext.Provider>
+          </SheetStoreContext.Provider>
+        </AuthSessionContext.Provider>
+      </ApiClientContext.Provider>
+    </ApiBaseUrlContext.Provider>
   );
 }

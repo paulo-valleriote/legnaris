@@ -14,6 +14,7 @@ import (
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/engine"
 	eventsamqp "legnaris/backend/internal/events/amqp"
+	"legnaris/backend/internal/funnel"
 	generationamqp "legnaris/backend/internal/generation/amqp"
 	"legnaris/backend/internal/platform/health"
 	"legnaris/backend/internal/platform/metrics"
@@ -86,6 +87,18 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 	}
 
 	httpMetrics := metrics.New()
+
+	funnelRefresher := funnel.NewRefresher(
+		funnel.NewMongoStore(database.Client.Database(cfg.Variables.DatabaseName)),
+		httpMetrics,
+		log,
+		funnel.RefreshInterval,
+	)
+	go func() {
+		if err := funnelRefresher.Run(ctx); err != nil {
+			log.Error(ctx, "funnel stats refresher stopped", logger.Attribute{Key: logErrorKey, Value: err.Error()})
+		}
+	}()
 
 	eventPublisher := eventsamqp.New(eventsamqp.Config{
 		URL:           cfg.Variables.RabbitMQURL,
