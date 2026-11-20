@@ -1,17 +1,20 @@
 import { Link } from 'react-router-dom';
 import { AdSlot } from '../ads/ad_slot';
-import { PRIVACY_PATH, SIGN_IN_PATH, SIGN_UP_PATH } from '../app/routes';
+import { PRIVACY_PATH, SIGN_IN_PATH } from '../app/routes';
 import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
 import { BrandMark } from '../shell/brand_mark';
 import { ChevronDownIcon } from '../ui/icons';
 import { CascadeDemo } from './cascade_demo';
+import { signUpCtaPath } from './start_intent';
 import { useStageThemeColor } from './use_stage_theme_color';
 import './landing.css';
 
 const HERO_SRCSET = ['/images/hero-lava-1280.webp 1280w', '/images/hero-lava-1920.webp 1920w'].join(
   ', ',
 );
+
+const FANTASY_SIGN_UP_PATH = signUpCtaPath('fantasy');
 
 interface Entry {
   readonly title: MessageKey;
@@ -75,7 +78,7 @@ export function LandingScreen() {
           <div className="lg-landing__hero-side">
             <p className="lg-landing__hero-lead">{message('landing.heroLead')}</p>
             <div className="lg-landing__actions">
-              <Link className="lg-landing__cta lg-landing__cta--primary" to={SIGN_UP_PATH}>
+              <Link className="lg-landing__cta lg-landing__cta--primary" to={FANTASY_SIGN_UP_PATH}>
                 {message('landing.create')}
               </Link>
             </div>
@@ -156,7 +159,7 @@ export function LandingScreen() {
             {message('landing.closeTitle')}
           </h2>
           <div className="lg-landing__actions">
-            <Link className="lg-landing__cta lg-landing__cta--primary" to={SIGN_UP_PATH}>
+            <Link className="lg-landing__cta lg-landing__cta--primary" to={FANTASY_SIGN_UP_PATH}>
               {message('landing.create')}
             </Link>
             <Link className="lg-landing__cta lg-landing__cta--outline" to={SIGN_IN_PATH}>

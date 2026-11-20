@@ -48,7 +48,8 @@ The first journey takes a visitor to a played Sheet.
 flowchart TD
   A[Visitor lands] --> B[Pitch and live demo]
   B -->|Start your archive| C[Sign up, then 6-digit email code]
-  C --> D[Catalog]
+  C -->|home CTA: start=fantasy| N[New Fantasy Sheet]
+  C -->|other sign-up entry points| D[Catalog]
   D --> E{Write or generate?}
   E -->|Write| F[Template, kind and name]
   E -->|Generate| G[Concept, consent, one generation]
@@ -56,6 +57,7 @@ flowchart TD
   F --> I[New Sheet]
   H -->|Save to my sheets| I
   I --> J[Play view: edit, preview, save]
+  N --> J
   J --> K[Pins, Section order, dice, local draft]
 ```
 
@@ -75,6 +77,7 @@ flowchart LR
 ## Contracts
 
 - **Ads only on Free (LGN-335).** Free accounts and logged-out landing visitors see manual Google AdSense units, only on passive screens: the catalog (sheet list/dashboard), the campaign list and the landing footer. Never on a sheet, dice, a play session, generation, plans or checkout; no Auto ads and no interstitials. "No ads" is a paid advantage shown on the Plans page and in the upgrade dialog.
+- **The home sign-up starts a Fantasy Sheet (LGN-350).** Every sign-up CTA on the landing links to `/sign-up?start=fantasy` through `signUpCtaPath` in `web/src/landing/start_intent.ts`, and the intent survives the credential and email-code steps. After authentication the client creates one normal persisted `character` Sheet from `fantasy_v1` through `POST /sheets`, seeds it into the cache and opens it, ready to fill in. The sheet is not special: it counts toward the plan's character limit and the first-sheet metric. Sign-up entry points without the intent and any failed creation keep the catalog flow; the intent is ignored on the sign-in path.
 
 Every user has exactly one Plan, Free by default.
 
@@ -113,7 +116,8 @@ Every user has exactly one Plan, Free by default.
 ## Code map
 
 - `web/src/landing/`, `web/src/legal/`, `web/src/catalog/` and `web/src/generate/` —
-  pitch, privacy policy, Template list, creation dialog and the AI draft.
+  pitch, privacy policy, Template list, creation dialog, the reusable sign-up CTA
+  intent and its post-auth Fantasy sheet starter, and the AI draft.
 - `web/src/sheet/`, `web/src/library/` and `web/src/plans/` — play view, edit, preview,
   layout, dice, local drafts, Plan display, checkout, cancellation and refund.
 - `web/src/campaign/` and `web/src/join/` — Campaign management, invite and GM view.

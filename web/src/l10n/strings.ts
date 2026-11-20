@@ -474,6 +474,8 @@ export const messages = {
     'Press Space to lift, the arrow keys to move, Space to drop, Escape to cancel.',
   'arrange.toolbar': 'Arrange mode',
   'landing.create': 'Start your archive',
+  'landing.startSheetName': 'New character',
+  'landing.startSheetPreparing': 'Preparing your sheet',
   'landing.heroTitle': 'A character sheet that does its own math.',
   'landing.heroLead':
     'Legnaris models any tabletop RPG as typed fields and formulas, so modifiers and skills recalculate the moment you change a number.',
