@@ -57,6 +57,53 @@ const PHONES = [
   { name: 'a 390 px phone', width: 390, height: 844 },
 ];
 
+async function contentEdges(page: Page) {
+  return page.locator('.lg-sheet__header').evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return {
+      left: rect.left + Number.parseFloat(style.paddingLeft),
+      right: rect.right - Number.parseFloat(style.paddingRight),
+    };
+  });
+}
+
+async function expectFullWidthModeSwitch(page: Page, segments: number) {
+  const group = page.getByTestId('sheet-header-actions');
+  const edges = await contentEdges(page);
+  const box = (await group.boundingBox())!;
+  expect(Math.abs(box.x - edges.left)).toBeLessThanOrEqual(1);
+  expect(Math.abs(box.x + box.width - edges.right)).toBeLessThanOrEqual(1);
+
+  const buttons = group.locator('.lg-button');
+  expect(await buttons.count()).toBe(segments);
+  const measured = await buttons.evaluateAll((elements) =>
+    elements.map((element) => {
+      const rect = element.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    }),
+  );
+  for (const segment of measured) {
+    expect(Math.abs(segment.width - measured[0]!.width)).toBeLessThanOrEqual(1);
+    expect(segment.width).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
+    expect(segment.height).toBeGreaterThanOrEqual(CONTROL_HEIGHT);
+  }
+
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBe(0);
+}
+
+async function expectTrailingModeSwitch(page: Page, segments: number) {
+  const group = page.getByTestId('sheet-header-actions');
+  const edges = await contentEdges(page);
+  const box = (await group.boundingBox())!;
+  expect(Math.abs(box.x + box.width - edges.right)).toBeLessThanOrEqual(1);
+  expect(box.width).toBeLessThan(edges.right - edges.left - 1);
+  expect(await group.locator('.lg-button').count()).toBe(segments);
+}
+
 test.describe('narrow viewport (the top bar and full-width content)', () => {
   test.beforeEach(async ({ page }) => {
     await seedSession(page);
@@ -539,6 +586,24 @@ test.describe('the enemy stat block', () => {
     expect(overflow).toBe(0);
   });
 
+  for (const phone of PHONES) {
+    test(`the header switch group spans the content width on ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await openStatBlock(page);
+
+      await expectFullWidthModeSwitch(page, 3);
+    });
+  }
+
+  test('a 1440 px viewport keeps the header switch group trailing and compact', async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openStatBlock(page);
+
+    await expectTrailingModeSwitch(page, 3);
+  });
+
   for (const viewport of [
     { name: '1440', width: 1440, height: 900 },
     { name: '1100', width: 1100, height: 900 },
@@ -731,4 +796,20 @@ test.describe('the fantasy Play sheet at every width', () => {
       );
     });
   }
+
+  for (const phone of PHONES) {
+    test(`the Play/Edit switch spans the content width on ${phone.name}`, async ({ page }) => {
+      await page.setViewportSize({ width: phone.width, height: phone.height });
+      await openPlay(page);
+
+      await expectFullWidthModeSwitch(page, 2);
+    });
+  }
+
+  test('a 1440 px viewport keeps the Play/Edit switch trailing and compact', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openPlay(page);
+
+    await expectTrailingModeSwitch(page, 2);
+  });
 });

@@ -418,7 +418,9 @@ template range; name, bonus and damage write the pending delta. On a phone the t
 pills and both edit pencils are full 44px targets.
 
 The mode is component state for the open screen, local to the viewer, never persisted and never
-sent. Preset edits go through the same edit store (`setPath`), so Preview, Save, the draft cadence
+sent. The switch sits in the header's one action group with `Duplicate`, `Help` and `Arrange`; below
+`40rem` that group takes the sheet content width edge to edge with equal, centred segments, and from
+`40rem` it stays compact at the trailing edge. Preset edits go through the same edit store (`setPath`), so Preview, Save, the draft cadence
 and both guards behave exactly as in Edit. The reusable inline-edit control (`inline_edit.tsx`)
 opens on click or Enter, commits on Enter or blur, cancels on Escape, writes one dotted path and
 shows `Add <label>` while the value is empty; its accessible name is the template's field label,

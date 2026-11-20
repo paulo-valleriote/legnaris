@@ -495,9 +495,12 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
 - **Header.** The sheet name is the heading (`--lg-type-30` semibold) with the template name under it
   in `--lg-type-15` muted: no kicker above the heading. The actions sit at the trailing edge as one
   bounded group (hairline border, `--lg-radius-md`) of ghost text buttons divided by hairlines, each
-  on a `--lg-size-control` target: `Help`, `Arrange` (pinning is part of Arrange mode). None is primary, because none is: Save stays the only one. On a narrow width the group
-  wraps under the name; in Play the hero leads and the group follows it, so the sheet title starts
-  within the first 80 px of a 390 px viewport. `Collapse all` is not a header action: it sits at the trailing edge of the
+  on a `--lg-size-control` target: `Help`, `Arrange` (pinning is part of Arrange mode). None is primary, because none is: Save stays the only one. Below
+  `40rem` the group wraps under the name and takes the content width edge to edge, its segments
+  sharing it equally with centred labels (two for a character's `Play mode` / `Edit mode`, three
+  with `Duplicate` on an NPC or enemy); in Play the hero leads and the group follows it, so the
+  sheet title starts within the first 80 px of a 390 px viewport. From `40rem` the group stays
+  compact and trailing. `Collapse all` is not a header action: it sits at the trailing edge of the
   sticky section strip, next to the links it acts on. There is no vitals strip and no card of pinned
   numbers above the Sections: pinned Rows rise to the top of their own Section.
 
