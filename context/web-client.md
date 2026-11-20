@@ -142,7 +142,7 @@ Only one guard is registered at a time. The screen owns the modal, so the refres
 
 | Path | What it owns |
 | --- | --- |
-| `web/index.html` | Document head, theme boot script, font preload, icons and manifest links; no inline script. |
+| `web/index.html` | Document head, the `viewport-fit=cover` viewport that lets surfaces reach the phone safe-area insets, theme boot script, font preload, icons and manifest links; no inline script. |
 | `web/public/theme-init.js` | Pre-paint theme resolution from `lg.theme` or the system preference. |
 | `web/public/manifest.webmanifest`, `web/public/icons/`, `web/public/images/` | Installability identity, icon set and local imagery. |
 | `web/src/main.tsx` | Trusted Types installation, runtime configuration load, root render, service-worker registration, startup failure. |

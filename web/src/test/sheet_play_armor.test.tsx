@@ -91,7 +91,7 @@ function previewRequest(fake: ReturnType<typeof createFakeTransport>) {
 }
 
 async function save(user: User) {
-  await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
 }
 
 async function preview(user: User) {
@@ -171,7 +171,9 @@ describe('the armor class breakdown', () => {
 
     expect(breakdownQuery()).not.toBeNull();
     expect(baseArmorButton()).toHaveTextContent('10');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -245,7 +247,9 @@ describe('the armor class breakdown', () => {
     await user.click(within(breakdown()).getByRole('button', { name: 'Dexterity' }));
 
     expect(screen.queryByTestId('sheet-pending-card')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -258,7 +262,9 @@ describe('the armor class breakdown', () => {
 
     expect(baseArmorButton()).toHaveTextContent('10');
     expect(acValue()).toHaveTextContent('12');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
@@ -287,7 +293,9 @@ describe('the armor class breakdown', () => {
     await editBaseArmor(user, '18');
 
     expect(baseArmorButton()).toHaveTextContent('10');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 

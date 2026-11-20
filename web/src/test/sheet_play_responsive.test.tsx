@@ -121,7 +121,7 @@ describe('inline editing on a narrow screen', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Character name' })).toHaveTextContent('Brenna');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeEnabled();
+    expect(screen.getByRole('button', { name: message('sheet.pending.save') })).toBeEnabled();
   });
 
   it('Happy path: a numeric edit opens a bottom sheet with a numeric input and commits', async () => {
@@ -151,7 +151,9 @@ describe('inline editing on a narrow screen', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Ancestry' })).toHaveTextContent('Elf');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
   });
 
   it('Edge: the close button on the bottom sheet cancels the edit', async () => {
@@ -163,7 +165,9 @@ describe('inline editing on a narrow screen', () => {
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Origin' })).toHaveTextContent('Wanderer');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
   });
 
   it('Edge: a numeric bottom sheet strips the display plus sign from its value', async () => {

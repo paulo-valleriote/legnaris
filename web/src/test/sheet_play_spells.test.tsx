@@ -209,7 +209,7 @@ function savedData(fake: ReturnType<typeof createFakeTransport>) {
 }
 
 async function save(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
 }
 
 const spellPanel = () => screen.getByTestId('sheet-spells');
@@ -337,7 +337,9 @@ describe('the spellcasting ability segments', () => {
 
     await user.click(within(abilityGroup()).getByRole('button', { name: 'Wisdom' }));
 
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 });
@@ -420,7 +422,9 @@ describe('the spell slots', () => {
     await user.type(total, 'abc{Enter}');
 
     expect(totalButton(1)).toHaveTextContent('2');
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+    ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
 
