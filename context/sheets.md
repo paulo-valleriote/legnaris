@@ -332,6 +332,12 @@ inline. The hit points and experience bars animate their width and the roll toas
 every one of those animations is switched off under `prefers-reduced-motion`; on a phone the roll
 toast is flush with the bottom edge.
 
+The landing demo (`web/src/landing/demo_sheet.tsx`) reuses the same preset components and the
+`SheetEditStore` interface without the sheet screen: `demo_provider.tsx` builds the real Dice
+context, `demo_store.ts` keeps the sample in memory and applies an original local cascade after
+every write (`demo_character.ts`), and the default export is a separate module so a later hero can
+lazy-load it. It makes no API or auth call and resets on every mount.
+
 Any Play-mode value edit also floats the pending-changes card (`pending_card.tsx`, fed by the pure
 `pending_changes.ts`): a `role="status"` polite region listing each changed field as
 `<label> <old> → <new>`, the `not saved yet` copy, a muted table-sync placeholder and Discard,
@@ -477,6 +483,8 @@ Web:
   there is no pin cap.
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
+- The landing demo's cascade is local to `web/src/landing/demo_store.ts`; it is an original demo
+  approximation, not the server engine, and it is not a second template registry.
 - Play mode presents the `fantasy_v1` hero header with its experience bar, the armor class shield,
   the initiative and speed tiles and the hit-points card in the combat strip, the attack cards, the
   ability medallions, the saving throws and skills, the spellcasting panel with its table-rules
