@@ -23,6 +23,10 @@ compose() {
     -f "$ROOT/deploy/docker-compose.yml" -f "$ROOT/deploy/docker-compose.vps.yml" "${@:2}"
 }
 
+# Prometheus replays its WAL on start, which can outlast the health wait; it is
+# started after the gated services and never decides whether a release is healthy.
+NO_WAIT_SERVICE=prometheus
+
 # release must use explicit "|| return 1": a function called from an `if`
 # condition runs with errexit disabled, so a bare failing command would be
 # ignored and `up` would start a stack that was never fetched or pulled.
@@ -31,7 +35,11 @@ release() {
   git fetch --depth 1 origin "$sha" || return 1
   git checkout --detach "$sha" || return 1
   compose "$sha" pull || return 1
-  compose "$sha" up -d --remove-orphans --wait --wait-timeout 180 || return 1
+  local services
+  services="$(compose "$sha" config --services | grep -vx "$NO_WAIT_SERVICE")" || return 1
+  # shellcheck disable=SC2086
+  compose "$sha" up -d --remove-orphans --wait --wait-timeout 180 $services || return 1
+  compose "$sha" up -d --no-deps "$NO_WAIT_SERVICE" || return 1
 }
 
 # ensure_on_main refuses a commit that is not reachable from origin/main. It is
