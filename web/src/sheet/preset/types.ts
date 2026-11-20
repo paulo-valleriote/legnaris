@@ -25,6 +25,7 @@ export interface SheetPreset {
   readonly templateId: string;
   readonly Header: ComponentType;
   readonly statBlock?: PresetStatBlock;
+  readonly Vitals?: ComponentType;
   readonly sections: readonly PresetSection[];
   readonly layout?: readonly PresetLayoutBlock[];
   readonly narrowLayout?: readonly PresetLayoutBlock[];
