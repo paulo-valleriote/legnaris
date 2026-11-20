@@ -373,9 +373,14 @@ disclosure collapsed by default, editable through the same numeric guard when op
 
 An NPC or enemy sheet (`sheet.kind` `npc` / `enemy`) of `fantasy_v1` swaps the character preset for
 the compact stat block (`preset/fantasy/stat_block.tsx`): the preset carries an optional `statBlock`
-with a `when(kind)` predicate, a header and a body. The header is the same
-`identity.characterName` inline edit with the sheet name as fallback plus a kind tag (`NPC sheet` /
-`Enemy sheet`); the body reuses the armor class shield, the hit-points card over the pure `hit_points.ts`,
+with a `when(kind)` predicate and a body; the screen header keeps only its actions. The body draws
+one centred card (max width 44rem) whose sections are separated by hairlines with no nested panel
+borders, and the card's own header carries the name, a subtitle and the kind badge. The name is the
+same `identity.characterName` inline edit with the sheet name as fallback; the subtitle joins the
+non-empty parts of `identity.ancestry`, `identity.origin` and `identity.level` (through the pure
+`statBlockSubtitleParts`) and disappears when all are empty; the badge reads `NPC` or `Enemy`
+(`kind.npc` / `kind.enemy`) and the enemy badge takes the danger role. The body reuses the armor
+class shield, the hit-points card over the pure `hit_points.ts`,
 the ability medallions, the attack cards and the spellcasting panel, and adds an initiative tile
 (rollable through the `combat.initiative` Row plus a pencil inline edit clamped to −5–20 by the pure
 `armor_class.ts` parser) and a compact proficiency card that draws only the proficient saving throws
@@ -440,8 +445,9 @@ Web:
   `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`, `attacks_data.ts`, `slot_pips.ts`,
   `parse_number.ts` (the shared clamped-integer and percent helpers) and
   `xp_progress.ts` helpers and the hero experience bar in `xp_panel.tsx`; `fantasy/stat_block.tsx` —
-  the compact NPC/enemy stat block that reuses the combat shield, hit-points card, ability medallions,
-  attack cards and spellcasting panel; `fantasy/stat_block_data.ts` — its kind selection;
+  the compact NPC/enemy stat block card and its inner header, reusing the combat shield, hit-points
+  card, ability medallions, attack cards and spellcasting panel; `fantasy/stat_block_data.ts` — its
+  kind selection and subtitle parts;
   `fantasy/combat_strip.tsx` — the combat strip container; `fantasy/ac_breakdown.tsx` — the armor
   class shield and its breakdown with the DEX/CON segmented exclusive choice;
   `fantasy/armor_class.ts` — the AC/speed paths, the exactly-one-ability selector and the clamped

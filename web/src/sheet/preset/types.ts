@@ -18,7 +18,6 @@ export type PresetLayoutBlock = PresetSectionBlock | PresetColumnsBlock;
 
 export interface PresetStatBlock {
   readonly when: (kind: SheetKind | undefined) => boolean;
-  readonly Header: ComponentType;
   readonly Body: ComponentType;
 }
 

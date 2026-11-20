@@ -239,15 +239,66 @@ describe('stat block selection', () => {
   it('Happy path: an NPC names its kind', async () => {
     await openFantasy({ kind: 'npc' });
 
-    expect(screen.getByTestId('sheet-stat-kind')).toHaveTextContent(message('sheet.play.kind.npc'));
+    expect(screen.getByTestId('sheet-stat-kind')).toHaveTextContent(message('kind.npc'));
+    expect(screen.getByTestId('sheet-stat-kind')).toHaveAttribute('data-kind', 'npc');
   });
 
   it('Happy path: an enemy names its kind', async () => {
     await openFantasy({ kind: 'enemy' });
 
-    expect(screen.getByTestId('sheet-stat-kind')).toHaveTextContent(
-      message('sheet.play.kind.enemy'),
-    );
+    expect(screen.getByTestId('sheet-stat-kind')).toHaveTextContent(message('kind.enemy'));
+    expect(screen.getByTestId('sheet-stat-kind')).toHaveAttribute('data-kind', 'enemy');
+  });
+});
+
+describe('the stat block card', () => {
+  it('Edge: empty identity hides the subtitle', async () => {
+    await openFantasy({
+      kind: 'npc',
+      data: { ancestry: '', origin: '', level: null },
+    });
+
+    expect(screen.queryByTestId('sheet-stat-subtitle')).not.toBeInTheDocument();
+  });
+
+  it('Edge: only the level set draws a subtitle with no separator', async () => {
+    await openFantasy({
+      kind: 'npc',
+      data: { ancestry: '', origin: '', level: 5 },
+    });
+
+    const subtitle = screen.getByTestId('sheet-stat-subtitle');
+    expect(subtitle).toHaveTextContent(messageWith('sheet.play.level', { count: 5 }));
+    expect(subtitle.querySelectorAll('[data-separator]')).toHaveLength(0);
+  });
+
+  it('Happy path: the subtitle joins ancestry, origin and level in order', async () => {
+    await openFantasy({ kind: 'npc' });
+
+    const subtitle = screen.getByTestId('sheet-stat-subtitle');
+    expect(subtitle).toHaveTextContent('Elf · Wanderer · Level 3');
+    expect(subtitle.querySelectorAll('[data-separator]')).toHaveLength(2);
+  });
+
+  it('Edge: an empty character name falls back to the sheet name inside the card', async () => {
+    await openFantasy({ kind: 'npc', data: { characterName: '' } });
+
+    expect(within(statBlock()).getByTestId('sheet-name')).toHaveTextContent('Aragorn');
+  });
+
+  it('Happy path: the header sits inside the stat block card, not in the sheet header', async () => {
+    await openFantasy({ kind: 'enemy' });
+
+    const header = screen.getByTestId('sheet-stat-block-header');
+    expect(statBlock()).toContainElement(header);
+    expect(screen.queryByTestId('sheet-eyebrow')).not.toBeInTheDocument();
+  });
+
+  it('Happy path: Duplicate and the Play/Edit toggle stay in the screen header', async () => {
+    await openFantasy({ kind: 'enemy' });
+
+    expect(screen.getByRole('button', { name: message('sheet.duplicate') })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('sheet.mode.edit') })).toBeInTheDocument();
   });
 });
 
@@ -394,6 +445,30 @@ describe('the stat block styles', () => {
       /\.lg-stat-block__combat\s*\{[^}]*grid-template-columns:\s*auto minmax\(0, 1fr\)/,
     );
     expect(mobile).toMatch(/\.lg-stat-block__hp\s*\{[^}]*grid-column:\s*1 \/ -1/);
+  });
+
+  it('Happy path: one centred card holds the block, capped near 45rem', () => {
+    expect(css).toMatch(/\.lg-stat-block\s*\{[^}]*max-width:\s*44rem[^}]*margin-inline:\s*auto/);
+    expect(css).toMatch(
+      /\.lg-stat-block\s*\{[^}]*border:\s*var\(--lg-size-hairline\) solid var\(--lg-color-border\)/,
+    );
+    expect(css).toMatch(/\.lg-stat-block\s*\{[^}]*background-color:\s*var\(--lg-color-surface\)/);
+  });
+
+  it('Edge: sections are hairline-divided inside the card and drop their own borders', () => {
+    expect(css).toMatch(
+      /\.lg-stat-block\s*>\s*\*\s*\+\s*\*\s*\{[^}]*border-block-start:\s*var\(--lg-size-hairline\) solid var\(--lg-color-border\)/,
+    );
+    expect(css).toMatch(/\.lg-stat-block \.lg-play-section\s*\{[^}]*border:\s*0/);
+    expect(css).toMatch(/\.lg-stat-block \.lg-hp-card\s*\{[^}]*border:\s*0/);
+    expect(css).toMatch(/\.lg-stat-block__profs\s*\{[^}]*border:\s*0/);
+  });
+
+  it('Edge: the enemy badge uses the danger role and the NPC badge a neutral role', () => {
+    expect(css).toMatch(/\.lg-stat-block__kind\s*\{[^}]*color:\s*var\(--lg-color-text-muted\)/);
+    expect(css).toMatch(
+      /\.lg-stat-block__kind\[data-kind='enemy'\]\s*\{[^}]*color:\s*var\(--lg-color-danger\)/,
+    );
   });
 
   it('Edge: the block keeps the damage and heal buttons at 40px on a desktop and 44px on a phone', () => {
