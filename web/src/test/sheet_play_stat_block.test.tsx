@@ -1114,6 +1114,18 @@ describe('the stat block styles', () => {
     );
   });
 
+  it('Edge: a narrow spellcasting card stacks the ability above its two stats', () => {
+    const spellsCss = readFileSync(spellsStylesheet, 'utf8');
+    expect(spellsCss).toMatch(/\.lg-spells\s*\{[^}]*container:\s*lg-spells \/ inline-size/);
+    const narrow = spellsCss.slice(spellsCss.indexOf('@container lg-spells (max-width: 28rem)'));
+    expect(narrow).toMatch(
+      /\.lg-spells:not\(\.lg-spells--compact\) \.lg-spells__top\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/,
+    );
+    expect(narrow).toMatch(
+      /\.lg-spells:not\(\.lg-spells--compact\) \.lg-spells__ability\s*\{[^}]*grid-column:\s*1 \/ -1/,
+    );
+  });
+
   it('Edge: the compact slot rows and the spell prose keep one line each', () => {
     const spellsCss = readFileSync(spellsStylesheet, 'utf8');
     expect(spellsCss).toMatch(

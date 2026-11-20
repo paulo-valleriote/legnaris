@@ -39,7 +39,7 @@
 
 .lg-spells__label {
   font-size: var(--lg-type-12);
-  letter-spacing: var(--lg-tracking-wide);
+  letter-spacing: var(--lg-tracking-caps);
   text-transform: uppercase;
   color: var(--lg-color-text-subtle);
 }
@@ -289,5 +289,20 @@
 
   .lg-spells__label {
     font-size: var(--lg-type-12);
+  }
+}
+
+.lg-spells {
+  container: lg-spells / inline-size;
+}
+
+@container lg-spells (max-width: 28rem) {
+  .lg-spells:not(.lg-spells--compact) .lg-spells__top {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
+  }
+
+  .lg-spells:not(.lg-spells--compact) .lg-spells__ability {
+    grid-column: 1 / -1;
   }
 }
