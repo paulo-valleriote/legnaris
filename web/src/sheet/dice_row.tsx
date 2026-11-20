@@ -26,6 +26,7 @@ import type { DiceCheck, DiceStore, DiceTarget } from './dice_store';
 import type { PendingDiceKeys } from './sheet_edit';
 import { diceErrorMessageKey, diceSummary, resolveRowForSheet } from './dice_view';
 import { DicePanel } from './dice_panel';
+import { rememberRoll, type RollEntry } from './dice_history';
 import { DieIcon, dieShapeFor } from './die_icon';
 import './dice.css';
 
@@ -96,19 +97,25 @@ export function DiceProvider({
   readonly value: DiceContextValue;
   readonly children: ReactNode;
 }) {
-  const [roll, setRoll] = useState<(RollSession & { readonly id: number }) | null>(null);
+  const [rolls, setRolls] = useState<readonly RollEntry[]>([]);
   const [request, setRequest] = useState<EditRequest | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
   const rollCount = useRef(0);
-  const dismiss = useCallback(() => setRoll(null), []);
+  const dismiss = useCallback(() => setRolls([]), []);
   const sendRoll = useCallback((next: RollSession) => {
     rollCount.current += 1;
-    setRoll({ ...next, id: rollCount.current });
+    setRolls((history) =>
+      rememberRoll(history, {
+        id: rollCount.current,
+        label: next.label,
+        outcome: next.outcome,
+      }),
+    );
   }, []);
   const openEditor = useCallback((next: EditRequest) => {
     returnFocus.current =
       document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    setRoll(null);
+    setRolls([]);
     setRequest(next);
   }, []);
   const closeEditor = useCallback(() => {
@@ -138,14 +145,9 @@ export function DiceProvider({
             />,
             document.body,
           )}
-        {roll !== null &&
+        {rolls.length > 0 &&
           createPortal(
-            <DicePanel
-              key={roll.id}
-              label={roll.label}
-              outcome={roll.outcome}
-              onDismiss={dismiss}
-            />,
+            <DicePanel key={rolls[0].id} results={rolls} onDismiss={dismiss} />,
             document.body,
           )}
       </DiceSessionContext.Provider>

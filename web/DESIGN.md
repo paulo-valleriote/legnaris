@@ -693,7 +693,10 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
   floats at the bottom of the viewport above the sticky footer or the Play pending bar
   (`--lg-shadow-2`, raised, a short rise-in zeroed under reduced motion), moves with that surface
   when it appears, grows or leaves, names the rolled Row beside its total and lists every die and
-  number; it never traps focus and closes on its × or Escape.
+  number; it keeps the last three results of the session, newest first, separating them with a
+  hairline (a fourth result drops off the oldest, and older totals step down to `--lg-type-18`).
+  It never traps focus and closes on its × or Escape, which also clears the history and starts the
+  next roll from an empty panel.
 
 ---
 
