@@ -103,7 +103,7 @@ describe('landing funnel counters', () => {
 
     await user.click(
       within(screen.getByTestId('landing-sticky-cta')).getByRole('link', {
-        name: message('landing.stickyCta'),
+        name: message('landing.create'),
       }),
     );
 

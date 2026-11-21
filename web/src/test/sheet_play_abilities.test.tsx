@@ -87,7 +87,7 @@ describe('ability medallions', () => {
     ).toHaveTextContent('+3');
     expect(
       within(medallion('wisdom')).getByRole('button', { name: rollName('Wisdom modifier') }),
-    ).toHaveTextContent('-1');
+    ).toHaveTextContent('−1');
     expect(
       within(medallion('dexterity')).getByRole('button', { name: 'Dexterity' }),
     ).toHaveTextContent('14');

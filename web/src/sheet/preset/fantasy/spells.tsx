@@ -43,7 +43,7 @@ function signedValue(value: unknown): string {
   if (number === undefined) {
     return message('sheet.play.noValue');
   }
-  return number >= 0 ? `+${number}` : String(number);
+  return number >= 0 ? `+${number}` : `\u2212${Math.abs(number)}`;
 }
 
 interface AbilityOption {

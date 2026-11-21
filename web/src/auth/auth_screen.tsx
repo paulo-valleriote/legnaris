@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { FormEvent, KeyboardEvent } from 'react';
 import { failureCopy, failureKind } from '../api/error_mapper';
 import type { FailureKind } from '../api/errors';
+import { Link } from 'react-router-dom';
 import { useAuthSession } from '../app/providers';
+import { DEMO_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { Notice } from '../ui/notice';
@@ -115,6 +117,9 @@ export function AuthScreen({ restore, initialMode = 'login', next = null }: Auth
             {mode === 'login' ? message('auth.titleLogin') : message('auth.titleRegister')}
           </h1>
           <p className="lg-auth__subtitle">{subtitle(mode, next)}</p>
+          {mode === 'register' && (
+            <p className="lg-auth__reassurance">{message('auth.reassurance')}</p>
+          )}
           {snapshot.notice === 'deferred' && (
             <Notice tone="info" surface="stage" live="polite" id="auth-deferred">
               {message('auth.deferredNotice')}
@@ -235,6 +240,14 @@ export function AuthScreen({ restore, initialMode = 'login', next = null }: Auth
             </footer>
           </form>
         </div>
+
+        {mode === 'register' && !isSheetPath(next) && (
+          <p className="lg-auth__try-first">
+            <Link className="lg-auth__try-link" to={DEMO_PATH}>
+              {message('auth.tryFirst')}
+            </Link>
+          </p>
+        )}
       </section>
     </div>
   );

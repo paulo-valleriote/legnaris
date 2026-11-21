@@ -162,6 +162,14 @@ body:has(.lg-auth) {
   color: var(--lg-color-stage-text-muted);
 }
 
+.lg-auth__reassurance {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-stage-text);
+}
+
 .lg-auth__modes {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -293,6 +301,24 @@ body:has(.lg-auth) {
 
 .lg-auth__footer {
   display: block;
+}
+
+.lg-auth__try-first {
+  margin: 0;
+  padding-top: var(--lg-space-16);
+  border-top: var(--lg-size-hairline) solid var(--lg-color-stage-line);
+  font-size: var(--lg-type-15);
+  line-height: var(--lg-line-normal);
+}
+
+.lg-auth__try-link {
+  color: var(--lg-color-stage-text);
+  text-decoration: underline;
+  text-underline-offset: var(--lg-underline-offset);
+}
+
+.lg-auth__try-link:hover {
+  color: var(--lg-color-stage-accent);
 }
 
 .lg-auth .lg-auth__submit {

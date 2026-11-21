@@ -48,7 +48,7 @@ The first journey takes a visitor to a played Sheet.
 flowchart TD
   A[Visitor lands] --> B[Pitch on the home]
   B -->|Try the live sheet| L[Live demo page]
-  B -->|Start your archive| C[Sign up, then 6-digit email code]
+  B -->|Create your character sheet| C[Sign up, then 6-digit email code]
   L -->|Start my sheet| C
   C -->|home CTA: start=fantasy| N[New Fantasy Sheet]
   C -->|other sign-up entry points| D[Catalog]
@@ -80,6 +80,7 @@ flowchart LR
 
 - **Ads only on Free (LGN-335, LGN-349).** Free accounts see manual Google AdSense units, only on passive screens: the catalog (sheet list/dashboard) and the campaign list. The home carries no ad slot, and no visitor sees ads on a sheet, dice, a play session, generation, plans or checkout; no Auto ads and no interstitials. "No ads" is a paid advantage shown on the Plans page and in the upgrade dialog.
 - **Anonymous home funnel (LGN-346).** The landing reports one visit when it opens and one sign-up CTA click, each a fire-and-forget `POST /funnel/home` carrying only the event name. No cookie, identifier or per-user record is created, so the privacy policy needs no change; the counts feed the Prometheus dashboard `deploy/grafana/dashboards/legnaris-funnel.json`.
+- **Proof before sign-up.** The hero now carries the live hit-points card and makes `Try the live sheet` the primary action; sign-up is secondary, and the sign-up form links back to the demo.
 - **The live sheet has its own page (LGN-348).** The home hero stays a static pitch (headline, lead, primary sign-up and a secondary `Try the live sheet` link); the full interactive Fantasy sheet, its contextual sign-up CTA and the sticky mobile CTA live at the public `/demo` page, so the landing keeps its flow. The demo page ships as its own lazy chunk and loads the existing in-memory `DemoSheet`; every demo conversion action uses `signUpCtaPath('fantasy')` and reports a `cta_click`.
 - **The home sign-up starts a Fantasy Sheet (LGN-350).** Every sign-up CTA on the landing links to `/sign-up?start=fantasy` through `signUpCtaPath` in `web/src/landing/start_intent.ts`, and the intent survives the credential and email-code steps. After authentication the client creates one normal persisted `character` Sheet from `fantasy_v1` through `POST /sheets`, seeds it into the cache and opens it, ready to fill in. The sheet is not special: it counts toward the plan's character limit and the first-sheet metric. Sign-up entry points without the intent and any failed creation keep the catalog flow; the intent is ignored on the sign-in path.
 
