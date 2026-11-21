@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useId, useRef, useState } from 'react';
+import { forwardRef, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { message, messageWith } from '../l10n/strings';
 import { HitPointsCard } from '../sheet/preset/fantasy/hp_card';
@@ -18,41 +18,6 @@ import { numberValue } from '../sheet/preset/values';
 import { Button } from '../ui/button';
 import { DemoProvider } from './demo_provider';
 import './game_moments.css';
-
-const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
-
-function prefersReducedMotion(): boolean {
-  return typeof window.matchMedia === 'function' && window.matchMedia(REDUCED_MOTION_QUERY).matches;
-}
-
-function useReducedMotion(): boolean {
-  const [reduced, setReduced] = useState(prefersReducedMotion);
-
-  useEffect(() => {
-    if (typeof window.matchMedia !== 'function') {
-      return;
-    }
-    const query = window.matchMedia(REDUCED_MOTION_QUERY);
-    const update = () => setReduced(query.matches);
-    update();
-    query.addEventListener?.('change', update);
-    return () => query.removeEventListener?.('change', update);
-  }, []);
-
-  return reduced;
-}
-
-interface FlashProps {
-  readonly pulse: number;
-  readonly reduced: boolean;
-}
-
-function Flash({ pulse, reduced }: FlashProps) {
-  if (reduced || pulse === 0) {
-    return null;
-  }
-  return <span key={pulse} className="lg-moment__flash" aria-hidden="true" />;
-}
 
 interface MomentProps {
   readonly title: string;
@@ -99,8 +64,6 @@ function XpMoment() {
   const xp = usePresetValue(XP_PATH);
   const commitXp = usePresetCommit(XP_PATH);
   const commitLevel = usePresetCommit(LEVEL_PATH);
-  const reduced = useReducedMotion();
-  const [pulse, setPulse] = useState(0);
   const resultRef = useRef<HTMLParagraphElement>(null);
   const progress = xpProgress(level, xp);
   const gain =
@@ -115,7 +78,6 @@ function XpMoment() {
       return;
     }
     commitXp(progress.xp + gain);
-    setPulse((value) => value + 1);
     resultRef.current?.focus();
   };
 
@@ -124,7 +86,6 @@ function XpMoment() {
       return;
     }
     commitLevel(nextLevel);
-    setPulse((value) => value + 1);
     resultRef.current?.focus();
   };
 
@@ -135,7 +96,6 @@ function XpMoment() {
       testId="landing-moment-xp"
     >
       <div className="lg-moment__stage">
-        <Flash pulse={pulse} reduced={reduced} />
         <p className="lg-moment__level" data-testid="landing-moment-xp-level">
           {messageWith('sheet.play.level', { count: progress.level })}
         </p>
@@ -167,8 +127,6 @@ function HpMoment() {
   const { store } = usePresetContext();
   const current = numberValue(usePresetValue(HIT_POINTS_CURRENT));
   const max = numberValue(usePresetValue(HIT_POINTS_MAX));
-  const reduced = useReducedMotion();
-  const [pulse, setPulse] = useState(0);
   const resultRef = useRef<HTMLParagraphElement>(null);
   const exhausted = (current ?? 0) <= 0;
   const result =
@@ -184,7 +142,6 @@ function HpMoment() {
     }
     store.setPath(HIT_POINTS_CURRENT, change.current);
     store.setPath(HIT_POINTS_TEMP, change.temp);
-    setPulse((value) => value + 1);
     resultRef.current?.focus();
   };
 
@@ -195,7 +152,6 @@ function HpMoment() {
       testId="landing-moment-hp"
     >
       <div className="lg-moment__stage">
-        <Flash pulse={pulse} reduced={reduced} />
         <HitPointsCard />
       </div>
       <div className="lg-moment__actions">
@@ -216,8 +172,6 @@ function SlotMoment() {
   const { store } = usePresetContext();
   const total = numberValue(usePresetValue('spells.slot1.total'));
   const expended = numberValue(usePresetValue('spells.slot1.expended'));
-  const reduced = useReducedMotion();
-  const [pulse, setPulse] = useState(0);
   const resultRef = useRef<HTMLParagraphElement>(null);
   const pool = slotPool(total, expended);
   const result = messageWith('landing.momentSlotAnnounce', { count: pool.remaining });
@@ -228,7 +182,6 @@ function SlotMoment() {
     }
     const next = spendSlot(pool);
     store.setPath('spells.slot1.expended', next.expended);
-    setPulse((value) => value + 1);
     resultRef.current?.focus();
   };
 
@@ -239,7 +192,6 @@ function SlotMoment() {
       testId="landing-moment-slot"
     >
       <div className="lg-moment__stage">
-        <Flash pulse={pulse} reduced={reduced} />
         <SpellSlots />
       </div>
       <div className="lg-moment__actions">
