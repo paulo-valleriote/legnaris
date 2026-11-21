@@ -463,6 +463,12 @@
   background-color: var(--lg-color-surface-hover);
 }
 
+@media (pointer: coarse) {
+  .lg-hp-card__quick > .lg-button {
+    min-height: var(--lg-size-control);
+  }
+}
+
 .lg-hp-card__entry {
   display: flex;
   align-items: center;

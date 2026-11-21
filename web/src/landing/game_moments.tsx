@@ -2,13 +2,7 @@ import { forwardRef, useEffect, useId, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { message, messageWith } from '../l10n/strings';
 import { HitPointsCard } from '../sheet/preset/fantasy/hp_card';
-import {
-  HIT_POINTS_CURRENT,
-  HIT_POINTS_MAX,
-  HIT_POINTS_TEMP,
-  applyDamage,
-  hitPointsFrom,
-} from '../sheet/preset/fantasy/hit_points';
+import { HIT_POINTS_CURRENT, HIT_POINTS_MAX } from '../sheet/preset/fantasy/hit_points';
 import { slotPool, spendSlot } from '../sheet/preset/fantasy/slot_pips';
 import { SpellSlots } from '../sheet/preset/fantasy/spells';
 import { XpBar } from '../sheet/preset/fantasy/xp_panel';
@@ -18,6 +12,8 @@ import { numberValue } from '../sheet/preset/values';
 import { Button } from '../ui/button';
 import { DemoProvider } from './demo_provider';
 import './game_moments.css';
+
+const XP_FORMAT = new Intl.NumberFormat('en-US');
 
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
@@ -107,8 +103,11 @@ function XpMoment() {
     progress.nextThreshold === null ? 0 : Math.max(0, progress.nextThreshold - progress.xp);
   const nextLevel = progress.nextLevel;
   const result = progress.canLevelUp
-    ? messageWith('landing.momentXpAnnounce', { count: progress.xp })
-    : messageWith('landing.momentXpValue', { count: progress.level, total: progress.xp });
+    ? messageWith('landing.momentXpAnnounce', { count: XP_FORMAT.format(progress.xp) })
+    : messageWith('landing.momentXpValue', {
+        count: progress.level,
+        total: XP_FORMAT.format(progress.xp),
+      });
 
   const gainExperience = () => {
     if (progress.nextThreshold === null || gain === 0) {
@@ -146,7 +145,7 @@ function XpMoment() {
           <Button
             variant="secondary"
             size="sm"
-            label={messageWith('landing.momentXpGain', { count: gain })}
+            label={messageWith('landing.momentXpGain', { count: XP_FORMAT.format(gain) })}
             onClick={gainExperience}
           />
         )}
@@ -164,29 +163,23 @@ function XpMoment() {
 }
 
 function HpMoment() {
-  const { store } = usePresetContext();
   const current = numberValue(usePresetValue(HIT_POINTS_CURRENT));
   const max = numberValue(usePresetValue(HIT_POINTS_MAX));
   const reduced = useReducedMotion();
   const [pulse, setPulse] = useState(0);
   const resultRef = useRef<HTMLParagraphElement>(null);
-  const exhausted = (current ?? 0) <= 0;
+  const previous = useRef(current);
   const result =
     current === undefined
       ? ''
       : messageWith('landing.momentHpAnnounce', { count: current, total: max ?? 0 });
 
-  const takeDamage = () => {
-    const points = hitPointsFrom(store.getState().data);
-    const change = applyDamage(points, 5);
-    if (change === undefined) {
-      return;
+  useEffect(() => {
+    if (previous.current !== current) {
+      previous.current = current;
+      setPulse((value) => value + 1);
     }
-    store.setPath(HIT_POINTS_CURRENT, change.current);
-    store.setPath(HIT_POINTS_TEMP, change.temp);
-    setPulse((value) => value + 1);
-    resultRef.current?.focus();
-  };
+  }, [current]);
 
   return (
     <Moment
@@ -197,15 +190,6 @@ function HpMoment() {
       <div className="lg-moment__stage">
         <Flash pulse={pulse} reduced={reduced} />
         <HitPointsCard />
-      </div>
-      <div className="lg-moment__actions">
-        <Button
-          variant="danger"
-          size="sm"
-          label={message('landing.momentHpDamage')}
-          disabled={exhausted}
-          onClick={takeDamage}
-        />
       </div>
       <Result ref={resultRef} text={result} />
     </Moment>
@@ -261,8 +245,17 @@ export default function GameMoments() {
     <DemoProvider>
       <div className="lg-moment-grid" data-testid="landing-game-moments">
         <XpMoment />
-        <HpMoment />
         <SlotMoment />
+      </div>
+    </DemoProvider>
+  );
+}
+
+export function HeroSheet() {
+  return (
+    <DemoProvider>
+      <div className="lg-moment-hero" data-testid="landing-hero-sheet">
+        <HpMoment />
       </div>
     </DemoProvider>
   );

@@ -67,13 +67,17 @@ export default function DemoScreen() {
         </section>
       </main>
 
-      <div className="lg-landing__sticky" data-testid="landing-sticky-cta">
+      <div
+        className={`lg-landing__sticky${interacted ? ' lg-landing__sticky--shown' : ''}`}
+        inert={!interacted}
+        data-testid="landing-sticky-cta"
+      >
         <Link
           className="lg-landing__cta lg-landing__cta--primary"
           to={FANTASY_SIGN_UP_PATH}
           onClick={onCtaClick}
         >
-          {message('landing.stickyCta')}
+          {message('landing.create')}
         </Link>
       </div>
     </div>

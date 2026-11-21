@@ -5,6 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { createAuthApi } from '../api/auth_api';
 import type { Transport } from '../api/transport';
 import { AppProviders } from '../app/providers';
+import { DEMO_PATH } from '../app/routes';
 import { AuthScreen } from '../auth/auth_screen';
 import type { RestoredForm } from '../auth/auth_screen';
 import { createAuthSession } from '../auth/auth_session';
@@ -172,6 +173,41 @@ describe('auth surface', () => {
     );
     expect(screen.queryByText(message('auth.subtitleLogin'))).not.toBeInTheDocument();
     expect(screen.getByText(message('auth.subtitleRegister'))).toBeInTheDocument();
+  });
+
+  it('Happy path: the new-account mode offers the live sheet before any account', async () => {
+    const user = userEvent.setup();
+    renderAuth(createDeferredTransport().transport);
+
+    expect(screen.queryByRole('link', { name: message('auth.tryFirst') })).not.toBeInTheDocument();
+    expect(screen.queryByText(message('auth.reassurance'))).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: message('auth.modeRegister') }));
+
+    expect(screen.getByText(message('auth.reassurance'))).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: message('auth.tryFirst') })).toHaveAttribute(
+      'href',
+      DEMO_PATH,
+    );
+  });
+
+  it('Edge: a sheet link being opened gets no detour to the demo', () => {
+    const session = createAuthSession({
+      authApi: createAuthApi({
+        baseUrl: BASE_URL,
+        transport: createDeferredTransport().transport,
+        readCsrfToken: () => undefined,
+      }),
+    });
+    render(
+      <AppProviders session={session} sheetStore={createMemorySheetStore()}>
+        <MemoryRouter>
+          <AuthScreen initialMode="register" next="/sheets/0190f7a4-0000-7000-8000-000000000000" />
+        </MemoryRouter>
+      </AppProviders>,
+    );
+
+    expect(screen.queryByRole('link', { name: message('auth.tryFirst') })).not.toBeInTheDocument();
   });
 
   it('Happy path: the mode switch names its group and marks exactly one mode as selected', () => {

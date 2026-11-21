@@ -495,11 +495,11 @@ describe('attack roll labels', () => {
       name: attackRoll('Longbow', '+0'),
     });
     const negative = within(attackCard(2)).getByRole('button', {
-      name: attackRoll('Dagger', '-2'),
+      name: attackRoll('Dagger', '−2'),
     });
 
     expect(zero).toHaveTextContent('+0');
-    expect(negative).toHaveTextContent('-2');
+    expect(negative).toHaveTextContent('−2');
     expect(zero.querySelector('svg')).toHaveAttribute('data-die-shape', 'd20');
     expect(negative.querySelector('svg')).toHaveAttribute('data-die-shape', 'd20');
   });

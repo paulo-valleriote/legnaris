@@ -23,7 +23,7 @@ export function abilityModifierPath(ability: AbilityKey): string {
 }
 
 export function formatModifier(modifier: number): string {
-  return modifier >= 0 ? `+${modifier}` : String(modifier);
+  return modifier >= 0 ? `+${modifier}` : `\u2212${Math.abs(modifier)}`;
 }
 
 export function parseAbilityScore(text: string): number | undefined {
