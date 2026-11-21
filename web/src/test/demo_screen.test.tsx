@@ -98,12 +98,23 @@ describe('demo page', () => {
     expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
   });
 
-  it('Happy path: the mobile sticky CTA carries the Fantasy start intent', async () => {
+  it('Edge: the mobile sticky CTA stays hidden and inert before any interaction', async () => {
     await visitDemo();
 
+    const sticky = screen.getByTestId('landing-sticky-cta');
+    expect(sticky).not.toHaveClass('lg-landing__sticky--shown');
+    expect(sticky).toHaveAttribute('inert');
+  });
+
+  it('Happy path: after a roll the mobile sticky CTA appears with the Fantasy start intent', async () => {
+    const user = userEvent.setup();
+    await visitDemo();
+    await user.click(screen.getByRole('button', { name: rollName('Might modifier') }));
+
+    expect(screen.getByTestId('landing-sticky-cta')).toHaveClass('lg-landing__sticky--shown');
     expect(
       within(screen.getByTestId('landing-sticky-cta')).getByRole('link', {
-        name: message('landing.stickyCta'),
+        name: message('landing.create'),
       }),
     ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
   });

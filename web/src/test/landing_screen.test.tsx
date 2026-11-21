@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { act } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { message } from '../l10n/strings';
@@ -56,7 +57,7 @@ describe('landing screen', () => {
       within(hero)
         .getAllByRole('link')
         .map((link) => link.getAttribute('href')),
-    ).toEqual(['/', '/sign-in', '/sign-up?start=fantasy', DEMO_PATH]);
+    ).toEqual(['/', '/sign-in', DEMO_PATH, '/sign-up?start=fantasy']);
   });
 
   it('Edge: the footer carries only the closing call to action and the legal line, no second photograph', async () => {
@@ -220,9 +221,10 @@ describe('landing conversion', () => {
     await visit('/');
 
     const sticky = screen.getByTestId('landing-sticky-cta');
-    expect(
-      within(sticky).getByRole('link', { name: message('landing.stickyCta') }),
-    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    expect(within(sticky).getByRole('link', { name: message('landing.create') })).toHaveAttribute(
+      'href',
+      FANTASY_SIGN_UP_PATH,
+    );
   });
 
   it('Edge: every conversion CTA on the page carries the Fantasy start intent', async () => {
@@ -238,8 +240,71 @@ describe('landing conversion', () => {
     ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
     expect(
       within(screen.getByTestId('landing-sticky-cta')).getByRole('link', {
-        name: message('landing.stickyCta'),
+        name: message('landing.create'),
       }),
     ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+  });
+});
+
+describe('landing mobile conversion bar', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubObserver() {
+    const callbacks: IntersectionObserverCallback[] = [];
+    class StubObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        callbacks.push(callback);
+      }
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords() {
+        return [];
+      }
+    }
+    vi.stubGlobal('IntersectionObserver', StubObserver);
+    return (isIntersecting: boolean) =>
+      act(() => {
+        for (const callback of callbacks) {
+          callback([{ isIntersecting } as IntersectionObserverEntry], {} as IntersectionObserver);
+        }
+      });
+  }
+
+  it('Edge: the bar stays inert while the hero actions are on screen', async () => {
+    const report = stubObserver();
+    await visit('/');
+
+    report(true);
+
+    const sticky = screen.getByTestId('landing-sticky-cta');
+    expect(sticky).not.toHaveClass('lg-landing__sticky--shown');
+    expect(sticky).toHaveAttribute('inert');
+  });
+
+  it('Happy path: the bar appears once the hero actions scroll away', async () => {
+    const report = stubObserver();
+    await visit('/');
+
+    report(false);
+
+    const sticky = screen.getByTestId('landing-sticky-cta');
+    expect(sticky).toHaveClass('lg-landing__sticky--shown');
+    expect(sticky).not.toHaveAttribute('inert');
+  });
+
+  it('Happy path: the hero leads with the live sheet, sign-up second', async () => {
+    await visit('/');
+
+    const hero = screen.getByRole('banner');
+    expect(within(hero).getByRole('link', { name: message('landing.tryDemo') })).toHaveClass(
+      'lg-landing__cta--primary',
+    );
+    expect(within(hero).getByRole('link', { name: message('landing.create') })).toHaveClass(
+      'lg-landing__cta--outline',
+    );
+    expect(await within(hero).findByTestId('landing-hero-sheet')).toBeInTheDocument();
   });
 });

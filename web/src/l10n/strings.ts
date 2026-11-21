@@ -153,8 +153,8 @@ export const messages = {
   'sheet.usage': 'Sheets of this kind: {used}/{limit}',
   'sheet.limitReached': 'You have reached the limit for this kind on your plan.',
 
-  'auth.titleLogin': 'Sign in to your archive',
-  'auth.titleRegister': 'Create your archive',
+  'auth.titleLogin': 'Sign in to your sheets',
+  'auth.titleRegister': 'Start your character sheet',
   'auth.subtitleLogin': 'Continue where your last sheet left off.',
   'auth.subtitleRegister': 'One account keeps every character sheet in one place.',
   'auth.subtitleLoginSheet': 'Sign in to open this sheet.',
@@ -168,6 +168,8 @@ export const messages = {
   'auth.usernameLabel': 'Username',
   'auth.submitLogin': 'Sign in',
   'auth.submitRegister': 'Create account',
+  'auth.reassurance': 'Free to start. No card needed.',
+  'auth.tryFirst': 'Not ready for an account? Try the live sheet first.',
   'auth.restoring': 'Restoring your session',
   'auth.conflictSignIn': 'Sign in with this email instead',
 
@@ -201,7 +203,7 @@ export const messages = {
   'nav.ownSheet': 'Your sheet',
   'nav.logout': 'Sign out',
   'nav.sectionWorkspace': 'Workspace',
-  'nav.tagline': 'Character archive',
+  'nav.tagline': 'Character sheets',
   'nav.account': 'Account',
   'nav.menu': 'Menu',
 
@@ -520,10 +522,9 @@ export const messages = {
   'landing.demoLoading': 'Loading the live sheet…',
   'landing.demoCtaText': 'That is the sheet doing the math. Start your own and keep playing.',
   'landing.demoCtaAction': 'Start my sheet',
-  'landing.stickyCta': 'Create your sheet',
   'landing.momentsTitle': 'Your sheet at the moments that matter.',
   'landing.momentsLead':
-    'Level up, take a hit, spend a slot. The same sheet you use mid-session keeps the arithmetic in view.',
+    'Level up, spend a slot. The same sheet you use mid-session keeps the arithmetic in view.',
   'landing.momentsLoading': 'Loading the game moments…',
   'landing.momentXpTitle': 'Experience and level-up',
   'landing.momentXpBody':
@@ -533,8 +534,8 @@ export const messages = {
   'landing.momentXpAnnounce': '{count} experience. The next level is ready.',
   'landing.momentXpValue': 'Level {count}, {total} experience.',
   'landing.momentHpTitle': 'Hit points under damage',
-  'landing.momentHpBody': 'Damage moves the bar, the current total and the pending note together.',
-  'landing.momentHpDamage': 'Take 5 damage',
+  'landing.momentHpBody':
+    'Tap a chip or type an amount. The bar, the total and the note move together.',
   'landing.momentHpAnnounce': 'Hit points {count} of {total}.',
   'landing.momentSlotTitle': 'A spell slot spent',
   'landing.momentSlotBody': 'Mark a slot spent. The pips and the remaining count change in place.',
@@ -580,7 +581,7 @@ export const messages = {
   'landing.faq5Question': 'Can I share a sheet with my table?',
   'landing.faq5Answer':
     'Not yet. Version 1 gives each account one sheet, with no sharing or game master tools.',
-  'landing.closeTitle': 'Open your archive and let the sheet do the counting.',
+  'landing.closeTitle': 'Start your character sheet and let it do the counting.',
   'landing.footerLabel': 'Site',
   'landing.footer.privacy': 'Privacy policy',
   'landing.copyright': '© {year} Legnaris',

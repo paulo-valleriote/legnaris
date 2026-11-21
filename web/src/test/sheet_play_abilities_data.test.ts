@@ -11,8 +11,8 @@ describe('formatModifier', () => {
     ['+0', 0],
     ['+1', 1],
     ['+12', 12],
-    ['-1', -1],
-    ['-12', -12],
+    ['−1', -1],
+    ['−12', -12],
   ])('Happy path: %s keeps its sign', (expected, modifier) => {
     expect(formatModifier(modifier)).toBe(expected);
   });

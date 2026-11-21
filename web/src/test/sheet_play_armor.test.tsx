@@ -440,7 +440,7 @@ describe('the initiative and speed tiles', () => {
   it('Edge: a zero or negative initiative keeps the die and names the signed roll', async () => {
     for (const [initiative, signed] of [
       [0, '+0'],
-      [-1, '-1'],
+      [-1, '−1'],
     ] as const) {
       const { unmount } = renderApp(`/sheets/${FANTASY_SHEET_ID}`, {
         client: createApiClient({

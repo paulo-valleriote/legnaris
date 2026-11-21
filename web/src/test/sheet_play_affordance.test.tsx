@@ -270,7 +270,7 @@ describe('the one rollable affordance', () => {
       name: rollName('Insight'),
     });
     const negativeInitiative = within(screen.getByTestId('sheet-initiative')).getByRole('button', {
-      name: initiativeRollName('-1'),
+      name: initiativeRollName('−1'),
     });
     const zeroAttack = within(screen.getByTestId('sheet-attack-1')).getByRole('button', {
       name: messageWith('sheet.play.attackRoll', { name: 'Longsword', value: '+0' }),
@@ -292,10 +292,10 @@ describe('the one rollable affordance', () => {
       expect(total).toHaveAttribute('data-rollable', 'true');
     }
     expect(zeroModifier).toHaveTextContent('+0');
-    expect(negativeModifier).toHaveTextContent('-3');
-    expect(negativeSave).toHaveTextContent('-3');
-    expect(negativeSkill).toHaveTextContent('-2');
-    expect(negativeInitiative).toHaveTextContent('-1');
+    expect(negativeModifier).toHaveTextContent('−3');
+    expect(negativeSave).toHaveTextContent('−3');
+    expect(negativeSkill).toHaveTextContent('−2');
+    expect(negativeInitiative).toHaveTextContent('−1');
     expect(zeroAttack).toHaveTextContent('+0');
     expect(zeroSpellAttack).toHaveTextContent('+0');
   }, 15000);

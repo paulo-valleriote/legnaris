@@ -345,7 +345,6 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-motion-600', 'landing entrance'],
     ['--lg-motion-1200', 'landing hero settle'],
     ['--lg-ease-standard', 'default easing'],
-    ['--lg-ease-emphasized', 'overshooting easing'],
     ['--lg-ease-out', 'landing exponential ease-out'],
   ]),
   ...group('component', 'size', [

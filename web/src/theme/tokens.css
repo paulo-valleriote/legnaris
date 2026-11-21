@@ -83,7 +83,6 @@
   --lg-motion-600: 600ms;
   --lg-motion-1200: 1200ms;
   --lg-ease-standard: cubic-bezier(0.2, 0, 0, 1);
-  --lg-ease-emphasized: cubic-bezier(0.2, 0, 0, 1.2);
   --lg-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Ramp: warm parchment (light surfaces) */

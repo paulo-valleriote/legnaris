@@ -117,10 +117,27 @@ body:has(.lg-landing) {
 
 .lg-landing__hero-body {
   display: grid;
-  gap: var(--lg-space-24);
+  gap: var(--lg-space-48);
+  align-items: end;
   width: 100%;
   max-width: var(--lg-size-landing-max);
   margin-inline: auto;
+}
+
+.lg-landing__hero-copy {
+  display: grid;
+  gap: var(--lg-space-24);
+  min-width: 0;
+}
+
+.lg-landing__hero-body > .lg-moment-hero,
+.lg-landing__hero-body > .lg-landing__demo-loading {
+  animation: lg-landing-rise var(--lg-motion-600) var(--lg-ease-out) calc(var(--lg-motion-120) * 5)
+    both;
+}
+
+.lg-landing__hero-body > .lg-landing__demo-loading {
+  min-height: calc(var(--lg-space-128) * 2);
 }
 
 .lg-landing__hero-title {
@@ -247,6 +264,19 @@ body:has(.lg-landing) {
   border-top: var(--lg-size-hairline) solid var(--lg-color-stage-line);
   background-color: var(--lg-color-stage);
   box-shadow: var(--lg-shadow-3);
+  visibility: hidden;
+  transform: translateY(100%);
+  transition:
+    transform var(--lg-motion-240) var(--lg-ease-out),
+    visibility 0s linear var(--lg-motion-240);
+}
+
+.lg-landing__sticky--shown {
+  visibility: visible;
+  transform: none;
+  transition:
+    transform var(--lg-motion-240) var(--lg-ease-out),
+    visibility 0s;
 }
 
 .lg-landing__sticky .lg-landing__cta {
@@ -604,6 +634,22 @@ body:has(.lg-landing) {
   }
 }
 
+@media (max-width: 39.99rem) {
+  .lg-landing__hero {
+    gap: var(--lg-space-32);
+    min-height: auto;
+    padding-top: var(--lg-space-16);
+  }
+
+  .lg-landing__hero-title {
+    font-size: var(--lg-type-display-md);
+  }
+
+  .lg-landing__hero-lead {
+    font-size: var(--lg-type-16);
+  }
+}
+
 /* Wider viewports */
 
 @media (min-width: 40rem) {
@@ -625,6 +671,27 @@ body:has(.lg-landing) {
 }
 
 @media (min-width: 56rem) {
+  .lg-landing__hero-body {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--lg-space-64);
+  }
+
+  .lg-landing__hero-title {
+    font-size: var(--lg-type-display-md);
+  }
+
+  .lg-landing__scrim {
+    background:
+      linear-gradient(
+        to top,
+        var(--lg-color-stage) 0%,
+        var(--lg-color-stage-scrim) 40%,
+        transparent 78%
+      ),
+      linear-gradient(to left, var(--lg-color-stage-scrim) 0%, transparent 55%),
+      linear-gradient(to bottom, var(--lg-color-stage-scrim) 0%, transparent 30%);
+  }
+
   .lg-landing__split {
     grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
     gap: var(--lg-space-64);

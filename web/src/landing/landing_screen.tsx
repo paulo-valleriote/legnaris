@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import type { RefObject } from 'react';
 import { Link } from 'react-router-dom';
 import { useApiBaseUrl } from '../app/providers';
 import { DEMO_PATH, PRIVACY_PATH, SIGN_IN_PATH } from '../app/routes';
@@ -13,6 +14,29 @@ import { useStageThemeColor } from './use_stage_theme_color';
 import './landing.css';
 
 const GameMoments = lazy(() => import('./game_moments'));
+const HeroSheet = lazy(() =>
+  import('./game_moments').then((module) => ({ default: module.HeroSheet })),
+);
+
+function useOutOfView(target: RefObject<HTMLElement | null>): boolean {
+  const [outOfView, setOutOfView] = useState(typeof IntersectionObserver !== 'function');
+
+  useEffect(() => {
+    const node = target.current;
+    if (node === null || typeof IntersectionObserver !== 'function') {
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry !== undefined) {
+        setOutOfView(!entry.isIntersecting);
+      }
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [target]);
+
+  return outOfView;
+}
 
 const HERO_SRCSET = ['/images/hero-lava-1280.webp 1280w', '/images/hero-lava-1920.webp 1920w'].join(
   ', ',
@@ -56,6 +80,8 @@ export function LandingScreen() {
   }, [apiBaseUrl]);
 
   const onCtaClick = () => reportCtaClick(apiBaseUrl);
+  const heroActions = useRef<HTMLDivElement>(null);
+  const stickyShown = useOutOfView(heroActions);
 
   return (
     <div className="lg-landing" data-testid="landing">
@@ -86,20 +112,25 @@ export function LandingScreen() {
         </div>
 
         <div className="lg-landing__hero-body">
-          <h1 className="lg-landing__hero-title">{message('landing.heroTitle')}</h1>
-          <p className="lg-landing__hero-lead">{message('landing.heroLead')}</p>
-          <div className="lg-landing__actions">
-            <Link
-              className="lg-landing__cta lg-landing__cta--primary"
-              to={FANTASY_SIGN_UP_PATH}
-              onClick={onCtaClick}
-            >
-              {message('landing.create')}
-            </Link>
-            <Link className="lg-landing__cta lg-landing__cta--outline" to={DEMO_PATH}>
-              {message('landing.tryDemo')}
-            </Link>
+          <div className="lg-landing__hero-copy">
+            <h1 className="lg-landing__hero-title">{message('landing.heroTitle')}</h1>
+            <p className="lg-landing__hero-lead">{message('landing.heroLead')}</p>
+            <div className="lg-landing__actions" ref={heroActions}>
+              <Link className="lg-landing__cta lg-landing__cta--primary" to={DEMO_PATH}>
+                {message('landing.tryDemo')}
+              </Link>
+              <Link
+                className="lg-landing__cta lg-landing__cta--outline"
+                to={FANTASY_SIGN_UP_PATH}
+                onClick={onCtaClick}
+              >
+                {message('landing.create')}
+              </Link>
+            </div>
           </div>
+          <Suspense fallback={<MomentsLoading />}>
+            <HeroSheet />
+          </Suspense>
         </div>
       </header>
 
@@ -168,13 +199,17 @@ export function LandingScreen() {
         </section>
       </main>
 
-      <div className="lg-landing__sticky" data-testid="landing-sticky-cta">
+      <div
+        className={`lg-landing__sticky${stickyShown ? ' lg-landing__sticky--shown' : ''}`}
+        data-testid="landing-sticky-cta"
+        inert={!stickyShown}
+      >
         <Link
           className="lg-landing__cta lg-landing__cta--primary"
           to={FANTASY_SIGN_UP_PATH}
           onClick={onCtaClick}
         >
-          {message('landing.stickyCta')}
+          {message('landing.create')}
         </Link>
       </div>
 

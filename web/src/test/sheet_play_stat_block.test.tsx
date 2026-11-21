@@ -461,7 +461,7 @@ describe('the stat block body', () => {
   it('Edge: a zero or negative stat block initiative names the signed roll', async () => {
     for (const [initiative, signed] of [
       [0, '+0'],
-      [-1, '-1'],
+      [-1, '−1'],
     ] as const) {
       const { unmount } = renderApp(`/sheets/${FANTASY_SHEET_ID}`, {
         client: createApiClient({
@@ -663,8 +663,8 @@ describe('the stat block prose lines', () => {
       data: { saves: { dexterity: -2 }, skills: { athletics: { bonus: 0, total: -3 } } },
     });
 
-    expect(screen.getByTestId('sheet-stat-saves')).toHaveTextContent('Saves Dex -2');
-    expect(screen.getByTestId('sheet-stat-skills')).toHaveTextContent('Skills Athletics -3');
+    expect(screen.getByTestId('sheet-stat-saves')).toHaveTextContent('Saves Dex −2');
+    expect(screen.getByTestId('sheet-stat-skills')).toHaveTextContent('Skills Athletics −3');
   });
 
   it('Edge: only proficient saves and skills are drawn as inline text', async () => {
@@ -701,7 +701,7 @@ describe('the stat block prose lines', () => {
 
     const skills = screen.getByTestId('sheet-stat-skills');
     expect(skills).toHaveTextContent(
-      'Skills Athletics +5 · Stealth +3 · Perception +1 · Survival -1',
+      'Skills Athletics +5 · Stealth +3 · Perception +1 · Survival −1',
     );
     expect(skills.querySelectorAll('[data-separator]')).toHaveLength(3);
   });

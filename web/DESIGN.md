@@ -175,7 +175,7 @@ No screen invents its own heading size; a smaller voice is a step of this list, 
 ## Motion
 
 - **Durations:** `--lg-motion-120` (120 ms), `--lg-motion-180` (180 ms), `--lg-motion-240`
-  (240 ms); **easings** `--lg-ease-standard` and `--lg-ease-emphasized`. The landing's one entrance
+  (240 ms); **easing** `--lg-ease-standard`. The landing's one entrance
   adds `--lg-motion-600` and `--lg-motion-1200` with `--lg-ease-out` (a steep exponential
   ease-out); `--lg-ease-out` stays declared for that surface and is not a second default.
 - **Only these properties may transition:** `background`, `color`, `border-color`, `box-shadow`,
@@ -368,8 +368,8 @@ no display-scale heading.
   same start intent. Buttons keep `--lg-radius-md`, never a pill.
 - **Accessibility.** Landmarks are `header`, `main` and `footer`; the questions are native
   `details` disclosures; each game moment is a named article with one polite result line, and its
-  controls are the real sheet controls or a labelled button; the step illustrations are
-  decorative. The stage focus ring is `--lg-color-stage-focus`; the stage text pairs are
+  controls are the real sheet controls or a labelled button; the derivation chain's
+  steppers are labelled buttons and its derived rows a polite live list. The stage focus ring is `--lg-color-stage-focus`; the stage text pairs are
   asserted in both themes like every other pair. The landing mounts no ad slot.
 
 ---
