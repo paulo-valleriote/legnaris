@@ -1,10 +1,10 @@
 import { lazy, Suspense, useEffect } from 'react';
-import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { useApiBaseUrl } from '../app/providers';
 import { DEMO_PATH, PRIVACY_PATH, SIGN_IN_PATH } from '../app/routes';
 import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
+import { DerivationChain } from './derivation_chain';
 import { BrandMark } from '../shell/brand_mark';
 import { ChevronDownIcon } from '../ui/icons';
 import { reportCtaClick, reportHomeVisit } from './funnel_beacon';
@@ -28,62 +28,15 @@ function MomentsLoading() {
   );
 }
 
-function TemplateVisual() {
-  return (
-    <span
-      className="lg-landing__mini lg-landing__mini--template"
-      data-testid="landing-step-visual-template"
-    >
-      <span className="lg-landing__mini-row" />
-      <span className="lg-landing__mini-row lg-landing__mini-row--active" />
-      <span className="lg-landing__mini-row" />
-    </span>
-  );
-}
-
-function SheetVisual() {
-  return (
-    <span
-      className="lg-landing__mini lg-landing__mini--sheet"
-      data-testid="landing-step-visual-sheet"
-    >
-      <span className="lg-landing__mini-stat">
-        <span className="lg-landing__mini-label">{message('landing.stepVisualName')}</span>
-        <span className="lg-landing__mini-score">{message('landing.stepVisualScore')}</span>
-      </span>
-      <span className="lg-landing__mini-derived">{message('landing.stepVisualDerived')}</span>
-    </span>
-  );
-}
-
-function PlayVisual() {
-  return (
-    <span
-      className="lg-landing__mini lg-landing__mini--play"
-      data-testid="landing-step-visual-play"
-    >
-      <span className="lg-landing__mini-hp">
-        <span className="lg-landing__mini-hp-fill" />
-      </span>
-      <span className="lg-landing__mini-pips">
-        <span className="lg-landing__mini-pip" />
-        <span className="lg-landing__mini-pip lg-landing__mini-pip--spent" />
-        <span className="lg-landing__mini-pip" />
-      </span>
-    </span>
-  );
-}
-
 interface Step {
   readonly title: MessageKey;
   readonly body: MessageKey;
-  readonly visual: () => ReactNode;
 }
 
 const STEPS: readonly Step[] = [
-  { title: 'landing.step1Title', body: 'landing.step1Body', visual: TemplateVisual },
-  { title: 'landing.step2Title', body: 'landing.step2Body', visual: SheetVisual },
-  { title: 'landing.step3Title', body: 'landing.step3Body', visual: PlayVisual },
+  { title: 'landing.step1Title', body: 'landing.step1Body' },
+  { title: 'landing.step2Title', body: 'landing.step2Body' },
+  { title: 'landing.step3Title', body: 'landing.step3Body' },
 ];
 
 const FAQ: readonly { readonly question: MessageKey; readonly answer: MessageKey }[] = [
@@ -182,12 +135,10 @@ export function LandingScreen() {
                   <li className="lg-landing__step-item" key={step.title}>
                     <h3 className="lg-landing__step-title">{message(step.title)}</h3>
                     <p className="lg-landing__text">{message(step.body)}</p>
-                    <span className="lg-landing__step-visual" aria-hidden="true">
-                      {step.visual()}
-                    </span>
                   </li>
                 ))}
               </ol>
+              <DerivationChain />
             </div>
           </div>
         </section>
