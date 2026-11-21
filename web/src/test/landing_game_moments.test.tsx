@@ -14,24 +14,6 @@ function source(file: string): string {
   return readFileSync(path.resolve(landingDir, file), 'utf8');
 }
 
-function stubMatchMedia(matches: boolean): () => void {
-  const original = window.matchMedia;
-  window.matchMedia = ((query: string) =>
-    ({
-      matches: query.includes('prefers-reduced-motion') ? matches : false,
-      media: query,
-      onchange: null,
-      addEventListener: () => undefined,
-      removeEventListener: () => undefined,
-      addListener: () => undefined,
-      removeListener: () => undefined,
-      dispatchEvent: () => false,
-    }) as MediaQueryList) as typeof window.matchMedia;
-  return () => {
-    window.matchMedia = original;
-  };
-}
-
 function AllMoments() {
   return (
     <>
@@ -157,8 +139,7 @@ describe('the landing game moments', () => {
     expect(within(slotCard()).getByRole('status')).toHaveFocus();
   });
 
-  it('Happy path: an action replays a short flash when motion is allowed', async () => {
-    const restore = stubMatchMedia(false);
+  it('Edge: an action draws no decorative bar above the stage', async () => {
     const user = userEvent.setup();
     render(<AllMoments />);
 
@@ -168,24 +149,8 @@ describe('the landing game moments', () => {
       }),
     );
 
-    expect(hpCard().querySelector('.lg-moment__flash')).not.toBeNull();
-    restore();
-  });
-
-  it('Edge: under prefers-reduced-motion the moments draw no flash', async () => {
-    const restore = stubMatchMedia(true);
-    const user = userEvent.setup();
-    render(<AllMoments />);
-
-    await user.click(
-      within(hpCard()).getByRole('button', {
-        name: messageWith('sheet.play.damageAmount', { count: 5 }),
-      }),
-    );
-
-    expect(hpCard().querySelector('.lg-moment__flash')).toBeNull();
+    expect(hpCard().querySelector('.lg-moment__stage > [aria-hidden="true"]')).toBeNull();
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent(/19\s*\/\s*30/);
-    restore();
   });
 
   it('Happy path: every moment is a figure with its own name and live result', () => {

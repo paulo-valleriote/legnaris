@@ -61,37 +61,6 @@
   color: var(--lg-color-stage-text-muted);
 }
 
-.lg-moment__flash {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  z-index: 1;
-  height: var(--lg-space-2);
-  border-radius: var(--lg-radius-pill);
-  background-color: var(--lg-color-stage-accent);
-  transform-origin: left;
-  animation: lg-moment-flash var(--lg-motion-1200) var(--lg-ease-out) both;
-  pointer-events: none;
-}
-
-@keyframes lg-moment-flash {
-  from {
-    opacity: 1;
-    transform: scaleX(0);
-  }
-
-  40% {
-    opacity: 1;
-    transform: scaleX(1);
-  }
-
-  to {
-    opacity: 0;
-    transform: scaleX(1);
-  }
-}
-
 @media (min-width: 56rem) {
   .lg-moment-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
