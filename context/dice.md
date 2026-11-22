@@ -6,6 +6,8 @@ Dice expressions attach a roll to a Row or a whole Section. A Template supplies 
 
 ## Why
 
+- **Planned (LGN-380): Roll modes stay a client evaluation option over a keep token in the grammar because** the client already throws, keeps and shows both dice and the server never rolls. A Template only marks a d20 expression that is not a d20 test (a Hit Die, for example). Cost: a stored expression cannot pin advantage, and a Template author must mark the exceptions.
+- **Planned (LGN-380): dice sized by numeric Fields, with a minimum total, over literal `NdM` only because** stat block hit points and Hit Point Dice take their count or size from the Sheet. Multiplication stays out of the grammar: a product is a derived Field. Cost: a grammar change in both implementations and their shared vectors, and range errors that can only appear at roll time.
 - **An own grammar over expr-lang** because the expression is typed by a player and the formula engine must never evaluate user text, while the dice needs its own syntax. Cost: a second parser and evaluator.
 - **Two implementations over one server implementation** because the client rolls with no round trip and the server validates what it stores. Cost: shared vectors and two suites that must move together.
 - **Client Rolls over server Rolls** because a Roll needs no audit trail in V1 and works without a network. Cost: no server authority over a result and no history to replay.
