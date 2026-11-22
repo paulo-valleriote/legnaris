@@ -25,16 +25,22 @@ the Sheet during play and never calculates a modifier by hand.
   demand signal; a Mechanic family is the reserved fallback for a popular system without an
   open license. Cost: until another Game system passes that gate, players of other games
   are knowingly not served.
+- **Planned (LGN-386): one cutover pull request over a coordinated release of several**
+  because every push to `main` deploys, so "the same deploy" can only mean the same merge:
+  the lifecycle flip, the landing and the `/demo` switch travel together, while `/srd` and
+  the unmounted demo are prepared earlier (LGN-385). Cost: one larger final pull request.
 - **Planned (LGN-386): `fantasy_v1` becomes a Retired Template with no migration** over
   keeping it beside the new Templates, hiding it everywhere, migrating its Sheets or porting
   its preset, because new users would otherwise keep landing on the half-automated sheet,
   its own Campaigns must still gain Sheets, and any mapping loses data (non-SRD skills,
   fixed attack and spell slots). Cost: the half-automation remains for existing
   `fantasy_v1` users, and the frozen `fantasy` preset gets bug fixes only.
-- Code-defined generic Templates with 0/1 `config.*` flags and `rules.*` tuning over
-  user-authored or hardcoded systems because one reviewed mechanism can express
-  different systems with no licensed text; cost: another system needs a release, users
-  cannot add one, and authors write rules as formulas and switches.
+- Code-defined Templates on one generic engine, with 0/1 `config.*` flags and `rules.*`
+  tuning, over user-authored or hardcoded systems because one reviewed mechanism can
+  express different systems. `fantasy_v1` carries no licensed text; the planned faithful
+  Templates above may carry only openly licensed material, with attribution. Cost: another
+  system needs a release, users cannot add one, and authors write rules as formulas and
+  switches.
 - A compiled dependency graph with cascading recalculation over spreadsheets and
   editable PDFs because the player should not do arithmetic at the table; cost: only
   reviewed editable Fields accept input, and derived values change only through preview

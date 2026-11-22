@@ -1,6 +1,6 @@
 # Legnaris
 
-A character-sheet manager for tabletop RPGs. Generic templates describe a game system's fields and formulas; a player's sheet fills them in and derived values recalculate on their own.
+A character-sheet manager for tabletop RPGs. Templates describe a game's fields and formulas; a player's sheet fills them in and derived values recalculate on their own.
 
 ## Language
 
@@ -17,7 +17,7 @@ A kind of core dice mechanic shared by several Game systems, such as percentile 
 _Avoid_: Generic system, engine type
 
 **Draft Template**:
-A Template that exists but is not yet offered to players: it stays out of the catalog and no Sheet or Campaign can be created from it in production. It becomes an ordinary Template when it is released.
+A Template that exists but is not yet offered to players: it stays out of the catalog and no Sheet or Campaign can be created from it outside local development. It becomes an ordinary Template when it is released.
 _Avoid_: Hidden, beta, preview, unlisted Template
 
 **Retired Template**:
@@ -121,7 +121,7 @@ The explicit mode in which a player reorders Sections. Pins can also be toggled 
 _Avoid_: Edit mode, customize mode
 
 **Dice expression**:
-A short roll formula made of dice (`NdM`, optionally keeping only the highest or lowest of them), whole numbers and numeric Fields joined by plus or minus, such as `1d20 + stats.dexterity`. On a Section, or on a Row of a table, it can name "this Row" instead of a fixed Field (`1d20 + @`, `1d20 + @.total`), so one Section default serves every Row in it. It attaches to a Row or to a Section (inherited by that Section's Rows). A Template supplies the defaults; a player can replace one, add one where the Template gave none, or turn rolling off for a Row on their own Sheet. The most specific choice wins: the player's for the Row, then the player's "no dice" for the Section, then the Template's for the Row, then the player's expression for the Section, then the Template's for the Section; with none, the Row cannot be rolled. The shorthand `d20` means `1d20`.
+A short roll formula made of dice (`NdM`), whole numbers and numeric Fields joined by plus or minus, such as `1d20 + stats.dexterity`. On a Section, or on a Row of a table, it can name "this Row" instead of a fixed Field (`1d20 + @`, `1d20 + @.total`), so one Section default serves every Row in it. It attaches to a Row or to a Section (inherited by that Section's Rows). A Template supplies the defaults; a player can replace one, add one where the Template gave none, or turn rolling off for a Row on their own Sheet. The most specific choice wins: the player's for the Row, then the player's "no dice" for the Section, then the Template's for the Row, then the player's expression for the Section, then the Template's for the Section; with none, the Row cannot be rolled. The shorthand `d20` means `1d20`.
 _Avoid_: Dice, die, roll formula
 
 **Roll**:

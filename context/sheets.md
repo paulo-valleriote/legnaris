@@ -20,8 +20,10 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   player enters what they grant, and everything the rules derive from the Sheet is derived;
   `fifth_stat_block_v1` "5E Stat Block" (`npc`, `enemy`) derives the proficiency bonus and
   XP from the challenge rating. Cost: the player types class-granted values, and neither
-  Template enters the catalog until the opt-in engine capabilities (Record list, Roll mode,
-  Reset action, `min` and range lookup, accepted kinds per Template; LGN-380) ship.
+  Template enters the catalog until the opt-in engine capabilities of LGN-380 ship: Record
+  lists, d20-test marking for the existing Roll modes, Reset actions, a pinned `min` and a
+  range lookup, the already enforced accepted kinds exposed to the client, and dice sized
+  by Fields with a minimum total.
 - **Planned (LGN-383): composable presets with one config per Template over a bespoke preset
   per Template or Template-declared presentation roles because** a new Template should cost
   one config instead of about 35 files, while layout stays in the web rather than in the API
@@ -31,9 +33,11 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   preset stays a frozen exception.
 - **Planned (LGN-381): a Template lifecycle (`draft`, `active`, `retired`) over feature flags
   or registering new Templates only at release because** the codebase has no flags and a new
-  Template must reach production, testable, before it is offered. A Draft Template stays out
-  of the catalog and cannot be created in production. Cost: every creation path checks the
-  state, and the release is one cutover deploy (LGN-386) that also carries the landing.
+  Template must merge and be playable in local development before it is offered. A Draft
+  Template is listed and creatable only when `APP_ENV` is `development`; an empty or any
+  other value refuses it, so a process without the variable fails closed. Cost: every
+  creation path checks the state, nobody can try a Draft in production, and the release is
+  one cutover pull request (LGN-386) that also carries the landing.
 - **Templates as code over a `template` collection because** a template is reviewed content and
   no user-supplied game content may ship; the registry and its DAGs are built once at boot, so a
   read costs neither a query nor a compile. Cost: a template change is a deploy, an incompatible
