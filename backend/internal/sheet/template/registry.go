@@ -40,6 +40,9 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template, opts ...Regi
 		if !stored.State.Valid() {
 			return nil, fmt.Errorf("template %q: %w", stored.ID, ErrInvalidTemplateState(stored.ID, stored.State))
 		}
+		if err := validateTemplateGameSystem(stored); err != nil {
+			return nil, err
+		}
 		if err := stored.prepareRowIndex(); err != nil {
 			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
 		}
