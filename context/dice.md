@@ -6,7 +6,7 @@ Dice expressions attach a roll to a Row or a whole Section. A Template supplies 
 
 ## Why
 
-- **Planned (LGN-380): Roll modes stay a client evaluation option over a keep token in the grammar because** the client already throws, keeps and shows both dice and the server never rolls. A Template only marks a d20 expression that is not a d20 test (a Hit Die, for example). Cost: a stored expression cannot pin advantage, and a Template author must mark the exceptions.
+- **Roll modes stay a client evaluation option over a keep token in the grammar because** the client already throws, keeps and shows both dice and the server never rolls. A Template can mark a Row or Section whose dice are not d20 tests, so a d20 Hit Die offers no advantage. Cost: a stored expression cannot pin advantage, and a Template author must mark the exceptions.
 - **Planned (LGN-380): dice sized by numeric Fields, with a minimum total, over literal `NdM` only because** stat block hit points and Hit Point Dice take their count or size from the Sheet. Multiplication stays out of the grammar: a product is a derived Field. Cost: a grammar change in both implementations and their shared vectors, and range errors that can only appear at roll time.
 - **An own grammar over expr-lang** because the expression is typed by a player and the formula engine must never evaluate user text, while the dice needs its own syntax. Cost: a second parser and evaluator.
 - **Two implementations over one server implementation** because the client rolls with no round trip and the server validates what it stores. Cost: shared vectors and two suites that must move together.
@@ -91,6 +91,8 @@ Dice are thrown in expression order, each yielding 1..faces. Numbers are literal
 
 A keep mode (`highest` / `lowest`) is a client evaluation option, not grammar: every d20 term throws one extra die and keeps the best or worst of the count it names, while every other die throws exactly as written. The part then carries all thrown dice plus the `discarded` indices, so a result can show both dice and mark the kept one. Advantage maps to `highest` and disadvantage to `lowest`; Go has no keep mode because the server never rolls.
 
+A Template marks the Rows or Sections whose dice are not d20 tests. A marked Row offers no keep mode: no choice dialog, no popup semantics, Shift and Alt throw normally, and a long press or the Context Menu key throws exactly one die. A Section marking covers every Row of that Section; a Row marking and a Section marking both count. The marking is Template data, so it still holds when the player replaces that Row's expression.
+
 ### Error classes
 
 | Stage | Classes |
@@ -128,6 +130,8 @@ Go declares `*dice.Error` with a `Class` and `Err*` sentinels; it imports neithe
 
 `Template.SectionDice` and `Template.RowDice` are code-defined and ship as `dice: {section, row}` on the template detail; the block is omitted when both maps are empty, and an empty side is omitted too. They are never written into a Sheet. Boot validation rejects an unknown Section or Row key, a refused expression, a Row default that does not fit its Row, and a Section default that fits none of its Rows, checking Sections before Rows and keys alphabetically so the error is stable.
 
+`Template.NotD20Sections` and `Template.NotD20Rows` name the Sections and Rows whose dice are not d20 tests. They ship inside the same `dice` object as `not_d20: {section: [...], row: [...]}`, with an empty side omitted; `dice` itself is emitted when either a default or a marking exists. Boot validation rejects an unknown Section, a Section without Rows, or a Row that is no Row of any Section, checking Sections before Rows. A marking is Template data: it survives a player's expression override and is never written to a Sheet.
+
 ### Shared vectors
 
 `testdata/dice/vectors.json` is the cross-language contract. Its `version`, `limits`, `fields`, `valid`, `invalid`, `fit`, `sections` and `evaluate` keys are read by both suites. Go asserts every vector in `backend/internal/dice` and its decoder rejects unknown keys, so every key must be read by a test; the web suite asserts them through `web/src/test/dice_vectors.ts`. Class strings and limits are part of the contract.
@@ -137,12 +141,12 @@ A grammar change starts in the vectors: add or amend the cases (bump `version` f
 ## Code map
 
 - `backend/internal/dice/` — `parse.go` (limits, terms, canonical form), `fit.go` (`Schema`, fit and Section validation), `evaluate.go` (`Roller`, parts, totals), `errors.go` (classes and `ClassOf`).
-- `backend/internal/sheet/template/dice_defaults.go` — boot validation and `ValidateSheetDice`; `seeders.go` holds the `fantasy_v1` defaults; `dto.go` emits the template block.
+- `backend/internal/sheet/template/dice_defaults.go` — boot validation and `ValidateSheetDice`; `not_d20.go` — the not-a-d20-test declaration validator; `seeders.go` holds the `fantasy_v1` defaults; `dto.go` emits the template block.
 - `backend/internal/sheet/service.go` — `validatedDice`, `translateDiceErr` and the one compare-and-swap save; `sheet.go` holds the stored block; `dto.go` always serializes it on `GET`.
 - `backend/internal/app/sheet.go` — the `PATCH /sheets/:id` route.
 - `testdata/dice/vectors.json` — the shared vectors.
 - `web/src/dice/` — `parse.ts`, `fit.ts`, `resolve.ts` (precedence), `roll.ts` (`performRoll`, `dieFromWords`, crypto source, keep modes), `errors.ts`.
-- `web/src/sheet/dice_view.ts` — schema, pruning, error keys and Roll summary; `dice_store.ts` — local check and `setDice`; `sheet_edit.ts` — saved and pending blocks, drafts and the save.
+- `web/src/sheet/dice_view.ts` — schema, pruning, error keys, Roll summary and the Template's not-a-d20-test marking; `dice_store.ts` — local check and `setDice`; `sheet_edit.ts` — saved and pending blocks, drafts and the save.
 - `web/src/sheet/dice_row.tsx` — Roll/Edit controls, Section button and editor; `roll_mode.tsx` — the Normal/Advantage/Disadvantage choice and its click and context-key mapping; `dice_panel.tsx` — the floating result with its recent-roll history (`dice_history.ts` keeps the last three, newest first, with each entry's mode); `die_icon.tsx`, `dice.css` — shapes.
 - `web/src/api/models/dice.ts`, `web/src/api/client.ts` — wire parsing and body.
 - `web/src/test/dice_*.test.ts`, `web/src/test/sheet_dice_*.test.*` — vector, resolution, Roll, store and screen suites.
@@ -158,6 +162,7 @@ A grammar change starts in the vectors: add or amend the cases (bump `version` f
 ## Known limits
 
 - The grammar has no keep tokens: a stored expression is always plain `NdM`, and advantage/disadvantage are an evaluation option of the client Roll (each d20 term throws one extra die and keeps the best or worst), so they need no grammar or save-contract change. The grammar has only `+`/`-`, with no multiplication, exploding dice or per-die modifiers.
+- The not-a-d20-test marking is Row- or Section-wide and only excludes the roll modes: it cannot mark a single expression inside a marked Section back into a d20 test, and it never changes the dice a normal Roll throws.
 - No Roll history on the server and no server-side Roll: a result cannot be audited or replayed, and refreshing loses the in-memory history.
 - Dice attach to Rows and Sections, never to an individual Field; a free-text field such as an attack's damage is not a Dice default.
 - A Row with no applicable expression has no editor of its own; adding dice where the Template gave none happens at Section level.

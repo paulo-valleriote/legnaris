@@ -7,9 +7,15 @@ export interface DiceBlock {
   readonly row: DiceOverrides;
 }
 
+export interface DiceNotD20 {
+  readonly section: readonly string[];
+  readonly row: readonly string[];
+}
+
 export interface DiceDefaults {
   readonly section: Readonly<Record<string, string>>;
   readonly row: Readonly<Record<string, string>>;
+  readonly notD20?: DiceNotD20;
 }
 
 function parseOverrides(value: unknown): Record<string, string | null> {
@@ -50,10 +56,32 @@ export function parseDiceDefaults(payload: unknown): DiceDefaults | undefined {
     return undefined;
   }
 
+  const notD20 = parseNotD20(payload['not_d20']);
   return {
     section: parseDefaults(payload['section']),
     row: parseDefaults(payload['row']),
+    ...(notD20 === undefined ? {} : { notD20 }),
   };
+}
+
+function parseStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter((entry): entry is string => typeof entry === 'string');
+}
+
+function parseNotD20(value: unknown): DiceNotD20 | undefined {
+  if (!isPlainObject(value)) {
+    return undefined;
+  }
+
+  const section = parseStringList(value['section']);
+  const row = parseStringList(value['row']);
+  if (section.length === 0 && row.length === 0) {
+    return undefined;
+  }
+  return { section, row };
 }
 
 export function diceBlockToWire(block: DiceBlock): {

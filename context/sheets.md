@@ -21,9 +21,9 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   `fifth_stat_block_v1` "5E Stat Block" (`npc`, `enemy`) derives the proficiency bonus and
   XP from the challenge rating. Cost: the player types class-granted values, and neither
   Template enters the catalog until the opt-in engine capabilities of LGN-380 ship: Record
-  lists, d20-test marking for the existing Roll modes, Reset actions, a pinned `min` and a
-  range lookup, the already enforced accepted kinds exposed to the client, and dice sized
-  by Fields with a minimum total.
+  lists, Reset actions, a pinned `min` and a range lookup, the already enforced accepted kinds
+  exposed to the client, and dice sized by Fields with a minimum total. The d20-test marking
+  for the existing Roll modes has shipped (LGN-390).
 - **Planned (LGN-383): composable presets with one config per Template over a bespoke preset
   per Template or Template-declared presentation roles because** a new Template should cost
   one config instead of about 35 files, while layout stays in the web rather than in the API
@@ -155,8 +155,10 @@ authenticated, active account and share the per-user rate limit.
 `children` (group); a group may carry `label` and `columns`; a leaf schema is `{type, label,
 is_editable, default, formula?, depends_on?, exclusive_group?, option_label?, column_label?,
 generatable?, generatable_kinds?, prefer_default?, min?, max?, max_length?}`. `default` stays
-numeric for every type, so a text leaf shows `0`. `dice` is omitted when the template has no
-defaults. Sections follow the template's `SectionOrder` and children their declared `Order`;
+numeric for every type, so a text leaf shows `0`. `dice` is `{section?, row?, not_d20?}`; it is
+omitted when the Template has no defaults and no marking, and `not_d20` is `{section: [...],
+row: [...]}` naming the Rows and Sections whose dice are not d20 tests (see [dice](dice.md)).
+Sections follow the template's `SectionOrder` and children their declared `Order`;
 unlisted keys are alphabetical. Template IDs are slugs (`^[a-z][a-z0-9_]*$`); a malformed ID is
 400, an unknown one 404.
 
@@ -310,7 +312,10 @@ sign, so a zero or negative modifier keeps it. A d20 rollable also carries the r
 rolls with advantage and Alt-click with disadvantage (Shift wins when both are held), while a long
 press, the Context Menu key or Shift+F10 opens one small dialog choosing Normal, Advantage or
 Disadvantage, so a phone and a keyboard reach the same choice. Only an expression with a d20 term
-reacts; a damage expression and every other non-d20 roll throws exactly its own dice. No Play label
+reacts; a damage expression and every other non-d20 roll throws exactly its own dice. A Row or
+Section the Template marks `not_d20` offers no mode at all: no dialog, no popup semantics, Shift
+and Alt roll normally, and one die is thrown even through the Context Menu key or a long press;
+the marking survives a player override of that Row's expression. No Play label
 falls below `--lg-type-12` on any width (hero badge, HP, AC and combat chips, spellcasting, ability and skill
 labels). The attack cards, saving throws, skills, spellcasting panel and table-rules disclosure
 follow (see below). Edit keeps the generic form, Arrange and the pinned filter; Play ignores the
@@ -592,8 +597,8 @@ Backend:
   exclusive normalization and change detection.
 - `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry and the
   `fantasy_v1` catalogue; `layout.go` — `SectionRowKeys`, `ValidateLayout`;
-  `dice_defaults.go`, `name_leaf.go`, `generation_metadata.go`, `dto.go` — boot validators and
-  JSON shape.
+  `dice_defaults.go`, `not_d20.go`, `name_leaf.go`, `generation_metadata.go`, `dto.go` — boot
+  validators and JSON shape.
 - `backend/internal/sheet/service.go`, `create_values.go` — create, fetch, patch, preview,
   layout, delete, seeding and `CreateWithValues` for generation, which drops derived (non-editable) leaves sent back from the
   preview and recalculates them, while unknown keys are still refused.

@@ -145,7 +145,8 @@ the F2 client and the F4 engine and owns no wire model.
   accent underline, accent hover/focus fill) and filled accent stays reserved for the proficiency
   dot and the primary action; a d20 rollable takes advantage/disadvantage from Shift-click,
   Alt-click, a long press or the Context Menu key / Shift+F10 through `src/sheet/roll_mode.tsx`, and
-  the result panel shows both dice with the kept one marked; an NPC/enemy sheet may swap the body
+  the result panel shows both dice with the kept one marked; a Row or Section the Template marks as
+  not a d20 test offers no mode and throws one die; an NPC/enemy sheet may swap the body
   through the optional kind-selected
   `statBlock`. Section-by-section detail, the pure helpers and their tests live in
   [../context/sheets.md](../context/sheets.md).
@@ -188,7 +189,7 @@ when that write landed; otherwise it says the changes could not be kept (`sheet.
 
 ## Dice expressions (`src/dice/`)
 
-Pure TypeScript parsing, resolution and rolling live in `src/dice/`; the Go package `backend/internal/dice` validates and `src/sheet/dice_*` owns the UI and pending work. The grammar, precedence, save contract and vectors are documented in [../context/dice.md](../context/dice.md); a grammar change starts in `testdata/dice/vectors.json` and moves both implementations together. Advantage and disadvantage are a keep mode of the client Roll (`keep: 'highest' | 'lowest'`, only a d20 term throws one extra die), never grammar: the stored expression stays plain `NdM`.
+Pure TypeScript parsing, resolution and rolling live in `src/dice/`; the Go package `backend/internal/dice` validates and `src/sheet/dice_*` owns the UI and pending work. The grammar, precedence, save contract and vectors are documented in [../context/dice.md](../context/dice.md); a grammar change starts in `testdata/dice/vectors.json` and moves both implementations together. Advantage and disadvantage are a keep mode of the client Roll (`keep: 'highest' | 'lowest'`, only a d20 term throws one extra die), never grammar: the stored expression stays plain `NdM`. A Template marks Rows or Sections whose dice are not d20 tests in `dice.not_d20`; both roll surfaces read it through `useRowRoll`, so a marked d20 throws one die and opens no choice.
 
 ## Layout and Arrange mode
 

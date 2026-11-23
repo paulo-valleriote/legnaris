@@ -35,6 +35,10 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template) (*Registry, 
 			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
 		}
 
+		if err := ValidateNotD20Tests(stored); err != nil {
+			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
+		}
+
 		if err := ValidateGenerationMetadata(stored); err != nil {
 			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
 		}
