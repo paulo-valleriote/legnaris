@@ -105,6 +105,21 @@ func (r *Registry) FetchByID(id string) (*Template, bool) {
 	return &tmpl, true
 }
 
+func (r *Registry) ListByGameSystem(gameSystemID string) []Template {
+	if gameSystemID == "" {
+		return nil
+	}
+	result := make([]Template, 0, len(r.order))
+	for _, id := range r.order {
+		tmpl := r.templates[id]
+		if tmpl.GameSystemID != gameSystemID {
+			continue
+		}
+		result = append(result, cloneTemplate(tmpl))
+	}
+	return result
+}
+
 func (r *Registry) FetchCatalog(id string) (*Template, bool) {
 	tmpl, ok := r.FetchByID(id)
 	if !ok {

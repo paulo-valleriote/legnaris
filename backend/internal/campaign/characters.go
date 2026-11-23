@@ -152,7 +152,7 @@ func (s *ServiceImpl) claimSheet(txCtx context.Context, c *Campaign, userID, she
 	if stored.Kind != plan.KindCharacter {
 		return 0, apperr.NewError(apperr.CodeInvalidRequest, MsgNotACharacter, nil)
 	}
-	if stored.TemplateID != c.TemplateID {
+	if !s.allowsTemplate(txCtx, c, stored.TemplateID) {
 		return 0, apperr.NewError(apperr.CodeTemplateMismatch, MsgTemplateMismatch, nil)
 	}
 	if err := s.ensureUnclaimed(txCtx, stored); err != nil {

@@ -209,6 +209,7 @@ and `failed_total`, labelled by queue, are the operational contract.
 | `backend/internal/app/ratelimit.go` | Per-route guard middleware: address, account and user keys, refusal and metric hook. |
 | `backend/internal/app/limiters.go` | Builds an in-process or Redis-backed limiter and the throttled store-failure warning. |
 | `backend/internal/app/errors.go` | Decode and template errors mapped to typed application errors. |
+| `backend/internal/app/campaign_scope.go` | Campaign scope resolution over the Template registry: creation refusals, Game system `template_ids` and the tolerant stored-scope read. |
 | `backend/internal/platform/cors` | Origin allowlist, credentials, allowed methods and exposed headers. |
 | `backend/internal/platform/health` | `/health`, `/ready` and the container probe helper. |
 | `backend/internal/platform/metrics` | Prometheus registry, HTTP middleware and domain observer implementations. |
