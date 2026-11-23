@@ -5,6 +5,7 @@ import type { Expression } from './parse';
 export interface DiceDefaults {
   readonly sectionDice?: Readonly<Record<string, string>>;
   readonly rowDice?: Readonly<Record<string, string>>;
+  readonly listDice?: Readonly<Record<string, string>>;
 }
 
 export interface DiceChoices {
@@ -47,6 +48,24 @@ function ownEntry<T>(record: Readonly<Record<string, T>> | undefined, key: strin
   return record !== undefined && Object.hasOwn(record, key) ? record[key] : undefined;
 }
 
+const RECORD_ID = /^r[0-9a-f]{32}$/;
+
+function listDefault(
+  listDice: Readonly<Record<string, string>> | undefined,
+  rowKey: string,
+): string | undefined {
+  if (listDice === undefined) {
+    return undefined;
+  }
+  for (const [listPath, expression] of Object.entries(listDice)) {
+    const prefix = `${listPath}.`;
+    if (rowKey.startsWith(prefix) && RECORD_ID.test(rowKey.slice(prefix.length))) {
+      return expression;
+    }
+  }
+  return undefined;
+}
+
 function judgeAgainstRow(source: DiceSource, expression: string, input: ResolveInput): Resolution {
   const validated = validateRow(input.schema, input.rowKey, expression);
   if (!validated.ok) {
@@ -83,6 +102,10 @@ export function resolveDice(input: ResolveInput): Resolution {
   const templateRow = ownEntry(template.rowDice, rowKey);
   if (templateRow !== undefined) {
     return judgeAgainstRow('template-row', templateRow, input);
+  }
+  const templateList = listDefault(template.listDice, rowKey);
+  if (templateList !== undefined) {
+    return judgeAgainstRow('template-row', templateList, input);
   }
   if (playerSection !== undefined) {
     return judgeAgainstRow('sheet-section', playerSection, input);

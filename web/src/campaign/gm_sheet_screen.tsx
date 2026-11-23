@@ -77,6 +77,10 @@ function FieldRows({
       );
       continue;
     }
+    if (node.kind === 'list') {
+      flushLeaves();
+      continue;
+    }
     leaves.push(
       <div className="lg-campaign__field" key={path}>
         <dt className="lg-campaign__field-label">{node.schema.label}</dt>

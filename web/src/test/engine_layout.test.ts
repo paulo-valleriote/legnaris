@@ -104,6 +104,20 @@ describe('resolveArrangement', () => {
     ).toEqual({ sectionOrder: ['alpha', 'beta', 'gamma'], pinned: [] });
   });
 
+  it('Happy path: a structurally valid Record Row pins without being drawn', () => {
+    const recordRow = 'alpha.items.r0123456789abcdef0123456789abcdef';
+
+    expect(
+      resolveArrangement(sections, layout({ pinned: [recordRow] }), (key) => key === recordRow),
+    ).toEqual({ sectionOrder: ['alpha', 'beta', 'gamma'], pinned: [recordRow] });
+  });
+
+  it('Edge: a malformed Record Row is ignored by the predicate', () => {
+    expect(
+      resolveArrangement(sections, layout({ pinned: ['alpha.items.rbad'] }), () => false).pinned,
+    ).toEqual([]);
+  });
+
   it('Edge: a retired row_order smuggled onto the object is not read', () => {
     const legacy = { sectionOrder: [], pinned: [], rowOrder: { alpha: ['alpha.three'] } };
 
@@ -165,6 +179,18 @@ describe('arrangementToLayout', () => {
         resolveArrangement(sections, layout({ pinned: ['beta#pick'] })),
       ),
     ).toEqual({ sectionOrder: [], pinned: ['beta#pick'] });
+  });
+
+  it('Happy path: a Record Row pin is written back without reading Sheet data', () => {
+    const recordRow = 'alpha.items.r0123456789abcdef0123456789abcdef';
+
+    expect(
+      arrangementToLayout(
+        sections,
+        resolveArrangement(sections, layout({ pinned: [recordRow] }), (key) => key === recordRow),
+        (key) => key === recordRow,
+      ),
+    ).toEqual({ sectionOrder: [], pinned: [recordRow] });
   });
 
   it('Edge: a section order alone serializes without pins', () => {

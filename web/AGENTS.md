@@ -19,7 +19,10 @@ The schema-driven rendering core (feature `web-ui-engine`): it turns a decoded
 no request, no mark. It mounts no screen; every case renders its modules directly.
 
 - `field_grouping.ts` — pure derivation of ordered, labeled sections and render rows
-  (stacked leaf, declared-column table, exclusive group).
+  (stacked leaf, declared-column table, exclusive group); `row_identity.ts` — list discovery and
+  Record Row keys (`<list>.<id>`), whose Fields and Section resolve from the Template shape without
+  reading Sheet data. A Record is one Row, and a list's `dice`/`not_d20` declaration applies to
+  every Record.
 - `field_control.tsx` / `exclusive_control.tsx` — one control per leaf schema, one
   single-choice control per exclusive group.
 - `sheet_form.tsx` — the composition; `sheet_defaults.ts` — the draft seed/overlay/merge;

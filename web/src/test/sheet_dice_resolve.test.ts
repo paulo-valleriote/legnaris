@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import type { FieldNode, FieldSchema } from '../api/models/template';
+import type { FieldNode, FieldSchema, LeafNode } from '../api/models/template';
 import type { DiceBlock } from '../api/models/dice';
-import { diceSchemaFromFields, resolveRowForSheet, templateDiceDefaults } from '../sheet/dice_view';
+import {
+  diceSchemaFromFields,
+  diceSectionRows,
+  resolveRowForSheet,
+  templateDiceDefaults,
+} from '../sheet/dice_view';
 
-function leaf(type: string): FieldNode {
+function leaf(type: string): LeafNode {
   const schema: FieldSchema = { type, label: type, isEditable: true, defaultValue: 0 };
   return { kind: 'leaf', schema };
 }
@@ -69,6 +74,104 @@ describe('resolveRowForSheet', () => {
 
     expect(resolution.rollable).toBe(false);
     expect(resolution.source).toBe('sheet-section-off');
+  });
+
+  it('Happy path: a list default serves every Record of that list', () => {
+    const recordFields: Record<string, FieldNode> = {
+      inventory: {
+        kind: 'group',
+        children: {
+          items: {
+            kind: 'list',
+            list: {
+              label: 'Items',
+              capacity: 2,
+              dice: '1d20 + @.quantity',
+              shape: { quantity: leaf('number') },
+            },
+          },
+        },
+      },
+    };
+    const recordId = 'r0123456789abcdef0123456789abcdef';
+    const recordRow = `inventory.items.${recordId}`;
+    const resolution = resolveRowForSheet({
+      rowKey: recordRow,
+      sectionKey: 'inventory',
+      schema: diceSchemaFromFields(recordFields),
+      rowKeys: new Set([recordRow]),
+      sectionRows: diceSectionRows(recordFields),
+      defaults: templateDiceDefaults(undefined, recordFields),
+      block: { section: {}, row: {} },
+    });
+
+    expect(resolution.rollable).toBe(true);
+    expect(resolution.source).toBe('template-row');
+    expect(resolution.expression).toBe('1d20 + @.quantity');
+  });
+
+  it('Edge: a player Section "no dice" silences a list default too', () => {
+    const recordFields: Record<string, FieldNode> = {
+      inventory: {
+        kind: 'group',
+        children: {
+          items: {
+            kind: 'list',
+            list: {
+              label: 'Items',
+              capacity: 2,
+              dice: '1d20 + @.quantity',
+              shape: { quantity: leaf('number') },
+            },
+          },
+        },
+      },
+    };
+    const recordRow = 'inventory.items.r0123456789abcdef0123456789abcdef';
+    const resolution = resolveRowForSheet({
+      rowKey: recordRow,
+      sectionKey: 'inventory',
+      schema: diceSchemaFromFields(recordFields),
+      rowKeys: new Set([recordRow]),
+      sectionRows: diceSectionRows(recordFields),
+      defaults: templateDiceDefaults(undefined, recordFields),
+      block: { section: { inventory: null }, row: {} },
+    });
+
+    expect(resolution.rollable).toBe(false);
+    expect(resolution.source).toBe('sheet-section-off');
+  });
+
+  it('Happy path: a player Record override beats the list default', () => {
+    const recordFields: Record<string, FieldNode> = {
+      inventory: {
+        kind: 'group',
+        children: {
+          items: {
+            kind: 'list',
+            list: {
+              label: 'Items',
+              capacity: 2,
+              dice: '1d20 + @.quantity',
+              shape: { quantity: leaf('number') },
+            },
+          },
+        },
+      },
+    };
+    const recordRow = 'inventory.items.r0123456789abcdef0123456789abcdef';
+    const resolution = resolveRowForSheet({
+      rowKey: recordRow,
+      sectionKey: 'inventory',
+      schema: diceSchemaFromFields(recordFields),
+      rowKeys: new Set([recordRow]),
+      sectionRows: diceSectionRows(recordFields),
+      defaults: templateDiceDefaults(undefined, recordFields),
+      block: { section: {}, row: { [recordRow]: '1d8' } },
+    });
+
+    expect(resolution.source).toBe('sheet-row');
+    expect(resolution.expression).toBe('1d8');
   });
 
   it('Edge: an absent Template dice block resolves to no rollable expression', () => {

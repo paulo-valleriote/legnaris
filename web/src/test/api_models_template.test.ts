@@ -232,10 +232,77 @@ describe('template models', () => {
     }
   });
 
-  it('Error: a node with neither a schema nor children is contract drift', () => {
+  it('Error: a node carrying none of schema, children or list is contract drift', () => {
     expect(() =>
       parseTemplateDetail(template({ fields: { broken: { label: 'Broken' } } })),
     ).toThrow(DefensiveParseFailure);
+  });
+
+  it('Happy path: a list node carries its label, columns, capacity, shape, dice and marking', () => {
+    const decoded = parseTemplateDetail(
+      template({
+        fields: {
+          inventory: {
+            children: {
+              items: {
+                list: {
+                  label: 'Items',
+                  columns: ['name', 'quantity'],
+                  capacity: 2,
+                  dice: '1d20 + @.quantity',
+                  not_d20: true,
+                  shape: {
+                    name: {
+                      schema: { type: 'string', label: 'Name', is_editable: true, default: 0 },
+                    },
+                    quantity: leaf,
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    const inventory = decoded.fields['inventory'];
+    const items = inventory?.kind === 'group' ? inventory.children['items'] : undefined;
+    expect(items?.kind).toBe('list');
+    expect(items?.kind === 'list' && items.list.label).toBe('Items');
+    expect(items?.kind === 'list' && items.list.capacity).toBe(2);
+    expect(items?.kind === 'list' && items.list.columns).toEqual(['name', 'quantity']);
+    expect(items?.kind === 'list' && items.list.dice).toBe('1d20 + @.quantity');
+    expect(items?.kind === 'list' && items.list.notD20).toBe(true);
+    expect(items?.kind === 'list' && Object.keys(items.list.shape)).toEqual(['name', 'quantity']);
+  });
+
+  it('Error: a list shape holding anything but leaves is contract drift', () => {
+    expect(() =>
+      parseTemplateDetail(
+        template({
+          fields: {
+            inventory: {
+              children: {
+                items: {
+                  list: { label: 'Items', capacity: 2, shape: { nested: group } },
+                },
+              },
+            },
+          },
+        }),
+      ),
+    ).toThrow(DefensiveParseFailure);
+  });
+
+  it('Error: a list without a label or capacity is contract drift', () => {
+    for (const list of [
+      { capacity: 2, shape: {} },
+      { label: 'Items', shape: {} },
+    ]) {
+      expect(() =>
+        parseTemplateDetail(template({ fields: { inventory: { children: { items: { list } } } } })),
+      ).toThrow(DefensiveParseFailure);
+    }
   });
 
   it('Error: a missing identifier, name, default flag or fields is rejected by name', () => {
