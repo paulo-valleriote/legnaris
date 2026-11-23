@@ -16,6 +16,7 @@ type FieldGroup map[string]FieldNode
 type FieldNode struct {
 	Schema   *FieldSchema `bson:"schema"`
 	Children FieldGroup   `bson:"children"`
+	List     *ListSchema  `bson:"list,omitempty"`
 	Label    string       `bson:"label,omitempty"`
 	Columns  []string     `bson:"columns,omitempty"`
 	Order    []string     `bson:"order,omitempty"`
@@ -27,6 +28,10 @@ func (n *FieldNode) IsLeaf() bool {
 
 func (n *FieldNode) IsGroup() bool {
 	return n.Schema == nil && n.Children != nil
+}
+
+func (n *FieldNode) IsList() bool {
+	return n.List != nil
 }
 
 type Template struct {

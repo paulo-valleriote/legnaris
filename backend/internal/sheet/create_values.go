@@ -57,7 +57,7 @@ func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind 
 func (s *ServiceImpl) seedInitialData(base creationBase) (map[string]any, error) {
 	initialData := buildNestedAllFields(base.tmpl.Fields)
 
-	flatInitial, err := maputils.FlattenPathKeys(initialData)
+	flatInitial, err := maputils.FlattenPathKeys(buildNestedDAGFields(base.tmpl.Fields))
 	if err != nil {
 		return nil, translateMapErr("create", err)
 	}
@@ -136,12 +136,19 @@ func (s *ServiceImpl) applyValues(dag *template.DAG, seed map[string]any, values
 	if err != nil {
 		return nil, translateMapErr("create", err)
 	}
-	updates := dropDerived(dag, flat)
+	staticUpdates, recordUpdates, err := dag.SplitRecordUpdates(flat)
+	if err != nil {
+		return nil, translateDAGErr(err)
+	}
+	updates := dropDerived(dag, staticUpdates)
+	merged := maputils.DeepCopy(seed)
+	if err := dag.ApplyRecordUpdates(merged, recordUpdates); err != nil {
+		return nil, translateDAGErr(err)
+	}
 	normalized, cascade, err := dag.NormalizeAndRecalculate(seed, updates)
 	if err != nil {
 		return nil, translateDAGErr(err)
 	}
-	merged := maputils.DeepCopy(seed)
 	if err := maputils.ApplyUpdates(merged, normalized); err != nil {
 		return nil, translateMapErr("create", err)
 	}
