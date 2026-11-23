@@ -10,9 +10,10 @@ import type { Sheet } from '../api/models/sheet';
 import { useApiClient } from '../app/providers';
 import { templateDetailKey } from '../catalog/queries';
 import { ReadOnlyRecordTable } from '../engine/record_table';
-import { message, messageWith } from '../l10n/strings';
+import { message } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { PageHeader } from '../ui/page_header';
+import { TemplateName } from '../catalog/template_name';
 import { ErrorState, LoadingState } from '../ui/state';
 import type { GmSheetSnapshot } from './campaign_queries';
 import { npcLinksKey, useNpcSheet, useGmSheet } from './campaign_queries';
@@ -173,9 +174,15 @@ function GmSheetPage({ campaignId, heading, sheet, unavailable }: GmSheetPagePro
   const templateId = sheet.data?.sheet.templateId;
   const template = useSheetTemplate(templateId);
   const templateLabel =
-    templateId === undefined
-      ? undefined
-      : messageWith('gm.template', { name: template.data?.name ?? templateId });
+    templateId === undefined ? undefined : (
+      <span>
+        {message('gm.templatePrefix')}
+        <TemplateName
+          name={template.data?.name ?? templateId}
+          notice={template.data?.gameSystem?.notice}
+        />
+      </span>
+    );
 
   return (
     <div className="lg-campaign">

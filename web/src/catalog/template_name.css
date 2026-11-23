@@ -1,0 +1,14 @@
+.lg-template-name__separator {
+  white-space: nowrap;
+}
+
+.lg-template-name__notice {
+  color: var(--lg-color-link);
+  text-decoration: underline;
+  text-underline-offset: var(--lg-underline-offset);
+  overflow-wrap: anywhere;
+}
+
+.lg-template-name__notice:hover {
+  color: var(--lg-color-link-hover);
+}

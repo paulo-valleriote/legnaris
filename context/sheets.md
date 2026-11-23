@@ -253,6 +253,15 @@ attribution link and no notice label; a Template without a Game system renders e
 scope resolution filters that list with `Available` so Drafts appear only in development and Retired
 Templates always do.
 
+Every web view that draws a Template name draws its notice beside it through
+`web/src/catalog/template_name.tsx`: the owner Sheet in Play and Edit, the campaign read-only GM and
+NPC views, and the generation review. The name reads `5E Character · SRD 5.2.1`, and the notice
+label is a router link to the Template's same-origin notice path. The link passes through the shell
+leave guard, so leaving a Sheet with unsaved work still asks first. A Template without a Game system
+draws the previous name markup with no link; `fantasy_v1` views are unchanged, and the catalog, the
+create-sheet dialog, navigation, Account and Help never draw the notice. The `/srd` page itself is
+not part of the Sheet feature.
+
 ### Template lifecycle
 
 Every Template declares `state` as `draft`, `active` or `retired`; boot rejects a missing or
@@ -908,7 +917,9 @@ Web:
   following the selected kind; a Template with a Game system shows its compatibility label as plain
   text in the catalog entry and the dialog, with no attribution link. On Free the dialog's
   `Generate with AI` entry carries a Pro badge and opens the upgrade dialog (see
-  [web-client](web-client.md)).
+  [web-client](web-client.md)). `template_name.tsx` is the one Template name with its Game system
+  notice as a same-origin link, used on the owner Sheet, the campaign read-only views and the
+  generation review; a Template without a notice draws the name alone.
 - `web/src/engine/field_grouping.ts` — schema → Sections and Rows (static Rows and one `record`
   Row per Record), the list column model and static row keys; `row_identity.ts` — list discovery,
   Record Row keys and order, shape Fields and Section membership; `layout.ts`, `arrange_ops.ts` —
@@ -920,8 +931,9 @@ Web:
   Record add/remove/move, throttle and restore; `save_retry.ts` — 409 retry;
   `reset_actions.tsx` — the declared Reset action bar of the Edit form (per-tap request id,
   refresh-and-retry, cascade merged into the cached Sheet).
-- `web/src/sheet/sheet_screen.tsx` — mounted screen, the Edit-only footer, the Play discard
-  shortcut and the guards; `layout_store.ts` — committed/staged layout, commit and backup.
+- `web/src/sheet/sheet_screen.tsx` — mounted screen, the template line (name plus notice) in Play
+  and Edit, the Edit-only footer, the Play discard shortcut and the guards;
+  `layout_store.ts` — committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
   optional kind-selected `statBlock`, the optional `Vitals` bar, ordered section slots, the wide
   column layout, the mobile-first narrow layout and the optional phone section nav);

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { message, messageWith } from '../l10n/strings';
+import { message } from '../l10n/strings';
 import { formatValue } from '../campaign/gm_sheet_screen';
 import {
   CAMPAIGN_ID,
@@ -53,6 +53,10 @@ function freshSheet(etag: string, name = 'Brenna') {
 
 const notModified = { status: 304, body: '', etag: ETAG_A };
 
+function templateLine(name: string): string {
+  return `${message('gm.templatePrefix')}${name}`;
+}
+
 function setVisibility(state: 'visible' | 'hidden') {
   Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
   document.dispatchEvent(new Event('visibilitychange', { bubbles: true }));
@@ -83,9 +87,7 @@ describe('GM read-only sheet view (LGN-218)', () => {
     const script = scripted(sheetRoutes([() => freshSheet(ETAG_A)]));
     renderApp(GM, { client: clientFor(script.transport) });
 
-    expect(
-      await screen.findByText(messageWith('gm.template', { name: 'Fantasy Template' })),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(templateLine('Fantasy Template'))).toBeInTheDocument();
     expect(screen.getByRole('link', { name: message('campaign.back') })).toHaveAttribute(
       'href',
       `/campaigns/${CAMPAIGN_ID}`,
@@ -107,9 +109,7 @@ describe('GM read-only sheet view (LGN-218)', () => {
     ]);
     renderApp(GM, { client: clientFor(script.transport) });
 
-    expect(
-      await screen.findByText(messageWith('gm.template', { name: TEMPLATE })),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(templateLine(TEMPLATE))).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Brenna', level: 2 })).toBeInTheDocument();
   });
 

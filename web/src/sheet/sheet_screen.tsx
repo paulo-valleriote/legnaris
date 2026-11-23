@@ -31,6 +31,7 @@ import { message, messageWith } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
 import { EmptyState, ErrorState, LoadingState } from '../ui/state';
+import { TemplateName } from '../catalog/template_name';
 import { useApiClient, useSheetStore } from '../app/providers';
 import {
   templateDetailKey,
@@ -572,6 +573,12 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     [diceStore, diceSchema, diceSectionRowKeys, diceCheck, template, sections, editStore],
   );
   const eyebrow = template.name.trim() === '' ? message('sheet.headerTitle') : template.name;
+  const notice = template.gameSystem?.notice;
+  const templateLine = (
+    <p className="lg-sheet__template" data-testid="sheet-eyebrow">
+      <TemplateName name={eyebrow} notice={notice} />
+    </p>
+  );
   const presetValue = useMemo(
     () => ({ store: editStore, template, sheet, dice: diceValue }),
     [editStore, template, sheet, diceValue],
@@ -902,16 +909,21 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       <header className="lg-sheet__header">
         <div className="lg-sheet__heading">
           <div className="lg-sheet__heading-text">
-            {statBlockActive ? null : playing && preset !== undefined ? (
-              <preset.Header />
+            {statBlockActive ? (
+              notice === undefined ? null : (
+                templateLine
+              )
+            ) : playing && preset !== undefined ? (
+              <>
+                <preset.Header />
+                {notice === undefined ? null : templateLine}
+              </>
             ) : (
               <>
                 <h1 className="lg-sheet__title" data-testid="sheet-name">
                   {sheet.name}
                 </h1>
-                <p className="lg-sheet__template" data-testid="sheet-eyebrow">
-                  {eyebrow}
-                </p>
+                {templateLine}
               </>
             )}
           </div>
