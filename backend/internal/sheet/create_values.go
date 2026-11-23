@@ -32,13 +32,13 @@ type creationBase struct {
 
 type templateGate func(tmpl *template.Template, draftsAllowed bool) bool
 
-func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind plan.SheetKind, templateID string, allowed templateGate) (creationBase, error) {
+func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind plan.SheetKind, templateID, campaignID string, allowed templateGate) (creationBase, error) {
 	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: templateID})
 	if err != nil {
 		return creationBase{}, translateTemplateErr(err)
 	}
-	if !allowed(tmpl, s.draftsAllowed) {
-		return creationBase{}, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateStateRefused, nil)
+	if err := s.checkTemplateState(ctx, ownerID, tmpl, campaignID, allowed); err != nil {
+		return creationBase{}, err
 	}
 	if !tmpl.AcceptsKind(kind) {
 		return creationBase{}, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateKindRefused, nil)
@@ -57,6 +57,33 @@ func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind 
 		return creationBase{}, apperr.NewError(apperr.CodeInternal, "failed to resolve plan", err)
 	}
 	return creationBase{kind: kind, tmpl: tmpl, dag: dag, limit: current.SheetLimit(kind)}, nil
+}
+
+func (s *ServiceImpl) checkTemplateState(ctx context.Context, ownerID string, tmpl *template.Template, campaignID string, allowed templateGate) error {
+	if allowed(tmpl, s.draftsAllowed) {
+		return nil
+	}
+	if tmpl.State != template.StateRetired || campaignID == "" {
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateStateRefused, nil)
+	}
+	return s.requireCampaignScope(ctx, ownerID, campaignID, tmpl.ID)
+}
+
+func (s *ServiceImpl) requireCampaignScope(ctx context.Context, ownerID, campaignID, templateID string) error {
+	if s.campaignScope == nil {
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgCampaignScopeRefused, nil)
+	}
+	if err := idgen.Validate(campaignID); err != nil {
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgCampaignScopeRefused, err)
+	}
+	allowed, err := s.campaignScope.AllowsTemplate(ctx, ownerID, campaignID, templateID)
+	if err != nil {
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgCampaignScopeRefused, err)
+	}
+	if !allowed {
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgCampaignScopeRefused, nil)
+	}
+	return nil
 }
 
 func (s *ServiceImpl) seedInitialData(base creationBase) (map[string]any, error) {
@@ -87,7 +114,7 @@ func (s *ServiceImpl) CreateWithValues(ctx context.Context, cmd CreateWithValues
 		return nil, err
 	}
 
-	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID, (*template.Template).Available)
+	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID, "", (*template.Template).Available)
 	if err != nil {
 		return nil, err
 	}

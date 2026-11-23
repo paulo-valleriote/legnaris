@@ -5,6 +5,7 @@ import { failureCopy, generationErrorKind } from '../api/error_mapper';
 import { DomainFailure } from '../api/errors';
 import type { Generation } from '../api/models/generation';
 import type { SheetKind } from '../api/models/plan';
+import type { TemplateDetail } from '../api/models/template';
 import { useApiClient } from '../app/providers';
 import { PLAN_QUERY_KEY, usePlanUsage, useTemplateDetail } from '../catalog/queries';
 import { setPathValue } from '../engine/sheet_defaults';
@@ -18,6 +19,7 @@ import { Field } from '../ui/field';
 import { Notice } from '../ui/notice';
 import { PageHeader } from '../ui/page_header';
 import { ErrorState } from '../ui/state';
+import { TemplateName } from '../catalog/template_name';
 import {
   POLL_INTERVAL_MS,
   conceptLength,
@@ -570,6 +572,7 @@ export function GenerateScreen() {
         <ReviewSection
           preview={step}
           fields={template.data?.fields}
+          template={template.data}
           onEdit={onEdit}
           onName={(name) =>
             updatePreview((current) => ({ ...current, sheetName: name, nameTouched: true }))
@@ -623,6 +626,7 @@ export function GenerateScreen() {
 function ReviewSection({
   preview,
   fields,
+  template,
   onEdit,
   onName,
   onAccept,
@@ -630,6 +634,7 @@ function ReviewSection({
 }: {
   readonly preview: PreviewState;
   readonly fields: Parameters<typeof SheetForm>[0]['fields'] | undefined;
+  readonly template: TemplateDetail | undefined;
   readonly onEdit: (path: string, value: unknown) => void;
   readonly onName: (name: string) => void;
   readonly onAccept: (name: string) => void;
@@ -647,6 +652,11 @@ function ReviewSection({
       <h2 className="lg-generate__subtitle">
         {generationCopy('generate.previewTitle', preview.sheetKind)}
       </h2>
+      {template?.gameSystem !== undefined && (
+        <p className="lg-generate__template">
+          <TemplateName name={template.name} notice={template.gameSystem.notice} />
+        </p>
+      )}
       <p id="generate-review-note" className="lg-generate__review-note">
         {generationCopy('generate.previewNote', preview.sheetKind)}
       </p>

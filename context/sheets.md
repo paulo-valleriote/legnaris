@@ -253,6 +253,15 @@ attribution link and no notice label; a Template without a Game system renders e
 scope resolution filters that list with `Available` so Drafts appear only in development and Retired
 Templates always do.
 
+Every web view that draws a Template name draws its notice beside it through
+`web/src/catalog/template_name.tsx`: the owner Sheet in Play and Edit, the campaign read-only GM and
+NPC views, and the generation review. The name reads `5E Character · SRD 5.2.1`, and the notice
+label is a router link to the Template's same-origin notice path. The link passes through the shell
+leave guard, so leaving a Sheet with unsaved work still asks first. A Template without a Game system
+draws the previous name markup with no link; `fantasy_v1` views are unchanged, and the catalog, the
+create-sheet dialog, navigation, Account and Help never draw the notice. The `/srd` page itself is
+not part of the Sheet feature.
+
 ### Template lifecycle
 
 Every Template declares `state` as `draft`, `active` or `retired`; boot rejects a missing or
@@ -268,7 +277,8 @@ the variable hides Drafts, while `scripts/dev.sh` exports `development`.
 | --- | --- | --- | --- | --- |
 | `GET /templates` | listed | listed | omitted | omitted |
 | `GET /templates/:id`, `POST /templates/:id/preview` | yes | yes | 404 | yes |
-| `POST /sheets`, `POST /generations` | yes | yes | 400 | 400 |
+| `POST /sheets` | yes | yes | 400 | 400, or 201 with an active Campaign that includes it |
+| `POST /generations` | yes | yes | 400 | 400 |
 | Accept a succeeded generation job | yes | yes | 400 | yes |
 | Duplicate an existing NPC or enemy | yes | yes | 400 | yes |
 | Read, edit, roll, layout or link an existing Sheet | yes | yes | yes | yes |
@@ -277,8 +287,17 @@ A refused creation or generation is 400 `INVALID_REQUEST` before any plan slot, 
 reservation. Duplicating a Retired Template is allowed because it follows the existing-Sheet rule.
 The Draft 404 is public only: `Registry.FetchByID` and `Registry.DAG` return every state, so an
 existing Sheet's recalculation, rolls, Dice validation, layout and Reset actions never depend on
-the environment. Campaign creation and the Retired exception inside a Campaign are not part of this
-lifecycle yet.
+the environment.
+
+`POST /sheets` accepts an optional `campaign_id`, and that field is the only way to create a Sheet
+from a Retired Template: it must name an active Campaign the caller belongs to whose `template_ids`
+includes the Template. Every campaign failure (malformed id, unknown, foreign or non-member,
+deleting, out of scope) is the same 400 `INVALID_REQUEST` with
+`campaign does not allow creating a sheet from this template`, so a foreign Campaign is
+indistinguishable from one that does not exist. For an Active Template the field is ignored and not
+even validated, and it never bypasses the Draft gate, the accepted kinds or the plan limit. Creation
+stores no `campaign_id` and publishes no link event; the client links the Sheet afterwards. See
+[campaigns](campaigns.md) for the Campaign side.
 
 ### Sheet DTO and endpoints
 
@@ -289,7 +308,7 @@ never exposed.
 
 | Method and path | Body | Success |
 | --- | --- | --- |
-| `POST /sheets` | `{template_id, kind, sheet_name}` | 201 sheet |
+| `POST /sheets` | `{template_id, kind, sheet_name, campaign_id?}` | 201 sheet |
 | `GET /sheets/owned?kind=character` | — | 200 array, oldest first |
 | `GET /sheets/:id` | — | 200 sheet |
 | `PATCH /sheets/:id` | `{data?, dice?}` | 200 cascade |
@@ -898,7 +917,9 @@ Web:
   following the selected kind; a Template with a Game system shows its compatibility label as plain
   text in the catalog entry and the dialog, with no attribution link. On Free the dialog's
   `Generate with AI` entry carries a Pro badge and opens the upgrade dialog (see
-  [web-client](web-client.md)).
+  [web-client](web-client.md)). `template_name.tsx` is the one Template name with its Game system
+  notice as a same-origin link, used on the owner Sheet, the campaign read-only views and the
+  generation review; a Template without a notice draws the name alone.
 - `web/src/engine/field_grouping.ts` — schema → Sections and Rows (static Rows and one `record`
   Row per Record), the list column model and static row keys; `row_identity.ts` — list discovery,
   Record Row keys and order, shape Fields and Section membership; `layout.ts`, `arrange_ops.ts` —
@@ -910,8 +931,9 @@ Web:
   Record add/remove/move, throttle and restore; `save_retry.ts` — 409 retry;
   `reset_actions.tsx` — the declared Reset action bar of the Edit form (per-tap request id,
   refresh-and-retry, cascade merged into the cached Sheet).
-- `web/src/sheet/sheet_screen.tsx` — mounted screen, the Edit-only footer, the Play discard
-  shortcut and the guards; `layout_store.ts` — committed/staged layout, commit and backup.
+- `web/src/sheet/sheet_screen.tsx` — mounted screen, the template line (name plus notice) in Play
+  and Edit, the Edit-only footer, the Play discard shortcut and the guards;
+  `layout_store.ts` — committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
   optional kind-selected `statBlock`, the optional `Vitals` bar, ordered section slots, the wide
   column layout, the mobile-first narrow layout and the optional phone section nav);
@@ -1005,5 +1027,5 @@ Web:
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are
   read through the campaign routes and rendered read-only there; see [campaigns](campaigns.md).
 - Template state is code with no admin surface, so moving a Template between `draft`, `active` and
-  `retired` is a deploy. Campaign creation and the Retired exception inside a Campaign are not
-  implemented yet.
+  `retired` is a deploy. A Retired Template's Sheet is creatable only from inside an active Campaign
+  that includes it, and that request stores no link.

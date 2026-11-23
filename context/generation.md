@@ -148,7 +148,7 @@ Output is parsed as strict JSON (1 MiB bound), rejected on unknown keys, checked
 - `backend/internal/app` — `generation.go`, `llm_consent.go`, `plan.go`, `router.go` and `bootstrap.go`.
 - `backend/cmd/worker` — builds the LLM client, registry, worker and consumer when generation is enabled; `backend/cmd/relay` runs the sweeper queues.
 - `backend/shared/db/indexes.go`, `backend/shared/env/env.go`, `backend/shared/apperr/err.go` and `backend/internal/platform/{breaker,metrics}` — indexes, config, error codes, circuit breaker and cap gauges.
-- `web/src/generate` — concept screen, consent modal, polling, preview editing and accept; `generation_flow.ts` holds the pure length and wait rules; `web/src/api` holds the calls, models and error-kind mapping.
+- `web/src/generate` — concept screen, consent modal, polling, preview editing and accept; the review draws the Template name with its notice link through `web/src/catalog/template_name.tsx`; `generation_flow.ts` holds the pure length and wait rules; `web/src/api` holds the calls, models and error-kind mapping.
 - `deploy/.env.example`, `deploy/docker-compose.yml` and `deploy/prometheus/rules-f1a.yml` — keys, process placement and the 80% alert.
 
 ## Tools & dependencies
