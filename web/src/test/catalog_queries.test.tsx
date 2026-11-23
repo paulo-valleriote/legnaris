@@ -21,8 +21,20 @@ import { renderApp } from './render';
 const BASE_URL = 'http://api.test';
 
 const TWO_TEMPLATES: readonly TemplateSummary[] = [
-  { id: 'dnd5e', name: 'Dungeons & Dragons 5e', default: true, fields: {} },
-  { id: 'pbta', name: 'Powered by the Apocalypse', default: false, fields: {} },
+  {
+    id: 'dnd5e',
+    name: 'Dungeons & Dragons 5e',
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
+  {
+    id: 'pbta',
+    name: 'Powered by the Apocalypse',
+    default: false,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
 ];
 
 function clientWith(transport: Transport) {

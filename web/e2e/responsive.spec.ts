@@ -16,12 +16,21 @@ const CONTROL_HEIGHT = 44;
 const UNDERLINE_THICKNESS = 1.5;
 const UNDERLINE_CLEARANCE = 2;
 
-const CATALOG = [{ id: TEMPLATE_ID, name: 'Fantasy', default: true, fields: {} }];
+const CATALOG = [
+  {
+    id: TEMPLATE_ID,
+    name: 'Fantasy',
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
+];
 
 const DETAIL = {
   id: TEMPLATE_ID,
   name: 'Fantasy',
   default: true,
+  kinds: ['character', 'npc', 'enemy'],
   fields: {
     identity: {
       label: 'Identity',
@@ -584,7 +593,13 @@ test.describe('the enemy stat block', () => {
       route.fulfill({
         json: {
           data: [
-            { id: STAT_BLOCK_DETAIL.id, name: STAT_BLOCK_DETAIL.name, default: true, fields: {} },
+            {
+              id: STAT_BLOCK_DETAIL.id,
+              name: STAT_BLOCK_DETAIL.name,
+              default: true,
+              kinds: ['character', 'npc', 'enemy'],
+              fields: {},
+            },
           ],
         },
       }),

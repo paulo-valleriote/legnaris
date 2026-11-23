@@ -26,6 +26,12 @@ const (
 	KindField
 )
 
+type Reference struct {
+	Path     string
+	Relative bool
+	Column   string
+}
+
 type Term struct {
 	Kind     Kind
 	Sign     int
@@ -35,18 +41,36 @@ type Term struct {
 	Path     string
 	Relative bool
 	Column   string
+	CountRef *Reference
+	FacesRef *Reference
 }
 
 type Expression struct {
-	terms []Term
+	terms   []Term
+	minimum *int
+}
+
+type partResult struct {
+	value int
+	ref   *Reference
+	match bool
+	err   error
+}
+
+type partRule struct {
+	min      int
+	max      int
+	class    Class
+	empty    partResult
+	describe func(token string, min, max int) string
 }
 
 var (
-	diceTermPattern = regexp.MustCompile(`^(\d*)[dD](\d+)$`)
-	numberPattern   = regexp.MustCompile(`^\d+$`)
-	relativePattern = regexp.MustCompile(`^@(?:\.([A-Za-z][A-Za-z0-9]*))?$`)
-	bareWordPattern = regexp.MustCompile(`^(?:[dD]|[kK][hHlL]\d*)$`)
-	pathPattern     = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)*$`)
+	numberPattern    = regexp.MustCompile(`^\d+$`)
+	relativePattern  = regexp.MustCompile(`^@(?:\.([A-Za-z][A-Za-z0-9]*))?$`)
+	bareWordPattern  = regexp.MustCompile(`^(?:[dD]|[kK][hHlL]\d*)$`)
+	pathPattern      = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9]*(\.[A-Za-z][A-Za-z0-9]*)*$`)
+	minSuffixPattern = regexp.MustCompile(`[ \t]+min[ \t]+([0-9]+)[ \t]*$`)
 )
 
 const whitespace = " \t"
@@ -60,7 +84,12 @@ func Parse(expr string) (Expression, error) {
 		return Expression{}, ErrEmpty
 	}
 
-	pieces := splitOperators(expr)
+	minimum, sum, err := splitMinimum(expr)
+	if err != nil {
+		return Expression{}, err
+	}
+
+	pieces := splitOperators(sum)
 	terms := make([]Term, 0, len(pieces)/2+1)
 	index, sign := 0, 1
 	if pieces[0] == "" && len(pieces) > 1 {
@@ -84,11 +113,18 @@ func Parse(expr string) (Expression, error) {
 		return Expression{}, newError(ClassTooManyTerms,
 			fmt.Sprintf("the expression has %d terms (limit %d)", len(terms), MaxTerms))
 	}
-	return Expression{terms: terms}, nil
+	return Expression{terms: terms, minimum: minimum}, nil
 }
 
 func (e Expression) Terms() []Term {
 	return append([]Term(nil), e.terms...)
+}
+
+func (e Expression) Minimum() (int, bool) {
+	if e.minimum == nil {
+		return 0, false
+	}
+	return *e.minimum, true
 }
 
 func (e Expression) String() string {
@@ -104,13 +140,25 @@ func (e Expression) String() string {
 		}
 		b.WriteString(term.label(""))
 	}
+	if e.minimum != nil {
+		b.WriteString(" min ")
+		b.WriteString(strconv.Itoa(*e.minimum))
+	}
 	return b.String()
 }
 
 func (t Term) label(rowKey string) string {
 	switch t.Kind {
 	case KindDice:
-		return strconv.Itoa(t.Count) + "d" + strconv.Itoa(t.Faces)
+		count := strconv.Itoa(t.Count)
+		if t.CountRef != nil {
+			count = "{" + t.CountRef.fieldPath(rowKey, true) + "}"
+		}
+		faces := strconv.Itoa(t.Faces)
+		if t.FacesRef != nil {
+			faces = "{" + t.FacesRef.fieldPath(rowKey, true) + "}"
+		}
+		return count + "d" + faces
 	case KindNumber:
 		return strconv.Itoa(t.Value)
 	default:
@@ -119,19 +167,41 @@ func (t Term) label(rowKey string) string {
 }
 
 func (t Term) fieldPath(rowKey string, symbolic bool) string {
-	if !t.Relative {
-		return t.Path
+	return Reference{Path: t.Path, Relative: t.Relative, Column: t.Column}.fieldPath(rowKey, symbolic)
+}
+
+func (r Reference) fieldPath(rowKey string, symbolic bool) string {
+	if !r.Relative {
+		return r.Path
 	}
 	if symbolic {
-		if t.Column == "" {
+		if r.Column == "" {
 			return "@"
 		}
-		return "@." + t.Column
+		return "@." + r.Column
 	}
-	if t.Column == "" {
+	if r.Column == "" {
 		return rowKey
 	}
-	return rowKey + "." + t.Column
+	return rowKey + "." + r.Column
+}
+
+func splitMinimum(expr string) (*int, string, error) {
+	match := minSuffixPattern.FindStringSubmatchIndex(expr)
+	if match == nil {
+		return nil, expr, nil
+	}
+	digits := expr[match[2]:match[3]]
+	value, ok := boundedInt(digits, MaxWholeNumber)
+	if !ok {
+		return nil, "", newError(ClassNumberRange,
+			fmt.Sprintf("%q: minimums go up to %d", expr[match[0]:match[1]], MaxWholeNumber))
+	}
+	sum := strings.Trim(expr[:match[0]], whitespace)
+	if sum == "" {
+		return nil, "", ErrMissingTerm
+	}
+	return &value, sum, nil
 }
 
 func splitOperators(expr string) []string {
@@ -158,8 +228,10 @@ func parseTerm(token string) (Term, error) {
 	if token == "" {
 		return Term{}, ErrMissingTerm
 	}
-	if match := diceTermPattern.FindStringSubmatch(token); match != nil {
-		return parseDice(token, match[1], match[2])
+	if term, ok, err := parseDiceToken(token); err != nil {
+		return Term{}, err
+	} else if ok {
+		return term, nil
 	}
 	if numberPattern.MatchString(token) {
 		value, ok := boundedInt(token, MaxWholeNumber)
@@ -183,22 +255,106 @@ func parseTerm(token string) (Term, error) {
 		fmt.Sprintf("cannot read %q: only NdM, whole numbers, Field paths and @, joined by + or -", token))
 }
 
-func parseDice(token, countDigits, facesDigits string) (Term, error) {
-	count := 1
-	if countDigits != "" {
-		parsed, ok := boundedInt(countDigits, MaxDice)
-		if !ok || parsed < MinDice {
-			return Term{}, newError(ClassDiceCount,
-				fmt.Sprintf("%q: roll between %d and %d dice at a time", token, MinDice, MaxDice))
+func parseDiceToken(token string) (Term, bool, error) {
+	countPart, facesPart, ok := splitDiceParts(token)
+	if !ok {
+		return Term{}, false, nil
+	}
+	count := parsePart(token, countPart, countPartRule)
+	if !count.match {
+		return Term{}, false, nil
+	}
+	if count.err != nil {
+		return Term{}, false, count.err
+	}
+	faces := parsePart(token, facesPart, facesPartRule)
+	if !faces.match {
+		return Term{}, false, nil
+	}
+	if faces.err != nil {
+		return Term{}, false, faces.err
+	}
+	return Term{
+		Kind:     KindDice,
+		Count:    count.value,
+		Faces:    faces.value,
+		CountRef: count.ref,
+		FacesRef: faces.ref,
+	}, true, nil
+}
+
+func splitDiceParts(token string) (string, string, bool) {
+	depth := 0
+	for i := 0; i < len(token); i++ {
+		switch token[i] {
+		case '{':
+			depth++
+		case '}':
+			if depth == 0 {
+				return "", "", false
+			}
+			depth--
+		case 'd', 'D':
+			if depth == 0 {
+				return token[:i], token[i+1:], true
+			}
 		}
-		count = parsed
 	}
-	faces, ok := boundedInt(facesDigits, MaxFaces)
-	if !ok || faces < MinFaces {
-		return Term{}, newError(ClassDiceFaces,
-			fmt.Sprintf("%q: a die has between %d and %d faces", token, MinFaces, MaxFaces))
+	return "", "", false
+}
+
+var (
+	countPartRule = partRule{
+		min:   MinDice,
+		max:   MaxDice,
+		class: ClassDiceCount,
+		empty: partResult{value: 1, match: true},
+		describe: func(token string, min, max int) string {
+			return fmt.Sprintf("%q: roll between %d and %d dice at a time", token, min, max)
+		},
 	}
-	return Term{Kind: KindDice, Count: count, Faces: faces}, nil
+	facesPartRule = partRule{
+		min:   MinFaces,
+		max:   MaxFaces,
+		class: ClassDiceFaces,
+		describe: func(token string, min, max int) string {
+			return fmt.Sprintf("%q: a die has between %d and %d faces", token, min, max)
+		},
+	}
+)
+
+func parsePart(token, part string, rule partRule) partResult {
+	if part == "" {
+		return rule.empty
+	}
+	if ref, ok := parseReference(part); ok {
+		return partResult{ref: ref, match: true}
+	}
+	if !numberPattern.MatchString(part) {
+		return partResult{}
+	}
+	value, ok := boundedInt(part, rule.max)
+	if !ok || value < rule.min {
+		return partResult{match: true, err: newError(rule.class, rule.describe(token, rule.min, rule.max))}
+	}
+	return partResult{value: value, match: true}
+}
+
+func parseReference(token string) (*Reference, bool) {
+	if len(token) < 3 || token[0] != '{' || token[len(token)-1] != '}' {
+		return nil, false
+	}
+	inner := token[1 : len(token)-1]
+	if strings.ContainsAny(inner, "{}") {
+		return nil, false
+	}
+	if match := relativePattern.FindStringSubmatch(inner); match != nil {
+		return &Reference{Relative: true, Column: match[1]}, true
+	}
+	if pathPattern.MatchString(inner) {
+		return &Reference{Path: inner}, true
+	}
+	return nil, false
 }
 
 func boundedInt(digits string, limit int) (int, bool) {

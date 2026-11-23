@@ -59,6 +59,17 @@ type SetLayoutCommand struct {
 	Layout  *Layout `json:"layout"`
 }
 
+type ResetActionCommand struct {
+	SheetID   string `json:"-"`
+	OwnerID   string `json:"-"`
+	ActionID  string `json:"-"`
+	RequestID string `json:"request_id"`
+}
+
+func (c ResetActionCommand) ref() sheetRef {
+	return sheetRef{id: c.SheetID, ownerID: c.OwnerID}
+}
+
 type PreviewTemplateCommand struct {
 	TemplateID string         `json:"-"`
 	Data       map[string]any `json:"data"`
@@ -76,6 +87,7 @@ type Service interface {
 	FetchByID(ctx context.Context, id string, ownerID string) (*Sheet, error)
 	CreateWithValues(ctx context.Context, cmd CreateWithValuesCommand, afterInsert AfterInsertHook) (*Sheet, error)
 	PartialUpdate(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
+	Reset(ctx context.Context, cmd ResetActionCommand) (map[string]any, error)
 	Preview(ctx context.Context, cmd PartialUpdateSheetCommand) (map[string]any, error)
 	PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error)
 	SetLayout(ctx context.Context, cmd SetLayoutCommand) (*Layout, error)
@@ -95,6 +107,8 @@ const (
 	MsgSheetLimitReached  = "sheet limit reached for this kind"
 	MsgSheetConflict      = "sheet was changed by another request, try again"
 	MsgNothingToUpdate    = "sheet update carries neither data nor dice"
+	MsgRequestIDMissing   = "request id not provided"
+	MsgRequestIDInvalid   = "request id must be a canonical UUID"
 )
 
 const conflictRetryAfter = time.Second
@@ -112,6 +126,16 @@ func requireSheetID(id string) error {
 func requireOwner(ownerID string) error {
 	if ownerID == "" {
 		return apperr.NewError(apperr.CodeUnauthorized, MsgOwnerNotProvided, nil)
+	}
+	return nil
+}
+
+func requireRequestID(requestID string) error {
+	if requestID == "" {
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgRequestIDMissing, nil)
+	}
+	if err := idgen.ValidateRequestID(requestID); err != nil {
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgRequestIDInvalid, err)
 	}
 	return nil
 }
@@ -280,26 +304,36 @@ func (s *ServiceImpl) recalculate(ctx context.Context, ref sheetRef, data map[st
 		return nil, translateMapErr("update", err)
 	}
 
-	normalized, cascadingEffects, err := dag.NormalizeAndRecalculate(storedSheet.Data, updates)
+	calculation, err := dag.CalculateSave(storedSheet.Data, updates)
 	if err != nil {
 		return nil, translateDAGErr(err)
-	}
-
-	mergedData := maputils.DeepCopy(storedSheet.Data)
-	if err := maputils.ApplyUpdates(mergedData, normalized); err != nil {
-		return nil, translateMapErr("update", err)
-	}
-	if err := maputils.ApplyUpdates(mergedData, cascadingEffects); err != nil {
-		return nil, translateMapErr("update", err)
 	}
 
 	return &preparedSave{
 		templateID: storedSheet.TemplateID,
 		version:    storedSheet.Version,
-		delta:      normalized,
-		merged:     mergedData,
-		cascade:    cascadingEffects,
+		delta:      recordAwareDelta(calculation.Normalized, calculation.RecordUpdates),
+		merged:     calculation.Merged,
+		cascade:    calculation.Cascade,
 	}, nil
+}
+
+func recordAwareDelta(static map[string]any, records []template.RecordUpdate) map[string]any {
+	delta := make(map[string]any, len(static)+len(records))
+	for key, value := range static {
+		delta[key] = value
+	}
+	for _, update := range records {
+		path := template.RecordRowKey(update.ListPath, update.RecordID)
+		if update.Remove {
+			delta[path] = nil
+			continue
+		}
+		for field, value := range update.Fields {
+			delta[template.RecordFieldPath(update.ListPath, update.RecordID, field)] = value
+		}
+	}
+	return delta
 }
 
 func (s *ServiceImpl) fetchOwned(ctx context.Context, ref sheetRef) (*Sheet, error) {
@@ -354,6 +388,90 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 		WithRetryAfter(conflictRetryAfter)
 }
 
+func (s *ServiceImpl) Reset(ctx context.Context, cmd ResetActionCommand) (map[string]any, error) {
+	if err := cmd.ref().validate(); err != nil {
+		return nil, err
+	}
+
+	storedSheet, err := s.fetchOwned(ctx, cmd.ref())
+	if err != nil {
+		return nil, err
+	}
+
+	dag, exists := s.provider.DAG(storedSheet.TemplateID)
+	if !exists {
+		return nil, apperr.NewError(apperr.CodeNotFound, "DAG not found for template", nil)
+	}
+	if !dag.HasResetAction(cmd.ActionID) {
+		return nil, translateDAGErr(template.ErrUnknownResetAction(cmd.ActionID))
+	}
+	if err := requireRequestID(cmd.RequestID); err != nil {
+		return nil, err
+	}
+	if storedSheet.LastResetRequestID == cmd.RequestID {
+		return replayResetEffects(dag, cmd.ActionID, storedSheet.Data)
+	}
+
+	calculation, err := dag.CalculateReset(cmd.ActionID, storedSheet.Data)
+	if err != nil {
+		return nil, translateDAGErr(err)
+	}
+	effects, err := resetEffects(calculation)
+	if err != nil {
+		return nil, err
+	}
+
+	dbUpdates := map[string]any{
+		"updated_at":            time.Now(),
+		"data":                  calculation.Merged,
+		lastResetRequestIDField: cmd.RequestID,
+	}
+	newVersion, err := s.repository.PartialUpdate(ctx, cmd.SheetID, storedSheet.Version, dbUpdates)
+	if err != nil {
+		if !errors.Is(err, sheeterr.ErrVersionConflict) {
+			return nil, translateRepoErr("update", err)
+		}
+		return nil, apperr.NewError(apperr.CodeConflict, MsgSheetConflict, sheeterr.ErrVersionConflict).
+			WithRetryAfter(conflictRetryAfter)
+	}
+
+	s.log.Info(ctx, "sheet reset",
+		logger.Attribute{Key: sheetIDLogKey, Value: cmd.SheetID},
+		logger.Attribute{Key: "template_id", Value: storedSheet.TemplateID},
+		logger.Attribute{Key: "request_id", Value: cmd.RequestID},
+		logger.Attribute{Key: "action_id", Value: cmd.ActionID},
+		logger.Attribute{Key: "version_before", Value: strconv.FormatInt(storedSheet.Version, 10)},
+		logger.Attribute{Key: "version_after", Value: strconv.FormatInt(newVersion, 10)},
+		logger.Attribute{Key: "changed_paths", Value: strings.Join(calculation.ChangedKeys, ",")},
+	)
+	s.publishSheetUpdated(cmd.OwnerID, cmd.SheetID, calculation.ChangedKeys, newVersion)
+	return effects, nil
+}
+
+func resetEffects(calculation template.ResetCalculation) (map[string]any, error) {
+	effects := make(map[string]any)
+	assigned := recordAwareDelta(calculation.Normalized, calculation.RecordUpdates)
+	if err := maputils.ApplyUpdates(effects, assigned); err != nil {
+		return nil, translateMapErr("update", err)
+	}
+	if err := maputils.ApplyUpdates(effects, calculation.Cascade); err != nil {
+		return nil, translateMapErr("update", err)
+	}
+	return effects, nil
+}
+
+func replayResetEffects(dag *template.DAG, actionID string, data map[string]any) (map[string]any, error) {
+	flat, err := dag.ResetReplayEffects(actionID, data)
+	if err != nil {
+		return nil, translateDAGErr(err)
+	}
+	effects := make(map[string]any)
+	if err := maputils.ApplyUpdates(effects, flat); err != nil {
+		return nil, translateMapErr("update", err)
+	}
+	return effects, nil
+}
+
 func (s *ServiceImpl) prepareSave(ctx context.Context, cmd PartialUpdateSheetCommand) (*preparedSave, error) {
 	if cmd.hasDelta() {
 		return s.recalculate(ctx, cmd.ref(), cmd.Data)
@@ -378,7 +496,7 @@ func (s *ServiceImpl) prepareSave(ctx context.Context, cmd PartialUpdateSheetCom
 
 func patchLogFields(sheetID, requestID, templateID string, versionBefore int64, delta, cascade map[string]any) []logger.Attribute {
 	return []logger.Attribute{
-		{Key: "sheet_id", Value: sheetID},
+		{Key: sheetIDLogKey, Value: sheetID},
 		{Key: "template_id", Value: templateID},
 		{Key: "request_id", Value: requestID},
 		{Key: "version_before", Value: strconv.FormatInt(versionBefore, 10)},
@@ -440,7 +558,7 @@ func (s *ServiceImpl) PreviewTemplate(ctx context.Context, cmd PreviewTemplateCo
 
 	seeded := buildNestedAllFields(tmpl.Fields)
 
-	flatSeed, err := maputils.FlattenPathKeys(seeded)
+	flatSeed, err := maputils.FlattenPathKeys(buildNestedDAGFields(tmpl.Fields))
 	if err != nil {
 		return nil, translateMapErr("create", err)
 	}
@@ -458,12 +576,12 @@ func (s *ServiceImpl) PreviewTemplate(ctx context.Context, cmd PreviewTemplateCo
 		return nil, translateMapErr("update", err)
 	}
 
-	_, cascading, err := dag.NormalizeAndRecalculate(seeded, updates)
+	calculation, err := dag.CalculateSave(seeded, updates)
 	if err != nil {
 		return nil, translateDAGErr(err)
 	}
 
-	return nestedCascadingEffects(cascading)
+	return nestedCascadingEffects(calculation.Cascade)
 }
 
 func (s *ServiceImpl) SetLayout(ctx context.Context, cmd SetLayoutCommand) (*Layout, error) {
@@ -647,9 +765,16 @@ func translateDAGErr(err error) error {
 	if errors.As(err, &notEditable) {
 		return apperr.NewError(apperr.CodeInvalidRequest, notEditable.Error(), nil)
 	}
+	if nestedErr := translateNestedErr(err); nestedErr != nil {
+		return nestedErr
+	}
 	var tooLong *template.TextTooLongError
 	if errors.As(err, &tooLong) {
 		return apperr.NewError(apperr.CodeInvalidRequest, tooLong.Error(), err)
+	}
+	var invalidFlag *template.FlagValueError
+	if errors.As(err, &invalidFlag) {
+		return apperr.NewError(apperr.CodeInvalidRequest, invalidFlag.Error(), err)
 	}
 	var conflict *template.ExclusiveGroupConflictError
 	if errors.As(err, &conflict) {
@@ -683,6 +808,35 @@ func translateDAGErr(err error) error {
 	return apperr.NewError(apperr.CodeInternal, "dag recalculation failed", err)
 }
 
+func translateNestedErr(err error) error {
+	var unknownReset *template.UnknownResetActionError
+	if errors.As(err, &unknownReset) {
+		return apperr.NewError(apperr.CodeNotFound, unknownReset.Error(), err)
+	}
+	var invalidReset *template.InvalidResetActionError
+	if errors.As(err, &invalidReset) {
+		return apperr.NewError(apperr.CodeInvalidRequest, invalidReset.Error(), err)
+	}
+
+	var unknownRecordField *template.UnknownRecordFieldError
+	if errors.As(err, &unknownRecordField) {
+		return apperr.NewError(
+			apperr.CodeUnknownField,
+			MsgFieldDoesNotExist+unknownRecordField.ListPath+"."+unknownRecordField.Field,
+			nil,
+		)
+	}
+	var invalidRecordID *template.RecordIDError
+	var invalidRecordValue *template.InvalidRecordValueError
+	var recordPosition *template.RecordPositionError
+	var capacityExceeded *template.ListCapacityExceededError
+	if errors.As(err, &invalidRecordID) || errors.As(err, &invalidRecordValue) ||
+		errors.As(err, &recordPosition) || errors.As(err, &capacityExceeded) {
+		return apperr.NewError(apperr.CodeInvalidRequest, err.Error(), err)
+	}
+	return nil
+}
+
 func translateMapErr(op string, err error) error {
 	if err == nil {
 		return nil
@@ -711,15 +865,26 @@ func nestedCascadingEffects(flat map[string]any) (map[string]any, error) {
 }
 
 func buildNestedAllFields(group template.FieldGroup) map[string]any {
+	return buildNestedFields(group, true)
+}
+
+func buildNestedDAGFields(group template.FieldGroup) map[string]any {
+	return buildNestedFields(group, false)
+}
+
+func buildNestedFields(group template.FieldGroup, includeLists bool) map[string]any {
 	result := make(map[string]any)
 	for name, node := range group {
-		if node.IsLeaf() {
+		switch {
+		case node.IsLeaf():
 			result[name] = node.Schema.SeedValue()
-		} else if node.IsGroup() {
-			nested := buildNestedAllFields(node.Children)
+		case node.IsGroup():
+			nested := buildNestedFields(node.Children, includeLists)
 			if len(nested) > 0 {
 				result[name] = nested
 			}
+		case node.IsList() && includeLists:
+			result[name] = map[string]any{}
 		}
 	}
 	return result

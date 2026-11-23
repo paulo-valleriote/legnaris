@@ -239,6 +239,38 @@ describe('sheet field control', () => {
     expect(onChanged).toHaveBeenCalledWith(0);
   });
 
+  it('Happy path: a flagged number leaf renders the toggle in any path and reports 1', () => {
+    const onChanged = vi.fn();
+    render(
+      <SheetFieldControl
+        path="features.hardMode"
+        schema={schema({ label: 'Hard mode', flag: true })}
+        value={0}
+        onChanged={onChanged}
+      />,
+    );
+    const toggle = screen.getByRole('checkbox', { name: 'Hard mode' });
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    expect(onChanged).toHaveBeenCalledWith(1);
+  });
+
+  it('Happy path: a flagged number leaf turned off reports 0', () => {
+    const onChanged = vi.fn();
+    render(
+      <SheetFieldControl
+        path="combat.powerAttack"
+        schema={schema({ label: 'Power attack', flag: true })}
+        value={1}
+        onChanged={onChanged}
+      />,
+    );
+    const toggle = screen.getByRole('checkbox', { name: 'Power attack' });
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    expect(onChanged).toHaveBeenCalledWith(0);
+  });
+
   it('Happy path: a derived leaf is described as Calculated (not drawn) and shows its formula on hover', () => {
     render(
       <SheetFieldControl

@@ -71,7 +71,15 @@ afterEach(() => {
 
 describe('the strip is drawn only when it has something to say', () => {
   it('Edge: a template with no Section draws no strip', async () => {
-    await open({ template: { id: 'plain_v1', name: 'Empty', default: true, fields: {} } });
+    await open({
+      template: {
+        id: 'plain_v1',
+        name: 'Empty',
+        default: true,
+        kinds: ['character', 'npc', 'enemy'],
+        fields: {},
+      },
+    });
 
     expect(screen.queryByTestId('section-strip')).not.toBeInTheDocument();
   });
@@ -82,6 +90,7 @@ describe('the strip is drawn only when it has something to say', () => {
         id: 'plain_v1',
         name: 'One',
         default: true,
+        kinds: ['character', 'npc', 'enemy'],
         fields: {
           alpha: {
             label: 'Alpha',

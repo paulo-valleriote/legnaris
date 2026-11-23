@@ -16,8 +16,20 @@ import { renderApp } from './render';
 const BASE_URL = 'http://api.test';
 
 const TWO_TEMPLATES: readonly TemplateSummary[] = [
-  { id: 'dnd5e', name: 'Dungeons & Dragons 5e', default: true, fields: {} },
-  { id: 'pbta', name: 'Powered by the Apocalypse', default: false, fields: {} },
+  {
+    id: 'dnd5e',
+    name: 'Dungeons & Dragons 5e',
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
+  {
+    id: 'pbta',
+    name: 'Powered by the Apocalypse',
+    default: false,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
 ];
 
 function clientWith(transport: Transport) {
@@ -104,7 +116,11 @@ describe('catalog screen', () => {
     const deferred = createDeferredTransport();
     renderApp('/', { client: clientWith(deferred.transport) });
 
-    deferred.resolve(successOutcome([{ id: 'blank', name: '', default: false, fields: {} }]));
+    deferred.resolve(
+      successOutcome([
+        { id: 'blank', name: '', default: false, kinds: ['character', 'npc', 'enemy'], fields: {} },
+      ]),
+    );
 
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
     const main = screen.getByRole('main');

@@ -19,11 +19,15 @@ export interface ArrangedSection {
   readonly rows: readonly ArrangedRow[];
 }
 
-function uniqueKnown(keys: readonly string[], known: ReadonlySet<string>): string[] {
+function uniqueKnown(
+  keys: readonly string[],
+  known: ReadonlySet<string>,
+  isKnown?: (key: string) => boolean,
+): string[] {
   const seen = new Set<string>();
   const kept: string[] = [];
   for (const key of keys) {
-    if (known.has(key) && !seen.has(key)) {
+    if ((known.has(key) || isKnown?.(key) === true) && !seen.has(key)) {
       seen.add(key);
       kept.push(key);
     }
@@ -43,6 +47,7 @@ function withMissingAppended(
 export function resolveArrangement(
   sections: readonly SheetSection[],
   layout: Layout | undefined,
+  isRowKey?: (key: string) => boolean,
 ): Arrangement {
   const everyRow = new Set(sections.flatMap((section) => section.rows.map((row) => rowKey(row))));
   return {
@@ -50,7 +55,7 @@ export function resolveArrangement(
       layout?.sectionOrder ?? [],
       sections.map((section) => section.key),
     ),
-    pinned: uniqueKnown(layout?.pinned ?? [], everyRow),
+    pinned: uniqueKnown(layout?.pinned ?? [], everyRow, isRowKey),
   };
 }
 
@@ -65,8 +70,9 @@ export function arrangementsEqual(left: Arrangement, right: Arrangement): boolea
 export function arrangementToLayout(
   sections: readonly SheetSection[],
   arrangement: Arrangement,
+  isRowKey?: (key: string) => boolean,
 ): Layout | null {
-  const resolved = resolveArrangement(sections, arrangement);
+  const resolved = resolveArrangement(sections, arrangement, isRowKey);
   const template = resolveArrangement(sections, undefined);
   const sectionOrder = sameList(resolved.sectionOrder, template.sectionOrder)
     ? []
@@ -108,5 +114,5 @@ export function isNumberRow(row: SheetRow): boolean {
     return false;
   }
   const { path, schema } = row.field;
-  return schema.type === 'number' && !(schema.isEditable && isConfigProxy(path));
+  return schema.type === 'number' && !schema.flag && !(schema.isEditable && isConfigProxy(path));
 }

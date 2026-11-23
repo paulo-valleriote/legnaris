@@ -410,9 +410,16 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   semibold and a hairline. Rows are never cards: they are hairline-divided lines inside it.
   In the play view the title row is a disclosure control that folds the Section's Rows away (see
   "Sheet navigation"); in Arrange mode it is plain text beside the handle.
-- **Row.** Every Row (lone field, exclusive group, table row) is one full-width line of at least
-  `--lg-size-control`, label left and control right on the shared 2:3 split. A table row stacks
+- **Row.** Every Row (lone field, exclusive group, table row, Record) is one full-width line of at
+  least `--lg-size-control`, label left and control right on the shared 2:3 split. A table row stacks
   its label above its cells in a narrow container.
+- **Record rows.** A Record of a list is its own Row drawn as one line of the list's table: its
+  position label and per-Record actions lead, then the shape's columns as cells with the same
+  raised editable controls and recessed derived readouts. One header naming the columns opens each
+  run of Records; on a narrow container the cells stack, each above its own small column name, so
+  the page never scrolls horizontally. Add is a ghost button under the list (disabled with its
+  reason at capacity); Move up, Move down and Remove are icon buttons on a full
+  `--lg-size-control` target.
 - **Editable versus derived.** An editable field is a raised, bordered control
   (`--lg-color-raised`, `--lg-color-border-strong`). A derived field is a recessed readout on
   `--lg-color-bg` with no border, its value in `--lg-color-text` and bold, so it reads as a result
@@ -438,7 +445,8 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   "proficient" and "rollable" never share a shape. A d20 rollable takes a roll mode: Shift-click is
   advantage, Alt-click is disadvantage, and a long press or the Context Menu key / Shift+F10 opens one
   small dialog with Normal, Advantage and Disadvantage as full-width secondary buttons (the first
-  takes focus). A non-d20 roll ignores all of it. Read-only Play text (the at-will and prepared
+  takes focus). A Row or Section its Template marks as not a d20 test takes no mode at all, and a
+  non-d20 roll ignores all of it. Read-only Play text (the at-will and prepared
   spell lists) draws no input edge until hover or focus, while Edit keeps the generic input
   affordance. Initiative reads as a roll before hover: a decorative d20 sits beside its signed total
   at all times, named `Roll initiative, <signed value>`, and its ghost pencil waits for hover or
@@ -486,6 +494,14 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   falling back to "Sheet" when the template has no name; a long name wraps. Preview (secondary) and
   Save (primary, the accent fill) are both `md` buttons in the sticky footer; `Arrange` stays a
   small outline button in the heading, so the footer carries the weight.
+- **Reset actions.** An Edit form whose Template declares Reset actions draws one `outline` `md`
+  button per action in one wrapping bar above the Sections, a `role="group"` named "Reset actions"
+  with `--lg-space-12` column gaps; every button keeps the `--lg-size-control` (44 px) target and the
+  shared focus ring. A blocked action stays focusable with its reason as a small muted line under
+  the button, and a running one shows the button's spinner. Success is announced through one
+  visually hidden polite region; a failure is `--lg-color-danger` text beside one ghost retry, muted
+  when it is an offline failure. A Template with no action, a read-only view and Arrange mode draw
+  no bar.
 - **Readout names.** A derived readout in a lone Row is named by that Row's visible label through
   `aria-labelledby`, so the name has one source; a table cell, which has no Row label of its own,
   keeps its `aria-label`.
@@ -549,7 +565,8 @@ controls: a handle on each Section and a star on each Row.
 - **Section handle.** A grip glyph in `--lg-color-text-muted` on a `--lg-size-control` target
   (`--lg-color-text` and `--lg-color-surface-hover` on hover, the shared focus ring on focus), with
   `touch-action: none` so a touch drag does not scroll. It is the only way to reorder Sections;
-  Rows are never reordered and there are no Move up / Move down buttons.
+  Rows are never reordered and there are no Move up / Move down buttons for them; a Record's own
+  list order is a value edited by its form controls, never by the Layout.
 - **Pin star.** An icon button on the same `--lg-size-control` target, drawn as an inline SVG on
   `currentColor`: an outline star in `--lg-color-text-muted` when the Row is not pinned, a filled
   star in `--lg-color-accent` when it is (the state is carried by shape as well as colour). It is a

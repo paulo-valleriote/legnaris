@@ -10,6 +10,9 @@ func cloneTemplate(tmpl Template) Template {
 	tmpl.SectionOrder = slices.Clone(tmpl.SectionOrder)
 	tmpl.SectionDice = maps.Clone(tmpl.SectionDice)
 	tmpl.RowDice = maps.Clone(tmpl.RowDice)
+	tmpl.NotD20Sections = slices.Clone(tmpl.NotD20Sections)
+	tmpl.NotD20Rows = slices.Clone(tmpl.NotD20Rows)
+	tmpl.Actions = cloneResetActions(tmpl.Actions)
 	return tmpl
 }
 
@@ -33,9 +36,11 @@ func cloneFieldNode(node FieldNode) FieldNode {
 		schema.Min = clonePtr(node.Schema.Min)
 		schema.Max = clonePtr(node.Schema.Max)
 		schema.MaxLength = clonePtr(node.Schema.MaxLength)
+		schema.Aggregate = node.Schema.Aggregate.Clone()
 		cloned.Schema = &schema
 	}
 	cloned.Children = cloneFieldGroup(node.Children)
+	cloned.List = node.List.Clone()
 	cloned.Label = node.Label
 	cloned.Columns = slices.Clone(node.Columns)
 	cloned.Order = slices.Clone(node.Order)

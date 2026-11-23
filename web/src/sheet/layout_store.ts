@@ -25,6 +25,7 @@ export interface LayoutStoreSeed {
   readonly sheetId: string;
   readonly sections: readonly SheetSection[];
   readonly layout: Layout | undefined;
+  readonly isRowKey?: (key: string) => boolean;
 }
 
 export interface LayoutStore {
@@ -53,7 +54,7 @@ export function isLayoutPending(state: LayoutState): boolean {
 export function createLayoutStore(seed: LayoutStoreSeed, deps: LayoutStoreDeps): LayoutStore {
   const { sections, sheetId } = seed;
   let state: LayoutState = {
-    committed: resolveArrangement(sections, seed.layout),
+    committed: resolveArrangement(sections, seed.layout, seed.isRowKey),
     staged: undefined,
     isCommitting: false,
     commitError: undefined,
@@ -72,13 +73,14 @@ export function createLayoutStore(seed: LayoutStoreSeed, deps: LayoutStoreDeps):
       void bestEffort(() => deps.store.deleteLayoutDraft(sheetId));
       return;
     }
-    const layout = arrangementToLayout(sections, next.staged);
+    const layout = arrangementToLayout(sections, next.staged, seed.isRowKey);
     void bestEffort(() => deps.store.writeLayoutDraft(sheetId, layout));
   };
 
   const stage = (proposed: Arrangement): void => {
     const current = state.staged;
-    const staged = proposed === current ? proposed : resolveArrangement(sections, proposed);
+    const staged =
+      proposed === current ? proposed : resolveArrangement(sections, proposed, seed.isRowKey);
     if (current !== undefined && arrangementsEqual(current, staged)) {
       return;
     }
@@ -133,7 +135,10 @@ export function createLayoutStore(seed: LayoutStoreSeed, deps: LayoutStoreDeps):
       publish({ ...state, isCommitting: true, commitError: undefined });
       let stored: Layout | null;
       try {
-        stored = await deps.client.setLayout(sheetId, arrangementToLayout(sections, staged));
+        stored = await deps.client.setLayout(
+          sheetId,
+          arrangementToLayout(sections, staged, seed.isRowKey),
+        );
       } catch (error) {
         publish({ ...state, isCommitting: false, commitError: failureCopy(error) });
         return;
@@ -141,7 +146,7 @@ export function createLayoutStore(seed: LayoutStoreSeed, deps: LayoutStoreDeps):
       await bestEffort(() => deps.store.deleteLayoutDraft(sheetId));
       publish({
         ...state,
-        committed: resolveArrangement(sections, stored ?? undefined),
+        committed: resolveArrangement(sections, stored ?? undefined, seed.isRowKey),
         staged: undefined,
         isCommitting: false,
         commitError: undefined,
@@ -158,7 +163,7 @@ export function createLayoutStore(seed: LayoutStoreSeed, deps: LayoutStoreDeps):
       if (draft === null || state.staged !== undefined || state.isCommitting) {
         return;
       }
-      const staged = resolveArrangement(sections, draft.layout ?? undefined);
+      const staged = resolveArrangement(sections, draft.layout ?? undefined, seed.isRowKey);
       if (arrangementsEqual(staged, state.committed)) {
         void bestEffort(() => deps.store.deleteLayoutDraft(sheetId));
         return;

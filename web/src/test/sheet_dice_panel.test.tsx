@@ -41,6 +41,29 @@ describe('DicePanel', () => {
     expect(screen.getByText('attrs.dex')).toBeTruthy();
   });
 
+  it('Happy path: a minimum that applied is shown with the result', () => {
+    const floored: RollEntry = {
+      id: 1,
+      label: 'Initiative',
+      outcome: succeed({
+        total: 5,
+        minimum: 5,
+        parts: [{ sign: 1, label: '1d6', value: 2, rolls: [2] }],
+      }),
+    };
+    render(<DicePanel results={[floored]} onDismiss={() => {}} />);
+
+    expect(document.querySelector('.lg-dice-panel__minimum')?.textContent).toBe(
+      messageWith('dice.minimum', { minimum: 5 }),
+    );
+  });
+
+  it('Edge: a minimum that did not apply draws no line', () => {
+    render(<DicePanel results={[rolled]} onDismiss={() => {}} />);
+
+    expect(document.querySelector('.lg-dice-panel__minimum')).toBeNull();
+  });
+
   it('Edge: an empty history draws no panel', () => {
     render(<DicePanel results={[]} onDismiss={() => {}} />);
 

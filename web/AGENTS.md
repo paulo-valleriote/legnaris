@@ -19,17 +19,23 @@ The schema-driven rendering core (feature `web-ui-engine`): it turns a decoded
 no request, no mark. It mounts no screen; every case renders its modules directly.
 
 - `field_grouping.ts` — pure derivation of ordered, labeled sections and render rows
-  (stacked leaf, declared-column table, exclusive group).
+  (stacked leaf, declared-column table, exclusive group, and one `record` Row per Record of a list,
+  drawn as a table); `row_identity.ts` — list discovery, Record Row keys (`<list>.<id>`) and their
+  `position` order, whose Fields and Section resolve from the Template shape without reading Sheet
+  data. A Record is one Row, and a list's `dice`/`not_d20` declaration applies to every Record.
 - `field_control.tsx` / `exclusive_control.tsx` — one control per leaf schema, one
   single-choice control per exclusive group.
-- `sheet_form.tsx` — the composition; `sheet_defaults.ts` — the draft seed/overlay/merge;
+- `sheet_form.tsx` — the composition; it takes an optional `records` map and `recordActions`
+  (`add`/`remove`/`move`) and draws Add, Move up/down and Remove with predictable focus; without
+  `recordActions` the same table is read-only. `record_table.tsx` — the read-only table the Campaign
+  GM sheet draws. `sheet_defaults.ts` — the draft seed/overlay/merge;
   `sheet_mark.ts` — the preview-mark contract; `engine.css` — token-only styles.
 - Every string resolves through `src/l10n/strings.ts`; every visual value is a `--lg-*`
   token. Data is rendered as text; markup in a value or label stays literal (no DOM sink).
 - **Stable units for the Layout.** Every Section renders one `<section data-section-key>`
   (the top-level field key) holding its title and one `.lg-section__rows` container; every Row
   renders one wrapper carrying `data-row-key` and `data-row-kind` (`normal` | `exclusive` |
-  `table`). The row key comes from `rowKey(row)` in `field_grouping.ts`
+  `table` | `record`). The row key comes from `rowKey(row)` in `field_grouping.ts`
   (`<path>`, `<parent path>#<groupId>`, `<group path>`; the same keys the backend validates a
   layout against): it depends only on the template, never on position or value, and is
   unique across the sheet. A table Row is self-sufficient: it draws its own column header inside
@@ -113,11 +119,17 @@ the F2 client and the F4 engine and owns no wire model.
   then one `GET /templates/:id`, a seeded fresh `['sheet', id]` rendered with no second
   fetch, and a `NOT_FOUND` that evicts the sheet and its draft.
 - `src/sheet/sheet_edit.ts` — the in-memory edit store: `editedPaths`, the copy-on-write
-  `data`, the pending delta, the save/preview lifecycle, the preview marks, two rolling
-  throttle windows and the draft restore. It emits immutable snapshots for
+  `data`, the pending delta, Record add/remove/move, the save/preview lifecycle, the preview marks,
+  two rolling throttle windows and the draft restore. It emits immutable snapshots for
   `useSyncExternalStore` and binds no listener itself.
 - `src/sheet/sheet_screen.tsx` — the mounted screen: header, the F4 form in builder mode,
   the sticky footer and the one guard modal.
+- `src/sheet/reset_actions.tsx` — the bar of declared Reset actions on the Edit form: one button
+  per action, one request id per tap reused until that tap succeeds, disabled with its reason
+  while the draft is unsaved or the store is busy, a 409 offering a refresh and retry, and a
+  success merging the cascade into the query cache so the reseeded baseline and the local cached
+  Sheet take it without marking the Sheet unsaved; one polite live region announces it. A Template
+  with no action, a read-only view and Arrange mode draw no bar.
 - `src/library/sheet_store.ts` — the `SheetStore` port, the versioned envelopes and the
   in-memory double every suite injects; `idb_sheet_store.ts` is the only module importing
   `idb`; `sheet_library.ts` and `draft_backup.ts` hold the cache helpers and the injectable
@@ -145,7 +157,8 @@ the F2 client and the F4 engine and owns no wire model.
   accent underline, accent hover/focus fill) and filled accent stays reserved for the proficiency
   dot and the primary action; a d20 rollable takes advantage/disadvantage from Shift-click,
   Alt-click, a long press or the Context Menu key / Shift+F10 through `src/sheet/roll_mode.tsx`, and
-  the result panel shows both dice with the kept one marked; an NPC/enemy sheet may swap the body
+  the result panel shows both dice with the kept one marked; a Row or Section the Template marks as
+  not a d20 test offers no mode and throws one die; an NPC/enemy sheet may swap the body
   through the optional kind-selected
   `statBlock`. Section-by-section detail, the pure helpers and their tests live in
   [../context/sheets.md](../context/sheets.md).
@@ -163,7 +176,9 @@ the F2 client and the F4 engine and owns no wire model.
 **Delta, never a snapshot.** A save and a preview send only the pending editable delta,
 rebuilt through the engine's `setPathValue`; a save merges the returned cascade and advances
 the baseline, a preview merges it **without** advancing it and marks the changed and
-recalculated rows through the F4 `rowMarkBuilder`/`markLabel` seam.
+recalculated rows through the F4 `rowMarkBuilder`/`markLabel` seam. A Reset action is the one
+server write outside the draft: it is disabled while anything is pending or in flight, and its
+returned cascade is merged into the Sheet in the query cache, from which the store is reseeded.
 
 **Footer status and `revealRow`.** The footer has one status line (`FooterStatus`): `footerStatus(pending, count)` in `preview_summary.ts` merges the unsaved state and the cascade ("Unsaved, 3 recalculated"), derived from the store's `previewMarks`, so it clears whenever the marks clear. Jump (a ghost button) sits on the same line in Edit mode
 and is not drawn in Play, where the pending card owns the actions; the status line stays in both. The footer's polite live region announces only the cascade and the visible phrase is `aria-hidden` while a Preview shows (the Play-only pending card owns the value delta). The derived readout draws no "Calculated" caption: `ReadOnlyValue` keeps it as a visually hidden `aria-describedby` target. `reveal_row.ts` owns
@@ -188,7 +203,7 @@ when that write landed; otherwise it says the changes could not be kept (`sheet.
 
 ## Dice expressions (`src/dice/`)
 
-Pure TypeScript parsing, resolution and rolling live in `src/dice/`; the Go package `backend/internal/dice` validates and `src/sheet/dice_*` owns the UI and pending work. The grammar, precedence, save contract and vectors are documented in [../context/dice.md](../context/dice.md); a grammar change starts in `testdata/dice/vectors.json` and moves both implementations together. Advantage and disadvantage are a keep mode of the client Roll (`keep: 'highest' | 'lowest'`, only a d20 term throws one extra die), never grammar: the stored expression stays plain `NdM`.
+Pure TypeScript parsing, resolution and rolling live in `src/dice/`; the Go package `backend/internal/dice` validates and `src/sheet/dice_*` owns the UI and pending work. The grammar, precedence, save contract and vectors are documented in [../context/dice.md](../context/dice.md); a grammar change starts in `testdata/dice/vectors.json` and moves both implementations together. A die's count and faces may each be a numeric Field in braces and a final ` min N` may raise the total; Advantage and disadvantage are a keep mode of the client Roll (`keep: 'highest' | 'lowest'`, only a literal d20 term throws one extra die), never grammar, and a term whose faces come from a Field never takes one. A Template marks Rows or Sections whose dice are not d20 tests in `dice.not_d20`; both roll surfaces read it through `useRowRoll`, so a marked d20 throws one die and opens no choice.
 
 ## Layout and Arrange mode
 
@@ -210,8 +225,9 @@ no recalculation). Only the lists that deviate from the Template are sent.
   confirming discards the staging, its backup and any value edits.
 - **Rows never move, they pin.** A pinned Row rises to the top of its own Section, ordered by pin
   time (the order of `pinned`); unpinning returns it to its Template position, and a Section whose
-  Rows are all pinned renders as any other. There is no page-level pinned zone, no Row reordering and no Move up / Move
-  down control. A `pinned` key naming no Row is ignored on read; the layout
+  Rows are all pinned renders as any other. There is no page-level pinned zone and no Row reordering.
+  A Record's own list order is a value (`position`) edited by the form's Move up / Move down controls,
+  never by the Layout. A `pinned` key naming no Row is ignored on read; the layout
   store resolves every staged result, so one never stays staged or reaches the wire.
   An optional **pinned filter** in the play view (per viewer and per sheet, remembered in the view
   store, never part of the Layout, never sent to the server and never unsaved work; off until first

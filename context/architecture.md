@@ -93,6 +93,14 @@ block against the Template, then writes the merged data and the block in one
 compare-and-swap update. The response carries only the cascade; a lost race is
 a 409 the client resends as a new request.
 
+`POST /sheets/:id/resets/:actionId` is the owner-only action write: the
+controller decodes `{"request_id"}` and passes the path ids to
+`sheet.Service.Reset`. The service checks ownership (a foreign or missing sheet
+is 404), then the Template's declared action (unknown, 404), then the request
+id (missing or not canonical, 400), all before the one compare-and-swap save.
+A lost race is the usual 409; replaying the last applied id is a 200 carrying
+the stored assigned and derived values with no write and no event.
+
 ### Transaction with pending work
 
 ```mermaid
@@ -152,8 +160,9 @@ and `failed_total`, labelled by queue, are the operational contract.
   and idgen declare their own sentinels and do not import `apperr`.
 - **IDs** — every server-generated ID is a canonical lowercase UUID v7 from
   `shared/idgen`. Client-provided ids pass `idgen.Validate` before the first
-  repository call and map to a 400. Template IDs are code-defined slugs and
-  have their own validator.
+  repository call and map to a 400. Client-supplied request ids pass
+  `idgen.ValidateRequestID` (canonical form, any RFC 4122 version) and map to a
+  400. Template IDs are code-defined slugs and have their own validator.
 - **Transactions** — a service receives a transactor (the `db.Transactor` or a
   small local interface), never opens a session. Every repository call inside
   the callback uses the callback context; the callback has no side effects

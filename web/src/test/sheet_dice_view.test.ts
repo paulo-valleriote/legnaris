@@ -1,20 +1,22 @@
 import { describe, expect, it } from 'vitest';
-import type { FieldNode } from '../api/models/template';
+import type { FieldNode, LeafNode } from '../api/models/template';
 import type { FieldSchema } from '../api/models/template';
 import {
   checkExpression,
   checkSectionExpression,
   diceSchemaFromFields,
   diceSectionRows,
+  isNotD20Test,
   pruneStaleChoices,
   diceErrorMessageKey,
   diceSummary,
+  templateDiceMarking,
 } from '../sheet/dice_view';
 import { parseDice, type Expression } from '../dice/parse';
 import { messages } from '../l10n/strings';
 import type { DiceErrorClass } from '../dice/errors';
 
-function leaf(type: string, label = type): FieldNode {
+function leaf(type: string, label = type): LeafNode {
   const schema: FieldSchema = {
     type,
     label,
@@ -36,6 +38,33 @@ const fields: Record<string, FieldNode> = {
   },
 };
 
+const recordFields: Record<string, FieldNode> = {
+  inventory: {
+    kind: 'group',
+    children: {
+      items: {
+        kind: 'list',
+        list: {
+          label: 'Items',
+          capacity: 2,
+          dice: '1d20 + @.quantity',
+          notD20: true,
+          shape: {
+            name: leaf('text'),
+            quantity: leaf('number'),
+          },
+        },
+      },
+      gems: {
+        kind: 'list',
+        list: { label: 'Gems', capacity: 1, shape: { quantity: leaf('number') } },
+      },
+    },
+  },
+};
+
+const recordID = 'r0123456789abcdef0123456789abcdef';
+
 const schema = diceSchemaFromFields(fields);
 
 describe('diceSchemaFromFields', () => {
@@ -53,6 +82,22 @@ describe('diceSchemaFromFields', () => {
 
   it('Edge: an empty tree answers no Field at all', () => {
     expect(diceSchemaFromFields({})('attrs.dex')).toBeUndefined();
+  });
+
+  it('Happy path: a record column answers its kind through its list shape', () => {
+    const recordSchema = diceSchemaFromFields(recordFields);
+
+    expect(recordSchema(`inventory.items.${recordID}.quantity`)).toBe('number');
+    expect(recordSchema(`inventory.items.${recordID}.name`)).toBe('text');
+  });
+
+  it('Edge: an unknown column, the reserved position and a malformed id are not Fields', () => {
+    const recordSchema = diceSchemaFromFields(recordFields);
+
+    expect(recordSchema(`inventory.items.${recordID}.missing`)).toBeUndefined();
+    expect(recordSchema(`inventory.items.${recordID}.position`)).toBeUndefined();
+    expect(recordSchema('inventory.items.rbad.quantity')).toBeUndefined();
+    expect(recordSchema(`inventory.items.${recordID}`)).toBeUndefined();
   });
 });
 
@@ -87,6 +132,91 @@ describe('checkExpression', () => {
   });
 });
 
+describe('not a d20 test markings', () => {
+  it('Edge: a template without a marking marks nothing', () => {
+    expect(isNotD20Test(templateDiceMarking(undefined), 'attrs.init', 'attrs')).toBe(false);
+    expect(isNotD20Test(templateDiceMarking({ section: {}, row: {} }), 'attrs.init', 'attrs')).toBe(
+      false,
+    );
+    expect(
+      isNotD20Test(
+        templateDiceMarking({ section: { attrs: '1d20' }, row: {} }),
+        'attrs.init',
+        'attrs',
+      ),
+    ).toBe(false);
+  });
+
+  it('Happy path: a marked Row is not a d20 test', () => {
+    const marking = templateDiceMarking({
+      section: {},
+      row: {},
+      notD20: { section: [], row: ['attrs.init'] },
+    });
+
+    expect(isNotD20Test(marking, 'attrs.init', 'attrs')).toBe(true);
+  });
+
+  it('Happy path: a marked Section covers its Rows', () => {
+    const marking = templateDiceMarking({
+      section: {},
+      row: {},
+      notD20: { section: ['attrs'], row: [] },
+    });
+
+    expect(isNotD20Test(marking, 'attrs.init', 'attrs')).toBe(true);
+  });
+
+  it('Edge: a Row marking and a Section marking both count', () => {
+    const marking = templateDiceMarking({
+      section: {},
+      row: {},
+      notD20: { section: ['attrs'], row: ['attrs.init'] },
+    });
+
+    expect(isNotD20Test(marking, 'attrs.init', 'attrs')).toBe(true);
+  });
+
+  it('Edge: a neighbour stays a d20 test', () => {
+    const marking = templateDiceMarking({
+      section: {},
+      row: {},
+      notD20: { section: [], row: ['attrs.init'] },
+    });
+
+    expect(isNotD20Test(marking, 'attrs.dex', 'attrs')).toBe(false);
+    expect(isNotD20Test(marking, 'other.init', 'other')).toBe(false);
+  });
+
+  it('Happy path: a list marking covers every Record of that list', () => {
+    const marking = templateDiceMarking(undefined, recordFields);
+
+    expect(isNotD20Test(marking, `inventory.items.${recordID}`, 'inventory')).toBe(true);
+    expect(isNotD20Test(marking, `inventory.items.${recordID}`, 'stats')).toBe(true);
+  });
+
+  it('Edge: a list marking does not cover a neighbour list or a static Row', () => {
+    const marking = templateDiceMarking(undefined, recordFields);
+
+    expect(isNotD20Test(marking, `inventory.gems.${recordID}`, 'inventory')).toBe(false);
+    expect(isNotD20Test(marking, 'attrs.init', 'attrs')).toBe(false);
+  });
+
+  it('Happy path: a Template marking and a list marking both count', () => {
+    const marking = templateDiceMarking(
+      {
+        section: {},
+        row: {},
+        notD20: { section: ['attrs'], row: ['attrs.init'] },
+      },
+      recordFields,
+    );
+
+    expect(isNotD20Test(marking, 'attrs.init', 'attrs')).toBe(true);
+    expect(isNotD20Test(marking, `inventory.items.${recordID}`, 'inventory')).toBe(true);
+  });
+});
+
 describe('pruneStaleChoices', () => {
   const rowKeys = new Set(['attrs.init']);
   const sectionRows = new Map([['attrs', ['attrs.init']]]);
@@ -98,6 +228,36 @@ describe('pruneStaleChoices', () => {
     );
 
     expect(pruned).toEqual({ row: { 'attrs.init': '1d20+attrs.dex' }, section: { attrs: '1d6' } });
+  });
+
+  it('Happy path: a well-formed record Row is kept without reading Sheet data', () => {
+    const recordSchema = diceSchemaFromFields(recordFields);
+    const pruned = pruneStaleChoices(
+      { row: { [`inventory.items.${recordID}`]: '1d20 + @.quantity' }, section: {} },
+      {
+        rowKeys: new Set(),
+        sectionRows: diceSectionRows(recordFields),
+        schema: recordSchema,
+        isRowKey: (key) => key === `inventory.items.${recordID}`,
+      },
+    );
+
+    expect(pruned.row).toEqual({ [`inventory.items.${recordID}`]: '1d20 + @.quantity' });
+  });
+
+  it('Edge: a malformed record Row is still pruned', () => {
+    const recordSchema = diceSchemaFromFields(recordFields);
+    const pruned = pruneStaleChoices(
+      { row: { 'inventory.items.rbad': '1d20' }, section: {} },
+      {
+        rowKeys: new Set(),
+        sectionRows: diceSectionRows(recordFields),
+        schema: recordSchema,
+        isRowKey: () => false,
+      },
+    );
+
+    expect(pruned.row).toEqual({});
   });
 
   it('Edge: an override for a Row or Section the Template no longer has is ignored', () => {
@@ -237,6 +397,16 @@ describe('diceSummary', () => {
       expression: '2d6+1d8+attrs.dex',
       want: '2d6+d8',
     },
+    {
+      name: 'Edge: Field-sized count and faces keep their references',
+      expression: '{stats.count}d8+1d{stats.size}',
+      want: '{stats.count}d8+d{stats.size}',
+    },
+    {
+      name: 'Edge: a minimum is not part of the dice summary',
+      expression: '1d20 min 2',
+      want: 'd20',
+    },
   ];
   for (const tc of tests) {
     it(tc.name, () => {
@@ -279,5 +449,22 @@ describe('diceSectionRows', () => {
     const rows = diceSectionRows(fields).get('attrs');
 
     expect(rows).toEqual(expect.arrayContaining(['attrs.dex', 'attrs.init']));
+  });
+
+  it('Happy path: a list contributes one synthetic record Row to its Section', () => {
+    const rows = diceSectionRows(recordFields).get('inventory');
+
+    expect(rows).toContain('inventory.items.r00000000000000000000000000000000');
+  });
+
+  it('Edge: a Section holding only a list still has a Row to fit against', () => {
+    const rows = diceSectionRows({
+      items: {
+        kind: 'list',
+        list: { label: 'Items', capacity: 1, shape: { quantity: leaf('number') } },
+      },
+    });
+
+    expect(rows.get('items')).toEqual(['items.r00000000000000000000000000000000']);
   });
 });

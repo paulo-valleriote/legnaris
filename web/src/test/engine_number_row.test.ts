@@ -34,6 +34,7 @@ const FIELDS: Record<string, FieldNode> = {
       pickA: leaf({ label: 'Pick A', exclusiveGroup: 'pick' }),
       pickB: leaf({ label: 'Pick B', exclusiveGroup: 'pick' }),
       lone: leaf({ label: 'Lone', exclusiveGroup: 'solo' }),
+      flagged: leaf({ label: 'Flagged', flag: true }),
     },
     { label: 'Core' },
   ),
@@ -82,6 +83,11 @@ describe('which Rows are number Rows', () => {
     {
       name: 'Edge: an editable config leaf draws a switch',
       key: 'config.switchOn',
+      expected: false,
+    },
+    {
+      name: 'Edge: a flagged number leaf draws a switch in any path',
+      key: 'core.flagged',
       expected: false,
     },
     { name: 'Edge: a text leaf', key: 'core.label', expected: false },

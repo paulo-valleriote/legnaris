@@ -461,6 +461,13 @@ func rulesGroup() FieldGroup {
 	}
 }
 
+func init() {
+	_ = fantasyV1Template.prepareRowIndex()
+	for i := range defaultTemplates {
+		_ = defaultTemplates[i].prepareRowIndex()
+	}
+}
+
 func DefaultTemplates() []Template {
 	result := make([]Template, len(defaultTemplates))
 	for i, tmpl := range defaultTemplates {

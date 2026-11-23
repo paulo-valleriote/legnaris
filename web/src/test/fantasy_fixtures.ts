@@ -526,6 +526,7 @@ export function fantasyTemplatePayload(
     id: FANTASY_TEMPLATE_ID,
     name: 'Fantasy Template',
     default: true,
+    kinds: ['character', 'npc', 'enemy'],
     fields: fantasyFieldTree(),
     dice: {
       section: {

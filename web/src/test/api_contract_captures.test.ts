@@ -90,6 +90,9 @@ function findLeaf(
   if (node.kind === 'leaf') {
     return predicate(node.schema) ? node.schema : undefined;
   }
+  if (node.kind === 'list') {
+    return undefined;
+  }
 
   for (const child of Object.values(node.children)) {
     const found = findLeaf(child, predicate);
@@ -170,6 +173,7 @@ describe('pinned contract captures', () => {
 
     expect(fantasy).toBeDefined();
     expect(fantasy?.default).toBe(true);
+    expect(fantasy?.kinds).toEqual(['character', 'npc', 'enemy']);
     expect(Object.keys(fantasy?.fields ?? {})).toEqual([
       'identity',
       'stats',
@@ -191,6 +195,7 @@ describe('pinned contract captures', () => {
 
     expect(decoded.id).toBe('fantasy_v1');
     expect(decoded.default).toBe(true);
+    expect(decoded.kinds).toEqual(['character', 'npc', 'enemy']);
     expect(nodes.every((node) => node.kind === 'group')).toBe(true);
 
     const derived = nodes

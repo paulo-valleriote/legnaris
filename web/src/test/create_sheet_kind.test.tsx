@@ -20,7 +20,15 @@ import { TEMPLATE_ID, sheetPayload, templateDetailPayload } from './sheet_fixtur
 const BASE_URL = 'http://api.test';
 const ENTRY_NAME = /Fantasy/;
 
-const CATALOG = [{ id: TEMPLATE_ID, name: 'Fantasy', default: true, fields: {} }];
+const CATALOG = [
+  {
+    id: TEMPLATE_ID,
+    name: 'Fantasy',
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
+];
 
 const KIND_LIMITS = {
   character: 1,
@@ -130,6 +138,97 @@ describe('creation surface sheet kind (LGN-238)', () => {
     await user.selectOptions(kindSelect(), 'character');
     expect(createButton()).not.toHaveAttribute('aria-disabled', 'true');
     expect(createButton()).toHaveAccessibleDescription('');
+  });
+
+  it('Edge: a single-kind template shows that kind without a choice and creates with it', async () => {
+    const fake = createFakeTransport(
+      successOutcome(CATALOG),
+      successOutcome(templateDetailPayload({ kinds: ['npc'] })),
+      successOutcome(sheetPayload({ kind: 'npc' }), 201),
+      successOutcome(templateDetailPayload({ kinds: ['npc'] })),
+    );
+    const user = userEvent.setup();
+    renderApp('/', {
+      client: clientWith(withPlanUsage(fake.transport, successOutcome(planUsage()))),
+    });
+
+    await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
+    await screen.findByTestId('detail-name');
+
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.getByText(message('catalog.kindLabel'))).toBeInTheDocument();
+    expect(screen.getByText(message('kind.npc'))).toBeInTheDocument();
+    expect(screen.getByText(messageWith('sheet.usage', usageFor('npc', [])))).toBeInTheDocument();
+    const kindGroup = screen.getByRole('group', { name: message('catalog.kindLabel') });
+    expect(kindGroup).toHaveAccessibleDescription(messageWith('sheet.usage', usageFor('npc', [])));
+
+    await user.type(nameInput(), 'Mine');
+    await user.click(createButton());
+
+    await waitFor(() => {
+      const posts = postRequests(fake.requests);
+      expect(posts).toHaveLength(1);
+      expect(JSON.parse(posts[0]?.body ?? '')).toEqual({
+        template_id: TEMPLATE_ID,
+        kind: 'npc',
+        sheet_name: 'Mine',
+      });
+    });
+  });
+
+  it('Edge: a template without character offers the remaining kinds and selects the first', async () => {
+    const user = userEvent.setup();
+    await openSurface(
+      user,
+      planUsage(),
+      createFakeTransport(
+        successOutcome(CATALOG),
+        successOutcome(templateDetailPayload({ kinds: ['npc', 'enemy'] })),
+      ),
+    );
+
+    expect(kindSelect()).toHaveValue('npc');
+    expect(screen.queryByRole('option', { name: message('catalog.kindCharacter') })).toBeNull();
+    expect(screen.getByRole('option', { name: message('kind.npc') })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: message('kind.enemy') })).toBeInTheDocument();
+  });
+
+  it('Edge: the only accepted kind at its limit disables Create and Generate', async () => {
+    const user = userEvent.setup();
+    await openSurface(
+      user,
+      planUsage('npc'),
+      createFakeTransport(
+        successOutcome(CATALOG),
+        successOutcome(templateDetailPayload({ kinds: ['npc'] })),
+      ),
+    );
+
+    await user.type(nameInput(), 'Mine');
+
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.getByText(message('kind.npc'))).toBeInTheDocument();
+    expect(createButton()).toHaveAttribute('aria-disabled', 'true');
+    expect(createButton()).toHaveAccessibleDescription(message('sheet.limitReached'));
+    expect(generateButton()).toHaveAttribute('aria-disabled', 'true');
+    expect(generateButton()).toHaveAccessibleDescription(message('sheet.limitReached'));
+  });
+
+  it('Happy path: a single accepted kind carries into the Generate link', async () => {
+    const user = userEvent.setup();
+    await openSurface(
+      user,
+      PAID_PLAN_USAGE,
+      createFakeTransport(
+        successOutcome(CATALOG),
+        successOutcome(templateDetailPayload({ kinds: ['enemy'] })),
+      ),
+    );
+
+    expect(screen.getByRole('link', { name: message('generate.entry') })).toHaveAttribute(
+      'href',
+      `/generate/${TEMPLATE_ID}?kind=enemy`,
+    );
   });
 
   it('Happy path: tabbing visits the name, the kind, Generate and Create in that order', async () => {

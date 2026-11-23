@@ -8,7 +8,15 @@ import { renderApp } from './render';
 import { TEMPLATE_ID, templateDetailPayload } from './sheet_fixtures';
 
 const BASE_URL = 'http://api.test';
-const CATALOG = [{ id: TEMPLATE_ID, name: 'Fantasy', default: true, fields: {} }];
+const CATALOG = [
+  {
+    id: TEMPLATE_ID,
+    name: 'Fantasy',
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
+];
 const GENERATION_ID = 'gen-1';
 const VALID_CONCEPT = 'A wandering ranger of the north';
 const UPGRADE_TITLE = 'AI generation is part of Pro';

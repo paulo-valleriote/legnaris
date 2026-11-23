@@ -120,18 +120,14 @@ func orderedKeys(group FieldGroup, order []string) []string {
 
 func ValidateLayout(tmpl Template, sectionOrder []string, pinned []string) error {
 	sections := make(map[string]bool)
-	rows := make(map[string]bool)
-	for _, section := range SectionRowKeys(tmpl) {
-		sections[section.Section] = true
-		for _, row := range section.Rows {
-			rows[row] = true
-		}
+	for section := range sectionRowsForFit(tmpl) {
+		sections[section] = true
 	}
 
 	if err := validateSectionOrder(sections, sectionOrder); err != nil {
 		return err
 	}
-	return validatePinned(rows, pinned)
+	return validatePinned(func(key string) bool { return IsRowKey(tmpl, key) }, pinned)
 }
 
 func validateSectionOrder(sections map[string]bool, sectionOrder []string) error {
@@ -148,10 +144,10 @@ func validateSectionOrder(sections map[string]bool, sectionOrder []string) error
 	return nil
 }
 
-func validatePinned(rows map[string]bool, pinned []string) error {
+func validatePinned(isRow func(string) bool, pinned []string) error {
 	seen := make(map[string]bool, len(pinned))
 	for _, key := range pinned {
-		if !rows[key] {
+		if !isRow(key) {
 			return &UnknownLayoutRowError{Key: key}
 		}
 		if seen[key] {

@@ -11,4 +11,6 @@ regexes = [
   '''legnaris-otp-v1''',
   '''PROMPT-ECHO-SECRET-1234''',
   '''0123456789abcdef0123456789abcdef''',
+  '''r0123456789(abcdef|ABCDEF)0123456789(abcde|abcdeg|ABCDEF)\b''',
+  '''r01234567-89ab-cdef-0123-456789abcdef''',
 ]

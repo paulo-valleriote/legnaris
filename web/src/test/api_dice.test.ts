@@ -125,6 +125,7 @@ describe('dice defaults on the template payload', () => {
     id: 'fantasy_v1',
     name: 'Fantasy',
     default: true,
+    kinds: ['character', 'npc', 'enemy'],
     fields: {},
     ...extra,
   });
@@ -148,5 +149,48 @@ describe('dice defaults on the template payload', () => {
       section: {},
       row: { a: '1d4' },
     });
+  });
+
+  it('Happy path: not a d20 test Section and Row declarations are decoded', () => {
+    const template = parseTemplateDetail(
+      templatePayload({
+        dice: {
+          section: { attrs: '1d20' },
+          row: { 'attrs.init': '1d20+@.mod' },
+          not_d20: { section: ['hitDice'], row: ['combat.hitDie'] },
+        },
+      }),
+    );
+
+    expect(template.dice?.notD20).toEqual({
+      section: ['hitDice'],
+      row: ['combat.hitDie'],
+    });
+  });
+
+  it('Edge: an absent, empty or malformed marking reads as no marking', () => {
+    const payloads: unknown[] = [
+      undefined,
+      {},
+      { section: [], row: [] },
+      'hitDice',
+      { section: 'hitDice', row: 7 },
+      { section: [7, null], row: [{}] },
+    ];
+
+    for (const notD20 of payloads) {
+      const template = parseTemplateDetail(templatePayload({ dice: { not_d20: notD20 } }));
+      expect(template.dice?.notD20).toBeUndefined();
+    }
+  });
+
+  it('Edge: non-string entries are dropped from a marking, not the whole marking', () => {
+    const template = parseTemplateDetail(
+      templatePayload({
+        dice: { not_d20: { section: ['hitDice', 4], row: [true, 'combat.hitDie'] } },
+      }),
+    );
+
+    expect(template.dice?.notD20).toEqual({ section: ['hitDice'], row: ['combat.hitDie'] });
   });
 });

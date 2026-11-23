@@ -57,7 +57,7 @@ func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind 
 func (s *ServiceImpl) seedInitialData(base creationBase) (map[string]any, error) {
 	initialData := buildNestedAllFields(base.tmpl.Fields)
 
-	flatInitial, err := maputils.FlattenPathKeys(initialData)
+	flatInitial, err := maputils.FlattenPathKeys(buildNestedDAGFields(base.tmpl.Fields))
 	if err != nil {
 		return nil, translateMapErr("create", err)
 	}
@@ -136,19 +136,17 @@ func (s *ServiceImpl) applyValues(dag *template.DAG, seed map[string]any, values
 	if err != nil {
 		return nil, translateMapErr("create", err)
 	}
-	updates := dropDerived(dag, flat)
-	normalized, cascade, err := dag.NormalizeAndRecalculate(seed, updates)
+	flat = dag.DropDerivedRecordValues(flat)
+	staticUpdates, recordUpdates, err := dag.SplitRecordUpdates(flat)
 	if err != nil {
 		return nil, translateDAGErr(err)
 	}
-	merged := maputils.DeepCopy(seed)
-	if err := maputils.ApplyUpdates(merged, normalized); err != nil {
-		return nil, translateMapErr("create", err)
+	updates := dropDerived(dag, staticUpdates)
+	calculation, err := dag.NormalizeAndRecalculateWithRecords(seed, updates, recordUpdates)
+	if err != nil {
+		return nil, translateDAGErr(err)
 	}
-	if err := maputils.ApplyUpdates(merged, cascade); err != nil {
-		return nil, translateMapErr("create", err)
-	}
-	return merged, nil
+	return calculation.Merged, nil
 }
 
 func dropDerived(dag *template.DAG, values map[string]any) map[string]any {

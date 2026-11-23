@@ -11,12 +11,22 @@ import type { FieldNode, FieldSchema, TemplateDetail } from '../api/models/templ
 import { hasEntries, isPlainObject } from '../api/parse';
 import { buildSections } from '../engine/field_grouping';
 import {
+  isRecordPositionPath,
+  isRowKey as isTemplateRowKey,
+  listInfoAtPath,
+  newRecordID,
+  orderedRecords,
+  parseRecordRowKey,
+  recordFieldSchema,
+  recordRowKey,
+} from '../engine/row_identity';
+import {
   diceSchemaFromFields,
   diceSectionRows,
   pruneStaleChoices,
   type PruneContext,
 } from './dice_view';
-import { mergeCascade, seedFromSheet, setPathValue } from '../engine/sheet_defaults';
+import { mergeCascade, seedFromSheet, seedValue, setPathValue } from '../engine/sheet_defaults';
 import type { SheetMark } from '../engine/sheet_mark';
 import type { SheetDraft, SheetStore } from '../library/sheet_store';
 import { bestEffort, hasPendingWork } from '../library/sheet_store';
@@ -108,12 +118,20 @@ export interface SheetEditStore {
   setPath(path: string, value: unknown): void;
   setExclusive(selected: string | null, siblings: readonly string[]): void;
   setDice(target: DiceTarget, key: string, expression: string | null | undefined): void;
+  addRecord?(listPath: string): string | undefined;
+  removeRecord?(listPath: string, recordID: string): void;
+  moveRecord?(listPath: string, recordID: string, direction: -1 | 1): number | undefined;
+  applyReset(cascade: Record<string, unknown>): void;
+  refresh(): Promise<void>;
   save(): Promise<void>;
   preview(): Promise<void>;
   restore(): Promise<void>;
   discard(): void;
   dispose(): void;
 }
+
+export type RecordEditStore = SheetEditStore &
+  Required<Pick<SheetEditStore, 'addRecord' | 'removeRecord' | 'moveRecord'>>;
 
 export type DiceTarget = 'row' | 'section';
 
@@ -281,13 +299,26 @@ function defaultSchedule(callback: () => void, delayMs: number): () => void {
   return () => clearTimeout(timer);
 }
 
-export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): SheetEditStore {
+export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): RecordEditStore {
   const editable = editableLeafPaths(seed.template.fields);
+  const isWritablePath = (path: string): boolean => {
+    if (editable.has(path)) {
+      return true;
+    }
+    if (recordFieldSchema(seed.template.fields, path)?.isEditable === true) {
+      return true;
+    }
+    if (parseRecordRowKey(seed.template.fields, path) !== undefined) {
+      return true;
+    }
+    return isRecordPositionPath(seed.template.fields, path);
+  };
   const sectionRows = diceSectionRows(seed.template.fields);
   const diceRules: PruneContext = {
     rowKeys: new Set([...sectionRows.values()].flat()),
     sectionRows,
     schema: diceSchemaFromFields(seed.template.fields),
+    isRowKey: (key) => isTemplateRowKey(seed.template.fields, key),
   };
   const seededDice = pruneStaleChoices(seed.sheet.dice ?? EMPTY_DICE, diceRules);
   const seeded = seedFromSheet(seed.template.fields, seed.sheet.data);
@@ -363,7 +394,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
   const applyWrites = (writes: ReadonlyMap<string, unknown>): void => {
     const effective = new Map<string, unknown>();
     for (const [path, value] of writes) {
-      if (!editable.has(path) || Object.is(readPath(state.data, path), value)) {
+      if (!isWritablePath(path) || Object.is(readPath(state.data, path), value)) {
         continue;
       }
       effective.set(path, value);
@@ -395,7 +426,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     const delta: Record<string, unknown> = {};
     for (const path of current.editedPaths) {
       if (
-        editable.has(path) &&
+        isWritablePath(path) &&
         !Object.is(readPath(current.data, path), readPath(current.defaults, path))
       ) {
         setPathValue(delta, path, readPath(current.data, path));
@@ -481,6 +512,98 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       commit({
         ...state,
         dice: target === 'row' ? { ...state.dice, row: next } : { ...state.dice, section: next },
+      });
+    },
+
+    addRecord: (listPath) => {
+      const list = listInfoAtPath(seed.template.fields, listPath);
+      if (list === undefined) {
+        return undefined;
+      }
+      const existing = orderedRecords(listPath, state.data);
+      if (existing.length >= list.capacity) {
+        return undefined;
+      }
+      const recordID = newRecordID();
+      const nextPosition =
+        existing.reduce(
+          (highest, entry) =>
+            Number.isFinite(entry.position) ? Math.max(highest, entry.position) : highest,
+          0,
+        ) + 1;
+      const writes = new Map<string, unknown>();
+      writes.set(`${listPath}.${recordID}.position`, nextPosition);
+      for (const [name, schema] of Object.entries(list.shape)) {
+        if (schema.isEditable) {
+          writes.set(`${listPath}.${recordID}.${name}`, seedValue(schema));
+        }
+      }
+      applyWrites(writes);
+      return recordID;
+    },
+
+    removeRecord: (listPath, recordID) => {
+      const exists = orderedRecords(listPath, state.data).some((entry) => entry.id === recordID);
+      if (!exists) {
+        return;
+      }
+      applyWrites(new Map([[recordRowKey(listPath, recordID), null]]));
+    },
+
+    moveRecord: (listPath, recordID, direction) => {
+      const order = orderedRecords(listPath, state.data).map((entry) => entry.id);
+      const from = order.indexOf(recordID);
+      const to = from + direction;
+      if (from < 0 || to < 0 || to >= order.length) {
+        return undefined;
+      }
+      const next = [...order];
+      next[from] = order[to];
+      next[to] = order[from];
+      const writes = new Map<string, unknown>();
+      next.forEach((id, index) => {
+        writes.set(`${listPath}.${id}.position`, index + 1);
+      });
+      applyWrites(writes);
+      return to + 1;
+    },
+
+    applyReset: (cascade) => {
+      commit({
+        ...state,
+        data: mergeCascade(state.data, cascade),
+        defaults: mergeCascade(state.defaults, cascade),
+        revision: state.revision + 1,
+        previewedRevision: undefined,
+        previewMarks: undefined,
+        saveError: undefined,
+        saveErrorKind: undefined,
+        previewError: undefined,
+        previewErrorKind: undefined,
+      });
+    },
+
+    refresh: async () => {
+      if (isPending(state) || isBusy(state)) {
+        return;
+      }
+      const fresh = await deps.client.getSheet(seed.sheet.id);
+      const seeded = seedFromSheet(seed.template.fields, fresh.data);
+      const dice = pruneStaleChoices(fresh.dice ?? EMPTY_DICE, diceRules);
+      commit({
+        ...state,
+        defaults: seeded,
+        data: seeded,
+        editedPaths: new Set<string>(),
+        savedDice: dice,
+        dice,
+        revision: state.revision + 1,
+        previewedRevision: undefined,
+        previewMarks: undefined,
+        saveError: undefined,
+        saveErrorKind: undefined,
+        previewError: undefined,
+        previewErrorKind: undefined,
       });
     },
 
@@ -602,7 +725,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
 
       const writes = new Map<string, unknown>();
       for (const path of flattenPaths(draft.delta)) {
-        if (editable.has(path)) {
+        if (isWritablePath(path)) {
           writes.set(path, readPath(draft.delta, path));
         }
       }

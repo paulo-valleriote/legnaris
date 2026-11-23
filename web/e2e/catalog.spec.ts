@@ -9,12 +9,14 @@ const CATALOG = [
     id: 'dnd5e',
     name: 'Dungeons & Dragons 5e',
     default: true,
+    kinds: ['character', 'npc', 'enemy'],
     fields: {},
   },
   {
     id: 'pbta',
     name: 'Powered by the Apocalypse',
     default: false,
+    kinds: ['character', 'npc', 'enemy'],
     fields: {},
   },
 ];
@@ -23,6 +25,7 @@ const DETAIL = {
   id: 'dnd5e',
   name: 'Dungeons & Dragons 5e',
   default: true,
+  kinds: ['character', 'npc', 'enemy'],
   fields: {},
 };
 

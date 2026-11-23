@@ -37,6 +37,7 @@ function template(overrides: Record<string, unknown> = {}) {
     id: 'fantasy_v1',
     name: 'Fantasy RPG',
     default: true,
+    kinds: ['character', 'npc', 'enemy'],
     fields: {
       identity: {
         children: {
@@ -59,6 +60,51 @@ describe('template models', () => {
     expect(decoded.name).toBe('Fantasy RPG');
     expect(decoded.default).toBe(true);
     expect(Object.keys(decoded.fields)).toEqual(['identity', 'stats']);
+  });
+
+  it('Happy path: decodes the accepted kinds in their declared order', () => {
+    const decoded = parseTemplateDetail(template({ kinds: ['npc', 'enemy', 'character'] }));
+
+    expect(decoded.kinds).toEqual(['npc', 'enemy', 'character']);
+  });
+
+  it('Edge: a single-kind template exposes exactly that kind', () => {
+    const decoded = parseTemplateDetail(template({ kinds: ['enemy'] }));
+
+    expect(decoded.kinds).toEqual(['enemy']);
+  });
+
+  it('Edge: a template without character offers the remaining kinds only', () => {
+    const decoded = parseTemplateDetail(template({ kinds: ['npc', 'enemy'] }));
+
+    expect(decoded.kinds).toEqual(['npc', 'enemy']);
+    expect(decoded.kinds).not.toContain('character');
+  });
+
+  it('Edge: a missing kinds key decodes as no accepted kinds', () => {
+    const decoded = parseTemplateDetail(template({ kinds: undefined }));
+
+    expect(decoded.kinds).toEqual([]);
+  });
+
+  it('Edge: an empty kinds list decodes as no accepted kinds', () => {
+    const decoded = parseTemplateDetail(template({ kinds: [] }));
+
+    expect(decoded.kinds).toEqual([]);
+  });
+
+  it('Edge: duplicate kinds keep the declared order', () => {
+    const decoded = parseTemplateDetail(template({ kinds: ['npc', 'npc', 'enemy'] }));
+
+    expect(decoded.kinds).toEqual(['npc', 'npc', 'enemy']);
+  });
+
+  it('Error: non-list, null, non-string or unknown kinds are contract drift', () => {
+    const broken: unknown[] = [null, 'character', ['character', 'dragon'], ['character', 7], [7]];
+
+    for (const kinds of broken) {
+      expect(() => parseTemplateDetail(template({ kinds }))).toThrow(DefensiveParseFailure);
+    }
   });
 
   it('Happy path: preserves the payload order of the top-level fields', () => {
@@ -143,6 +189,35 @@ describe('template models', () => {
     expect(node?.kind === 'leaf' && node.schema.optionLabel).toBe('Dexterity');
   });
 
+  it('Edge: the optional flag marker is carried through when present and absent otherwise', () => {
+    const decoded = parseTemplateDetail(
+      template({
+        fields: {
+          features: {
+            children: {
+              enabled: {
+                schema: {
+                  type: 'number',
+                  label: 'Enabled',
+                  is_editable: true,
+                  default: 1,
+                  flag: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+    const features = decoded.fields['features'];
+    const enabled = features?.kind === 'group' ? features.children['enabled'] : undefined;
+    const stats = parseTemplateDetail(template()).fields['stats'];
+    const strength = stats?.kind === 'group' ? stats.children['strength'] : undefined;
+
+    expect(enabled?.kind === 'leaf' && enabled.schema.flag).toBe(true);
+    expect(strength?.kind === 'leaf' && strength.schema.flag).toBeUndefined();
+  });
+
   it('Edge: group table metadata is carried when the payload declares it', () => {
     const decoded = parseTemplateDetail(template());
     const stats = decoded.fields['stats'];
@@ -166,10 +241,77 @@ describe('template models', () => {
     }
   });
 
-  it('Error: a node with neither a schema nor children is contract drift', () => {
+  it('Error: a node carrying none of schema, children or list is contract drift', () => {
     expect(() =>
       parseTemplateDetail(template({ fields: { broken: { label: 'Broken' } } })),
     ).toThrow(DefensiveParseFailure);
+  });
+
+  it('Happy path: a list node carries its label, columns, capacity, shape, dice and marking', () => {
+    const decoded = parseTemplateDetail(
+      template({
+        fields: {
+          inventory: {
+            children: {
+              items: {
+                list: {
+                  label: 'Items',
+                  columns: ['name', 'quantity'],
+                  capacity: 2,
+                  dice: '1d20 + @.quantity',
+                  not_d20: true,
+                  shape: {
+                    name: {
+                      schema: { type: 'string', label: 'Name', is_editable: true, default: 0 },
+                    },
+                    quantity: leaf,
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+
+    const inventory = decoded.fields['inventory'];
+    const items = inventory?.kind === 'group' ? inventory.children['items'] : undefined;
+    expect(items?.kind).toBe('list');
+    expect(items?.kind === 'list' && items.list.label).toBe('Items');
+    expect(items?.kind === 'list' && items.list.capacity).toBe(2);
+    expect(items?.kind === 'list' && items.list.columns).toEqual(['name', 'quantity']);
+    expect(items?.kind === 'list' && items.list.dice).toBe('1d20 + @.quantity');
+    expect(items?.kind === 'list' && items.list.notD20).toBe(true);
+    expect(items?.kind === 'list' && Object.keys(items.list.shape)).toEqual(['name', 'quantity']);
+  });
+
+  it('Error: a list shape holding anything but leaves is contract drift', () => {
+    expect(() =>
+      parseTemplateDetail(
+        template({
+          fields: {
+            inventory: {
+              children: {
+                items: {
+                  list: { label: 'Items', capacity: 2, shape: { nested: group } },
+                },
+              },
+            },
+          },
+        }),
+      ),
+    ).toThrow(DefensiveParseFailure);
+  });
+
+  it('Error: a list without a label or capacity is contract drift', () => {
+    for (const list of [
+      { capacity: 2, shape: {} },
+      { label: 'Items', shape: {} },
+    ]) {
+      expect(() =>
+        parseTemplateDetail(template({ fields: { inventory: { children: { items: { list } } } } })),
+      ).toThrow(DefensiveParseFailure);
+    }
   });
 
   it('Error: a missing identifier, name, default flag or fields is rejected by name', () => {
@@ -214,5 +356,78 @@ describe('template models', () => {
 
   it('Error: a catalog payload that is not an array is rejected', () => {
     expect(() => parseTemplateCatalog(template())).toThrow(DefensiveParseFailure);
+  });
+});
+
+describe('template reset actions', () => {
+  const rest = {
+    id: 'rest',
+    label: 'Long rest',
+    assignments: [
+      { target: 'stats.level', expression: 'max(1, level - 1)' },
+      {
+        target: 'inventory.items.quantity',
+        expression: 'record_quantity + 1',
+        filter: 'active',
+      },
+    ],
+  };
+
+  it('Happy path: actions decode in order with their assignments and list filter', () => {
+    const decoded = parseTemplateDetail(template({ actions: [rest] }));
+
+    expect(decoded.actions).toEqual([
+      {
+        id: 'rest',
+        label: 'Long rest',
+        assignments: [
+          { target: 'stats.level', expression: 'max(1, level - 1)' },
+          {
+            target: 'inventory.items.quantity',
+            expression: 'record_quantity + 1',
+            filter: 'active',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('Edge: a static assignment carries no filter key', () => {
+    const decoded = parseTemplateDetail(
+      template({ actions: [{ id: 'rest', label: 'Rest', assignments: [rest.assignments[0]] }] }),
+    );
+
+    expect(decoded.actions?.[0]?.assignments[0]).not.toHaveProperty('filter');
+  });
+
+  it('Edge: absent actions stay absent and an empty list stays empty', () => {
+    expect(parseTemplateDetail(template()).actions).toBeUndefined();
+    expect(parseTemplateDetail(template({ actions: [] })).actions).toEqual([]);
+  });
+
+  it('Error: malformed actions and assignments are contract drift', () => {
+    const broken: unknown[] = [
+      'rest',
+      {},
+      [7],
+      [{ label: 'Rest', assignments: [] }],
+      [{ id: 'rest', assignments: [] }],
+      [{ id: 'rest', label: 'Rest' }],
+      [{ id: 'rest', label: 'Rest', assignments: {} }],
+      [{ id: 'rest', label: 'Rest', assignments: [7] }],
+      [{ id: 'rest', label: 'Rest', assignments: [{ target: 'stats.level' }] }],
+      [{ id: 'rest', label: 'Rest', assignments: [{ expression: 'level' }] }],
+      [
+        {
+          id: 'rest',
+          label: 'Rest',
+          assignments: [{ target: 'stats.level', expression: 'level', filter: 7 }],
+        },
+      ],
+    ];
+
+    for (const actions of broken) {
+      expect(() => parseTemplateDetail(template({ actions }))).toThrow(DefensiveParseFailure);
+    }
   });
 });

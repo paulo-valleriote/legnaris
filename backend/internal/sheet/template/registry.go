@@ -25,8 +25,11 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template) (*Registry, 
 
 	for _, tmpl := range templates {
 		stored := cloneTemplate(tmpl)
+		if err := stored.prepareRowIndex(); err != nil {
+			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
+		}
 
-		dag, err := BuildDAG(stored.ID, stored.Fields, eng)
+		dag, err := BuildDAGWithActions(stored.ID, stored.Fields, stored.Actions, eng)
 		if err != nil {
 			return nil, err
 		}
@@ -35,7 +38,15 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template) (*Registry, 
 			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
 		}
 
+		if err := ValidateNotD20Tests(stored); err != nil {
+			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
+		}
+
 		if err := ValidateGenerationMetadata(stored); err != nil {
+			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
+		}
+
+		if err := ValidateFlags(stored); err != nil {
 			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
 		}
 

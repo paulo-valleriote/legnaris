@@ -64,11 +64,24 @@ export function sheetData(): Record<string, unknown> {
 export function templateDetailPayload(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
-  return { id: TEMPLATE_ID, name: 'Fantasy', default: true, fields: fieldTree(), ...overrides };
+  return {
+    id: TEMPLATE_ID,
+    name: 'Fantasy',
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: fieldTree(),
+    ...overrides,
+  };
 }
 
 export function emptyTemplateDetailPayload(): Record<string, unknown> {
-  return { id: TEMPLATE_ID, name: 'Fantasy', default: true, fields: {} };
+  return {
+    id: TEMPLATE_ID,
+    name: 'Fantasy',
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  };
 }
 
 export function sheetPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {

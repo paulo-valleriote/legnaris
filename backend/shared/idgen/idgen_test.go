@@ -76,6 +76,37 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestValidateRequestID(t *testing.T) {
+	tests := []struct {
+		name    string
+		id      string
+		wantErr bool
+	}{
+		{name: "Happy path: canonical v7 accepted", id: "01900000-0000-7000-8000-000000000001"},
+		{name: "Happy path: canonical v4 from the browser accepted", id: "9f2c8a1b-3d4e-4f60-8a1b-2c3d4e5f6071"},
+		{name: "Edge: empty string rejected", id: "", wantErr: true},
+		{name: "Error: garbage string rejected", id: "not-a-uuid", wantErr: true},
+		{name: "Error: nil UUID rejected", id: "00000000-0000-0000-0000-000000000000", wantErr: true},
+		{name: "Error: non-RFC 4122 variant rejected", id: "01900000-0000-7000-c000-000000000001", wantErr: true},
+		{name: "Edge: uppercase rejected", id: "01900000-0000-7000-8ABC-DEF012345678", wantErr: true},
+		{name: "Edge: braced encoding rejected", id: "{01900000-0000-7000-8000-000000000001}", wantErr: true},
+		{name: "Edge: missing-hyphens encoding rejected", id: "01900000000070008000000000000001", wantErr: true},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := idgen.ValidateRequestID(tc.id)
+
+			if !tc.wantErr {
+				assert.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.ErrorIs(t, err, idgen.ErrInvalidRequestID)
+		})
+	}
+}
+
 func TestValidate_WrapsTheParseCause(t *testing.T) {
 	tests := []struct {
 		name       string

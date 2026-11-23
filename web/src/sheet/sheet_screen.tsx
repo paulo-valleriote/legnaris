@@ -16,11 +16,17 @@ import { DependentReadout } from '../engine/dependent_readout';
 import { dependentsAreStale } from '../engine/dependents';
 import { SheetFieldControl } from '../engine/field_control';
 import type { SheetExclusiveGroup, SheetField } from '../engine/field_grouping';
-import type { FieldNode } from '../api/models/template';
+import type { FieldNode, ResetAction } from '../api/models/template';
 import { buildSections, fieldDisplayName, lastSegment, rowKey } from '../engine/field_grouping';
+import {
+  isRowKey as isTemplateRowKey,
+  listInfos,
+  orderedRecordIDs,
+  recordsByList,
+} from '../engine/row_identity';
 import type { SheetMark } from '../engine/sheet_mark';
 import { markLabel, SheetForm } from '../engine/sheet_form';
-import type { RowActionsInfo } from '../engine/sheet_form';
+import type { RecordListActions, RowActionsInfo } from '../engine/sheet_form';
 import { message, messageWith } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
@@ -33,7 +39,7 @@ import {
   updateSheetLayout,
 } from '../catalog/queries';
 import { startDraftCadence } from '../library/draft_backup';
-import { discardDraft, discardLayoutDraft } from '../library/sheet_library';
+import { cacheSheet, discardDraft, discardLayoutDraft } from '../library/sheet_library';
 import { registerLeaveGuard, requestLeave } from '../shell/leave_guard';
 import { useSheetShortcuts } from '../shell/shortcut_registry';
 import type { PendingDiceKeys, PreviewMarks, SheetEditState, SheetEditStore } from './sheet_edit';
@@ -62,6 +68,7 @@ import {
   diceSectionRows,
   diceSchemaFromFields,
   templateDiceDefaults,
+  templateDiceMarking,
 } from './dice_view';
 import type { LayoutState, LayoutStore } from './layout_store';
 import { createLayoutStore, drawnArrangement, isArranging, isLayoutPending } from './layout_store';
@@ -79,6 +86,7 @@ import { presetFor } from './preset/registry';
 import { HelpPanel, HelpToggle } from './sheet_help';
 import type { SheetOpenResult } from './sheet_open';
 import { useSheetOpen } from './sheet_open';
+import { ResetActions, newResetRequestID } from './reset_actions';
 import './sheet.css';
 
 function errorClass(kind: FailureKind | undefined): string {
@@ -178,9 +186,10 @@ function ConnectedDependent({ store, dependent, source }: ConnectedDependentProp
 interface ConnectedExclusiveProps {
   readonly store: SheetEditStore;
   readonly group: SheetExclusiveGroup;
+  readonly controlId?: string;
 }
 
-function ConnectedExclusive({ store, group }: ConnectedExclusiveProps) {
+function ConnectedExclusive({ store, group, controlId }: ConnectedExclusiveProps) {
   const paths = group.options.map((option) => option.path);
   const pathsKey = paths.join('\u0000');
   const subscribe = useCallback(
@@ -212,6 +221,7 @@ function ConnectedExclusive({ store, group }: ConnectedExclusiveProps) {
       group={group}
       selectedPath={selected}
       mark={mark}
+      controlId={controlId}
       onSelect={(signal) => {
         store.setExclusive(signal === EXCLUSIVE_NONE_VALUE ? null : signal, paths);
       }}
@@ -551,9 +561,11 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       store: diceStore,
       schema: diceSchema,
       check: diceCheck,
-      defaults: templateDiceDefaults(template.dice),
+      defaults: templateDiceDefaults(template.dice, template.fields),
       rowKeys: new Set(sections.flatMap((section) => section.rows.map(rowKey))),
       sectionRows: diceSectionRowKeys,
+      isRowKey: (key) => isTemplateRowKey(template.fields, key),
+      notD20: templateDiceMarking(template.dice, template.fields),
       savedValues: () => editStore.getState().defaults,
       draftValues: () => editStore.getPendingDelta(),
     }),
@@ -567,14 +579,19 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   const layoutStore = useMemo(
     () =>
       createLayoutStore(
-        { sheetId, sections: mainSections, layout: committedLayout },
+        {
+          sheetId,
+          sections: mainSections,
+          layout: committedLayout,
+          isRowKey: (key) => isTemplateRowKey(template.fields, key),
+        },
         {
           client,
           store: storePort,
           onCommitted: (layout) => updateSheetLayout(queryClient, sheetId, layout),
         },
       ),
-    [client, storePort, queryClient, sheetId, mainSections, committedLayout],
+    [client, storePort, queryClient, sheetId, mainSections, committedLayout, template.fields],
   );
   const layoutState = useLayoutState(layoutStore);
   const arranging = isArranging(layoutState);
@@ -603,6 +620,41 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     setHelpOpen(false);
     view.store.markExplainerSeen();
   }, [view.store]);
+  const hasRecordLists = useMemo(() => listInfos(template.fields).length > 0, [template]);
+  const editData = useSyncExternalStore(editStore.subscribe, () => editStore.getState().data);
+  const recordRows = useMemo(
+    () => recordsByList(template.fields, editData),
+    [template.fields, editData],
+  );
+  const [recordNotice, setRecordNotice] = useState('');
+  const recordActions = useMemo<RecordListActions>(
+    () => ({
+      add: (listPath) => {
+        const recordID = editStore.addRecord(listPath);
+        if (recordID !== undefined) {
+          const count = orderedRecordIDs(
+            template.fields,
+            listPath,
+            editStore.getState().data,
+          ).length;
+          setRecordNotice(messageWith('record.added', { count }));
+        }
+        return recordID;
+      },
+      remove: (listPath, recordID) => {
+        editStore.removeRecord(listPath, recordID);
+        const count = orderedRecordIDs(template.fields, listPath, editStore.getState().data).length;
+        setRecordNotice(messageWith('record.removed', { count }));
+      },
+      move: (listPath, recordID, direction) => {
+        const position = editStore.moveRecord(listPath, recordID, direction);
+        if (position !== undefined) {
+          setRecordNotice(messageWith('record.moved', { position }));
+        }
+      },
+    }),
+    [editStore, template.fields],
+  );
   const [confirmation, setConfirmation] = useState<PendingConfirmation | null>(null);
   const [duplicating, setDuplicating] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | undefined>(undefined);
@@ -633,7 +685,12 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     [editStore],
   );
   const exclusiveControlBuilder = useCallback(
-    (group: SheetExclusiveGroup) => <ConnectedExclusive store={editStore} group={group} />,
+    (
+      group: SheetExclusiveGroup,
+      _selectedPath?: string,
+      _onSelect?: (signal: string) => void,
+      controlId?: string,
+    ) => <ConnectedExclusive store={editStore} group={group} controlId={controlId} />,
     [editStore],
   );
   const rowMarkBuilder = useCallback(
@@ -756,6 +813,27 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       void runDuplicate();
     });
   }, [duplicating, isWorking, runDuplicate]);
+
+  const runReset = useCallback(
+    (action: ResetAction, requestId: string) => client.resetSheet(sheet.id, action.id, requestId),
+    [client, sheet.id],
+  );
+
+  const applyReset = useCallback(
+    (_action: ResetAction, cascade: Record<string, unknown>) => {
+      editStore.applyReset(cascade);
+      const after = editStore.getState();
+      void cacheSheet(storePort, { ...sheet, data: after.defaults, dice: after.savedDice });
+    },
+    [editStore, sheet, storePort],
+  );
+
+  const refreshSheet = useCallback(async () => {
+    await editStore.refresh();
+  }, [editStore]);
+
+  const resetActions = template.actions ?? [];
+  const showResetActions = !playing && !arranging && resetActions.length > 0;
 
   useEffect(() => {
     void editStore.restore();
@@ -886,11 +964,31 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
           />
         )}
       </header>
+      {showResetActions && (
+        <ResetActions
+          actions={resetActions}
+          store={editStore}
+          requestId={newResetRequestID}
+          run={runReset}
+          onApplied={applyReset}
+          refresh={refreshSheet}
+        />
+      )}
       {duplicateError !== undefined ? (
         <div data-testid="sheet-duplicate-error">
           <ErrorState message={duplicateError} />
         </div>
       ) : null}
+      {hasRecordLists && (
+        <p
+          className="lg-visually-hidden"
+          role="status"
+          aria-live="polite"
+          data-testid="record-live"
+        >
+          {recordNotice}
+        </p>
+      )}
       {sections.length === 0 ? (
         <div data-testid="sheet-empty-fields">
           <EmptyState message={message('sheet.emptyFields')} />
@@ -934,6 +1032,8 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
                   collapsedSectionKeys={view.collapsible ? view.state.collapsed : undefined}
                   onToggleSection={view.collapsible ? view.store.toggle : undefined}
                   onlyPinned={view.filterOn}
+                  records={recordRows}
+                  recordActions={arranging ? undefined : recordActions}
                   arrangement={arrangement}
                   frames={arranging ? ARRANGE_FRAMES : DICE_FRAMES}
                 />

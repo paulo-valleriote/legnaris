@@ -8,19 +8,20 @@ import (
 )
 
 type Sheet struct {
-	ID            string         `bson:"_id,omitempty"`
-	TemplateID    string         `bson:"template_id"`
-	OwnerID       string         `bson:"owner_id"`
-	Kind          plan.SheetKind `bson:"kind"`
-	Name          string         `bson:"name"`
-	Data          map[string]any `bson:"data"`
-	Layout        *Layout        `bson:"layout,omitempty"`
-	Dice          *Dice          `bson:"dice,omitempty"`
-	Version       int64          `bson:"version"`
-	LayoutVersion int64          `bson:"layout_version,omitempty"`
-	CampaignID    *string        `bson:"campaign_id,omitempty"`
-	CreatedAt     time.Time      `bson:"created_at,omitempty"`
-	UpdatedAt     time.Time      `bson:"updated_at,omitempty"`
+	ID                 string         `bson:"_id,omitempty"`
+	TemplateID         string         `bson:"template_id"`
+	OwnerID            string         `bson:"owner_id"`
+	Kind               plan.SheetKind `bson:"kind"`
+	Name               string         `bson:"name"`
+	Data               map[string]any `bson:"data"`
+	Layout             *Layout        `bson:"layout,omitempty"`
+	Dice               *Dice          `bson:"dice,omitempty"`
+	Version            int64          `bson:"version"`
+	LayoutVersion      int64          `bson:"layout_version,omitempty"`
+	LastResetRequestID string         `bson:"last_reset_request_id,omitempty"`
+	CampaignID         *string        `bson:"campaign_id,omitempty"`
+	CreatedAt          time.Time      `bson:"created_at,omitempty"`
+	UpdatedAt          time.Time      `bson:"updated_at,omitempty"`
 }
 
 type Layout struct {

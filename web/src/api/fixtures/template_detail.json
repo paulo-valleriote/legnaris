@@ -11,6 +11,11 @@
       "data": {
         "id": "fantasy_v1",
         "name": "Fantasy Template",
+        "kinds": [
+          "character",
+          "npc",
+          "enemy"
+        ],
         "fields": {
           "identity": {
             "children": {

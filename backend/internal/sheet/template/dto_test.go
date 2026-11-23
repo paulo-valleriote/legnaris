@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"legnaris/backend/internal/plan"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -368,7 +370,7 @@ func TestTemplateDTO_MarshalJSON_PayloadKeys(t *testing.T) {
 		want []string
 	}{
 		{name: "Edge: zero template emits only the base keys", tmpl: Template{}, want: []string{"default", "fields", "id", "name"}},
-		{name: "Happy path: fantasy_v1 emits base keys and dice, no suggested_pins", tmpl: fantasyV1Template, want: []string{"default", "dice", "fields", "id", "name"}},
+		{name: "Happy path: fantasy_v1 emits base keys, kinds and dice, no suggested_pins", tmpl: fantasyV1Template, want: []string{"default", "dice", "fields", "id", "kinds", "name"}},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -385,4 +387,54 @@ func TestTemplateDTO_MarshalJSON_PayloadKeys(t *testing.T) {
 			assert.NotContains(t, payload, "suggested_pins")
 		})
 	}
+}
+
+func TestTemplateDTO_MarshalJSON_Kinds(t *testing.T) {
+	tests := []struct {
+		name  string
+		kinds []plan.SheetKind
+		want  string
+	}{
+		{
+			name:  "Happy path: a template serving every kind carries them in declared order",
+			kinds: []plan.SheetKind{plan.KindCharacter, plan.KindNPC, plan.KindEnemy},
+			want:  `["character","npc","enemy"]`,
+		},
+		{
+			name:  "Edge: a single-kind template carries exactly that kind",
+			kinds: []plan.SheetKind{plan.KindNPC},
+			want:  `["npc"]`,
+		},
+		{
+			name:  "Edge: a template without kinds omits the key",
+			kinds: nil,
+			want:  ``,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, err := json.Marshal(Template{ID: "test", Kinds: tc.kinds}.ToDTO())
+			require.NoError(t, err)
+
+			var payload map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(raw, &payload))
+			if tc.want == "" {
+				assert.NotContains(t, payload, "kinds")
+				return
+			}
+			require.Contains(t, payload, "kinds")
+			assert.JSONEq(t, tc.want, string(payload["kinds"]))
+		})
+	}
+}
+
+func TestTemplateToDTO_CopiesKinds(t *testing.T) {
+	source := Template{ID: "test", Kinds: []plan.SheetKind{plan.KindCharacter}}
+
+	dto := source.ToDTO()
+	require.Len(t, dto.Kinds, 1)
+
+	dto.Kinds[0] = plan.KindEnemy
+	assert.Equal(t, plan.KindCharacter, source.Kinds[0],
+		"mutating the DTO changed the registered template")
 }

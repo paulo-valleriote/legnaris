@@ -10,17 +10,37 @@ import (
 )
 
 type TemplateDTO struct {
-	ID           string        `json:"id"`
-	Name         string        `json:"name"`
-	Fields       FieldGroupDTO `json:"fields"`
-	Default      bool          `json:"default"`
-	SectionOrder []string      `json:"-"`
-	Dice         *DiceDTO      `json:"dice,omitempty"`
+	ID           string           `json:"id"`
+	Name         string           `json:"name"`
+	Kinds        []plan.SheetKind `json:"kinds,omitempty"`
+	Fields       FieldGroupDTO    `json:"fields"`
+	Default      bool             `json:"default"`
+	SectionOrder []string         `json:"-"`
+	Dice         *DiceDTO         `json:"dice,omitempty"`
+	Actions      []ResetActionDTO `json:"actions,omitempty"`
+}
+
+type ResetActionDTO struct {
+	ID          string               `json:"id"`
+	Label       string               `json:"label"`
+	Assignments []ResetAssignmentDTO `json:"assignments"`
+}
+
+type ResetAssignmentDTO struct {
+	Target     string `json:"target"`
+	Expression string `json:"expression"`
+	Filter     string `json:"filter,omitempty"`
 }
 
 type DiceDTO struct {
 	Section map[string]string `json:"section,omitempty"`
 	Row     map[string]string `json:"row,omitempty"`
+	NotD20  *NotD20DTO        `json:"not_d20,omitempty"`
+}
+
+type NotD20DTO struct {
+	Section []string `json:"section,omitempty"`
+	Row     []string `json:"row,omitempty"`
 }
 
 type FieldGroupDTO map[string]FieldNodeDTO
@@ -28,15 +48,26 @@ type FieldGroupDTO map[string]FieldNodeDTO
 type FieldNodeDTO struct {
 	Schema   *FieldSchemaDTO `json:"schema,omitempty"`
 	Children FieldGroupDTO   `json:"children,omitempty"`
+	List     *ListDTO        `json:"list,omitempty"`
 	Label    string          `json:"label,omitempty"`
 	Columns  []string        `json:"columns,omitempty"`
 	Order    []string        `json:"-"`
+}
+
+type ListDTO struct {
+	Label    string        `json:"label"`
+	Columns  []string      `json:"columns,omitempty"`
+	Capacity int           `json:"capacity"`
+	Shape    FieldGroupDTO `json:"shape"`
+	Dice     string        `json:"dice,omitempty"`
+	NotD20   bool          `json:"not_d20,omitempty"`
 }
 
 func (n FieldNodeDTO) MarshalJSON() ([]byte, error) {
 	type payload struct {
 		Schema   *FieldSchemaDTO `json:"schema,omitempty"`
 		Children json.RawMessage `json:"children,omitempty"`
+		List     json.RawMessage `json:"list,omitempty"`
 		Label    string          `json:"label,omitempty"`
 		Columns  []string        `json:"columns,omitempty"`
 	}
@@ -48,7 +79,37 @@ func (n FieldNodeDTO) MarshalJSON() ([]byte, error) {
 		}
 		out.Children = children
 	}
+	if n.List != nil {
+		list, err := n.List.marshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		out.List = list
+	}
 	return json.Marshal(out)
+}
+
+func (l ListDTO) marshalJSON() (json.RawMessage, error) {
+	shape, err := marshalFieldGroup(l.Shape, nil)
+	if err != nil {
+		return nil, err
+	}
+	type payload struct {
+		Label    string          `json:"label"`
+		Columns  []string        `json:"columns,omitempty"`
+		Capacity int             `json:"capacity"`
+		Shape    json.RawMessage `json:"shape"`
+		Dice     string          `json:"dice,omitempty"`
+		NotD20   bool            `json:"not_d20,omitempty"`
+	}
+	return json.Marshal(payload{
+		Label:    l.Label,
+		Columns:  l.Columns,
+		Capacity: l.Capacity,
+		Shape:    shape,
+		Dice:     l.Dice,
+		NotD20:   l.NotD20,
+	})
 }
 
 type FieldSchemaDTO struct {
@@ -64,9 +125,11 @@ type FieldSchemaDTO struct {
 	Generatable      bool             `json:"generatable,omitempty"`
 	GeneratableKinds []plan.SheetKind `json:"generatable_kinds,omitempty"`
 	PreferDefault    bool             `json:"prefer_default,omitempty"`
+	Flag             bool             `json:"flag,omitempty"`
 	Min              *float64         `json:"min,omitempty"`
 	Max              *float64         `json:"max,omitempty"`
 	MaxLength        *int             `json:"max_length,omitempty"`
+	Aggregate        *AggregateSchema `json:"aggregate,omitempty"`
 }
 
 func (t Template) ToDTO() TemplateDTO {
@@ -74,32 +137,74 @@ func (t Template) ToDTO() TemplateDTO {
 		Dice:         diceToDTO(t),
 		ID:           t.ID,
 		Name:         t.Name,
+		Kinds:        slices.Clone(t.Kinds),
 		Fields:       t.Fields.toDTO(),
 		Default:      t.Default,
 		SectionOrder: slices.Clone(t.SectionOrder),
+		Actions:      resetActionsToDTO(t.Actions),
 	}
 }
 
-func diceToDTO(t Template) *DiceDTO {
-	if len(t.SectionDice) == 0 && len(t.RowDice) == 0 {
+func resetActionsToDTO(actions []ResetAction) []ResetActionDTO {
+	if len(actions) == 0 {
 		return nil
 	}
-	return &DiceDTO{Section: maps.Clone(t.SectionDice), Row: maps.Clone(t.RowDice)}
+	dtos := make([]ResetActionDTO, len(actions))
+	for i, action := range actions {
+		assignments := make([]ResetAssignmentDTO, len(action.Assignments))
+		for j, assignment := range action.Assignments {
+			assignments[j] = ResetAssignmentDTO(assignment)
+		}
+		dtos[i] = ResetActionDTO{ID: action.ID, Label: action.Label, Assignments: assignments}
+	}
+	return dtos
+}
+
+func diceToDTO(t Template) *DiceDTO {
+	notD20 := notD20ToDTO(t)
+	if len(t.SectionDice) == 0 && len(t.RowDice) == 0 && notD20 == nil {
+		return nil
+	}
+	return &DiceDTO{
+		Section: maps.Clone(t.SectionDice),
+		Row:     maps.Clone(t.RowDice),
+		NotD20:  notD20,
+	}
+}
+
+func notD20ToDTO(t Template) *NotD20DTO {
+	if len(t.NotD20Sections) == 0 && len(t.NotD20Rows) == 0 {
+		return nil
+	}
+	return &NotD20DTO{
+		Section: slices.Clone(t.NotD20Sections),
+		Row:     slices.Clone(t.NotD20Rows),
+	}
 }
 
 func (d TemplateDTO) MarshalJSON() ([]byte, error) {
 	type payload struct {
-		ID      string          `json:"id"`
-		Name    string          `json:"name"`
-		Fields  json.RawMessage `json:"fields"`
-		Default bool            `json:"default"`
-		Dice    *DiceDTO        `json:"dice,omitempty"`
+		ID      string           `json:"id"`
+		Name    string           `json:"name"`
+		Kinds   []plan.SheetKind `json:"kinds,omitempty"`
+		Fields  json.RawMessage  `json:"fields"`
+		Default bool             `json:"default"`
+		Dice    *DiceDTO         `json:"dice,omitempty"`
+		Actions []ResetActionDTO `json:"actions,omitempty"`
 	}
 	fields, err := marshalFieldGroup(d.Fields, d.SectionOrder)
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(payload{ID: d.ID, Name: d.Name, Fields: fields, Default: d.Default, Dice: d.Dice})
+	return json.Marshal(payload{
+		ID:      d.ID,
+		Name:    d.Name,
+		Kinds:   d.Kinds,
+		Fields:  fields,
+		Default: d.Default,
+		Dice:    d.Dice,
+		Actions: d.Actions,
+	})
 }
 
 func marshalFieldGroup(group FieldGroupDTO, order []string) (json.RawMessage, error) {
@@ -158,9 +263,24 @@ func (n FieldNode) toDTO() FieldNodeDTO {
 	return FieldNodeDTO{
 		Schema:   n.Schema.toDTO(),
 		Children: n.Children.toDTO(),
+		List:     n.List.toDTO(),
 		Label:    n.Label,
 		Columns:  slices.Clone(n.Columns),
 		Order:    slices.Clone(n.Order),
+	}
+}
+
+func (l *ListSchema) toDTO() *ListDTO {
+	if l == nil {
+		return nil
+	}
+	return &ListDTO{
+		Label:    l.Label,
+		Columns:  slices.Clone(l.Columns),
+		Capacity: l.Capacity,
+		Shape:    l.Shape.toDTO(),
+		Dice:     l.Dice,
+		NotD20:   l.NotD20,
 	}
 }
 
@@ -182,8 +302,10 @@ func (s *FieldSchema) toDTO() *FieldSchemaDTO {
 		Generatable:      s.Generatable,
 		GeneratableKinds: slices.Clone(s.GeneratableKinds),
 		PreferDefault:    s.PreferDefault,
+		Flag:             s.Flag,
 		Min:              clonePtr(s.Min),
 		Max:              clonePtr(s.Max),
 		MaxLength:        clonePtr(s.MaxLength),
+		Aggregate:        s.Aggregate.Clone(),
 	}
 }

@@ -71,14 +71,15 @@ type partVector struct {
 }
 
 type evaluateVector struct {
-	Name   string             `json:"name"`
-	Expr   string             `json:"expr"`
-	Row    string             `json:"row"`
-	Values map[string]float64 `json:"values"`
-	Dice   []int              `json:"dice"`
-	Total  float64            `json:"total"`
-	Parts  []partVector       `json:"parts"`
-	Error  string             `json:"error"`
+	Name    string             `json:"name"`
+	Expr    string             `json:"expr"`
+	Row     string             `json:"row"`
+	Values  map[string]float64 `json:"values"`
+	Dice    []int              `json:"dice"`
+	Total   float64            `json:"total"`
+	Minimum *int               `json:"minimum"`
+	Parts   []partVector       `json:"parts"`
+	Error   string             `json:"error"`
 }
 
 func loadVectors(t *testing.T) vectorSet {

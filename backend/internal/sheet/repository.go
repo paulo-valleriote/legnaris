@@ -59,6 +59,10 @@ const diceField = "dice"
 
 const versionField = "version"
 
+const lastResetRequestIDField = "last_reset_request_id"
+
+const sheetIDLogKey = "sheet_id"
+
 const (
 	campaignIDField    = "campaign_id"
 	layoutVersionField = "layout_version"
@@ -156,7 +160,7 @@ func (r *RepositoryImpl) Create(ctx context.Context, sheet *Sheet) error {
 	if err != nil {
 		return fmt.Errorf("error creating sheet: %w", err)
 	}
-	r.logger.Info(ctx, "sheet created", logger.Attribute{Key: "sheet_id", Value: result.InsertedID.(string)})
+	r.logger.Info(ctx, "sheet created", logger.Attribute{Key: sheetIDLogKey, Value: result.InsertedID.(string)})
 	return nil
 }
 

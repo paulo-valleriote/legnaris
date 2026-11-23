@@ -1,5 +1,11 @@
 import { refuse, succeed, type DiceError, type DiceResult } from './errors';
-import { parseDice, termLabel, type Expression, type FieldTerm } from './parse';
+import {
+  parseDice,
+  referenceLabel,
+  termLabel,
+  type Expression,
+  type FieldReference,
+} from './parse';
 
 export type FieldKind = 'number' | 'text' | 'bool';
 
@@ -9,11 +15,30 @@ export function schemaFromKinds(kinds: Readonly<Record<string, FieldKind>>): Dic
   return (path) => (Object.hasOwn(kinds, path) ? kinds[path] : undefined);
 }
 
-export function resolveFieldPath(term: FieldTerm, rowKey: string): string {
-  if (!term.relative) {
-    return term.path;
+export function resolveFieldPath(reference: FieldReference, rowKey: string): string {
+  if (!reference.relative) {
+    return reference.path;
   }
-  return term.column === '' ? rowKey : `${rowKey}.${term.column}`;
+  return reference.column === '' ? rowKey : `${rowKey}.${reference.column}`;
+}
+
+function checkReference(
+  reference: FieldReference,
+  schema: DiceSchema,
+  rowKey: string,
+): DiceError | undefined {
+  const path = resolveFieldPath(reference, rowKey);
+  const kind = schema(path);
+  if (kind === undefined) {
+    return {
+      class: 'unknown_field',
+      message: `"{${referenceLabel(reference)}}" points at "${path}", which does not exist`,
+    };
+  }
+  if (kind !== 'number') {
+    return { class: 'non_numeric_field', message: `"${path}" is not a number` };
+  }
+  return undefined;
 }
 
 export function fitsRow(
@@ -22,6 +47,18 @@ export function fitsRow(
   rowKey: string,
 ): DiceResult<Expression> {
   for (const term of expression.terms) {
+    if (term.kind === 'dice') {
+      for (const reference of [term.countRef, term.facesRef]) {
+        if (reference === undefined) {
+          continue;
+        }
+        const error = checkReference(reference, schema, rowKey);
+        if (error !== undefined) {
+          return { ok: false, error };
+        }
+      }
+      continue;
+    }
     if (term.kind !== 'field') {
       continue;
     }

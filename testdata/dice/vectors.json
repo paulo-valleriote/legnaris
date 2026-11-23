@@ -15,6 +15,8 @@
     "combat.initiative": "number",
     "combat.hitPoints": "number",
     "combat.speed": "number",
+    "hitDice.count": "number",
+    "hitDice.size": "number",
     "attacks.attack1.name": "text",
     "attacks.attack1.damage": "text",
     "attacks.attack1.bonus": "number",
@@ -297,6 +299,71 @@
       "name": "walkthrough 6: negative total expression",
       "expr": "1d4 - 5",
       "canonical": "1d4 - 5"
+    },
+    {
+      "name": "count and faces from Fields",
+      "expr": "{hitDice.count}d{hitDice.size}",
+      "canonical": "{hitDice.count}d{hitDice.size}"
+    },
+    {
+      "name": "count from this Row column",
+      "expr": "{@.count}d8",
+      "canonical": "{@.count}d8"
+    },
+    {
+      "name": "count from this Row",
+      "expr": "{@}d6",
+      "canonical": "{@}d6"
+    },
+    {
+      "name": "faces from a Field with an implicit count",
+      "expr": "d{hitDice.size}",
+      "canonical": "1d{hitDice.size}"
+    },
+    {
+      "name": "upper-case D with Field parts",
+      "expr": "{hitDice.count}D{hitDice.size}",
+      "canonical": "{hitDice.count}d{hitDice.size}"
+    },
+    {
+      "name": "minimum on the total",
+      "expr": "1d{hitDice.size} + modifiers.constitutionMod min 1",
+      "canonical": "1d{hitDice.size} + modifiers.constitutionMod min 1"
+    },
+    {
+      "name": "minimum zero",
+      "expr": "1d4 min 0",
+      "canonical": "1d4 min 0"
+    },
+    {
+      "name": "highest minimum",
+      "expr": "1d4 min 9999",
+      "canonical": "1d4 min 9999"
+    },
+    {
+      "name": "leading zeros in the minimum",
+      "expr": "1d4 min 007",
+      "canonical": "1d4 min 7"
+    },
+    {
+      "name": "minimum with tabs",
+      "expr": "1d6\tmin\t2",
+      "canonical": "1d6 min 2"
+    },
+    {
+      "name": "a Field named min",
+      "expr": "1d20 + min",
+      "canonical": "1d20 + min"
+    },
+    {
+      "name": "a Field named min inside braces",
+      "expr": "1d{min}",
+      "canonical": "1d{min}"
+    },
+    {
+      "name": "minimum after a Field term",
+      "expr": "1d20 + stats.dexterity min 5",
+      "canonical": "1d20 + stats.dexterity min 5"
     }
   ],
   "invalid": [
@@ -694,6 +761,81 @@
       "name": "bare keep with leading zeros",
       "expr": "1d20 + kh01",
       "class": "unreadable_term"
+    },
+    {
+      "name": "unclosed count brace",
+      "expr": "{hitDice.countd6",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "unclosed faces brace",
+      "expr": "1d{hitDice.size",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "nested count braces",
+      "expr": "{{hitDice.count}}d6",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "nested faces braces",
+      "expr": "1d{{hitDice.size}}",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "empty count braces",
+      "expr": "{}d6",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "empty faces braces",
+      "expr": "1d{}",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "digits inside braces",
+      "expr": "{2}d6",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "at with two columns inside braces",
+      "expr": "{@.a.b}d6",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "count brace after a number",
+      "expr": "1{hitDice.count}d6",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "min without a number",
+      "expr": "1d20 min",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "min twice",
+      "expr": "1d20 min 1 min 2",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "min mid-expression",
+      "expr": "1d20 min 1 + 2",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "negative min",
+      "expr": "1d20 min -1",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "fractional min",
+      "expr": "1d20 min 1.5",
+      "class": "unreadable_term"
+    },
+    {
+      "name": "min beyond the whole-number range",
+      "expr": "1d20 min 10000",
+      "class": "number_range"
     }
   ],
   "fit": [
@@ -894,6 +1036,57 @@
       "row": "combat.initiative",
       "fits": false,
       "class": "unknown_field"
+    },
+    {
+      "name": "count from a Field",
+      "expr": "1d{stats.dexterity}",
+      "row": "combat.initiative",
+      "fits": true
+    },
+    {
+      "name": "faces from a Field",
+      "expr": "1d{stats.dexterity}",
+      "row": "combat.initiative",
+      "fits": true
+    },
+    {
+      "name": "count and faces from numeric Fields",
+      "expr": "{stats.dexterity}d{stats.strength}",
+      "row": "combat.initiative",
+      "fits": true
+    },
+    {
+      "name": "count from a text Field",
+      "expr": "1d{identity.name}",
+      "row": "combat.initiative",
+      "fits": false,
+      "class": "non_numeric_field"
+    },
+    {
+      "name": "faces from a missing Field",
+      "expr": "1d{nope.nothing}",
+      "row": "combat.initiative",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "count from this Row column on a table Row",
+      "expr": "{@.bonus}d6",
+      "row": "skills.acrobatics",
+      "fits": true
+    },
+    {
+      "name": "faces from this Row text column",
+      "expr": "1d{@.name}",
+      "row": "attacks.attack1",
+      "fits": false,
+      "class": "non_numeric_field"
+    },
+    {
+      "name": "minimum does not change fit",
+      "expr": "1d{modifiers.dexterityMod} min 1",
+      "row": "stats.dexterity",
+      "fits": true
     }
   ],
   "sections": [
@@ -1578,6 +1771,267 @@
           "value": 1
         }
       ]
+    },
+    {
+      "name": "count and faces from Fields",
+      "expr": "{hitDice.count}d{hitDice.size}",
+      "row": "combat.initiative",
+      "values": {
+        "hitDice.count": 2,
+        "hitDice.size": 6
+      },
+      "dice": [
+        3,
+        5
+      ],
+      "total": 8,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "2d6",
+          "value": 8,
+          "rolls": [
+            3,
+            5
+          ]
+        }
+      ]
+    },
+    {
+      "name": "count from a Field with literal faces",
+      "expr": "{hitDice.count}d8",
+      "row": "combat.initiative",
+      "values": {
+        "hitDice.count": 3
+      },
+      "dice": [
+        1,
+        2,
+        3
+      ],
+      "total": 6,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "3d8",
+          "value": 6,
+          "rolls": [
+            1,
+            2,
+            3
+          ]
+        }
+      ]
+    },
+    {
+      "name": "faces from a Field with an implicit count",
+      "expr": "d{hitDice.size}",
+      "row": "combat.initiative",
+      "values": {
+        "hitDice.size": 8
+      },
+      "dice": [
+        7
+      ],
+      "total": 7,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d8",
+          "value": 7,
+          "rolls": [
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "name": "fractional count and faces are floored",
+      "expr": "{hitDice.count}d{hitDice.size}",
+      "row": "combat.initiative",
+      "values": {
+        "hitDice.count": 2.7,
+        "hitDice.size": 6.9
+      },
+      "dice": [
+        3,
+        4
+      ],
+      "total": 7,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "2d6",
+          "value": 7,
+          "rolls": [
+            3,
+            4
+          ]
+        }
+      ]
+    },
+    {
+      "name": "minimum raises a total below it",
+      "expr": "1d4 + 1 min 10",
+      "row": "combat.initiative",
+      "values": {},
+      "dice": [
+        1
+      ],
+      "total": 10,
+      "minimum": 10,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d4",
+          "value": 1,
+          "rolls": [
+            1
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "1",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "name": "a total at the minimum is unchanged",
+      "expr": "1d4 + 1 min 5",
+      "row": "combat.initiative",
+      "values": {},
+      "dice": [
+        4
+      ],
+      "total": 5,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d4",
+          "value": 4,
+          "rolls": [
+            4
+          ]
+        },
+        {
+          "sign": 1,
+          "label": "1",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "name": "a total above the minimum is unchanged",
+      "expr": "1d4 min 2",
+      "row": "combat.initiative",
+      "values": {},
+      "dice": [
+        4
+      ],
+      "total": 4,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d4",
+          "value": 4,
+          "rolls": [
+            4
+          ]
+        }
+      ]
+    },
+    {
+      "name": "minimum zero raises a negative total",
+      "expr": "1d4 - 6 min 0",
+      "row": "combat.initiative",
+      "values": {},
+      "dice": [
+        1
+      ],
+      "total": 0,
+      "minimum": 0,
+      "parts": [
+        {
+          "sign": 1,
+          "label": "1d4",
+          "value": 1,
+          "rolls": [
+            1
+          ]
+        },
+        {
+          "sign": -1,
+          "label": "6",
+          "value": 6
+        }
+      ]
+    },
+    {
+      "name": "count from a Field of zero",
+      "expr": "{hitDice.count}d6",
+      "row": "combat.initiative",
+      "values": {
+        "hitDice.count": 0
+      },
+      "dice": [],
+      "error": "dice_count"
+    },
+    {
+      "name": "count from a Field above the limit",
+      "expr": "{hitDice.count}d6",
+      "row": "combat.initiative",
+      "values": {
+        "hitDice.count": 21
+      },
+      "dice": [],
+      "error": "dice_count"
+    },
+    {
+      "name": "count from a Field below one after flooring",
+      "expr": "{hitDice.count}d6",
+      "row": "combat.initiative",
+      "values": {
+        "hitDice.count": 0.9
+      },
+      "dice": [],
+      "error": "dice_count"
+    },
+    {
+      "name": "count from a missing Field",
+      "expr": "{hitDice.count}d6",
+      "row": "combat.initiative",
+      "values": {},
+      "dice": [],
+      "error": "no_value"
+    },
+    {
+      "name": "faces from a Field of zero",
+      "expr": "1d{hitDice.size}",
+      "row": "combat.initiative",
+      "values": {
+        "hitDice.size": 0
+      },
+      "dice": [],
+      "error": "dice_faces"
+    },
+    {
+      "name": "faces from a Field above the limit",
+      "expr": "1d{hitDice.size}",
+      "row": "combat.initiative",
+      "values": {
+        "hitDice.size": 1001
+      },
+      "dice": [],
+      "error": "dice_faces"
+    },
+    {
+      "name": "faces from a missing Field",
+      "expr": "1d{hitDice.size}",
+      "row": "combat.initiative",
+      "values": {},
+      "dice": [],
+      "error": "no_value"
     },
     {
       "name": "total overflows to infinity",

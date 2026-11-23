@@ -16,13 +16,20 @@ import (
 )
 
 type DAG struct {
-	mu               sync.RWMutex
-	templateID       string
-	nodes            map[string]*Node
-	adjacencyList    map[string][]string
-	topologicalOrder []string
-	exclusiveGroups  map[string][]string
-	formulaEngine    *engine.FormulaEngine
+	mu                  sync.RWMutex
+	templateID          string
+	nodes               map[string]*Node
+	adjacencyList       map[string][]string
+	topologicalOrder    []string
+	exclusiveGroups     map[string][]string
+	lists               map[string]ListSchema
+	recordNodes         map[string]*recordNode
+	recordNodesByList   map[string][]string
+	aggregates          map[string]AggregateSchema
+	aggregatesByList    map[string][]string
+	listExclusiveGroups map[string]map[string][]string
+	actions             map[string]*compiledResetAction
+	formulaEngine       *engine.FormulaEngine
 }
 
 type Node struct {
@@ -30,6 +37,8 @@ type Node struct {
 	FormulaString   string
 	compiledFormula *vm.Program
 	IsEditable      bool
+	isFlag          bool
+	isNumber        bool
 	maxLength       int
 }
 
@@ -39,6 +48,17 @@ func (n Node) IsDerived() bool {
 
 func (n Node) MapKey() string {
 	return n.Path.String()
+}
+
+func (n Node) checkFlagValue(value any) error {
+	if !n.isFlag {
+		return nil
+	}
+	number, ok := maputils.ToFloat64(value)
+	if !ok || (number != 0 && number != 1) {
+		return ErrFlagValue(n.MapKey())
+	}
+	return nil
 }
 
 func (n Node) checkTextLength(value any) error {
@@ -87,6 +107,15 @@ func (d *DAG) GetChildren(key string) []string {
 }
 
 func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (*DAG, error) {
+	return BuildDAGWithActions(templateID, fields, nil, eng)
+}
+
+func BuildDAGWithActions(
+	templateID string,
+	fields FieldGroup,
+	actions []ResetAction,
+	eng *engine.FormulaEngine,
+) (*DAG, error) {
 	if eng == nil {
 		return nil, ErrNilFormulaEngine
 	}
@@ -95,12 +124,15 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 		return nil, err
 	}
 
-	leafSchemas, leafPaths := collectLeaves(fields)
-	if len(leafSchemas) == 0 {
-		return newDAG(templateID, eng), nil
+	lists, err := collectLists(fields, Path{})
+	if err != nil {
+		return nil, err
 	}
 
 	dag := newDAG(templateID, eng)
+	dag.lists = lists
+
+	leafSchemas, leafPaths := collectLeaves(fields)
 	compilationEnv := buildCompilationEnv(leafPaths)
 
 	if err := dag.buildAdjacencyList(leafSchemas, leafPaths); err != nil {
@@ -113,7 +145,19 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 
 	dag.exclusiveGroups = buildExclusiveGroups(leafSchemas, leafPaths)
 
-	topoOrder, err := topologicalSort(dag.nodes, dag.adjacencyList)
+	if err := dag.buildAggregates(leafSchemas, leafPaths, lists); err != nil {
+		return nil, err
+	}
+
+	if err := dag.buildRecordNodes(compilationEnv); err != nil {
+		return nil, err
+	}
+
+	if err := dag.buildActions(actions, compilationEnv); err != nil {
+		return nil, err
+	}
+
+	topoOrder, err := topologicalSort(dag.graphKeys(), dag.adjacencyList)
 	if err != nil {
 		return nil, err
 	}
@@ -124,12 +168,30 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 
 func newDAG(templateID string, eng *engine.FormulaEngine) *DAG {
 	return &DAG{
-		templateID:      templateID,
-		nodes:           make(map[string]*Node),
-		adjacencyList:   make(map[string][]string),
-		exclusiveGroups: make(map[string][]string),
-		formulaEngine:   eng,
+		templateID:          templateID,
+		nodes:               make(map[string]*Node),
+		adjacencyList:       make(map[string][]string),
+		exclusiveGroups:     make(map[string][]string),
+		lists:               make(map[string]ListSchema),
+		recordNodes:         make(map[string]*recordNode),
+		recordNodesByList:   make(map[string][]string),
+		aggregates:          make(map[string]AggregateSchema),
+		aggregatesByList:    make(map[string][]string),
+		listExclusiveGroups: make(map[string]map[string][]string),
+		actions:             make(map[string]*compiledResetAction),
+		formulaEngine:       eng,
 	}
+}
+
+func (d *DAG) graphKeys() map[string]bool {
+	keys := make(map[string]bool, len(d.nodes)+len(d.recordNodes))
+	for key := range d.nodes {
+		keys[key] = true
+	}
+	for key := range d.recordNodes {
+		keys[key] = true
+	}
+	return keys
 }
 
 func collectLeaves(group FieldGroup) ([]*FieldSchema, []Path) {
@@ -158,11 +220,18 @@ var fieldNameRe = regexp.MustCompile(fieldNamePattern)
 const fieldNameRule = "must start with a letter and contain only ASCII letters " +
 	"and digits ('.' and '_' are not allowed: they make DAG map keys collide with engine keys)"
 
+const reservedRecordField = "record"
+
+const recordReservedRule = "'record' is reserved for record-scoped formulas"
+
 func validateFieldNames(group FieldGroup, prefix Path) error {
 	for name, node := range group {
 		currentPath := append(append(Path{}, prefix...), name)
 		if !fieldNameRe.MatchString(name) {
 			return ErrInvalidFieldName(currentPath.String(), fieldNameRule)
+		}
+		if len(prefix) == 0 && name == reservedRecordField {
+			return ErrInvalidFieldName(name, recordReservedRule)
 		}
 		if node.IsGroup() {
 			if err := validateFieldNames(node.Children, currentPath); err != nil {
@@ -211,6 +280,8 @@ func (d *DAG) compileNodeFormulas(schemas []*FieldSchema, paths []Path, compilat
 			Path:          path,
 			FormulaString: schema.Formula,
 			IsEditable:    schema.IsEditable,
+			isFlag:        schema.Flag,
+			isNumber:      schema.Type == fieldTypeNumber,
 		}
 
 		if schema.MaxLength != nil {
@@ -258,14 +329,22 @@ const (
 	nodeVisited
 )
 
-func topologicalSort(nodes map[string]*Node, adj map[string][]string) ([]string, error) {
-	if cycle := detectCycle(nodes, adj); cycle != nil {
+func topologicalSort(nodes map[string]bool, adj map[string][]string) ([]string, error) {
+	if cycle := detectCycleKeys(nodes, adj); cycle != nil {
 		return nil, ErrCycleDetected(cycle)
 	}
 	return kahnTopoSort(nodes, adj)
 }
 
 func detectCycle(nodes map[string]*Node, adj map[string][]string) []string {
+	keys := make(map[string]bool, len(nodes))
+	for key := range nodes {
+		keys[key] = true
+	}
+	return detectCycleKeys(keys, adj)
+}
+
+func detectCycleKeys(nodes map[string]bool, adj map[string][]string) []string {
 	state := make(map[string]int, len(nodes))
 	for node := range nodes {
 		if state[node] != nodeUnvisited {
@@ -304,7 +383,7 @@ func cycleFromPath(path []string, start string) []string {
 	return slices.Clone(path)
 }
 
-func kahnTopoSort(nodes map[string]*Node, adj map[string][]string) ([]string, error) {
+func kahnTopoSort(nodes map[string]bool, adj map[string][]string) ([]string, error) {
 	inDegree := initInDegree(nodes, adj)
 
 	var queue []string
@@ -343,7 +422,7 @@ func kahnTopoSort(nodes map[string]*Node, adj map[string][]string) ([]string, er
 	return topoOrder, nil
 }
 
-func initInDegree(nodes map[string]*Node, adj map[string][]string) map[string]int {
+func initInDegree(nodes map[string]bool, adj map[string][]string) map[string]int {
 	inDegree := make(map[string]int, len(nodes))
 	for key := range nodes {
 		inDegree[key] = 0
@@ -374,8 +453,14 @@ func (d *DAG) recalculateLocked(originalData, updatedData map[string]any) (map[s
 	if err := d.validateUpdateKeysLocked(updatedData); err != nil {
 		return nil, err
 	}
+	return d.recalculateFromLocked(originalData, originalData, updatedData, nil)
+}
 
-	sheetData, engineEnv, err := d.prepareData(originalData, updatedData)
+func (d *DAG) recalculateFromLocked(
+	originalData, baseData, updatedData map[string]any,
+	touchedLists []string,
+) (map[string]any, error) {
+	sheetData, engineEnv, err := d.prepareData(baseData, updatedData)
 	if err != nil {
 		return nil, err
 	}
@@ -384,13 +469,20 @@ func (d *DAG) recalculateLocked(originalData, updatedData map[string]any) (map[s
 	if err != nil {
 		return nil, err
 	}
+	d.markTouchedLists(needsRecalc, touchedLists)
 
-	changedDerived, err := d.walkTopological(sheetData, engineEnv, needsRecalc)
-	if err != nil {
-		return nil, err
+	return d.walkTopological(sheetData, engineEnv, needsRecalc)
+}
+
+func (d *DAG) markTouchedLists(needsRecalc map[string]bool, touchedLists []string) {
+	for _, listPath := range touchedLists {
+		for _, key := range d.recordNodesByList[listPath] {
+			needsRecalc[key] = true
+		}
+		for _, key := range d.aggregatesByList[listPath] {
+			needsRecalc[key] = true
+		}
 	}
-
-	return changedDerived, nil
 }
 
 func changedUpdates(originalData, updatedData map[string]any) (map[string]bool, error) {
@@ -435,11 +527,18 @@ func (d *DAG) validateUpdateKeysLocked(updatedData map[string]any) error {
 		if !ok {
 			continue
 		}
-		if err := node.checkTextLength(updatedData[key]); err != nil {
+		if err := checkNodeValue(node, updatedData[key]); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func checkNodeValue(node *Node, value any) error {
+	if err := node.checkFlagValue(value); err != nil {
+		return err
+	}
+	return node.checkTextLength(value)
 }
 
 func (d *DAG) hasNodePrefix(key string) bool {
@@ -464,13 +563,16 @@ func (d *DAG) ValidateUpdateKeys(updates map[string]any) error {
 }
 
 func (d *DAG) validateEditableLocked(updates map[string]any) error {
-	for key := range updates {
+	for _, key := range slices.Sorted(maps.Keys(updates)) {
 		node, ok := d.nodes[key]
 		if !ok {
 			return ErrUnknownField(key)
 		}
 		if !node.IsEditable {
 			return ErrNotEditable(key)
+		}
+		if err := checkNodeValue(node, updates[key]); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -498,11 +600,103 @@ func (d *DAG) NormalizeAndRecalculate(originalData, updatedData map[string]any) 
 		return nil, nil, err
 	}
 
-	cascading, err = d.recalculateLocked(originalData, normalized)
+	cascading, err = d.recalculateFromLocked(originalData, originalData, normalized, nil)
 	if err != nil {
 		return nil, nil, err
 	}
 	return normalized, cascading, nil
+}
+
+type SaveCalculation struct {
+	Normalized    map[string]any
+	RecordUpdates []RecordUpdate
+	Merged        map[string]any
+	Cascade       map[string]any
+}
+
+func (d *DAG) CalculateSave(originalData, flatUpdates map[string]any) (SaveCalculation, error) {
+	if d == nil {
+		return SaveCalculation{}, ErrNilDAG
+	}
+	if err := validateRecalculateInputs(originalData, flatUpdates); err != nil {
+		return SaveCalculation{}, err
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	static, records, err := d.splitRecordUpdatesLocked(flatUpdates)
+	if err != nil {
+		return SaveCalculation{}, err
+	}
+	return d.saveLocked(originalData, static, records)
+}
+
+func (d *DAG) NormalizeAndRecalculateWithRecords(
+	originalData, updatedData map[string]any,
+	records []RecordUpdate,
+) (SaveCalculation, error) {
+	if d == nil {
+		return SaveCalculation{}, ErrNilDAG
+	}
+	if err := validateRecalculateInputs(originalData, updatedData); err != nil {
+		return SaveCalculation{}, err
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	return d.saveLocked(originalData, updatedData, records)
+}
+
+func (d *DAG) saveLocked(
+	originalData, updatedData map[string]any,
+	records []RecordUpdate,
+) (SaveCalculation, error) {
+	if err := d.validateEditableLocked(updatedData); err != nil {
+		return SaveCalculation{}, err
+	}
+
+	normalized, err := d.normalizeExclusiveUpdatesLocked(updatedData)
+	if err != nil {
+		return SaveCalculation{}, err
+	}
+
+	merged := maputils.DeepCopy(originalData)
+	if err := d.applyRecordUpdatesLocked(merged, records); err != nil {
+		return SaveCalculation{}, err
+	}
+
+	cascade, err := d.recalculateFromLocked(originalData, merged, normalized, touchedLists(records))
+	if err != nil {
+		return SaveCalculation{}, err
+	}
+	if err := maputils.ApplyUpdates(merged, normalized); err != nil {
+		return SaveCalculation{}, err
+	}
+	if err := maputils.ApplyUpdates(merged, cascade); err != nil {
+		return SaveCalculation{}, err
+	}
+
+	return SaveCalculation{
+		Normalized:    normalized,
+		RecordUpdates: records,
+		Merged:        merged,
+		Cascade:       cascade,
+	}, nil
+}
+
+func touchedLists(records []RecordUpdate) []string {
+	seen := make(map[string]bool, len(records))
+	lists := make([]string, 0, len(records))
+	for _, record := range records {
+		if seen[record.ListPath] {
+			continue
+		}
+		seen[record.ListPath] = true
+		lists = append(lists, record.ListPath)
+	}
+	return lists
 }
 
 func (d *DAG) NormalizeExclusiveUpdates(updates map[string]any) (map[string]any, error) {
@@ -582,8 +776,8 @@ func copyFlatUpdates(updates map[string]any) map[string]any {
 	return copied
 }
 
-func (d *DAG) prepareData(originalData, updatedData map[string]any) (map[string]any, map[string]any, error) {
-	sheetData := maputils.DeepCopy(originalData)
+func (d *DAG) prepareData(baseData, updatedData map[string]any) (map[string]any, map[string]any, error) {
+	sheetData := maputils.DeepCopy(baseData)
 	if err := maputils.ApplyUpdates(sheetData, updatedData); err != nil {
 		return nil, nil, err
 	}
@@ -602,8 +796,14 @@ func (d *DAG) walkTopological(sheetData, engineEnv map[string]any, needsRecalc m
 			continue
 		}
 
-		node := d.nodes[nodeKey]
-		propagated, err := d.processNode(node, sheetData, engineEnv, changedDerived)
+		var propagated bool
+		var err error
+		if record, ok := d.recordNodes[nodeKey]; ok {
+			propagated, err = d.processRecordNode(record, sheetData, engineEnv, changedDerived)
+		} else {
+			node := d.nodes[nodeKey]
+			propagated, err = d.processNode(node, sheetData, engineEnv, changedDerived)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -637,6 +837,10 @@ func (d *DAG) processNode(node *Node, sheetData, engineEnv map[string]any, chang
 		return false, ErrNilNode
 	}
 
+	if aggregate, ok := d.aggregates[node.MapKey()]; ok {
+		return d.processAggregate(node, aggregate, sheetData, engineEnv, changedDerived)
+	}
+
 	if !node.IsDerived() {
 		return true, nil
 	}
@@ -660,4 +864,23 @@ func (d *DAG) processNode(node *Node, sheetData, engineEnv map[string]any, chang
 	}
 
 	return false, nil
+}
+
+func (d *DAG) processAggregate(
+	node *Node,
+	aggregate AggregateSchema,
+	sheetData, engineEnv map[string]any,
+	changedDerived map[string]any,
+) (bool, error) {
+	newValue := d.aggregateValue(aggregate, sheetData)
+	oldValue, _ := node.Path.Get(sheetData)
+	if maputils.Equal(oldValue, newValue) {
+		return false, nil
+	}
+	if err := node.Path.Set(sheetData, newValue); err != nil {
+		return false, err
+	}
+	engineEnv[node.Path.EngineKey()] = newValue
+	changedDerived[node.MapKey()] = newValue
+	return true, nil
 }

@@ -1,7 +1,10 @@
 import { parseDiceDefaults, type DiceDefaults } from './dice';
+import { SHEET_KINDS } from './plan';
+import type { SheetKind } from './plan';
 import {
   drift,
   isPlainObject,
+  optionalBoolean,
   optionalString,
   requireBoolean,
   requireString,
@@ -18,6 +21,7 @@ export interface FieldSchema {
   readonly exclusiveGroup?: string;
   readonly optionLabel?: string;
   readonly columnLabel?: string;
+  readonly flag?: boolean;
 }
 
 export interface LeafNode {
@@ -32,14 +36,42 @@ export interface GroupNode {
   readonly columns?: readonly string[];
 }
 
-export type FieldNode = LeafNode | GroupNode;
+export interface ListSchema {
+  readonly label: string;
+  readonly columns?: readonly string[];
+  readonly capacity: number;
+  readonly shape: Record<string, LeafNode>;
+  readonly dice?: string;
+  readonly notD20?: boolean;
+}
+
+export interface ListNode {
+  readonly kind: 'list';
+  readonly list: ListSchema;
+}
+
+export type FieldNode = LeafNode | GroupNode | ListNode;
+
+export interface ResetAssignment {
+  readonly target: string;
+  readonly expression: string;
+  readonly filter?: string;
+}
+
+export interface ResetAction {
+  readonly id: string;
+  readonly label: string;
+  readonly assignments: readonly ResetAssignment[];
+}
 
 export interface TemplateDetail {
   readonly id: string;
   readonly name: string;
+  readonly kinds: readonly SheetKind[];
   readonly fields: Record<string, FieldNode>;
   readonly default: boolean;
   readonly dice?: DiceDefaults;
+  readonly actions?: readonly ResetAction[];
 }
 
 export type TemplateSummary = TemplateDetail;
@@ -84,6 +116,7 @@ function parseFieldSchema(value: unknown): FieldSchema {
     exclusiveGroup: optionalString(value, 'exclusive_group'),
     optionLabel: optionalString(value, 'option_label'),
     columnLabel: optionalString(value, 'column_label'),
+    flag: optionalBoolean(value, 'flag'),
   };
 }
 
@@ -106,6 +139,34 @@ function parseColumns(value: unknown): readonly string[] | undefined {
   return columns;
 }
 
+function parseListShape(value: unknown): Record<string, LeafNode> {
+  const group = parseFieldGroup(value);
+  const shape: Record<string, LeafNode> = {};
+  for (const [key, node] of Object.entries(group)) {
+    if (node.kind !== 'leaf') {
+      throw drift('template list shape holds a node that is not a leaf');
+    }
+    shape[key] = node;
+  }
+  return shape;
+}
+
+function parseListSchema(value: unknown): ListSchema {
+  if (!isPlainObject(value)) {
+    throw drift('template list is not an object');
+  }
+
+  const dice = optionalString(value, 'dice');
+  return {
+    label: requireString(value, 'label'),
+    columns: parseColumns(value['columns']),
+    capacity: requireNumber(value, 'capacity'),
+    shape: parseListShape(value['shape']),
+    ...(dice === undefined ? {} : { dice }),
+    ...(value['not_d20'] === true ? { notD20: true } : {}),
+  };
+}
+
 function parseFieldNode(value: unknown): FieldNode {
   if (!isPlainObject(value)) {
     throw drift('template field node is not an object');
@@ -113,6 +174,10 @@ function parseFieldNode(value: unknown): FieldNode {
 
   if (value['schema'] !== undefined && value['schema'] !== null) {
     return { kind: 'leaf', schema: parseFieldSchema(value['schema']) };
+  }
+
+  if (value['list'] !== undefined && value['list'] !== null) {
+    return { kind: 'list', list: parseListSchema(value['list']) };
   }
 
   if (value['children'] !== undefined && value['children'] !== null) {
@@ -124,7 +189,7 @@ function parseFieldNode(value: unknown): FieldNode {
     };
   }
 
-  throw drift('template field node carries neither a schema nor children');
+  throw drift('template field node carries neither a schema, children nor a list');
 }
 
 function parseFieldGroup(value: unknown): Record<string, FieldNode> {
@@ -139,6 +204,68 @@ function parseFieldGroup(value: unknown): Record<string, FieldNode> {
   return nodes;
 }
 
+function parseKinds(value: unknown): readonly SheetKind[] {
+  if (value === undefined) {
+    return [];
+  }
+
+  if (!Array.isArray(value)) {
+    throw drift('template "kinds" is not a list');
+  }
+
+  const kinds: SheetKind[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string') {
+      throw drift('template "kinds" holds a non-string entry');
+    }
+    const match = SHEET_KINDS.find((kind) => kind === entry);
+    if (match === undefined) {
+      throw drift('template "kinds" holds an unknown kind');
+    }
+    kinds.push(match);
+  }
+  return kinds;
+}
+
+function parseResetAssignments(value: unknown): readonly ResetAssignment[] {
+  if (!Array.isArray(value)) {
+    throw drift('template action "assignments" is not a list');
+  }
+
+  return value.map((entry) => {
+    if (!isPlainObject(entry)) {
+      throw drift('template action "assignments" holds a malformed assignment');
+    }
+    const filter = optionalString(entry, 'filter');
+    return {
+      target: requireString(entry, 'target'),
+      expression: requireString(entry, 'expression'),
+      ...(filter === undefined ? {} : { filter }),
+    };
+  });
+}
+
+function parseResetActions(value: unknown): readonly ResetAction[] | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw drift('template "actions" is not a list');
+  }
+
+  return value.map((entry) => {
+    if (!isPlainObject(entry)) {
+      throw drift('template "actions" holds a malformed action');
+    }
+    return {
+      id: requireString(entry, 'id'),
+      label: requireString(entry, 'label'),
+      assignments: parseResetAssignments(entry['assignments']),
+    };
+  });
+}
+
 function parseTemplate(value: unknown): TemplateDetail {
   if (!isPlainObject(value)) {
     throw drift('template payload is not an object');
@@ -151,9 +278,11 @@ function parseTemplate(value: unknown): TemplateDetail {
   return {
     id: requireString(value, 'id'),
     name: requireString(value, 'name'),
+    kinds: parseKinds(value['kinds']),
     default: requireBoolean(value, 'default'),
     fields: parseFieldGroup(value['fields']),
     dice: parseDiceDefaults(value['dice']),
+    actions: parseResetActions(value['actions']),
   };
 }
 

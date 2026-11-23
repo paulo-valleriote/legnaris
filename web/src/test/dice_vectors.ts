@@ -42,6 +42,7 @@ export interface DiceVectors {
     values: Readonly<Record<string, number>>;
     dice: readonly number[];
     total?: number;
+    minimum?: number;
     parts?: readonly DiceVectorPart[];
     error?: string;
   }[];

@@ -31,6 +31,7 @@ func (sc *SheetController) RegisterRoutes(group *echo.Group) {
 	group.PATCH("/:id", sc.PartialUpdate)
 	group.DELETE("/:id", sc.Delete)
 	group.POST("/:id/preview", sc.Preview)
+	group.POST("/:id/resets/:actionId", sc.Reset)
 	group.PUT("/:id/layout", sc.SetLayout)
 	group.POST("/:id/duplicate", sc.Duplicate)
 }
@@ -130,6 +131,25 @@ func (sc *SheetController) Preview(c *echo.Context) error {
 		return err
 	}
 	return response.OK(c, cascadingEffects)
+}
+
+func (sc *SheetController) Reset(c *echo.Context) error {
+	var cmd sheet.ResetActionCommand
+
+	if err := json.Decode(c, &cmd); err != nil {
+		return decodeError(err)
+	}
+
+	ownerID, _ := auth.UserID(c)
+	cmd.SheetID = c.Param("id")
+	cmd.ActionID = c.Param("actionId")
+	cmd.OwnerID = ownerID
+
+	effects, err := sc.service.Reset(c.Request().Context(), cmd)
+	if err != nil {
+		return err
+	}
+	return response.OK(c, effects)
 }
 
 type SetLayoutResponse struct {
