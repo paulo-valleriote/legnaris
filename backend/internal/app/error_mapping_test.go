@@ -77,6 +77,9 @@ func newErrorTestDAG(t *testing.T) sheettest.DAGMap {
 				},
 			}},
 		}},
+		"features": {Children: template.FieldGroup{
+			"enabled": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 0, Flag: true}},
+		}},
 	}
 
 	dag, err := template.BuildDAG("fantasy_v1", fields, engine.NewFormulaEngine())
@@ -173,6 +176,7 @@ func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 			Data: map[string]any{
 				"stats":     map[string]any{"dexterity": 10.0},
 				"modifiers": map[string]any{"dexterityMod": 0.0},
+				"features":  map[string]any{"enabled": 0.0},
 			},
 		}
 	}
@@ -195,6 +199,21 @@ func TestErrorMapping_PatchFieldErrors(t *testing.T) {
 		{
 			name:     "Error: over-length note returns 400 INVALID_REQUEST",
 			payload:  `{"data":{"attacks":{"attack1":{"notes":"123456"}}}}`,
+			wantCode: "INVALID_REQUEST",
+		},
+		{
+			name:     "Error: a flag value of two returns 400 INVALID_REQUEST",
+			payload:  `{"data":{"features":{"enabled":2}}}`,
+			wantCode: "INVALID_REQUEST",
+		},
+		{
+			name:     "Error: a string flag value returns 400 INVALID_REQUEST",
+			payload:  `{"data":{"features":{"enabled":"1"}}}`,
+			wantCode: "INVALID_REQUEST",
+		},
+		{
+			name:     "Error: a null flag value returns 400 INVALID_REQUEST",
+			payload:  `{"data":{"features":{"enabled":null}}}`,
 			wantCode: "INVALID_REQUEST",
 		},
 	}
@@ -322,6 +341,9 @@ func newPreviewErrorDAG(t *testing.T) sheettest.DAGMap {
 				},
 			}},
 		}},
+		"features": {Children: template.FieldGroup{
+			"enabled": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 0, Flag: true}},
+		}},
 	}
 
 	dag, err := template.BuildDAG("fantasy_v1", fields, engine.NewFormulaEngine())
@@ -340,6 +362,7 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 				"stats":     map[string]any{"dexterity": 14.0},
 				"modifiers": map[string]any{"dexterityMod": 2.0},
 				"config":    map[string]any{"acUsesDex": 1.0, "acUsesCon": 0.0},
+				"features":  map[string]any{"enabled": 0.0},
 			},
 		}
 	}
@@ -437,6 +460,21 @@ func TestErrorMapping_PreviewSheet(t *testing.T) {
 				payload:  `{"data":{"attacks":{"attack1":{"notes":"123456"}}}}`,
 				wantCode: "INVALID_REQUEST",
 			},
+			{
+				name:     "Error: a flag value of two returns 400 INVALID_REQUEST",
+				payload:  `{"data":{"features":{"enabled":2}}}`,
+				wantCode: "INVALID_REQUEST",
+			},
+			{
+				name:     "Error: a string flag value returns 400 INVALID_REQUEST",
+				payload:  `{"data":{"features":{"enabled":"1"}}}`,
+				wantCode: "INVALID_REQUEST",
+			},
+			{
+				name:     "Error: a null flag value returns 400 INVALID_REQUEST",
+				payload:  `{"data":{"features":{"enabled":null}}}`,
+				wantCode: "INVALID_REQUEST",
+			},
 		}
 
 		for _, tc := range tests {
@@ -488,6 +526,9 @@ func newTemplatePreviewDAG(t *testing.T) (sheettest.DAGMap, *template.Template) 
 				DependsOn:  [][]string{{"stats", "dexterity"}},
 			}},
 		}},
+		"features": {Children: template.FieldGroup{
+			"enabled": {Schema: &template.FieldSchema{Type: "number", IsEditable: true, Default: 0, Flag: true}},
+		}},
 	}
 
 	dag, err := template.BuildDAG("test", fields, engine.NewFormulaEngine())
@@ -528,6 +569,25 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 		mod, ok := body.Data["mod"].(map[string]any)
 		require.True(t, ok)
 		assert.InDelta(t, 4.0, mod["dexterityMod"], 1e-9)
+		mockRepo.AssertNotCalled(t, "FetchByID")
+		mockRepo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Error: a flag value of two returns 400 INVALID_REQUEST", func(t *testing.T) {
+		mockRepo := mocks.NewMockRepository(t)
+
+		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
+		mockTemplateSvc.EXPECT().
+			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
+			Return(tmpl, nil).
+			Once()
+
+		rec := doRequest(t, h, http.MethodPost, "/templates/test/preview", `{"data":{"features":{"enabled":2}}}`)
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+
+		var body response.ErrorResponse
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		assert.Equal(t, "INVALID_REQUEST", body.Error.Code)
 		mockRepo.AssertNotCalled(t, "FetchByID")
 		mockRepo.AssertNotCalled(t, "PartialUpdate")
 	})

@@ -108,5 +108,5 @@ export function isNumberRow(row: SheetRow): boolean {
     return false;
   }
   const { path, schema } = row.field;
-  return schema.type === 'number' && !(schema.isEditable && isConfigProxy(path));
+  return schema.type === 'number' && !schema.flag && !(schema.isEditable && isConfigProxy(path));
 }

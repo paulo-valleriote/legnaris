@@ -64,6 +64,7 @@ type FieldSchemaDTO struct {
 	Generatable      bool             `json:"generatable,omitempty"`
 	GeneratableKinds []plan.SheetKind `json:"generatable_kinds,omitempty"`
 	PreferDefault    bool             `json:"prefer_default,omitempty"`
+	Flag             bool             `json:"flag,omitempty"`
 	Min              *float64         `json:"min,omitempty"`
 	Max              *float64         `json:"max,omitempty"`
 	MaxLength        *int             `json:"max_length,omitempty"`
@@ -182,6 +183,7 @@ func (s *FieldSchema) toDTO() *FieldSchemaDTO {
 		Generatable:      s.Generatable,
 		GeneratableKinds: slices.Clone(s.GeneratableKinds),
 		PreferDefault:    s.PreferDefault,
+		Flag:             s.Flag,
 		Min:              clonePtr(s.Min),
 		Max:              clonePtr(s.Max),
 		MaxLength:        clonePtr(s.MaxLength),

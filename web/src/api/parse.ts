@@ -55,3 +55,17 @@ export function optionalString(source: Record<string, unknown>, key: string): st
 
   return value;
 }
+
+export function optionalBoolean(source: Record<string, unknown>, key: string): boolean | undefined {
+  const value = source[key];
+
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value !== 'boolean') {
+    throw drift(`optional boolean "${key}" is not a boolean`);
+  }
+
+  return value;
+}

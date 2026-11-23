@@ -30,6 +30,7 @@ type Node struct {
 	FormulaString   string
 	compiledFormula *vm.Program
 	IsEditable      bool
+	isFlag          bool
 	maxLength       int
 }
 
@@ -39,6 +40,17 @@ func (n Node) IsDerived() bool {
 
 func (n Node) MapKey() string {
 	return n.Path.String()
+}
+
+func (n Node) checkFlagValue(value any) error {
+	if !n.isFlag {
+		return nil
+	}
+	number, ok := maputils.ToFloat64(value)
+	if !ok || (number != 0 && number != 1) {
+		return ErrFlagValue(n.MapKey())
+	}
+	return nil
 }
 
 func (n Node) checkTextLength(value any) error {
@@ -211,6 +223,7 @@ func (d *DAG) compileNodeFormulas(schemas []*FieldSchema, paths []Path, compilat
 			Path:          path,
 			FormulaString: schema.Formula,
 			IsEditable:    schema.IsEditable,
+			isFlag:        schema.Flag,
 		}
 
 		if schema.MaxLength != nil {
@@ -435,6 +448,9 @@ func (d *DAG) validateUpdateKeysLocked(updatedData map[string]any) error {
 		if !ok {
 			continue
 		}
+		if err := node.checkFlagValue(updatedData[key]); err != nil {
+			return err
+		}
 		if err := node.checkTextLength(updatedData[key]); err != nil {
 			return err
 		}
@@ -471,6 +487,9 @@ func (d *DAG) validateEditableLocked(updates map[string]any) error {
 		}
 		if !node.IsEditable {
 			return ErrNotEditable(key)
+		}
+		if err := node.checkFlagValue(updates[key]); err != nil {
+			return err
 		}
 	}
 	return nil

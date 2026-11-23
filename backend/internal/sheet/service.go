@@ -651,6 +651,10 @@ func translateDAGErr(err error) error {
 	if errors.As(err, &tooLong) {
 		return apperr.NewError(apperr.CodeInvalidRequest, tooLong.Error(), err)
 	}
+	var invalidFlag *template.FlagValueError
+	if errors.As(err, &invalidFlag) {
+		return apperr.NewError(apperr.CodeInvalidRequest, invalidFlag.Error(), err)
+	}
 	var conflict *template.ExclusiveGroupConflictError
 	if errors.As(err, &conflict) {
 		return apperr.NewError(

@@ -143,6 +143,35 @@ describe('template models', () => {
     expect(node?.kind === 'leaf' && node.schema.optionLabel).toBe('Dexterity');
   });
 
+  it('Edge: the optional flag marker is carried through when present and absent otherwise', () => {
+    const decoded = parseTemplateDetail(
+      template({
+        fields: {
+          features: {
+            children: {
+              enabled: {
+                schema: {
+                  type: 'number',
+                  label: 'Enabled',
+                  is_editable: true,
+                  default: 1,
+                  flag: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    );
+    const features = decoded.fields['features'];
+    const enabled = features?.kind === 'group' ? features.children['enabled'] : undefined;
+    const stats = parseTemplateDetail(template()).fields['stats'];
+    const strength = stats?.kind === 'group' ? stats.children['strength'] : undefined;
+
+    expect(enabled?.kind === 'leaf' && enabled.schema.flag).toBe(true);
+    expect(strength?.kind === 'leaf' && strength.schema.flag).toBeUndefined();
+  });
+
   it('Edge: group table metadata is carried when the payload declares it', () => {
     const decoded = parseTemplateDetail(template());
     const stats = decoded.fields['stats'];

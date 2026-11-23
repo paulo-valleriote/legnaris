@@ -39,6 +39,10 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template) (*Registry, 
 			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
 		}
 
+		if err := ValidateFlags(stored); err != nil {
+			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
+		}
+
 		if err := ValidateNameLeaf(stored); err != nil {
 			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
 		}

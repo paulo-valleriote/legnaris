@@ -23,7 +23,7 @@ function isConfigProxy(path: string): boolean {
 }
 
 function isToggle(path: string, schema: FieldSchema): boolean {
-  return schema.type === 'bool' || isConfigProxy(path);
+  return schema.type === 'bool' || schema.flag === true || isConfigProxy(path);
 }
 
 function valueIsOn(value: unknown): boolean {
