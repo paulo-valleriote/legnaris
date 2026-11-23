@@ -12,6 +12,7 @@ import (
 func nameLeafFixture(nameLeaf string) Template {
 	return Template{
 		ID:       "naming",
+		State:    StateActive,
 		NameLeaf: nameLeaf,
 		Fields: FieldGroup{
 			"identity": {Children: FieldGroup{

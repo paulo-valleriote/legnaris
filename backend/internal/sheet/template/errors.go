@@ -6,6 +6,18 @@ import (
 	"slices"
 )
 
+type InvalidTemplateStateError struct {
+	TemplateID string
+	State      State
+}
+
+func (e *InvalidTemplateStateError) Error() string {
+	if e.State == "" {
+		return fmt.Sprintf("template '%s' has no lifecycle state", e.TemplateID)
+	}
+	return fmt.Sprintf("template '%s' has unknown lifecycle state '%s'", e.TemplateID, e.State)
+}
+
 type CycleError struct {
 	Nodes []string
 }
@@ -238,10 +250,20 @@ var (
 	ErrTemplateIDInvalid = errors.New("template id is not a valid slug")
 
 	ErrTemplateNotFound = errors.New("template not found")
+
+	ErrGameSystemIDInvalid         = errors.New("game system id is not a valid slug")
+	ErrGameSystemDuplicateID       = errors.New("game system id is declared twice")
+	ErrGameSystemFieldMissing      = errors.New("game system has an empty required field")
+	ErrGameSystemNoticePathInvalid = errors.New("game system notice path is not a same-origin path")
+	ErrGameSystemUnknown           = errors.New("template references an unknown game system")
 )
 
 func NewFormulaCompileError(formula string, nodeID string, err error) error {
 	return &FormulaCompileError{Formula: formula, NodeID: nodeID, Err: err}
+}
+
+func ErrInvalidTemplateState(id string, state State) error {
+	return &InvalidTemplateStateError{TemplateID: id, State: state}
 }
 
 func ErrCycleDetected(nodes []string) error {

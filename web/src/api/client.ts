@@ -46,6 +46,7 @@ export interface CreateSheetInput {
   readonly templateId: string;
   readonly kind: SheetKind;
   readonly sheetName: string;
+  readonly campaignId?: string;
 }
 
 export interface JoinCampaignInput {
@@ -117,10 +118,9 @@ export interface ApiClient {
   listOwnedSheets(kind: SheetKind): Promise<Sheet[]>;
 }
 
-export interface CreateCampaignInput {
-  readonly name: string;
-  readonly templateId: string;
-}
+export type CreateCampaignInput =
+  | { readonly name: string; readonly gameSystem: string }
+  | { readonly name: string; readonly templateId: string };
 
 export type MemberAction = 'promote' | 'demote';
 
@@ -158,6 +158,12 @@ function joinBody(input: JoinCampaignInput): { code: string; password?: string }
     : { code: input.code, password: input.password };
 }
 
+function createCampaignBody(input: CreateCampaignInput): object {
+  return 'gameSystem' in input
+    ? { name: input.name, game_system: input.gameSystem }
+    : { name: input.name, template_id: input.templateId };
+}
+
 function decodeChangeSet(data: unknown): Record<string, unknown> {
   if (!isPlainObject(data)) {
     throw drift('sheet update payload is not an object');
@@ -182,6 +188,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
           template_id: input.templateId,
           kind: input.kind,
           sheet_name: input.sheetName,
+          ...(input.campaignId === undefined ? {} : { campaign_id: input.campaignId }),
         }),
         parseSheet,
       ),
@@ -256,12 +263,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       ),
     listCampaigns: () => caller.call('GET', '/campaigns', undefined, parseCampaignSummaries),
     createCampaign: (input) =>
-      caller.call(
-        'POST',
-        '/campaigns',
-        JSON.stringify({ name: input.name, template_id: input.templateId }),
-        parseCampaign,
-      ),
+      caller.call('POST', '/campaigns', JSON.stringify(createCampaignBody(input)), parseCampaign),
     getCampaign: (id) =>
       caller.call('GET', `/campaigns/${encodeURIComponent(id)}`, undefined, parseCampaign),
     leaveCampaign: (id) =>

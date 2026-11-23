@@ -159,7 +159,7 @@ func (s *ServiceImpl) LinkNpc(ctx context.Context, cmd LinkNpcCommand) (NpcLinkV
 		if !linkableKind(found.Kind) {
 			return kindMismatch(MsgNpcKindMismatch)
 		}
-		if found.TemplateID != c.TemplateID {
+		if !s.allowsTemplate(txCtx, c, found.TemplateID) {
 			return apperr.NewError(apperr.CodeTemplateMismatch, MsgTemplateMismatch, nil)
 		}
 		linkID, err := idgen.New()

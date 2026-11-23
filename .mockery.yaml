@@ -19,6 +19,7 @@ packages:
       PlanSource: {}
       TransactionRunner: {}
       LinkCleaner: {}
+      CampaignScope: {}
   legnaris/backend/internal/campaign:
     config:
       dir: backend/internal/campaign/mocks
@@ -41,6 +42,7 @@ packages:
       NpcSheetLinks: {}
       OwnershipReleaser: {}
       OrphanLinks: {}
+      ScopeResolver: {}
   legnaris/backend/internal/sheet/template:
     config:
       dir: backend/internal/sheet/template/mocks

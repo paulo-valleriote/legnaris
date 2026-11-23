@@ -83,6 +83,7 @@ var defaultTemplates = []Template{
 var fantasyV1Template = Template{
 	ID:      "fantasy_v1",
 	Name:    "Fantasy Template",
+	State:   StateActive,
 	Default: true,
 	Kinds:   []plan.SheetKind{plan.KindCharacter, plan.KindNPC, plan.KindEnemy},
 	Fields: FieldGroup{

@@ -17,6 +17,11 @@ import {
   withPlanUsage,
 } from './fake_transport';
 import { renderApp } from './render';
+import {
+  GAME_SYSTEM_CATALOG,
+  GAME_SYSTEM_ENTRY_NAME,
+  GAME_SYSTEM_TEMPLATE_DETAIL,
+} from './template_game_system_fixture';
 
 const BASE_URL = 'http://api.test';
 
@@ -73,6 +78,31 @@ describe('creation surface detail', () => {
     expect(screen.getByTestId('detail-name')).toHaveTextContent('Dungeons & Dragons 5e');
     expect(fake.attempts).toBe(2);
     expect(fake.lastRequest?.url).toContain('/templates/dnd5e');
+  });
+
+  it('Happy path: a template with a game system shows its compatibility label and no attribution link', async () => {
+    const fake = createFakeTransport(
+      successOutcome(GAME_SYSTEM_CATALOG),
+      successOutcome(GAME_SYSTEM_TEMPLATE_DETAIL),
+    );
+    const user = userEvent.setup();
+    renderApp('/', { client: clientWith(withPlanUsage(fake.transport)) });
+
+    await user.click(await screen.findByRole('button', { name: GAME_SYSTEM_ENTRY_NAME }));
+
+    expect(await screen.findByTestId('detail-compatibility')).toHaveTextContent('5E compatible');
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('SRD 5.2.1')).not.toBeInTheDocument();
+  });
+
+  it('Edge: a template without a game system draws no compatibility label', async () => {
+    const user = userEvent.setup();
+    await openSurface(user);
+
+    expect(screen.getByTestId('detail-name')).toBeInTheDocument();
+    expect(screen.queryByTestId('detail-compatibility')).not.toBeInTheDocument();
+    expect(screen.queryByText('5E compatible')).not.toBeInTheDocument();
   });
 
   it('Edge: while the detail is in flight it shows the loading copy and no previously opened detail', async () => {
@@ -323,5 +353,55 @@ describe('sheet-name field and validation', () => {
       'href',
       '/generate/dnd5e?kind=npc',
     );
+  });
+});
+
+describe('creation surface campaign isolation (LGN-403)', () => {
+  it('Happy path: the catalog surface still offers generation and sends no campaign id', async () => {
+    const fake = createFakeTransport(
+      successOutcome(CATALOG),
+      detailEnvelope('Dungeons & Dragons 5e'),
+      successOutcome(
+        {
+          id: '0190c5a0-0000-7000-8000-00000000d001',
+          template_id: 'dnd5e',
+          kind: 'character',
+          name: 'Aragorn',
+          data: {},
+          created_at: '2026-11-17T10:00:00Z',
+          updated_at: '2026-11-17T10:00:00Z',
+        },
+        201,
+      ),
+      detailEnvelope('Dungeons & Dragons 5e'),
+    );
+    const user = userEvent.setup();
+    renderApp('/', {
+      client: clientWith(withPlanUsage(fake.transport, successOutcome(PAID_PLAN_USAGE))),
+    });
+
+    await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
+    await screen.findByTestId('detail-name');
+    expect(screen.getByRole('link', { name: message('generate.entry') })).toHaveAttribute(
+      'href',
+      '/generate/dnd5e?kind=character',
+    );
+
+    await user.type(screen.getByLabelText(message('sheet.nameLabel')), 'Aragorn');
+    await user.click(screen.getByRole('button', { name: message('sheet.create') }));
+
+    await waitFor(() => {
+      const posts = fake.requests.filter(
+        (request) => request.method === 'POST' && request.url.endsWith('/sheets'),
+      );
+      expect(posts).toHaveLength(1);
+      const body = JSON.parse(posts[0]?.body ?? '') as Record<string, unknown>;
+      expect(body).toEqual({
+        template_id: 'dnd5e',
+        kind: 'character',
+        sheet_name: 'Aragorn',
+      });
+      expect(body).not.toHaveProperty('campaign_id');
+    });
   });
 });

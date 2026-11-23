@@ -51,7 +51,7 @@ func limitTemplateService(t *testing.T, kinds ...plan.SheetKind) *templatemocks.
 	svc := templatemocks.NewMockService(t)
 	svc.EXPECT().
 		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: limitTemplateID}).
-		Return(&template.Template{ID: limitTemplateID, Name: "Limit", Fields: limitFields, Kinds: kinds}, nil).
+		Return(&template.Template{ID: limitTemplateID, Name: "Limit", State: template.StateActive, Fields: limitFields, Kinds: kinds}, nil).
 		Maybe()
 	return svc
 }

@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import type { QueryClient } from '@tanstack/react-query';
+import type { ApiClient } from '../api/client';
 import type { Layout } from '../api/models/layout';
 import type { PlanUsage } from '../api/models/plan';
 import type { Sheet } from '../api/models/sheet';
@@ -89,12 +90,24 @@ export function useCatalog() {
 export function useTemplateDetail(id: string) {
   const client = useApiClient();
 
-  return useQuery({
+  return useQuery(templateDetailOptions(client, id));
+}
+
+export function useTemplateDetails(ids: readonly string[]) {
+  const client = useApiClient();
+
+  return useQueries({
+    queries: ids.map((id) => templateDetailOptions(client, id)),
+  });
+}
+
+function templateDetailOptions(client: ApiClient, id: string) {
+  return {
     queryKey: templateDetailKey(id),
     queryFn: () => client.getTemplate(id),
     staleTime: 0,
     gcTime: 0,
     retry: false,
     refetchOnWindowFocus: false,
-  });
+  };
 }

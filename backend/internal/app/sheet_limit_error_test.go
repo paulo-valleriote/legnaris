@@ -57,7 +57,7 @@ func TestErrorMapping_CreateSheetLimitCarriesDetails(t *testing.T) {
 			templates := templatemocks.NewMockService(t)
 			templates.EXPECT().
 				FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "fantasy_v1"}).
-				Return(&template.Template{ID: "fantasy_v1", Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).
+				Return(&template.Template{ID: "fantasy_v1", State: template.StateActive, Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).
 				Maybe()
 
 			txRunner := mocks.NewMockTransactionRunner(t)

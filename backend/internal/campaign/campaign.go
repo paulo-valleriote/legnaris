@@ -44,7 +44,8 @@ type Member struct {
 type Campaign struct {
 	ID           string    `bson:"_id"`
 	Name         string    `bson:"name"`
-	TemplateID   string    `bson:"template_id"`
+	GameSystemID string    `bson:"game_system,omitempty"`
+	TemplateID   string    `bson:"template_id,omitempty"`
 	Status       Status    `bson:"status"`
 	InviteCode   string    `bson:"invite_code,omitempty"`
 	PasswordHash string    `bson:"password_hash,omitempty"`

@@ -284,6 +284,7 @@ export const messages = {
   'catalog.empty': 'No templates are available.',
   'catalog.kindLabel': 'Sheet kind',
   'catalog.kindCharacter': 'Character',
+  'catalog.templateNoticeSeparator': ' · ',
 
   'sheet.dialogTitle': 'New sheet',
   'sheet.templateLabel': 'Template',
@@ -621,7 +622,7 @@ export const messages = {
   'campaigns.new': 'New campaign',
   'campaigns.nameLabel': 'Campaign name',
   'campaigns.nameRequired': 'Enter a name for the campaign.',
-  'campaigns.templateLabel': 'Campaign template',
+  'campaigns.scopeLabel': 'Game system',
   'campaigns.templatesLoading': 'Loading the campaign templates',
   'campaigns.templatesFailed': 'The campaign templates could not be loaded.',
   'campaigns.create': 'Create campaign',
@@ -698,6 +699,17 @@ export const messages = {
   'campaign.you': 'you',
   'campaign.noEligibleSheets':
     'You have no free character sheet of this campaign’s template. Create one, or unlink it from its other campaign.',
+  'campaign.createCharacterHeading': 'Start a new character',
+  'campaign.createNpcHeading': 'Start a new NPC or enemy',
+  'campaign.newCharacter': 'New character sheet',
+  'campaign.newNpc': 'New NPC/enemy',
+  'campaign.newCharacterFor': 'New character for {name}',
+  'campaign.newNpcFor': 'New NPC/enemy for {name}',
+  'campaign.createReplaceWarning':
+    'You already have a character linked to this campaign. Creating and linking another one replaces it.',
+  'campaign.createLinking': 'Linking the sheet to this campaign',
+  'campaign.createLinkFailed': 'The sheet was created but could not be linked to this campaign.',
+  'campaign.createLinkRetry': 'Retry link',
   'invite.heading': 'Invite players',
   'invite.codeLabel': 'Invite code',
   'invite.linkLabel': 'Share link',
@@ -727,7 +739,7 @@ export const messages = {
   'gm.refreshing': 'Refreshing',
   'gm.loading': 'Loading the sheet',
   'gm.emptyValue': 'No value recorded',
-  'gm.template': 'Template: {name}',
+  'gm.templatePrefix': 'Template: ',
   'ui.dismiss': 'Dismiss',
 } as const;
 

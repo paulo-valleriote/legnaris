@@ -37,7 +37,7 @@ func (tc *TemplateController) List(c *echo.Context) error {
 }
 
 func (tc *TemplateController) FetchByID(c *echo.Context) error {
-	item, err := tc.service.FetchTemplate(c.Request().Context(), &template.FetchTemplateByIDCommand{ID: c.Param("id")})
+	item, err := tc.service.FetchCatalogTemplate(c.Request().Context(), &template.FetchTemplateByIDCommand{ID: c.Param("id")})
 	if err != nil {
 		return templateError(err)
 	}

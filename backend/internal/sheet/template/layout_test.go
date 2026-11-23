@@ -13,7 +13,8 @@ func layoutLeaf(exclusive string) FieldNode {
 
 func layoutFixture() Template {
 	return Template{
-		ID: "layout_fixture",
+		ID:    "layout_fixture",
+		State: StateActive,
 		Fields: FieldGroup{
 			"stats": {Children: FieldGroup{
 				"strength":  layoutLeaf(""),

@@ -1,7 +1,74 @@
-import type { MemberAction } from '../api/client';
-import type { Campaign, CampaignMember } from '../api/models/campaign';
+import type { CreateCampaignInput, MemberAction } from '../api/client';
+import type { Campaign, CampaignMember, CampaignRole } from '../api/models/campaign';
+import type { SheetKind } from '../api/models/plan';
+import type { TemplateSummary } from '../api/models/template';
 
 export const GM_POLL_INTERVAL_MS = 60_000;
+
+export const PLAYER_SHEET_KINDS = ['character'] as const satisfies readonly SheetKind[];
+
+export const GM_SHEET_KINDS = ['npc', 'enemy'] as const satisfies readonly SheetKind[];
+
+export function creatableKinds(role: CampaignRole): readonly SheetKind[] {
+  return role === 'gm' ? GM_SHEET_KINDS : PLAYER_SHEET_KINDS;
+}
+
+export function allowedKindsFor(
+  kinds: readonly SheetKind[],
+  role: CampaignRole,
+): readonly SheetKind[] {
+  const allowed = creatableKinds(role);
+  return kinds.filter((kind) => allowed.includes(kind));
+}
+
+export function hasLinkedCharacter(
+  sheets: readonly { readonly campaignId?: string }[],
+  campaignId: string,
+): boolean {
+  return sheets.some((sheet) => sheet.campaignId === campaignId);
+}
+
+export type CampaignScopeOption =
+  | { readonly key: string; readonly label: string; readonly gameSystemId: string }
+  | { readonly key: string; readonly label: string; readonly templateId: string };
+
+export function campaignScopeOptions(templates: readonly TemplateSummary[]): CampaignScopeOption[] {
+  const options: CampaignScopeOption[] = [];
+  const seen = new Set<string>();
+
+  for (const template of templates) {
+    const gameSystem = template.gameSystem;
+    const option: CampaignScopeOption =
+      gameSystem === undefined
+        ? {
+            key: `template:${template.id}`,
+            label: template.name,
+            templateId: template.id,
+          }
+        : {
+            key: `game-system:${gameSystem.id}`,
+            label: gameSystem.name,
+            gameSystemId: gameSystem.id,
+          };
+
+    if (seen.has(option.key)) {
+      continue;
+    }
+    seen.add(option.key);
+    options.push(option);
+  }
+
+  return options;
+}
+
+export function createCampaignInput(
+  name: string,
+  option: CampaignScopeOption,
+): CreateCampaignInput {
+  return 'gameSystemId' in option
+    ? { name, gameSystem: option.gameSystemId }
+    : { name, templateId: option.templateId };
+}
 
 export function isDeleting(campaign: Pick<Campaign, 'status'>): boolean {
   return campaign.status === 'deleting';
@@ -40,26 +107,26 @@ export function memberActions(
 
 export function eligibleSheetIds(
   sheets: readonly { id: string; templateId: string; campaignId?: string }[],
-  campaign: Pick<Campaign, 'id' | 'templateId'>,
+  campaign: Pick<Campaign, 'id' | 'templateIds'>,
 ): string[] {
+  const templateIds = new Set(campaign.templateIds);
   return sheets
-    .filter((sheet) => sheet.templateId === campaign.templateId)
+    .filter((sheet) => templateIds.has(sheet.templateId))
     .filter((sheet) => sheet.campaignId === undefined || sheet.campaignId === campaign.id)
     .map((sheet) => sheet.id);
 }
 
 export function eligibleNpcSheetIds(
   sheets: readonly { id: string; templateId: string }[],
-  campaign: Pick<Campaign, 'templateId'>,
+  campaign: Pick<Campaign, 'templateIds'>,
 ): string[] {
-  return sheets
-    .filter((sheet) => sheet.templateId === campaign.templateId)
-    .map((sheet) => sheet.id);
+  const templateIds = new Set(campaign.templateIds);
+  return sheets.filter((sheet) => templateIds.has(sheet.templateId)).map((sheet) => sheet.id);
 }
 
 export function unlinkedNpcSheetIds(
   sheets: readonly { id: string; templateId: string }[],
-  campaign: Pick<Campaign, 'templateId'>,
+  campaign: Pick<Campaign, 'templateIds'>,
   linkedSheetIds: readonly string[],
 ): string[] {
   const linked = new Set(linkedSheetIds);

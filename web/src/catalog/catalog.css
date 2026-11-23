@@ -43,6 +43,13 @@
   color: var(--lg-color-text-muted);
 }
 
+.lg-catalog__compatibility {
+  font-size: var(--lg-type-12);
+  font-weight: var(--lg-font-weight-semibold);
+  letter-spacing: var(--lg-tracking-tight);
+  color: var(--lg-color-text-subtle);
+}
+
 .lg-catalog__open {
   flex: none;
   inline-size: var(--lg-space-24);
@@ -104,6 +111,14 @@
   letter-spacing: var(--lg-tracking-caps);
   text-transform: uppercase;
   color: var(--lg-color-text-muted);
+}
+
+.lg-create-sheet__compatibility {
+  margin: 0;
+  font-size: var(--lg-type-12);
+  font-weight: var(--lg-font-weight-semibold);
+  letter-spacing: var(--lg-tracking-tight);
+  color: var(--lg-color-text-subtle);
 }
 
 .lg-create-sheet__error {

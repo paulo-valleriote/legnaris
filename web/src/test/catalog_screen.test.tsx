@@ -7,11 +7,13 @@ import { failureMessage, parseFailureMessage } from '../api/error_mapper';
 import { message } from '../l10n/strings';
 import {
   createDeferredTransport,
+  createFakeTransport,
   errorOutcome,
   successOutcome,
   withPlanUsage,
 } from './fake_transport';
 import { renderApp } from './render';
+import { GAME_SYSTEM_CATALOG } from './template_game_system_fixture';
 
 const BASE_URL = 'http://api.test';
 
@@ -125,5 +127,29 @@ describe('catalog screen', () => {
     await waitFor(() => expect(screen.getAllByRole('listitem')).toHaveLength(1));
     const main = screen.getByRole('main');
     expect(within(main).getByRole('button', { name: 'blank' })).toBeInTheDocument();
+  });
+
+  it('Happy path: an entry with a game system shows its compatibility label and no attribution link', async () => {
+    const fake = createFakeTransport(successOutcome(GAME_SYSTEM_CATALOG));
+    renderApp('/', { client: clientWith(fake.transport) });
+
+    const row = await screen.findByRole('listitem');
+
+    expect(within(row).getByTestId('catalog-compatibility')).toHaveTextContent('5E compatible');
+    expect(within(row).queryByRole('link')).not.toBeInTheDocument();
+    expect(row).not.toHaveTextContent('SRD 5.2.1');
+  });
+
+  it('Edge: an entry without a game system draws no compatibility label', async () => {
+    const deferred = createDeferredTransport();
+    renderApp('/', { client: clientWith(deferred.transport) });
+
+    deferred.resolve(successOutcome(TWO_TEMPLATES));
+
+    const rows = await screen.findAllByRole('listitem');
+    for (const row of rows) {
+      expect(within(row).queryByTestId('catalog-compatibility')).not.toBeInTheDocument();
+    }
+    expect(rows[0]).toHaveTextContent('Dungeons & Dragons 5e');
   });
 });

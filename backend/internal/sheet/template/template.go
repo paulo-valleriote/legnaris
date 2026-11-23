@@ -37,6 +37,7 @@ func (n *FieldNode) IsList() bool {
 type Template struct {
 	ID             string            `bson:"_id,omitempty"`
 	Name           string            `bson:"name"`
+	State          State             `bson:"state"`
 	Fields         FieldGroup        `bson:"fields"`
 	Default        bool              `bson:"default"`
 	SectionOrder   []string          `bson:"section_order,omitempty"`
@@ -46,6 +47,7 @@ type Template struct {
 	NotD20Sections []string          `bson:"not_d20_sections,omitempty"`
 	NotD20Rows     []string          `bson:"not_d20_rows,omitempty"`
 	Kinds          []plan.SheetKind  `bson:"kinds,omitempty"`
+	GameSystemID   string            `bson:"game_system,omitempty"`
 	Actions        []ResetAction     `bson:"actions,omitempty"`
 	CreatedAt      time.Time         `bson:"created_at,omitempty"`
 	UpdatedAt      time.Time         `bson:"updated_at,omitempty"`

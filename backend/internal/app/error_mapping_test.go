@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"testing"
@@ -116,7 +117,7 @@ func TestErrorMapping_UnknownTemplateReturns404(t *testing.T) {
 	h, mockTemplateSvc := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 	mockTemplateSvc.EXPECT().
 		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown_template"}).
-		Return(&template.Template{ID: "unknown_template", Name: "Unknown", Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).
+		Return(&template.Template{ID: "unknown_template", Name: "Unknown", State: template.StateActive, Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).
 		Once()
 
 	rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"unknown_template","kind":"character","sheet_name":"x"}`)
@@ -131,7 +132,7 @@ func TestErrorMapping_UnknownTemplateReturns404(t *testing.T) {
 func TestErrorMapping_UnknownTemplateFetchReturns404(t *testing.T) {
 	mockTemplateSvc := templatemocks.NewMockService(t)
 	mockTemplateSvc.EXPECT().
-		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown_template"}).
+		FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown_template"}).
 		Return(nil, template.ErrTemplateNotFound).
 		Once()
 
@@ -164,6 +165,45 @@ func TestErrorMapping_SheetCreateUnknownTemplateReturns404(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	assert.Equal(t, "NOT_FOUND", body.Error.Code)
 	assert.Equal(t, "template not found", body.Error.Message)
+}
+
+func TestErrorMapping_SheetCreateCampaignScopeFailureReturns500(t *testing.T) {
+	const (
+		campaignID = "01900000-0000-7000-8000-0000000000cc"
+		templateID = "fantasy_v1"
+	)
+
+	mockRepo := mocks.NewMockRepository(t)
+	scope := mocks.NewMockCampaignScope(t)
+	scope.EXPECT().
+		AllowsTemplate(mock.Anything, errorTestOwnerID, campaignID, templateID).
+		Return(false, errors.New("campaign lookup failed")).
+		Once()
+	mockTemplateSvc := templatemocks.NewMockService(t)
+	mockTemplateSvc.EXPECT().
+		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: templateID}).
+		Return(&template.Template{
+			ID:    templateID,
+			Name:  "Fantasy",
+			State: template.StateRetired,
+		}, nil).
+		Once()
+
+	svc := sheet.NewService(mockRepo, mockTemplateSvc, newErrorTestDAG(t), testLog, events.NoOp{},
+		sheet.WithCampaignScope(scope))
+	e := echo.New()
+	e.HTTPErrorHandler = app.HTTPErrorHandler
+	e.Use(withOwner(errorTestOwnerID))
+	app.NewSheetController(svc).RegisterRoutes(e.Group("/sheets"))
+
+	rec := doRequest(t, e, http.MethodPost, "/sheets",
+		`{"template_id":"`+templateID+`","kind":"character","sheet_name":"x","campaign_id":"`+campaignID+`"}`)
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	var body response.ErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "INTERNAL_ERROR", body.Error.Code)
+	assert.Equal(t, sheet.MsgCampaignScopeUnavailable, body.Error.Message)
 }
 
 func TestErrorMapping_PatchFieldErrors(t *testing.T) {
@@ -533,7 +573,7 @@ func newTemplatePreviewDAG(t *testing.T) (sheettest.DAGMap, *template.Template) 
 
 	dag, err := template.BuildDAG("test", fields, engine.NewFormulaEngine())
 	require.NoError(t, err)
-	return sheettest.DAGMap{"test": dag}, &template.Template{ID: "test", Name: "Test Template", Fields: fields}
+	return sheettest.DAGMap{"test": dag}, &template.Template{ID: "test", Name: "Test Template", State: template.StateActive, Fields: fields}
 }
 
 func newTemplatePreviewRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache sheettest.DAGMap) (http.Handler, *templatemocks.MockService) {
@@ -556,7 +596,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 		mockTemplateSvc.EXPECT().
-			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
+			FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
 			Return(tmpl, nil).
 			Once()
 
@@ -578,7 +618,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 		mockTemplateSvc.EXPECT().
-			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
+			FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
 			Return(tmpl, nil).
 			Once()
 
@@ -597,7 +637,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 		mockTemplateSvc.EXPECT().
-			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "Fantasy-V1"}).
+			FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "Fantasy-V1"}).
 			Return(nil, template.ErrTemplateIDInvalid).
 			Once()
 
@@ -615,7 +655,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 		mockTemplateSvc.EXPECT().
-			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: ""}).
+			FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: ""}).
 			Return(nil, template.ErrTemplateIDNotProvided).
 			Once()
 
@@ -633,7 +673,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 		mockTemplateSvc.EXPECT().
-			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown"}).
+			FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown"}).
 			Return(nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)).
 			Once()
 
@@ -683,7 +723,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 				h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 				mockTemplateSvc.EXPECT().
-					FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
+					FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
 					Return(tmpl, nil).
 					Once()
 

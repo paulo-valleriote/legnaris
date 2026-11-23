@@ -31,17 +31,25 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   config plays through the generic Section/Row view, which also draws Record lists, Reset
   actions and Roll modes. Cost: the library must grow generically, and the bespoke `fantasy`
   preset stays a frozen exception.
-- **Planned (LGN-381): a Template lifecycle (`draft`, `active`, `retired`) over feature flags
-  or registering new Templates only at release because** the codebase has no flags and a new
-  Template must merge and be playable in local development before it is offered. A Draft
-  Template is listed and creatable only when `APP_ENV` is `development`; an empty or any
-  other value refuses it, so a process without the variable fails closed. Cost: every
-  creation path checks the state, nobody can try a Draft in production, and the release is
-  one cutover pull request (LGN-386) that also carries the landing.
+- **A Template lifecycle (`draft`, `active`, `retired`) over feature flags or registering new
+  Templates only at release because** the codebase has no flags and a new Template must merge and be
+  playable in local development before it is offered. Every Template declares its state at boot; a
+  Draft is listed, fetched and creatable only when the API's `APP_ENV` is `development` (trimmed,
+  case-insensitive), and an empty or any other value refuses it, so a process without the variable
+  fails closed. A Retired Template leaves the catalog but keeps its existing Sheets, their reads,
+  edits, rolls, layouts and duplicates working, and stays fetchable so the web can render them.
+  Cost: every creation path checks the state, nobody can try a Draft in production, and the release
+  is one cutover pull request (LGN-386) that also carries the landing.
 - **Templates as code over a `template` collection because** a template is reviewed content and
   no user-supplied game content may ship; the registry and its DAGs are built once at boot, so a
   read costs neither a query nor a compile. Cost: a template change is a deploy, an incompatible
   change needs a new slug (`fantasy_v1` → `fantasy_v2`), and users cannot author templates.
+- **A code-defined Game system registry referenced by id over a field copied onto every Template
+  because** the name, compatibility label and notice belong to the system, not to one Template, and
+  a Template only chooses it. Boot refuses an unknown id, so a DTO never resolves a system at read
+  time. Cost: a new system is a deploy, a Template cannot change its system under the same slug, and
+  the notice path is validated twice (backend registry and web decoder) because it is rendered as a
+  same-origin link target.
 - **Dotted DAG keys with a validated alphabet over raw template keys because** formulas read
   identifiers such as `stats_dexterity` while documents and errors use `stats.dexterity`;
   restricting every segment to `^[A-Za-z][A-Za-z0-9]*$` makes the encodings collision-free.
@@ -200,7 +208,7 @@ non-numeric arguments (`ErrInvalidFloat`) are typed engine errors; the engine ne
 `GET /templates` returns an array and `GET /templates/:id` one object; both require an
 authenticated, active account and share the per-user rate limit.
 
-`TemplateDTO` is `{id, name, kinds, default, fields, dice?, actions?}`. `kinds` is the ordered list of
+`TemplateDTO` is `{id, name, kinds, default, fields, dice?, actions?, game_system?}`. `kinds` is the ordered list of
 Sheet kinds the Template accepts (`character`, `npc` or `enemy`); creation and generation with any
 other kind stay 400 `INVALID_REQUEST`, and a Template that declares none omits the key. A node
 carries exactly one of `schema` (leaf), `children` (group) or `list`; a group may carry `label` and
@@ -224,6 +232,85 @@ is `{target, expression, filter?}` (see Reset actions). Sections follow the temp
 unlisted keys are alphabetical. Template IDs are slugs (`^[a-z][a-z0-9_]*$`); a malformed ID is
 400, an unknown one 404.
 
+### Game system
+
+Game systems are code-defined and built once at boot, like Templates. `BuildGameSystems` validates
+every entry: the `id` matches `^[a-z][a-z0-9_]*$`, the name and compatibility label are non-empty,
+a duplicate id is refused and the notice path is a same-origin path. Exactly one entry ships:
+`fifth`, name `5E`, compatibility label `5E compatible`, notice `SRD 5.2.1` at `/srd`.
+
+A same-origin notice path starts with one `/`. A protocol-relative (`//host/x`), relative (`srd`),
+absolute (`http:`, `https://host/x`) or `javascript:` path, and one carrying a backslash or a
+control character, is refused by the backend registry and by the web decoder.
+
+`Template.GameSystemID` is optional and resolved at boot: an unknown or malformed id fails
+`BuildRegistry`, and `fantasy_v1` declares none. A Template never changes its Game system under the
+same slug; the change is a new slug. In the DTO, `game_system` is
+`{id, name, compatibility_label, notice: {label, path}}` and is omitted when the Template has none.
+The catalog entry and the create-sheet dialog show the compatibility label as plain text, with no
+attribution link and no notice label; a Template without a Game system renders exactly as before.
+`Registry.TemplateStatesByGameSystem` returns every Template id of a Game system with its state,
+without cloning; Campaign scope resolution filters that list with `Available` so Drafts appear
+only in development and Retired Templates always do.
+
+Every web view that draws a Template name draws its notice beside it through
+`web/src/catalog/template_name.tsx`: the owner Sheet in Play and Edit, the campaign read-only GM and
+NPC views, and the generation review. The name reads `5E Character · SRD 5.2.1` (the ` · `
+separator is copy from `web/src/l10n/strings.ts`, never a literal in the component), and the notice
+label is a router link to the Template's same-origin notice path. The link passes through the shell
+leave guard, so leaving a Sheet with unsaved work still asks first. A Template without a Game system
+draws the previous name markup with no link; `fantasy_v1` views are unchanged, and the catalog, the
+create-sheet dialog, navigation, Account and Help never draw the notice. The `/srd` page itself is
+not part of the Sheet feature.
+
+### Template lifecycle
+
+Every Template declares `state` as `draft`, `active` or `retired`; boot rejects a missing or
+unknown value, and `fantasy_v1` is `active`. The state stays server-side: it is not in
+`TemplateDTO`, so the responses of a deployment whose only Template is active are unchanged.
+
+Drafts are visible only when `APP_ENV`, trimmed and compared case-insensitively, is `development`.
+An empty value, `production`, `staging` or anything else fails closed; the production API
+deliberately carries no `APP_ENV` (only the worker sets `production`), so a bare `go run` without
+the variable hides Drafts, while `scripts/dev.sh` exports `development`.
+
+| Path | active | draft in development | draft elsewhere | retired |
+| --- | --- | --- | --- | --- |
+| `GET /templates` | listed | listed | omitted | omitted |
+| `GET /templates/:id`, `POST /templates/:id/preview` | yes | yes | 404 | yes |
+| `POST /sheets` | yes | yes | 400 | 400, or 201 with an active Campaign that includes it |
+| `POST /generations` | yes | yes | 400 | 400 |
+| Accept a succeeded generation job | yes | yes | 400 | yes |
+| Duplicate an existing NPC or enemy | yes | yes | 400 | yes |
+| Read, edit, roll, layout or link an existing Sheet | yes | yes | yes | yes |
+
+A refused creation or generation is 400 `INVALID_REQUEST` before any plan slot, quota or daily-cap
+reservation, and the message names the reason: a Draft outside development says the Template is
+not available in this environment, a Retired Template says it is retired and cannot start new
+sheets (or generations). Duplicating a Retired Template is allowed because it follows the
+existing-Sheet rule.
+The Draft 404 is public only: `Registry.FetchByID` and `Registry.DAG` return every state, so an
+existing Sheet's recalculation, rolls, Dice validation, layout and Reset actions never depend on
+the environment.
+
+The web loads a Sheet's Template through `GET /templates/:id`, which 404s for a Draft outside
+development. There is no separate endpoint for it: a Draft Sheet can only be created where Drafts
+are allowed, a Template never moves back to `draft`, and running without `APP_ENV=development`
+against a database that holds Draft Sheets leaves those Sheets unopenable in the web. Keep the
+environment aligned with the database instead of widening the Template read.
+
+`POST /sheets` accepts an optional `campaign_id`, and that field is the only way to create a Sheet
+from a Retired Template: it must name an active Campaign the caller belongs to whose `template_ids`
+includes the Template. Every "not allowed" campaign outcome (malformed id, unknown, foreign or
+non-member, deleting, out of scope) is the same 400 `INVALID_REQUEST` with
+`campaign does not allow creating a sheet from this template`, so a foreign Campaign is
+indistinguishable from one that does not exist; an unexpected Campaign read failure is 500
+`INTERNAL_ERROR` with `campaign scope could not be checked`, so an outage is never reported as a
+refusal. For an Active Template the field is ignored and not
+even validated, and it never bypasses the Draft gate, the accepted kinds or the plan limit. Creation
+stores no `campaign_id` and publishes no link event; the client links the Sheet afterwards. See
+[campaigns](campaigns.md) for the Campaign side.
+
 ### Sheet DTO and endpoints
 
 `SheetDTO` is `{id, template_id, kind, name, data, layout?, dice, campaign_id?, created_at,
@@ -233,7 +320,7 @@ never exposed.
 
 | Method and path | Body | Success |
 | --- | --- | --- |
-| `POST /sheets` | `{template_id, kind, sheet_name}` | 201 sheet |
+| `POST /sheets` | `{template_id, kind, sheet_name, campaign_id?}` | 201 sheet |
 | `GET /sheets/owned?kind=character` | — | 200 array, oldest first |
 | `GET /sheets/:id` | — | 200 sheet |
 | `PATCH /sheets/:id` | `{data?, dice?}` | 200 cascade |
@@ -420,7 +507,7 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 | Code | Status | Raised when |
 | --- | --- | --- |
 | `INVALID_JSON` | 400 | malformed body, wrong value type, unknown body key |
-| `INVALID_REQUEST` | 400 | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id, malformed Record id, non-numeric Record `position`, over-capacity list, invalid Record field value, missing or malformed Reset `request_id` |
+| `INVALID_REQUEST` | 400 | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id, malformed Record id, non-numeric Record `position`, over-capacity list, invalid Record field value, missing or malformed Reset `request_id`, or a Template whose lifecycle state refuses the path |
 | `UNKNOWN_FIELD` | 400 | data key or group prefix absent from the DAG, or a Record Field absent from its shape |
 | `NOT_FOUND` | 404 | sheet or template missing, including a foreign sheet; unknown Reset action |
 | `CONFLICT` | 409 | value/Dice save lost the version race; `Retry-After: 1` |
@@ -815,8 +902,9 @@ Backend:
   boot validation and `sum`/`count` evaluation; `reset_actions.go` — Reset action declaration,
   boot compilation and the one-lock `CalculateReset`; `row_identity.go` — Record Row keys, Section
   membership and the shape-aware fit schema.
-- `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry and the
-  `fantasy_v1` catalogue; `layout.go` — `SectionRowKeys`, `ValidateLayout`;
+- `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry,
+  `TemplateStatesByGameSystem` and the `fantasy_v1` catalogue; `game_system.go` — the code-defined Game system registry, its validation
+  and the DTO resolution; `layout.go` — `SectionRowKeys`, `ValidateLayout`;
   `dice_defaults.go`, `not_d20.go`, `name_leaf.go`, `generation_metadata.go`, `flags.go`, `dto.go` — boot
   validators and JSON shape (a list node is `{label, columns, capacity, shape, dice?, not_d20?}`).
 - `backend/internal/sheet/service.go`, `create_values.go` — create, fetch, patch, reset, preview,
@@ -838,8 +926,17 @@ Web:
 - `web/src/catalog/catalog_screen.tsx`, `create_sheet_dialog.tsx`, `queries.ts` — catalog,
   creation surface and query keys; the surface offers only the Template's `kinds`, preselects the
   first and shows a single kind without a choice, with the limit, Generate link and submit
-  following the selected kind; on Free the dialog's `Generate with AI` entry carries a Pro
-  badge and opens the upgrade dialog (see [web-client](web-client.md)).
+  following the selected kind; a Template with a Game system shows its compatibility label as plain
+  text in the catalog entry and the dialog, with no attribution link. On Free the dialog's
+  `Generate with AI` entry carries a Pro badge and opens the upgrade dialog (see
+  [web-client](web-client.md)). The same dialog serves the Campaign screen through optional
+  `campaignId`, `allowedKinds`, `replaceWarning` and `onCreated`: it filters the Template kinds to
+  the role's, hides the generation entry, sends `campaign_id`, keeps the created Sheet when the
+  caller's link fails and lets the caller link and navigate; `useTemplateDetails` reads every
+  Campaign scope entry through the detail route, so a Retired Template still offers a button.
+  `template_name.tsx` is the one Template name with its Game system
+  notice as a same-origin link, used on the owner Sheet, the campaign read-only views and the
+  generation review; a Template without a notice draws the name alone.
 - `web/src/engine/field_grouping.ts` — schema → Sections and Rows (static Rows and one `record`
   Row per Record), the list column model and static row keys; `row_identity.ts` — list discovery,
   Record Row keys and order, shape Fields and Section membership; `layout.ts`, `arrange_ops.ts` —
@@ -851,8 +948,9 @@ Web:
   Record add/remove/move, throttle and restore; `save_retry.ts` — 409 retry;
   `reset_actions.tsx` — the declared Reset action bar of the Edit form (per-tap request id,
   refresh-and-retry, cascade merged into the cached Sheet).
-- `web/src/sheet/sheet_screen.tsx` — mounted screen, the Edit-only footer, the Play discard
-  shortcut and the guards; `layout_store.ts` — committed/staged layout, commit and backup.
+- `web/src/sheet/sheet_screen.tsx` — mounted screen, the template line (name plus notice) in Play
+  and Edit, the Edit-only footer, the Play discard shortcut and the guards;
+  `layout_store.ts` — committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
   optional kind-selected `statBlock`, the optional `Vitals` bar, ordered section slots, the wide
   column layout, the mobile-first narrow layout and the optional phone section nav);
@@ -911,7 +1009,8 @@ Web:
   a write (the server computes it). The web client draws a list in the generic Edit form and in a
   Template without a preset; the frozen `fantasy_v1` preset draws no list.
 - Users cannot create or edit templates; the registry is frozen at boot and only `fantasy_v1`
-  ships. A template change requires a deploy and, if incompatible, a new ID.
+  ships. A template change requires a deploy and, if incompatible, a new ID. Only the `fifth` Game
+  system ships, and a Template bound to one keeps it for the life of its slug.
 - No offline open: the IndexedDB sheet copy is written and evicted but never read as a fallback,
   so a failed `GET /sheets/:id` fails the screen. A draft can be restored only after a successful
   open.
@@ -944,3 +1043,6 @@ Web:
   catalog uses `GET /sheets/owned` with an explicit kind.
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are
   read through the campaign routes and rendered read-only there; see [campaigns](campaigns.md).
+- Template state is code with no admin surface, so moving a Template between `draft`, `active` and
+  `retired` is a deploy. A Retired Template's Sheet is creatable only from inside an active Campaign
+  that includes it, and that request stores no link.

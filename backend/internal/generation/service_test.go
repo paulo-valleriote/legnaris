@@ -78,7 +78,12 @@ func (f fixture) runInline() {
 
 func (f fixture) allowTemplate(kinds ...plan.SheetKind) {
 	f.templates.EXPECT().FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: templateID}).
-		Return(&template.Template{ID: templateID, Name: "Fantasy", Kinds: kinds}, nil).Maybe()
+		Return(&template.Template{ID: templateID, Name: "Fantasy", State: template.StateActive, Kinds: kinds}, nil).Maybe()
+}
+
+func (f fixture) allowTemplateState(state template.State, kinds ...plan.SheetKind) {
+	f.templates.EXPECT().FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: templateID}).
+		Return(&template.Template{ID: templateID, Name: "Fantasy", State: state, Kinds: kinds}, nil).Maybe()
 }
 
 func defaultCfg() generation.Config {
@@ -310,6 +315,69 @@ func TestCreate_Gates(t *testing.T) {
 				assert.Greater(t, appErr.RetryAfter, time.Duration(0))
 				assert.LessOrEqual(t, appErr.RetryAfter, 24*time.Hour)
 			}
+		})
+	}
+}
+
+func TestCreate_TemplateLifecycle(t *testing.T) {
+	tests := []struct {
+		name          string
+		state         template.State
+		draftsAllowed bool
+		wantCode      apperr.Code
+		wantStatus    int
+		wantMessage   string
+		wantCreated   bool
+	}{
+		{name: "Edge: a draft outside development is refused before any reservation", state: template.StateDraft, draftsAllowed: false, wantCode: apperr.CodeInvalidRequest, wantStatus: 400, wantMessage: generation.MsgTemplateState},
+		{name: "Happy path: a draft in development is queued", state: template.StateDraft, draftsAllowed: true, wantCreated: true},
+		{name: "Happy path: an active template outside development is queued", state: template.StateActive, draftsAllowed: false, wantCreated: true},
+		{name: "Happy path: an active template in development is queued", state: template.StateActive, draftsAllowed: true, wantCreated: true},
+		{name: "Error: a retired template outside development is refused as retired", state: template.StateRetired, draftsAllowed: false, wantCode: apperr.CodeInvalidRequest, wantStatus: 400, wantMessage: generation.MsgTemplateRetired},
+		{name: "Error: a retired template in development is refused as retired", state: template.StateRetired, draftsAllowed: true, wantCode: apperr.CodeInvalidRequest, wantStatus: 400, wantMessage: generation.MsgTemplateRetired},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := defaultCfg()
+			cfg.DraftTemplates = tc.draftsAllowed
+			f := newFixture(t, cfg)
+			f.allowTemplateState(tc.state, plan.KindCharacter)
+
+			if tc.wantCreated {
+				f.plans.EXPECT().PlanOf(mock.Anything, userID).Return(plan.Paid, nil)
+				f.consent.EXPECT().Gate(mock.Anything, userID).Return(nil)
+				f.sheets.EXPECT().CheckSheetLimit(mock.Anything, userID, plan.KindCharacter).
+					Return(sheet.LimitStatus{Kind: plan.KindCharacter, Used: 0, Limit: 1}, nil)
+				f.store.EXPECT().ActiveByUser(mock.Anything, userID).Return("", false, nil)
+				f.runInline()
+				f.store.EXPECT().ReserveCap(mock.Anything, mock.Anything, 10, mock.Anything).Return(1, true, nil)
+				f.observer.EXPECT().GenerationCapUsage(1, 10)
+				f.quota.EXPECT().ReserveDaily(mock.Anything, userID).Return("2026-11-14", nil)
+				f.store.EXPECT().Insert(mock.Anything, mock.Anything).Return(nil)
+				f.publisher.EXPECT().Publish(mock.Anything, mock.Anything).Return(nil).Maybe()
+			}
+
+			id, err := f.svc.Create(context.Background(), generation.CreateCommand{
+				UserID: userID, TemplateID: templateID, Kind: "character", Concept: validText,
+			})
+
+			if tc.wantCreated {
+				require.NoError(t, err)
+				require.NotEmpty(t, id)
+				return
+			}
+
+			assert.Empty(t, id)
+			requireCode(t, err, tc.wantCode, tc.wantStatus)
+			assert.Equal(t, tc.wantMessage, appErrorOf(t, err).Message)
+			f.tx.AssertNotCalled(t, "WithTransaction")
+			f.store.AssertNotCalled(t, "ReserveCap")
+			f.store.AssertNotCalled(t, "Insert")
+			f.quota.AssertNotCalled(t, "ReserveDaily")
+			f.plans.AssertNotCalled(t, "PlanOf")
+			f.consent.AssertNotCalled(t, "Gate")
+			f.sheets.AssertNotCalled(t, "CheckSheetLimit")
 		})
 	}
 }

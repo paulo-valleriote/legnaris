@@ -26,6 +26,10 @@ type LinkCleaner interface {
 	PublishSheetUnlinked(kind plan.SheetKind, removed []RemovedLink)
 }
 
+type CampaignScope interface {
+	AllowsTemplate(ctx context.Context, userID, campaignID, templateID string) (bool, error)
+}
+
 type ServiceOption func(*ServiceImpl)
 
 func WithPlanLimits(plans PlanSource, tx TransactionRunner) ServiceOption {
@@ -37,6 +41,14 @@ func WithPlanLimits(plans PlanSource, tx TransactionRunner) ServiceOption {
 
 func WithLinkCleaner(cleaner LinkCleaner) ServiceOption {
 	return func(s *ServiceImpl) { s.linkCleaner = cleaner }
+}
+
+func WithDraftTemplates(allowed bool) ServiceOption {
+	return func(s *ServiceImpl) { s.draftsAllowed = allowed }
+}
+
+func WithCampaignScope(scope CampaignScope) ServiceOption {
+	return func(s *ServiceImpl) { s.campaignScope = scope }
 }
 
 type LimitStatus struct {
@@ -55,9 +67,13 @@ type PlanUsage struct {
 }
 
 const (
-	MsgKindInvalid         = "sheet kind must be one of character, npc, enemy"
-	MsgTemplateKindRefused = "template does not accept this sheet kind"
-	MsgLimitsNotConfigured = "sheet limits are not configured"
+	MsgKindInvalid              = "sheet kind must be one of character, npc, enemy"
+	MsgTemplateKindRefused      = "template does not accept this sheet kind"
+	MsgTemplateStateRefused     = "template is not available in this environment"
+	MsgTemplateRetiredRefused   = "template is retired and cannot start new sheets"
+	MsgCampaignScopeRefused     = "campaign does not allow creating a sheet from this template"
+	MsgCampaignScopeUnavailable = "campaign scope could not be checked"
+	MsgLimitsNotConfigured      = "sheet limits are not configured"
 )
 
 func requireKind(raw string) (plan.SheetKind, error) {

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { DefensiveParseFailure, DomainFailure } from '../api/errors';
 import { failureCopy } from '../api/error_mapper';
+import type { Sheet } from '../api/models/sheet';
 import type { TemplateDetail } from '../api/models/template';
 import { useApiClient } from '../app/providers';
 import { isSheetLimitReached } from '../api/models/plan';
@@ -30,7 +31,12 @@ const KIND_LABEL_KEYS = {
 
 type DetailRenderPhase =
   | { readonly kind: 'loading' }
-  | { readonly kind: 'loaded'; readonly name: string; readonly kinds: readonly SheetKind[] }
+  | {
+      readonly kind: 'loaded';
+      readonly name: string;
+      readonly kinds: readonly SheetKind[];
+      readonly compatibilityLabel?: string;
+    }
   | { readonly kind: 'error'; readonly copy: string }
   | { readonly kind: 'notFound'; readonly copy: string }
   | { readonly kind: 'parseError'; readonly copy: string };
@@ -58,7 +64,12 @@ function resolveDetailPhase(query: UseQueryResult<TemplateDetail, Error>): Detai
   const data = query.data;
   return data === undefined
     ? { kind: 'loading' }
-    : { kind: 'loaded', name: data.name, kinds: data.kinds };
+    : {
+        kind: 'loaded',
+        name: data.name,
+        kinds: data.kinds,
+        compatibilityLabel: data.gameSystem?.compatibilityLabel,
+      };
 }
 
 interface DetailBodyProps {
@@ -79,6 +90,11 @@ function DetailBody({ phase, templateId, onRetry }: DetailBodyProps) {
             <p className="lg-create-sheet__name" data-testid="detail-name">
               {phase.name}
             </p>
+            {phase.compatibilityLabel === undefined ? null : (
+              <p className="lg-create-sheet__compatibility" data-testid="detail-compatibility">
+                {phase.compatibilityLabel}
+              </p>
+            )}
           </div>
           <p className="lg-create-sheet__code">{templateId}</p>
         </div>
@@ -100,9 +116,20 @@ function blockedReason(hasName: boolean, limitReached: boolean): string | undefi
 export interface CreateSheetDialogProps {
   readonly templateId: string;
   readonly onClose: () => void;
+  readonly campaignId?: string;
+  readonly allowedKinds?: readonly SheetKind[];
+  readonly replaceWarning?: boolean;
+  readonly onCreated?: (sheet: Sheet, kind: SheetKind) => Promise<void>;
 }
 
-export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProps) {
+export function CreateSheetDialog({
+  templateId,
+  onClose,
+  campaignId,
+  allowedKinds,
+  replaceWarning = false,
+  onCreated,
+}: CreateSheetDialogProps) {
   const query = useTemplateDetail(templateId);
   const plan = usePlanUsage();
   const client = useApiClient();
@@ -111,13 +138,22 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
   const [sheetName, setSheetName] = useState('');
   const [chosenKind, setChosenKind] = useState<SheetKind | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLinking, setIsLinking] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
+  const [linkError, setLinkError] = useState<string | undefined>(undefined);
+  const [createdSheet, setCreatedSheet] = useState<Sheet | undefined>(undefined);
+  const [createdKind, setCreatedKind] = useState<SheetKind | undefined>(undefined);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const campaignMode = campaignId !== undefined;
   const phase = resolveDetailPhase(query);
   const trimmedName = sheetName.trim();
   const hasName = trimmedName !== '';
-  const availableKinds = phase.kind === 'loaded' ? phase.kinds : [];
+  const templateKinds = phase.kind === 'loaded' ? phase.kinds : [];
+  const availableKinds =
+    allowedKinds === undefined
+      ? templateKinds
+      : templateKinds.filter((candidate) => allowedKinds.includes(candidate));
   const kind = availableKinds.find((candidate) => candidate === chosenKind) ?? availableKinds[0];
   const limitReached = kind !== undefined && isSheetLimitReached(plan.data, kind);
   const kindUsage = kind === undefined ? undefined : plan.data?.sheets[kind];
@@ -128,18 +164,44 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
   const canSubmit = kind !== undefined && hasName && !limitReached;
   const reason = canSubmit ? undefined : blockedReason(hasName, limitReached);
 
+  const linkCreated = async (sheet: Sheet, sheetKind: SheetKind) => {
+    if (onCreated === undefined) {
+      return;
+    }
+    setIsLinking(true);
+    setLinkError(undefined);
+    try {
+      await onCreated(sheet, sheetKind);
+    } catch (error: unknown) {
+      setLinkError(describeFailure(error));
+    } finally {
+      setIsLinking(false);
+    }
+  };
+
   const handleCreate = () => {
-    if (kind === undefined || !canSubmit || isSubmitting) {
+    if (kind === undefined || !canSubmit || isSubmitting || createdSheet !== undefined) {
       return;
     }
     setIsSubmitting(true);
     setSubmitError(undefined);
     void client
-      .createSheet({ templateId, kind, sheetName: trimmedName })
+      .createSheet({
+        templateId,
+        kind,
+        sheetName: trimmedName,
+        ...(campaignId === undefined ? {} : { campaignId }),
+      })
       .then((sheet) => {
         seedCreatedSheet(queryClient, sheet);
         void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY });
-        navigate(`/sheets/${encodeURIComponent(sheet.id)}`);
+        if (!campaignMode || onCreated === undefined) {
+          navigate(`/sheets/${encodeURIComponent(sheet.id)}`);
+          return;
+        }
+        setCreatedSheet(sheet);
+        setCreatedKind(kind);
+        void linkCreated(sheet, kind);
       })
       .catch((error: unknown) => {
         setSubmitError(describeFailure(error));
@@ -148,31 +210,32 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
       });
   };
 
+  const retryLink = () => {
+    if (createdSheet === undefined || createdKind === undefined || isLinking) {
+      return;
+    }
+    void linkCreated(createdSheet, createdKind);
+  };
+
   const generateTo =
     kind === undefined
       ? undefined
       : `/generate/${encodeURIComponent(templateId)}?kind=${encodeURIComponent(kind)}`;
   const generateLabel = message('generate.entry');
-  const generate =
-    kind === undefined ? (
-      <Button variant="secondary" label={generateLabel} disabled />
-    ) : limitReached ? (
-      <Button
-        variant="secondary"
-        label={generateLabel}
-        disabled
-        ariaDescribedBy={LIMIT_NOTICE_ID}
-      />
-    ) : isFreePlan(plan.data) ? (
-      <Button variant="secondary" name={generateLabel} onClick={() => setUpgradeOpen(true)}>
-        <span className="lg-create-sheet__generate">
-          <span>{generateLabel}</span>
-          <span className="lg-create-sheet__pro">{message('generate.upgrade.badge')}</span>
-        </span>
-      </Button>
-    ) : (
-      <Button variant="secondary" label={generateLabel} to={generateTo} />
-    );
+  const generate = campaignMode ? null : kind === undefined ? (
+    <Button variant="secondary" label={generateLabel} disabled />
+  ) : limitReached ? (
+    <Button variant="secondary" label={generateLabel} disabled ariaDescribedBy={LIMIT_NOTICE_ID} />
+  ) : isFreePlan(plan.data) ? (
+    <Button variant="secondary" name={generateLabel} onClick={() => setUpgradeOpen(true)}>
+      <span className="lg-create-sheet__generate">
+        <span>{generateLabel}</span>
+        <span className="lg-create-sheet__pro">{message('generate.upgrade.badge')}</span>
+      </span>
+    </Button>
+  ) : (
+    <Button variant="secondary" label={generateLabel} to={generateTo} />
+  );
 
   return (
     <>
@@ -183,18 +246,28 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
         closeLabel={message('sheet.close')}
         initialFocusRef={inputRef}
         actions={
-          <>
-            {generate}
+          createdSheet === undefined ? (
+            <>
+              {generate}
+              <Button
+                variant="primary"
+                label={isSubmitting ? message('sheet.creating') : message('sheet.create')}
+                disabled={!canSubmit || isSubmitting}
+                loading={isSubmitting}
+                disabledReason={isSubmitting || limitReached ? undefined : reason}
+                ariaDescribedBy={limitReached ? LIMIT_NOTICE_ID : undefined}
+                onClick={handleCreate}
+              />
+            </>
+          ) : linkError === undefined ? undefined : (
             <Button
               variant="primary"
-              label={isSubmitting ? message('sheet.creating') : message('sheet.create')}
-              disabled={!canSubmit || isSubmitting}
-              loading={isSubmitting}
-              disabledReason={isSubmitting || limitReached ? undefined : reason}
-              ariaDescribedBy={limitReached ? LIMIT_NOTICE_ID : undefined}
-              onClick={handleCreate}
+              label={message('campaign.createLinkRetry')}
+              loading={isLinking}
+              disabled={isLinking}
+              onClick={retryLink}
             />
-          </>
+          )
         }
       >
         <div className="lg-create-sheet">
@@ -205,12 +278,18 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
               void query.refetch();
             }}
           />
+          {replaceWarning ? (
+            <Notice tone="warning" live="off">
+              {message('campaign.createReplaceWarning')}
+            </Notice>
+          ) : null}
           <Field
             label={message('sheet.nameLabel')}
             id="sheet-name"
             inputRef={inputRef}
             value={sheetName}
             placeholder={message('sheet.namePlaceholder')}
+            disabled={createdSheet !== undefined}
             onChange={setSheetName}
           />
           {kind === undefined ? null : availableKinds.length === 1 ? (
@@ -236,6 +315,7 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
               id="sheet-kind"
               value={kind}
               hint={kindHint}
+              disabled={createdSheet !== undefined}
               onChange={(value) => {
                 setChosenKind(value as SheetKind);
                 setSubmitError(undefined);
@@ -253,6 +333,14 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
               {message('sheet.limitReached')}
             </Notice>
           ) : null}
+          {isLinking ? (
+            <Notice tone="info" live="polite">
+              {message('campaign.createLinking')}
+            </Notice>
+          ) : null}
+          {linkError === undefined ? null : (
+            <ErrorState message={`${message('campaign.createLinkFailed')} ${linkError}`} />
+          )}
           {submitError !== undefined && (
             <p className="lg-create-sheet__error" role="alert" data-testid="create-error">
               {submitError}

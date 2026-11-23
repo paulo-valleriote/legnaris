@@ -144,6 +144,14 @@ and `failed_total`, labelled by queue, are the operational contract.
   `main`/`run`: the API through `app.NewModules` and `app.NewRouter`, the relay
   and worker through their own dependency tables. It closes what it opened.
   There is no package-level singleton and no wiring in `init`.
+- **Environment policy enters at the composition root** — an environment value
+  that changes domain behaviour (`APP_ENV` today) is resolved in `cmd/api.go`
+  into one registry flag (`template.WithDraftsAllowed`), and `app.NewModules`
+  derives the Sheet and generation options from `registry.DraftsAllowed()`
+  (`sheet.WithDraftTemplates`, `generation.Config.DraftTemplates`), so there is
+  a single source of truth. The template, sheet and generation packages never
+  read the process environment, and a missing or unknown value takes the closed
+  default.
 - **Browser boundary** — CORS uses an explicit origin allowlist with
   credentials, allows `X-CSRF-Token`, exposes `X-Request-ID` and `ETag`, and
   names every accepted method. The API and the web client are separate origins,
@@ -202,6 +210,7 @@ and `failed_total`, labelled by queue, are the operational contract.
 | `backend/internal/app/ratelimit.go` | Per-route guard middleware: address, account and user keys, refusal and metric hook. |
 | `backend/internal/app/limiters.go` | Builds an in-process or Redis-backed limiter and the throttled store-failure warning. |
 | `backend/internal/app/errors.go` | Decode and template errors mapped to typed application errors. |
+| `backend/internal/app/campaign_scope.go` | Campaign scope resolution over the Template registry: creation refusals, Game system `template_ids` and the tolerant stored-scope read. |
 | `backend/internal/platform/cors` | Origin allowlist, credentials, allowed methods and exposed headers. |
 | `backend/internal/platform/health` | `/health`, `/ready` and the container probe helper. |
 | `backend/internal/platform/metrics` | Prometheus registry, HTTP middleware and domain observer implementations. |

@@ -70,7 +70,7 @@ func TestService_Create_EmitsSheetCreated(t *testing.T) {
 			got := captureEvents(pub)
 
 			tmplSvc.EXPECT().FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: eventsCreateTemplateID}).
-				Return(&template.Template{ID: eventsCreateTemplateID, Fields: fields, Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).Once()
+				Return(&template.Template{ID: eventsCreateTemplateID, State: template.StateActive, Fields: fields, Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).Once()
 			switch {
 			case tc.ownerHasSheet:
 				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindCharacter, 1).Return(sheeterr.ErrSheetLimitReached).Once()

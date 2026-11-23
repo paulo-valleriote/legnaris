@@ -22,6 +22,65 @@ func (_m *MockService) EXPECT() *MockService_Expecter {
 	return &MockService_Expecter{mock: &_m.Mock}
 }
 
+// FetchCatalogTemplate provides a mock function with given fields: ctx, cmd
+func (_m *MockService) FetchCatalogTemplate(ctx context.Context, cmd *template.FetchTemplateByIDCommand) (*template.Template, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FetchCatalogTemplate")
+	}
+
+	var r0 *template.Template
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *template.FetchTemplateByIDCommand) (*template.Template, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *template.FetchTemplateByIDCommand) *template.Template); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*template.Template)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *template.FetchTemplateByIDCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_FetchCatalogTemplate_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FetchCatalogTemplate'
+type MockService_FetchCatalogTemplate_Call struct {
+	*mock.Call
+}
+
+// FetchCatalogTemplate is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd *template.FetchTemplateByIDCommand
+func (_e *MockService_Expecter) FetchCatalogTemplate(ctx interface{}, cmd interface{}) *MockService_FetchCatalogTemplate_Call {
+	return &MockService_FetchCatalogTemplate_Call{Call: _e.mock.On("FetchCatalogTemplate", ctx, cmd)}
+}
+
+func (_c *MockService_FetchCatalogTemplate_Call) Run(run func(ctx context.Context, cmd *template.FetchTemplateByIDCommand)) *MockService_FetchCatalogTemplate_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*template.FetchTemplateByIDCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_FetchCatalogTemplate_Call) Return(_a0 *template.Template, _a1 error) *MockService_FetchCatalogTemplate_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_FetchCatalogTemplate_Call) RunAndReturn(run func(context.Context, *template.FetchTemplateByIDCommand) (*template.Template, error)) *MockService_FetchCatalogTemplate_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // FetchTemplate provides a mock function with given fields: ctx, cmd
 func (_m *MockService) FetchTemplate(ctx context.Context, cmd *template.FetchTemplateByIDCommand) (*template.Template, error) {
 	ret := _m.Called(ctx, cmd)

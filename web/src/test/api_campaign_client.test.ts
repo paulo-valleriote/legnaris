@@ -262,4 +262,114 @@ describe('campaign API client (LGN-218)', () => {
       DefensiveParseFailure,
     );
   });
+
+  it('Happy path: createCampaign POSTs the name and game system in snake case', async () => {
+    const { client, fake } = clientWith(
+      successOutcome({ ...CAMPAIGN_VIEW, game_system: { id: 'fifth', name: '5E' } }, 201),
+    );
+
+    await client.createCampaign({ name: 'Ember Coast', gameSystem: 'fifth' });
+
+    expect(JSON.parse(fake.lastRequest?.body ?? '')).toEqual({
+      name: 'Ember Coast',
+      game_system: 'fifth',
+    });
+  });
+
+  it('Happy path: a legacy campaign payload falls back to its template id for name and scope', async () => {
+    const { client } = clientWith(successOutcome(CAMPAIGN_VIEW));
+
+    const campaign = await client.getCampaign(CAMPAIGN_ID);
+
+    expect(campaign.templateId).toBe('dnd5e');
+    expect(campaign.scopeName).toBe('dnd5e');
+    expect(campaign.templateIds).toEqual(['dnd5e']);
+    expect(campaign.gameSystem).toBeUndefined();
+  });
+
+  it('Happy path: a Game system campaign payload decodes its scope without a template id', async () => {
+    const { client } = clientWith(
+      successOutcome({
+        ...CAMPAIGN_VIEW,
+        template_id: undefined,
+        game_system: { id: 'fifth', name: '5E' },
+        scope_name: '5E',
+        template_ids: ['fifth_character_v1', 'fifth_statblock_v1'],
+      }),
+    );
+
+    const campaign = await client.getCampaign(CAMPAIGN_ID);
+
+    expect(campaign.templateId).toBeUndefined();
+    expect(campaign.scopeName).toBe('5E');
+    expect(campaign.templateIds).toEqual(['fifth_character_v1', 'fifth_statblock_v1']);
+    expect(campaign.gameSystem).toEqual({ id: 'fifth', name: '5E' });
+  });
+
+  it('Edge: an empty scope template list decodes as empty', async () => {
+    const { client } = clientWith(
+      successOutcome({
+        ...CAMPAIGN_VIEW,
+        scope_name: '5E',
+        template_ids: [],
+        game_system: { id: 'fifth', name: '5E' },
+      }),
+    );
+
+    expect((await client.getCampaign(CAMPAIGN_ID)).templateIds).toEqual([]);
+  });
+
+  it('Error: a campaign payload with neither a game system nor a template id is refused', async () => {
+    const { client } = clientWith(
+      successOutcome({
+        ...CAMPAIGN_VIEW,
+        template_id: undefined,
+        scope_name: 'Nowhere',
+        template_ids: [],
+      }),
+    );
+
+    await expect(client.getCampaign(CAMPAIGN_ID)).rejects.toBeInstanceOf(DefensiveParseFailure);
+  });
+
+  it('Error: a malformed scope template list is refused', async () => {
+    const { client } = clientWith(successOutcome({ ...CAMPAIGN_VIEW, template_ids: 'dnd5e' }));
+
+    await expect(client.getCampaign(CAMPAIGN_ID)).rejects.toBeInstanceOf(DefensiveParseFailure);
+  });
+
+  it('Happy path: a summary decodes the same scope fields as the detail', async () => {
+    const { client } = clientWith(
+      successOutcome([
+        {
+          ...CAMPAIGN_VIEW,
+          template_id: undefined,
+          game_system: { id: 'fifth', name: '5E' },
+          scope_name: '5E',
+          template_ids: ['fifth_character_v1'],
+        },
+      ]),
+    );
+
+    const [summary] = await client.listCampaigns();
+
+    expect(summary).toMatchObject({
+      scopeName: '5E',
+      templateIds: ['fifth_character_v1'],
+      gameSystem: { id: 'fifth', name: '5E' },
+    });
+    expect(summary?.templateId).toBeUndefined();
+  });
+
+  it('Happy path: a legacy summary falls back to its template id', async () => {
+    const { client } = clientWith(successOutcome([CAMPAIGN_VIEW]));
+
+    const [summary] = await client.listCampaigns();
+
+    expect(summary).toMatchObject({
+      scopeName: 'dnd5e',
+      templateIds: ['dnd5e'],
+      templateId: 'dnd5e',
+    });
+  });
 });

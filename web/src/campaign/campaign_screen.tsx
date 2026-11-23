@@ -4,6 +4,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { failureCopy, failureKind } from '../api/error_mapper';
 import type { Campaign, CampaignMember, NpcLink, NpcKind } from '../api/models/campaign';
+import type { SheetKind } from '../api/models/plan';
+import type { Sheet } from '../api/models/sheet';
 import type { MemberAction } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
 import { Button } from '../ui/button';
@@ -13,23 +15,28 @@ import { Notice } from '../ui/notice';
 import { PageHeader } from '../ui/page_header';
 import { Select } from '../ui/select';
 import { EmptyState, ErrorState, LoadingState } from '../ui/state';
-import { PLAN_QUERY_KEY } from '../catalog/queries';
+import { PLAN_QUERY_KEY, useTemplateDetails } from '../catalog/queries';
+import { CreateSheetDialog } from '../catalog/create_sheet_dialog';
 import { INVITE_PANEL_ID, InvitePanel } from './invite_panel';
 import { CampaignSettings, SETTINGS_PANEL_ID } from './campaign_settings';
 import { useOwnedCharacterSheets, useOwnedSheets } from './campaign_queries';
 import {
   CAMPAIGNS_QUERY_KEY,
   campaignKey,
+  campaignSheetsKey,
   npcLinksKey,
+  ownedSheetsKey,
   seedCampaign,
   useCampaign,
   useCampaignSheets,
   useNpcLinks,
 } from './campaign_queries';
 import {
+  allowedKindsFor,
   canDeleteCampaign,
   canLinkCharacter,
   eligibleSheetIds,
+  hasLinkedCharacter,
   isDeleting,
   isSelf,
   memberActions,
@@ -160,6 +167,77 @@ function LinkCharacterForm({
           />
         </div>
       </form>
+    </section>
+  );
+}
+
+interface CreateTarget {
+  readonly templateId: string;
+  readonly kinds: readonly SheetKind[];
+}
+
+interface EligibleTemplate {
+  readonly templateId: string;
+  readonly name: string;
+  readonly kinds: readonly SheetKind[];
+}
+
+function useEligibleTemplates(
+  templateIds: readonly string[],
+  role: Campaign['viewerRole'],
+): EligibleTemplate[] {
+  const details = useTemplateDetails(templateIds);
+  return details.flatMap((query, index) => {
+    const templateId = templateIds[index];
+    if (query.data === undefined || templateId === undefined) {
+      return [];
+    }
+    const kinds = allowedKindsFor(query.data.kinds, role);
+    if (kinds.length === 0) {
+      return [];
+    }
+    return [{ templateId, name: query.data.name, kinds }];
+  });
+}
+
+function CreateSheetsSection({
+  campaign,
+  viewerRole,
+  onOpen,
+}: {
+  campaign: Campaign;
+  viewerRole: Campaign['viewerRole'];
+  onOpen: (target: CreateTarget) => void;
+}) {
+  const eligible = useEligibleTemplates(campaign.templateIds, viewerRole);
+  const gm = viewerRole === 'gm';
+  if (eligible.length === 0) {
+    return null;
+  }
+  const headingId = gm ? 'campaign-create-npc-heading' : 'campaign-create-character-heading';
+
+  return (
+    <section className="lg-campaign__section" aria-labelledby={headingId}>
+      <SectionHeading
+        id={headingId}
+        label={message(gm ? 'campaign.createNpcHeading' : 'campaign.createCharacterHeading')}
+      />
+      <ul className="lg-campaign__create-list">
+        {eligible.map((template) => {
+          const name = template.name === '' ? template.templateId : template.name;
+          return (
+            <li className="lg-campaign__create-row" key={template.templateId}>
+              <span className="lg-campaign__create-name">{name}</span>
+              <Button
+                variant="outline"
+                label={message(gm ? 'campaign.newNpc' : 'campaign.newCharacter')}
+                name={messageWith(gm ? 'campaign.newNpcFor' : 'campaign.newCharacterFor', { name })}
+                onClick={() => onOpen({ templateId: template.templateId, kinds: template.kinds })}
+              />
+            </li>
+          );
+        })}
+      </ul>
     </section>
   );
 }
@@ -393,10 +471,30 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
   const [npcNotice, setNpcNotice] = useState<string | undefined>(undefined);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [createTarget, setCreateTarget] = useState<CreateTarget | undefined>(undefined);
+  const ownedCharacters = useOwnedCharacterSheets(campaign.viewerRole === 'player');
+  const selfMember = campaign.members.find((member) => isSelf(campaign, member));
+  const hasCharacter =
+    (selfMember !== undefined && selfMember.characterName !== '') ||
+    hasLinkedCharacter(ownedCharacters.data ?? [], campaign.id);
 
   const refreshCampaign = (next: Campaign) => {
     seedCampaign(queryClient, next);
     void queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEY });
+  };
+
+  const createAndLink = async (sheet: Sheet, kind: SheetKind) => {
+    void queryClient.invalidateQueries({ queryKey: ownedSheetsKey(kind) });
+    if (kind === 'character') {
+      const next = await client.linkCharacter(campaign.id, sheet.id);
+      seedCampaign(queryClient, next);
+      await queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: campaignSheetsKey(campaign.id) });
+    } else {
+      await client.linkNpc(campaign.id, sheet.id);
+      await queryClient.invalidateQueries({ queryKey: npcLinksKey(campaign.id) });
+    }
+    void navigate(`/sheets/${encodeURIComponent(sheet.id)}`);
   };
 
   const memberCommand = useMutation({
@@ -576,9 +674,14 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
         backTo="/campaigns"
         backLabel={message('campaign.back')}
         meta={
-          <span className="lg-campaigns__role">
-            {roleText(campaign.viewerRole, campaign.viewerOwner)}
-          </span>
+          <>
+            <span className="lg-campaign__meta" data-testid="campaign-scope">
+              {campaign.scopeName}
+            </span>
+            <span className="lg-campaigns__role">
+              {roleText(campaign.viewerRole, campaign.viewerOwner)}
+            </span>
+          </>
         }
         actions={
           campaign.viewerRole === 'gm' || canDeleteCampaign(campaign) ? (
@@ -638,6 +741,11 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
                 error={linkError}
                 onSubmit={(sheetId) => link.mutate(sheetId)}
               />
+              <CreateSheetsSection
+                campaign={campaign}
+                viewerRole="player"
+                onOpen={setCreateTarget}
+              />
               {notice ? (
                 <Notice tone="success" live="polite">
                   {notice}
@@ -655,6 +763,10 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
               />
               <LinkedSheets campaign={campaign} />
             </section>
+          ) : null}
+
+          {gm ? (
+            <CreateSheetsSection campaign={campaign} viewerRole="gm" onOpen={setCreateTarget} />
           ) : null}
 
           {gm ? (
@@ -757,6 +869,17 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
           </>
         }
       />
+
+      {createTarget === undefined ? null : (
+        <CreateSheetDialog
+          templateId={createTarget.templateId}
+          allowedKinds={createTarget.kinds}
+          campaignId={campaign.id}
+          replaceWarning={campaign.viewerRole === 'player' && hasCharacter}
+          onClose={() => setCreateTarget(undefined)}
+          onCreated={createAndLink}
+        />
+      )}
     </>
   );
 }

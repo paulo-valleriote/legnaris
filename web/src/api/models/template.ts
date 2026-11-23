@@ -64,10 +64,23 @@ export interface ResetAction {
   readonly assignments: readonly ResetAssignment[];
 }
 
+export interface GameSystemNotice {
+  readonly label: string;
+  readonly path: string;
+}
+
+export interface GameSystem {
+  readonly id: string;
+  readonly name: string;
+  readonly compatibilityLabel: string;
+  readonly notice: GameSystemNotice;
+}
+
 export interface TemplateDetail {
   readonly id: string;
   readonly name: string;
   readonly kinds: readonly SheetKind[];
+  readonly gameSystem?: GameSystem;
   readonly fields: Record<string, FieldNode>;
   readonly default: boolean;
   readonly dice?: DiceDefaults;
@@ -245,6 +258,51 @@ function parseResetAssignments(value: unknown): readonly ResetAssignment[] {
   });
 }
 
+function isSameOriginPath(path: string): boolean {
+  if (!path.startsWith('/') || path.startsWith('//')) {
+    return false;
+  }
+
+  for (const character of path) {
+    const code = character.codePointAt(0) ?? 0;
+    if (character === '\\' || code < 0x20 || code === 0x7f) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function parseGameSystem(value: unknown): GameSystem | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (!isPlainObject(value)) {
+    throw drift('template "game_system" is not an object');
+  }
+
+  const notice = value['notice'];
+  if (!isPlainObject(notice)) {
+    throw drift('template "game_system.notice" is not an object');
+  }
+
+  const path = requireString(notice, 'path');
+  if (!isSameOriginPath(path)) {
+    throw drift('template "game_system.notice.path" is not a same-origin path');
+  }
+
+  return {
+    id: requireString(value, 'id'),
+    name: requireString(value, 'name'),
+    compatibilityLabel: requireString(value, 'compatibility_label'),
+    notice: {
+      label: requireString(notice, 'label'),
+      path,
+    },
+  };
+}
+
 function parseResetActions(value: unknown): readonly ResetAction[] | undefined {
   if (value === undefined || value === null) {
     return undefined;
@@ -279,6 +337,7 @@ function parseTemplate(value: unknown): TemplateDetail {
     id: requireString(value, 'id'),
     name: requireString(value, 'name'),
     kinds: parseKinds(value['kinds']),
+    gameSystem: parseGameSystem(value['game_system']),
     default: requireBoolean(value, 'default'),
     fields: parseFieldGroup(value['fields']),
     dice: parseDiceDefaults(value['dice']),

@@ -24,9 +24,10 @@ type CreateGuard interface {
 }
 
 type CreateCommand struct {
-	OwnerID    string `json:"-"`
-	Name       string `json:"name"`
-	TemplateID string `json:"template_id"`
+	OwnerID      string `json:"-"`
+	Name         string `json:"name"`
+	GameSystemID string `json:"game_system"`
+	TemplateID   string `json:"template_id"`
 }
 
 type LeaveCommand struct {
@@ -52,7 +53,10 @@ type MemberView struct {
 type View struct {
 	ID           string       `json:"id"`
 	Name         string       `json:"name"`
-	TemplateID   string       `json:"template_id"`
+	GameSystem   *GameSystem  `json:"game_system,omitempty"`
+	TemplateID   string       `json:"template_id,omitempty"`
+	ScopeName    string       `json:"scope_name"`
+	TemplateIDs  []string     `json:"template_ids"`
 	Status       Status       `json:"status"`
 	Version      int64        `json:"version"`
 	GMCount      int          `json:"gm_count"`
@@ -68,13 +72,16 @@ type View struct {
 }
 
 type Summary struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	TemplateID  string    `json:"template_id"`
-	Version     int64     `json:"version"`
-	ViewerRole  Role      `json:"viewer_role"`
-	ViewerOwner bool      `json:"viewer_owner"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string      `json:"id"`
+	Name        string      `json:"name"`
+	GameSystem  *GameSystem `json:"game_system,omitempty"`
+	TemplateID  string      `json:"template_id,omitempty"`
+	ScopeName   string      `json:"scope_name"`
+	TemplateIDs []string    `json:"template_ids"`
+	Version     int64       `json:"version"`
+	ViewerRole  Role        `json:"viewer_role"`
+	ViewerOwner bool        `json:"viewer_owner"`
+	UpdatedAt   time.Time   `json:"updated_at"`
 }
 
 type Service interface {
@@ -150,6 +157,7 @@ type ServiceImpl struct {
 	hasher     PasswordHasher
 	joinLimit  JoinLimiter
 	releaser   OwnershipReleaser
+	scopes     ScopeResolver
 	now        func() time.Time
 }
 
@@ -191,6 +199,10 @@ func WithJoinLimiter(l JoinLimiter) ServiceOption {
 	return func(s *ServiceImpl) { s.joinLimit = l }
 }
 
+func WithScopeResolver(r ScopeResolver) ServiceOption {
+	return func(s *ServiceImpl) { s.scopes = r }
+}
+
 func NewService(repository Repository, tx TransactionRunner, publisher events.Publisher, opts ...ServiceOption) Service {
 	if publisher == nil {
 		publisher = events.NoOp{}
@@ -204,6 +216,7 @@ func NewService(repository Repository, tx TransactionRunner, publisher events.Pu
 		links:      noLinks{},
 		hasher:     unavailableHasher{},
 		joinLimit:  allowAllJoins{},
+		scopes:     noScopeResolver{},
 		now:        time.Now,
 	}
 	for _, opt := range opts {
@@ -253,8 +266,15 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateCommand) (View, erro
 	if !ValidName(name) {
 		return View{}, apperr.NewError(apperr.CodeInvalidRequest, MsgNameInvalid, nil)
 	}
-	if !ValidTemplateID(cmd.TemplateID) {
+	if err := requireOneScope(cmd.GameSystemID, cmd.TemplateID); err != nil {
+		return View{}, err
+	}
+	if cmd.TemplateID != "" && !ValidTemplateID(cmd.TemplateID) {
 		return View{}, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateInvalid, nil)
+	}
+	scope, err := s.scopes.CreateScope(ctx, cmd.GameSystemID, cmd.TemplateID)
+	if err != nil {
+		return View{}, createScopeError(err)
 	}
 	id, err := idgen.New()
 	if err != nil {
@@ -266,17 +286,18 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateCommand) (View, erro
 	}
 	now := s.now()
 	created := &Campaign{
-		ID:          id,
-		Name:        name,
-		TemplateID:  cmd.TemplateID,
-		Status:      StatusActive,
-		InviteCode:  inviteCode,
-		Version:     1,
-		GMCount:     1,
-		PlayerCount: 0,
-		Members:     []Member{{UserID: cmd.OwnerID, Role: RoleGM, Owner: true, JoinedAt: now}},
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:           id,
+		Name:         name,
+		GameSystemID: cmd.GameSystemID,
+		TemplateID:   cmd.TemplateID,
+		Status:       StatusActive,
+		InviteCode:   inviteCode,
+		Version:      1,
+		GMCount:      1,
+		PlayerCount:  0,
+		Members:      []Member{{UserID: cmd.OwnerID, Role: RoleGM, Owner: true, JoinedAt: now}},
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 	err = s.tx.WithTransaction(ctx, func(txCtx context.Context) error {
 		if s.guard != nil {
@@ -289,10 +310,8 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateCommand) (View, erro
 	if err != nil {
 		return View{}, unwrapTxError(err)
 	}
-	s.publishCampaignEvent(EventCreated, cmd.OwnerID, id, created.Version, map[string]any{
-		"template_id": cmd.TemplateID,
-	})
-	return s.view(ctx, created, cmd.OwnerID), nil
+	s.publishCampaignEvent(EventCreated, cmd.OwnerID, id, created.Version, scopeEventData(*created))
+	return s.viewWithScope(ctx, created, cmd.OwnerID, scope), nil
 }
 
 func (s *ServiceImpl) Fetch(ctx context.Context, campaignID, userID string) (View, error) {
@@ -323,10 +342,14 @@ func (s *ServiceImpl) ListMine(ctx context.Context, userID string) ([]Summary, e
 	summaries := make([]Summary, 0, len(found))
 	for i := range found {
 		member, _ := found[i].MemberOf(userID)
+		scope := s.scopeOf(ctx, &found[i])
 		summaries = append(summaries, Summary{
 			ID:          found[i].ID,
 			Name:        found[i].Name,
+			GameSystem:  scope.GameSystem,
 			TemplateID:  found[i].TemplateID,
+			ScopeName:   scope.Name,
+			TemplateIDs: templateIDsOf(scope),
 			Version:     found[i].Version,
 			ViewerRole:  member.Role,
 			ViewerOwner: member.Owner,
@@ -344,6 +367,10 @@ func readError(err error) error {
 }
 
 func (s *ServiceImpl) view(ctx context.Context, c *Campaign, viewerID string) View {
+	return s.viewWithScope(ctx, c, viewerID, s.scopeOf(ctx, c))
+}
+
+func (s *ServiceImpl) viewWithScope(ctx context.Context, c *Campaign, viewerID string, scope Scope) View {
 	viewer, _ := c.MemberOf(viewerID)
 	names := s.characterNames(ctx, c.ID)
 	members := make([]MemberView, 0, len(c.Members))
@@ -357,10 +384,14 @@ func (s *ServiceImpl) view(ctx context.Context, c *Campaign, viewerID string) Vi
 			JoinedAt:      m.JoinedAt,
 		})
 	}
+	templateIDs := templateIDsOf(scope)
 	out := View{
 		ID:           c.ID,
 		Name:         c.Name,
+		GameSystem:   scope.GameSystem,
 		TemplateID:   c.TemplateID,
+		ScopeName:    scope.Name,
+		TemplateIDs:  templateIDs,
 		Status:       c.Status,
 		Version:      c.Version,
 		GMCount:      c.GMCount,

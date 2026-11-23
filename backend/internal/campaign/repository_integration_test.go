@@ -248,6 +248,49 @@ func TestPromote_ConcurrentPromotionsNeverExceedGMCap(t *testing.T) {
 	assert.Equal(t, campaign.MaxGMs, stored.GMCount)
 }
 
+func TestService_FetchLegacyTemplateOnlyDocument(t *testing.T) {
+	f := newMongoFixture(t)
+	id := campaigntest.NewID(t)
+	owner := campaigntest.NewID(t)
+	now := campaigntest.Now()
+	raw := bson.D{
+		{Key: "_id", Value: id},
+		{Key: "name", Value: "Legacy Campaign"},
+		{Key: "template_id", Value: "dnd5e"},
+		{Key: "status", Value: campaign.StatusActive},
+		{Key: "invite_code", Value: "Abcdefghijklmnopqrstuvwx"},
+		{Key: "version", Value: int64(1)},
+		{Key: "gm_count", Value: 1},
+		{Key: "player_count", Value: 0},
+		{Key: "members", Value: bson.A{bson.D{
+			{Key: "user_id", Value: owner},
+			{Key: "role", Value: campaign.RoleGM},
+			{Key: "owner", Value: true},
+			{Key: "joined_at", Value: now},
+		}}},
+		{Key: "created_at", Value: now},
+		{Key: "updated_at", Value: now},
+	}
+	_, err := f.collection.InsertOne(f.ctx, raw)
+	require.NoError(t, err)
+
+	svc := campaign.NewService(f.repo, f.tx, nil, campaign.WithClock(campaigntest.Now))
+	view, err := svc.Fetch(f.ctx, id, owner)
+	require.NoError(t, err)
+	assert.Equal(t, "dnd5e", view.TemplateID)
+	assert.Nil(t, view.GameSystem)
+	assert.Equal(t, "dnd5e", view.ScopeName)
+	assert.Equal(t, []string{"dnd5e"}, view.TemplateIDs)
+
+	var stored struct {
+		GameSystemID string `bson:"game_system"`
+		TemplateID   string `bson:"template_id"`
+	}
+	require.NoError(t, f.collection.FindOne(f.ctx, bson.D{{Key: "_id", Value: id}}).Decode(&stored))
+	assert.Empty(t, stored.GameSystemID)
+	assert.Equal(t, "dnd5e", stored.TemplateID)
+}
+
 func TestRepository_FetchByInviteCode(t *testing.T) {
 	f := newMongoFixture(t)
 	c := campaigntest.Build(t, 0, 0)

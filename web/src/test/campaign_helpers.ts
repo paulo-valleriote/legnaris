@@ -15,6 +15,8 @@ export const PLAYER_ID = '0190c5a0-0000-7000-8000-00000000c005';
 
 export const TEMPLATE_ID = 'fantasy_v1';
 
+export const TEMPLATE_NAME = 'Fantasy Template';
+
 export function capturedTemplates(): unknown[] {
   const raw = readFileSync(path.resolve(here, '../api/fixtures/templates.json'), 'utf8');
   const capture = JSON.parse(raw) as { response: { body: { data: unknown[] } } };
@@ -32,6 +34,8 @@ export function campaignView(overrides: Record<string, unknown> = {}) {
     id: CAMPAIGN_ID,
     name: 'Ember Coast',
     template_id: TEMPLATE_ID,
+    scope_name: TEMPLATE_NAME,
+    template_ids: [TEMPLATE_ID],
     status: 'active',
     version: 3,
     gm_count: 1,
@@ -67,6 +71,8 @@ export function campaignSummary(overrides: Record<string, unknown> = {}) {
     id: CAMPAIGN_ID,
     name: 'Ember Coast',
     template_id: TEMPLATE_ID,
+    scope_name: TEMPLATE_NAME,
+    template_ids: [TEMPLATE_ID],
     version: 3,
     viewer_role: 'gm',
     viewer_owner: true,
