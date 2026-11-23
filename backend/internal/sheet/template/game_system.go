@@ -8,20 +8,19 @@ import (
 const GameSystemFifth = "fifth"
 
 type GameSystemNotice struct {
-	Label string `bson:"label"`
-	Path  string `bson:"path"`
+	Label string
+	Path  string
 }
 
 type GameSystem struct {
-	ID                 string           `bson:"id"`
-	Name               string           `bson:"name"`
-	CompatibilityLabel string           `bson:"compatibility_label"`
-	Notice             GameSystemNotice `bson:"notice"`
+	ID                 string
+	Name               string
+	CompatibilityLabel string
+	Notice             GameSystemNotice
 }
 
 type GameSystems struct {
 	systems map[string]GameSystem
-	order   []string
 }
 
 var gameSystemIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
@@ -44,7 +43,6 @@ func DefaultGameSystems() GameSystems {
 func BuildGameSystems(systems []GameSystem) (GameSystems, error) {
 	registry := GameSystems{
 		systems: make(map[string]GameSystem, len(systems)),
-		order:   make([]string, 0, len(systems)),
 	}
 
 	for _, system := range systems {
@@ -55,18 +53,9 @@ func BuildGameSystems(systems []GameSystem) (GameSystems, error) {
 			return GameSystems{}, fmt.Errorf("%w: %q", ErrGameSystemDuplicateID, system.ID)
 		}
 		registry.systems[system.ID] = system
-		registry.order = append(registry.order, system.ID)
 	}
 
 	return registry, nil
-}
-
-func (g GameSystems) List() []GameSystem {
-	systems := make([]GameSystem, 0, len(g.order))
-	for _, id := range g.order {
-		systems = append(systems, g.systems[id])
-	}
-	return systems
 }
 
 func (g GameSystems) Fetch(id string) (GameSystem, bool) {

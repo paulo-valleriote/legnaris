@@ -67,7 +67,7 @@ func TestCreate_Scope(t *testing.T) {
 		},
 		{
 			name:        "Happy path: a game system scope is stored as game_system",
-			cmd:         campaign.CreateCommand{OwnerID: ownerID, Name: "Curse", GameSystem: "fifth"},
+			cmd:         campaign.CreateCommand{OwnerID: ownerID, Name: "Curse", GameSystemID: "fifth"},
 			created:     gameSystemScope,
 			resolved:    gameSystemScope,
 			callScope:   true,
@@ -78,7 +78,7 @@ func TestCreate_Scope(t *testing.T) {
 		},
 		{
 			name:     "Edge: both scope fields are rejected",
-			cmd:      campaign.CreateCommand{OwnerID: ownerID, Name: "Curse", GameSystem: "fifth", TemplateID: "fantasy_v1"},
+			cmd:      campaign.CreateCommand{OwnerID: ownerID, Name: "Curse", GameSystemID: "fifth", TemplateID: "fantasy_v1"},
 			wantCode: apperr.CodeInvalidRequest,
 		},
 		{
@@ -88,7 +88,7 @@ func TestCreate_Scope(t *testing.T) {
 		},
 		{
 			name:      "Error: an unknown scope is rejected",
-			cmd:       campaign.CreateCommand{OwnerID: ownerID, Name: "Curse", GameSystem: "sixth"},
+			cmd:       campaign.CreateCommand{OwnerID: ownerID, Name: "Curse", GameSystemID: "sixth"},
 			scopeErr:  campaign.ErrScopeUnknown,
 			callScope: true,
 			wantCode:  apperr.CodeInvalidRequest,
@@ -116,7 +116,7 @@ func TestCreate_Scope(t *testing.T) {
 		},
 		{
 			name:      "Error: a game system without a creatable template is rejected",
-			cmd:       campaign.CreateCommand{OwnerID: ownerID, Name: "Curse", GameSystem: "fifth"},
+			cmd:       campaign.CreateCommand{OwnerID: ownerID, Name: "Curse", GameSystemID: "fifth"},
 			scopeErr:  campaign.ErrScopeNoCreatable,
 			callScope: true,
 			wantCode:  apperr.CodeInvalidRequest,

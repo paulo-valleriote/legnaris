@@ -284,6 +284,7 @@ export const messages = {
   'catalog.empty': 'No templates are available.',
   'catalog.kindLabel': 'Sheet kind',
   'catalog.kindCharacter': 'Character',
+  'catalog.templateNoticeSeparator': ' · ',
 
   'sheet.dialogTitle': 'New sheet',
   'sheet.templateLabel': 'Template',

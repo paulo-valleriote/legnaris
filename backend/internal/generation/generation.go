@@ -92,6 +92,7 @@ const (
 	MsgConceptLength       = "concept must be between 10 and 1000 characters"
 	MsgTemplateKind        = "template does not accept this sheet kind"
 	MsgTemplateState       = "template is not available in this environment"
+	MsgTemplateRetired     = "template is retired and cannot start new generations"
 	MsgIDInvalid           = "generation id must be a canonical UUID v7"
 	MsgNotFound            = "generation not found"
 	MsgNameRequired        = "sheet name is required"

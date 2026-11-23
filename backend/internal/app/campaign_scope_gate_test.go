@@ -7,6 +7,7 @@ import (
 
 	"legnaris/backend/internal/campaign"
 	campaignmocks "legnaris/backend/internal/campaign/mocks"
+	"legnaris/backend/shared/apperr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -18,12 +19,13 @@ const gateUserID = "01900000-0000-7000-8000-0000000000aa"
 const gateTemplateID = "retired_v1"
 
 func TestCampaignScopeGate_AllowsTemplate(t *testing.T) {
-	lookupErr := errors.New("campaign not found")
+	internalErr := errors.New("campaign store unavailable")
 	tests := []struct {
 		name     string
 		view     campaign.View
 		fetchErr error
 		want     bool
+		wantErr  bool
 	}{
 		{
 			name: "Happy path: an active member campaign whose scope holds the template allows it",
@@ -46,9 +48,26 @@ func TestCampaignScopeGate_AllowsTemplate(t *testing.T) {
 			want: false,
 		},
 		{
-			name:     "Error: a foreign campaign or non-member lookup error is refused",
-			fetchErr: lookupErr,
+			name:     "Edge: a missing or foreign campaign is refused without an error",
+			fetchErr: apperr.NewError(apperr.CodeCampaignNotFound, "campaign not found", nil),
 			want:     false,
+		},
+		{
+			name:     "Edge: a forbidden campaign is refused without an error",
+			fetchErr: apperr.NewError(apperr.CodeCampaignForbidden, "campaign forbidden", nil),
+			want:     false,
+		},
+		{
+			name:     "Error: an unexpected lookup failure is returned",
+			fetchErr: internalErr,
+			want:     false,
+			wantErr:  true,
+		},
+		{
+			name:     "Error: an internal apperr lookup failure is returned",
+			fetchErr: apperr.NewError(apperr.CodeInternal, "campaign read failed", internalErr),
+			want:     false,
+			wantErr:  true,
 		},
 	}
 	for _, tc := range tests {
@@ -62,17 +81,21 @@ func TestCampaignScopeGate_AllowsTemplate(t *testing.T) {
 			gate := &campaignScopeGate{service: service}
 			allowed, err := gate.AllowsTemplate(context.Background(), gateUserID, gateCampaignID, gateTemplateID)
 
-			require.NoError(t, err)
 			assert.Equal(t, tc.want, allowed)
+			if tc.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
 		})
 	}
 }
 
-func TestCampaignScopeGate_UnboundServiceRefuses(t *testing.T) {
+func TestCampaignScopeGate_UnboundServiceFails(t *testing.T) {
 	gate := &campaignScopeGate{}
 
 	allowed, err := gate.AllowsTemplate(context.Background(), gateUserID, gateCampaignID, gateTemplateID)
 
-	require.NoError(t, err)
+	require.Error(t, err)
 	assert.False(t, allowed)
 }

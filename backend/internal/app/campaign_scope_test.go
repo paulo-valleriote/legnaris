@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"legnaris/backend/internal/campaign"
+	"legnaris/backend/internal/engine"
 	"legnaris/backend/internal/sheet/template"
 )
 
@@ -25,11 +26,11 @@ func (f campaignCatalogFixture) FetchByID(id string) (*template.Template, bool) 
 	return nil, false
 }
 
-func (f campaignCatalogFixture) ListByGameSystem(gameSystemID string) []template.Template {
-	found := make([]template.Template, 0, len(f.templates))
+func (f campaignCatalogFixture) TemplateStatesByGameSystem(gameSystemID string) []template.TemplateStateRef {
+	found := make([]template.TemplateStateRef, 0, len(f.templates))
 	for _, tmpl := range f.templates {
 		if tmpl.GameSystemID == gameSystemID {
-			found = append(found, tmpl)
+			found = append(found, template.TemplateStateRef{ID: tmpl.ID, State: tmpl.State})
 		}
 	}
 	return found
@@ -233,6 +234,40 @@ func TestCampaignScopeResolver_ResolveScope(t *testing.T) {
 			assert.Equal(t, tc.wantName, scope.Name)
 			assert.Equal(t, tc.wantTmplIDs, scope.TemplateIDs)
 			assert.Equal(t, tc.wantSystem, scope.GameSystem)
+		})
+	}
+}
+
+func TestCampaignScopeResolver_ResolveScopeThroughRealRegistry(t *testing.T) {
+	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
+	require.NoError(t, err)
+	resolver := newCampaignScopeResolver(registry)
+
+	tests := []struct {
+		name        string
+		templateID  string
+		wantName    string
+		wantTmplIDs []string
+	}{
+		{
+			name:        "Happy path: a legacy campaign document resolves its stored template",
+			templateID:  "fantasy_v1",
+			wantName:    "Fantasy Template",
+			wantTmplIDs: []string{"fantasy_v1"},
+		},
+		{
+			name:        "Edge: an unknown stored template resolves to its id",
+			templateID:  "removed_v1",
+			wantName:    "removed_v1",
+			wantTmplIDs: []string{"removed_v1"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			scope := resolver.ResolveScope(context.Background(), "", tc.templateID)
+			assert.Equal(t, tc.wantName, scope.Name)
+			assert.Equal(t, tc.wantTmplIDs, scope.TemplateIDs)
+			assert.Nil(t, scope.GameSystem)
 		})
 	}
 }

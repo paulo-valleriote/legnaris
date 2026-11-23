@@ -63,10 +63,13 @@ func (s *ServiceImpl) checkTemplateState(ctx context.Context, ownerID string, tm
 	if allowed(tmpl, s.draftsAllowed) {
 		return nil
 	}
-	if tmpl.State != template.StateRetired || campaignID == "" {
-		return apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateStateRefused, nil)
+	if tmpl.State == template.StateRetired {
+		if campaignID == "" {
+			return apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateRetiredRefused, nil)
+		}
+		return s.requireCampaignScope(ctx, ownerID, campaignID, tmpl.ID)
 	}
-	return s.requireCampaignScope(ctx, ownerID, campaignID, tmpl.ID)
+	return apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateStateRefused, nil)
 }
 
 func (s *ServiceImpl) requireCampaignScope(ctx context.Context, ownerID, campaignID, templateID string) error {
@@ -78,7 +81,7 @@ func (s *ServiceImpl) requireCampaignScope(ctx context.Context, ownerID, campaig
 	}
 	allowed, err := s.campaignScope.AllowsTemplate(ctx, ownerID, campaignID, templateID)
 	if err != nil {
-		return apperr.NewError(apperr.CodeInvalidRequest, MsgCampaignScopeRefused, err)
+		return apperr.NewError(apperr.CodeInternal, MsgCampaignScopeUnavailable, err)
 	}
 	if !allowed {
 		return apperr.NewError(apperr.CodeInvalidRequest, MsgCampaignScopeRefused, nil)

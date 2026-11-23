@@ -13,6 +13,11 @@ type Registry struct {
 	draftsAllowed bool
 }
 
+type TemplateStateRef struct {
+	ID    string
+	State State
+}
+
 type RegistryOption func(*Registry)
 
 func WithDraftsAllowed(allowed bool) RegistryOption {
@@ -105,30 +110,19 @@ func (r *Registry) FetchByID(id string) (*Template, bool) {
 	return &tmpl, true
 }
 
-func (r *Registry) ListByGameSystem(gameSystemID string) []Template {
+func (r *Registry) TemplateStatesByGameSystem(gameSystemID string) []TemplateStateRef {
 	if gameSystemID == "" {
 		return nil
 	}
-	result := make([]Template, 0, len(r.order))
+	result := make([]TemplateStateRef, 0, len(r.order))
 	for _, id := range r.order {
 		tmpl := r.templates[id]
 		if tmpl.GameSystemID != gameSystemID {
 			continue
 		}
-		result = append(result, cloneTemplate(tmpl))
+		result = append(result, TemplateStateRef{ID: tmpl.ID, State: tmpl.State})
 	}
 	return result
-}
-
-func (r *Registry) FetchCatalog(id string) (*Template, bool) {
-	tmpl, ok := r.FetchByID(id)
-	if !ok {
-		return nil, false
-	}
-	if !tmpl.Available(r.draftsAllowed) {
-		return nil, false
-	}
-	return tmpl, true
 }
 
 func (r *Registry) DAG(id string) (*DAG, bool) {

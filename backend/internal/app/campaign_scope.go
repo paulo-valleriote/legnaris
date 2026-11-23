@@ -2,15 +2,17 @@ package app
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/sheet/template"
+	"legnaris/backend/shared/apperr"
 )
 
 type campaignTemplateCatalog interface {
 	FetchByID(id string) (*template.Template, bool)
-	ListByGameSystem(gameSystemID string) []template.Template
+	TemplateStatesByGameSystem(gameSystemID string) []template.TemplateStateRef
 	DraftsAllowed() bool
 }
 
@@ -33,13 +35,32 @@ func (g *campaignScopeGate) bind(service campaign.Service) {
 
 func (g *campaignScopeGate) AllowsTemplate(ctx context.Context, userID, campaignID, templateID string) (bool, error) {
 	if g.service == nil {
-		return false, nil
+		return false, apperr.NewError(apperr.CodeInternal, "campaign scope gate is not bound", nil)
 	}
 	view, err := g.service.Fetch(ctx, campaignID, userID)
-	if err != nil || view.Status != campaign.StatusActive {
+	if err != nil {
+		if isCampaignAccessError(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if view.Status != campaign.StatusActive {
 		return false, nil
 	}
 	return slices.Contains(view.TemplateIDs, templateID), nil
+}
+
+func isCampaignAccessError(err error) bool {
+	var appErr *apperr.Error
+	if !errors.As(err, &appErr) {
+		return false
+	}
+	switch appErr.Code {
+	case apperr.CodeCampaignNotFound, apperr.CodeCampaignForbidden, apperr.CodeNotFound, apperr.CodeForbidden:
+		return true
+	default:
+		return false
+	}
 }
 
 func newCampaignScopeResolver(catalog campaignTemplateCatalog) campaignScopeResolver {
@@ -75,18 +96,7 @@ func (r campaignScopeResolver) createGameSystemScope(gameSystemID string) (campa
 	if !ok {
 		return campaign.Scope{}, campaign.ErrScopeUnknown
 	}
-	draftsAllowed := r.catalog.DraftsAllowed()
-	templates := r.catalog.ListByGameSystem(gameSystemID)
-	creatable := false
-	ids := make([]string, 0, len(templates))
-	for _, tmpl := range templates {
-		if tmpl.Creatable(draftsAllowed) {
-			creatable = true
-		}
-		if tmpl.Available(draftsAllowed) {
-			ids = append(ids, tmpl.ID)
-		}
-	}
+	ids, creatable := gameSystemTemplateIDs(r.catalog.TemplateStatesByGameSystem(gameSystemID), r.catalog.DraftsAllowed())
 	if !creatable {
 		return campaign.Scope{}, campaign.ErrScopeNoCreatable
 	}
@@ -95,6 +105,20 @@ func (r campaignScopeResolver) createGameSystemScope(gameSystemID string) (campa
 		TemplateIDs: ids,
 		GameSystem:  &campaign.GameSystem{ID: system.ID, Name: system.Name},
 	}, nil
+}
+
+func gameSystemTemplateIDs(refs []template.TemplateStateRef, draftsAllowed bool) ([]string, bool) {
+	ids := make([]string, 0, len(refs))
+	creatable := false
+	for _, ref := range refs {
+		if ref.State.Creatable(draftsAllowed) {
+			creatable = true
+		}
+		if ref.State.Available(draftsAllowed) {
+			ids = append(ids, ref.ID)
+		}
+	}
+	return ids, creatable
 }
 
 func (r campaignScopeResolver) ResolveScope(_ context.Context, gameSystemID, templateID string) campaign.Scope {
@@ -115,14 +139,7 @@ func (r campaignScopeResolver) storedGameSystemScope(gameSystemID string) campai
 	if gameSystemID == "" {
 		return campaign.Scope{TemplateIDs: []string{}}
 	}
-	draftsAllowed := r.catalog.DraftsAllowed()
-	templates := r.catalog.ListByGameSystem(gameSystemID)
-	ids := make([]string, 0, len(templates))
-	for _, tmpl := range templates {
-		if tmpl.Available(draftsAllowed) {
-			ids = append(ids, tmpl.ID)
-		}
-	}
+	ids, _ := gameSystemTemplateIDs(r.catalog.TemplateStatesByGameSystem(gameSystemID), r.catalog.DraftsAllowed())
 	scope := campaign.Scope{
 		Name:        gameSystemID,
 		TemplateIDs: ids,

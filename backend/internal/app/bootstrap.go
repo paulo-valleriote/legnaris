@@ -165,7 +165,7 @@ func NewModules(
 	sheetService := sheet.NewService(sheetRepository, templateService, registry, log, publisher,
 		sheet.WithPlanLimits(user.NewPlanSource(userRepository), db.NewTransactor(database.Client, nil)),
 		sheet.WithLinkCleaner(campaign.NewSheetLinkCleaner(linkStore, publisher)),
-		sheet.WithDraftTemplates(template.DraftsAllowed(cfg.Variables.AppEnv)),
+		sheetDraftTemplateOption(registry),
 		sheet.WithCampaignScope(scopeGate),
 	)
 	sheetController := NewSheetController(sheetService)
@@ -248,7 +248,7 @@ func NewModules(
 		db.NewTransactor(database.Client, nil),
 		time.Now,
 	)
-	generationService := newGenerationService(cfg, options, generation.Deps{
+	generationService := newGenerationService(cfg, registry, options, generation.Deps{
 		Store:     generation.NewMongoStore(mdb),
 		Consent:   llmConsentService,
 		Sheets:    sheetService,
@@ -369,7 +369,7 @@ func newBillingService(provider billing.Provider, store billing.Store, vars env.
 	})
 }
 
-func newGenerationService(cfg env.Env, options moduleOptions, deps generation.Deps) *generation.Service {
+func newGenerationService(cfg env.Env, registry *template.Registry, options moduleOptions, deps generation.Deps) *generation.Service {
 	deps.Publisher = options.generationPublisher
 	if deps.Publisher == nil {
 		deps.Publisher = unconfiguredPublisher{}
@@ -381,6 +381,10 @@ func newGenerationService(cfg env.Env, options moduleOptions, deps generation.De
 	return generation.NewService(generation.Config{
 		Enabled:        cfg.Variables.GenerationEnabled,
 		DailyCap:       cfg.Variables.GenerationDailyCap,
-		DraftTemplates: template.DraftsAllowed(cfg.Variables.AppEnv),
+		DraftTemplates: registry.DraftsAllowed(),
 	}, deps, time.Now)
+}
+
+func sheetDraftTemplateOption(registry *template.Registry) sheet.ServiceOption {
+	return sheet.WithDraftTemplates(registry.DraftsAllowed())
 }

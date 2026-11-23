@@ -53,13 +53,14 @@ func TestService_CreateTemplateLifecycle(t *testing.T) {
 		state         template.State
 		draftsAllowed bool
 		wantCreated   bool
+		wantMessage   string
 	}{
-		{name: "Edge: a draft outside development is refused", state: template.StateDraft, draftsAllowed: false},
+		{name: "Edge: a draft outside development is refused as unavailable", state: template.StateDraft, draftsAllowed: false, wantMessage: sheet.MsgTemplateStateRefused},
 		{name: "Happy path: a draft is creatable in development", state: template.StateDraft, draftsAllowed: true, wantCreated: true},
 		{name: "Happy path: an active template is creatable outside development", state: template.StateActive, draftsAllowed: false, wantCreated: true},
 		{name: "Happy path: an active template is creatable in development", state: template.StateActive, draftsAllowed: true, wantCreated: true},
-		{name: "Error: a retired template is refused outside development", state: template.StateRetired, draftsAllowed: false},
-		{name: "Error: a retired template is refused in development too", state: template.StateRetired, draftsAllowed: true},
+		{name: "Error: a retired template is refused as retired outside development", state: template.StateRetired, draftsAllowed: false, wantMessage: sheet.MsgTemplateRetiredRefused},
+		{name: "Error: a retired template is refused as retired in development too", state: template.StateRetired, draftsAllowed: true, wantMessage: sheet.MsgTemplateRetiredRefused},
 	}
 
 	for _, tc := range tests {
@@ -88,7 +89,7 @@ func TestService_CreateTemplateLifecycle(t *testing.T) {
 			require.ErrorAs(t, err, &appErr)
 			assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
 			assert.Equal(t, 400, appErr.HttpStatus())
-			assert.Equal(t, sheet.MsgTemplateStateRefused, appErr.Message)
+			assert.Equal(t, tc.wantMessage, appErr.Message)
 			repo.AssertNotCalled(t, "ReserveSlot")
 			repo.AssertNotCalled(t, "Create")
 		})

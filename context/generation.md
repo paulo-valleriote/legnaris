@@ -97,7 +97,8 @@ Create and accept share 5 requests/min per user (`GENERATION_CREATE_RATE_LIMIT_*
 A Draft Template may start a generation only when `APP_ENV`, trimmed and case-insensitive, is
 `development`; an empty or any other value is 400 `INVALID_REQUEST` before consent, plan, Sheet
 room, the daily cap and the quota, so a refused request reserves nothing. A Retired Template is
-400 too. Accepting a succeeded job runs the same Sheet-create gate: a Draft job is accepted only in
+400 too, with its own message saying it is retired and cannot start new generations. Accepting a
+succeeded job runs the same Sheet-create gate: a Draft job is accepted only in
 development, while a Retired job still accepts so an existing draft can become a Sheet. The state
 is not exposed to the client; see [sheets](sheets.md).
 

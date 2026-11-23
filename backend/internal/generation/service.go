@@ -301,6 +301,9 @@ func (s *Service) requireTemplate(ctx context.Context, templateID string, kind p
 		return apperr.NewError(apperr.CodeInternal, MsgUnavailable, err)
 	}
 	if !tmpl.Creatable(s.cfg.DraftTemplates) {
+		if tmpl.State == template.StateRetired {
+			return apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateRetired, nil)
+		}
 		return apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateState, nil)
 	}
 	if !tmpl.AcceptsKind(kind) {

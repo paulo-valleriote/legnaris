@@ -40,40 +40,34 @@ func catalogIDs(templates []Template) []string {
 
 func TestRegistry_LifecycleVisibility(t *testing.T) {
 	tests := []struct {
-		name        string
-		appEnv      string
-		wantListed  []string
-		wantFetched []string
+		name       string
+		appEnv     string
+		wantListed []string
 	}{
 		{
-			name:        "Edge: an empty APP_ENV hides drafts and retired templates",
-			appEnv:      "",
-			wantListed:  []string{"active_v1"},
-			wantFetched: []string{"active_v1", "retired_v1"},
+			name:       "Edge: an empty APP_ENV hides drafts and retired templates",
+			appEnv:     "",
+			wantListed: []string{"active_v1"},
 		},
 		{
-			name:        "Edge: production hides drafts and retired templates",
-			appEnv:      "production",
-			wantListed:  []string{"active_v1"},
-			wantFetched: []string{"active_v1", "retired_v1"},
+			name:       "Edge: production hides drafts and retired templates",
+			appEnv:     "production",
+			wantListed: []string{"active_v1"},
 		},
 		{
-			name:        "Edge: staging hides drafts and retired templates",
-			appEnv:      "staging",
-			wantListed:  []string{"active_v1"},
-			wantFetched: []string{"active_v1", "retired_v1"},
+			name:       "Edge: staging hides drafts and retired templates",
+			appEnv:     "staging",
+			wantListed: []string{"active_v1"},
 		},
 		{
-			name:        "Happy path: development lists drafts but not retired templates",
-			appEnv:      "Development",
-			wantListed:  []string{"draft_v1", "active_v1"},
-			wantFetched: []string{"draft_v1", "active_v1", "retired_v1"},
+			name:       "Happy path: development lists drafts but not retired templates",
+			appEnv:     "Development",
+			wantListed: []string{"draft_v1", "active_v1"},
 		},
 		{
-			name:        "Happy path: a padded development value lists drafts",
-			appEnv:      " development ",
-			wantListed:  []string{"draft_v1", "active_v1"},
-			wantFetched: []string{"draft_v1", "active_v1", "retired_v1"},
+			name:       "Happy path: a padded development value lists drafts",
+			appEnv:     " development ",
+			wantListed: []string{"draft_v1", "active_v1"},
 		},
 	}
 
@@ -84,27 +78,11 @@ func TestRegistry_LifecycleVisibility(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Equal(t, tc.wantListed, catalogIDs(registry.List()))
-			for _, id := range []string{"draft_v1", "active_v1", "retired_v1"} {
-				fetched, ok := registry.FetchCatalog(id)
-				assert.Equal(t, contains(tc.wantFetched, id), ok, "catalog fetch of %s", id)
-				if ok {
-					assert.Equal(t, id, fetched.ID)
-				}
-			}
 		})
 	}
 }
 
-func contains(values []string, want string) bool {
-	for _, value := range values {
-		if value == want {
-			return true
-		}
-	}
-	return false
-}
-
-func TestRegistry_ListByGameSystemIgnoresState(t *testing.T) {
+func TestRegistry_TemplateStatesByGameSystemIgnoresState(t *testing.T) {
 	draft := stateFixture("draft_5e", StateDraft)
 	draft.GameSystemID = GameSystemFifth
 	active := stateFixture("active_5e", StateActive)
@@ -118,16 +96,20 @@ func TestRegistry_ListByGameSystemIgnoresState(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	t.Run("Happy path: every state of the game system is returned", func(t *testing.T) {
-		assert.Equal(t, []string{"draft_5e", "active_5e", "retired_5e"}, catalogIDs(registry.ListByGameSystem(GameSystemFifth)))
+	t.Run("Happy path: every state of the game system is returned with its state", func(t *testing.T) {
+		assert.Equal(t, []TemplateStateRef{
+			{ID: "draft_5e", State: StateDraft},
+			{ID: "active_5e", State: StateActive},
+			{ID: "retired_5e", State: StateRetired},
+		}, registry.TemplateStatesByGameSystem(GameSystemFifth))
 	})
 
 	t.Run("Edge: an unknown game system returns no templates", func(t *testing.T) {
-		assert.Empty(t, registry.ListByGameSystem("unknown"))
+		assert.Empty(t, registry.TemplateStatesByGameSystem("unknown"))
 	})
 
 	t.Run("Edge: an empty game system returns no templates", func(t *testing.T) {
-		assert.Empty(t, registry.ListByGameSystem(""))
+		assert.Empty(t, registry.TemplateStatesByGameSystem(""))
 	})
 }
 
