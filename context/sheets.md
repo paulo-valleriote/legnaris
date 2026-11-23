@@ -402,6 +402,16 @@ system, carry `identity.name` as their Name leaf, and use the same static Sectio
 - **Resources (character Records)** — `resources.list` (capacity 20) with `name`, `max`, `used` and
   the exclusive `resourceRecharge` group `rechargeShort`, `rechargeLong` and `rechargeNone` (the
   default), so a Reset action can filter the Records of one recharge kind.
+- **Rests (character)** — two Reset actions. `long_rest` sets `combat.hp.current` to
+  `combat.hp.max`, zeroes `spent` in `hitDice.primary` and each `hitDice.d6|d8|d10|d12` pool, in
+  every `spellcasting.slot1..slot9` and in `spellcasting.pact.used`, zeroes both
+  `status.deathSaves` counters and `used` on every `resources.list` Record whose recharge is short
+  or long, and lowers `exhaustion.level` by one with a floor of 0. `short_rest` zeroes
+  `spellcasting.pact.used` and `used` on short-recharge Resources only. The list assignments read
+  their own Record: `record_used * record_rechargeNone` for the long rest and
+  `record_used * (1 - record_rechargeShort)` for the short rest. Every expression reads the stored
+  Sheet before the action, and spending a Hit Point Die stays a Roll where the player enters the
+  HP gained and the die spent.
 
 The character's Record Sections use the generic list contract below: one Record Row per
 `<list>.<id>`, a flat shape and the per-Record exclusive groups. The Template Section dice are the
