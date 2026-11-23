@@ -154,6 +154,27 @@ export function templateDiceDefaults(dice: TemplateDiceDefaults | undefined): Re
   return { sectionDice: dice?.section, rowDice: dice?.row };
 }
 
+export interface DiceMarking {
+  readonly section: ReadonlySet<string>;
+  readonly row: ReadonlySet<string>;
+}
+
+const EMPTY_MARKING: DiceMarking = { section: new Set(), row: new Set() };
+
+export function templateDiceMarking(dice: TemplateDiceDefaults | undefined): DiceMarking {
+  if (dice?.notD20 === undefined) {
+    return EMPTY_MARKING;
+  }
+  return {
+    section: new Set(dice.notD20.section),
+    row: new Set(dice.notD20.row),
+  };
+}
+
+export function isNotD20Test(marking: DiceMarking, rowKey: string, sectionKey: string): boolean {
+  return marking.row.has(rowKey) || marking.section.has(sectionKey);
+}
+
 const SUMMARY_MAX_DICE = 2;
 
 export function diceSummary(expression: Expression): string | undefined {
