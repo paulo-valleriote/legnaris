@@ -25,6 +25,9 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template) (*Registry, 
 
 	for _, tmpl := range templates {
 		stored := cloneTemplate(tmpl)
+		if err := validateTemplateGameSystem(stored); err != nil {
+			return nil, err
+		}
 		if err := stored.prepareRowIndex(); err != nil {
 			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
 		}

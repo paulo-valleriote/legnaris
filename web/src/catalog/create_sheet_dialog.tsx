@@ -30,7 +30,12 @@ const KIND_LABEL_KEYS = {
 
 type DetailRenderPhase =
   | { readonly kind: 'loading' }
-  | { readonly kind: 'loaded'; readonly name: string; readonly kinds: readonly SheetKind[] }
+  | {
+      readonly kind: 'loaded';
+      readonly name: string;
+      readonly kinds: readonly SheetKind[];
+      readonly compatibilityLabel?: string;
+    }
   | { readonly kind: 'error'; readonly copy: string }
   | { readonly kind: 'notFound'; readonly copy: string }
   | { readonly kind: 'parseError'; readonly copy: string };
@@ -58,7 +63,12 @@ function resolveDetailPhase(query: UseQueryResult<TemplateDetail, Error>): Detai
   const data = query.data;
   return data === undefined
     ? { kind: 'loading' }
-    : { kind: 'loaded', name: data.name, kinds: data.kinds };
+    : {
+        kind: 'loaded',
+        name: data.name,
+        kinds: data.kinds,
+        compatibilityLabel: data.gameSystem?.compatibilityLabel,
+      };
 }
 
 interface DetailBodyProps {
@@ -79,6 +89,11 @@ function DetailBody({ phase, templateId, onRetry }: DetailBodyProps) {
             <p className="lg-create-sheet__name" data-testid="detail-name">
               {phase.name}
             </p>
+            {phase.compatibilityLabel === undefined ? null : (
+              <p className="lg-create-sheet__compatibility" data-testid="detail-compatibility">
+                {phase.compatibilityLabel}
+              </p>
+            )}
           </div>
           <p className="lg-create-sheet__code">{templateId}</p>
         </div>

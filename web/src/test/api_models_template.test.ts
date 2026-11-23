@@ -359,6 +359,117 @@ describe('template models', () => {
   });
 });
 
+const GAME_SYSTEM = {
+  id: 'fifth',
+  name: '5E',
+  compatibility_label: '5E compatible',
+  notice: { label: 'SRD 5.2.1', path: '/srd' },
+};
+
+describe('template game system', () => {
+  it('Happy path: decodes the id, name, compatibility label and notice', () => {
+    const decoded = parseTemplateDetail(template({ game_system: GAME_SYSTEM }));
+
+    expect(decoded.gameSystem).toEqual({
+      id: 'fifth',
+      name: '5E',
+      compatibilityLabel: '5E compatible',
+      notice: { label: 'SRD 5.2.1', path: '/srd' },
+    });
+  });
+
+  it('Happy path: the catalog decodes the game system of each entry', () => {
+    const decoded = parseTemplateCatalog([
+      template({ id: 'fifth_character_v1', game_system: GAME_SYSTEM }),
+      template({ id: 'fantasy_v1' }),
+    ]);
+
+    expect(decoded[0]?.gameSystem?.compatibilityLabel).toBe('5E compatible');
+    expect(decoded[1]?.gameSystem).toBeUndefined();
+  });
+
+  it('Edge: a template without a game system omits it, never an empty object', () => {
+    expect(parseTemplateDetail(template()).gameSystem).toBeUndefined();
+    expect(parseTemplateDetail(template({ game_system: null })).gameSystem).toBeUndefined();
+  });
+
+  it('Edge: a root-relative notice path survives decoding', () => {
+    for (const path of ['/', '/srd', '/srd/notice?lang=en#top']) {
+      const decoded = parseTemplateDetail(
+        template({ game_system: { ...GAME_SYSTEM, notice: { label: 'SRD 5.2.1', path } } }),
+      );
+
+      expect(decoded.gameSystem?.notice.path).toBe(path);
+    }
+  });
+
+  it('Error: a malformed game system payload is contract drift', () => {
+    const broken: unknown[] = [
+      'fifth',
+      [],
+      {},
+      { name: '5E', compatibility_label: '5E compatible', notice: GAME_SYSTEM.notice },
+      { id: 'fifth', compatibility_label: '5E compatible', notice: GAME_SYSTEM.notice },
+      { id: 'fifth', name: '5E', notice: GAME_SYSTEM.notice },
+      { id: 'fifth', name: '5E', compatibility_label: '5E compatible' },
+      { id: 'fifth', name: '5E', compatibility_label: '5E compatible', notice: 'SRD 5.2.1' },
+      {
+        id: 'fifth',
+        name: '5E',
+        compatibility_label: '5E compatible',
+        notice: { path: '/srd' },
+      },
+      {
+        id: 'fifth',
+        name: '5E',
+        compatibility_label: '5E compatible',
+        notice: { label: 'SRD 5.2.1' },
+      },
+      { id: 5, name: '5E', compatibility_label: '5E compatible', notice: GAME_SYSTEM.notice },
+      { id: 'fifth', name: 5, compatibility_label: '5E compatible', notice: GAME_SYSTEM.notice },
+      {
+        id: 'fifth',
+        name: '5E',
+        compatibility_label: 5,
+        notice: GAME_SYSTEM.notice,
+      },
+      {
+        id: 'fifth',
+        name: '5E',
+        compatibility_label: '5E compatible',
+        notice: { label: 5, path: '/srd' },
+      },
+    ];
+
+    for (const gameSystem of broken) {
+      expect(() => parseTemplateDetail(template({ game_system: gameSystem }))).toThrow(
+        DefensiveParseFailure,
+      );
+    }
+  });
+
+  it('Error: an external or protocol-relative notice path is refused', () => {
+    const refused = [
+      '',
+      'srd',
+      '//example.com/srd',
+      'http:',
+      'https://example.com/srd',
+      ['javascript', 'alert(1)'].join(':'),
+      String.raw`/\example.com/srd`,
+      '/srd\nx',
+    ];
+
+    for (const path of refused) {
+      expect(() =>
+        parseTemplateDetail(
+          template({ game_system: { ...GAME_SYSTEM, notice: { label: 'SRD 5.2.1', path } } }),
+        ),
+      ).toThrow(DefensiveParseFailure);
+    }
+  });
+});
+
 describe('template reset actions', () => {
   const rest = {
     id: 'rest',

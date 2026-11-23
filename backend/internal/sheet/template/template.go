@@ -46,6 +46,7 @@ type Template struct {
 	NotD20Sections []string          `bson:"not_d20_sections,omitempty"`
 	NotD20Rows     []string          `bson:"not_d20_rows,omitempty"`
 	Kinds          []plan.SheetKind  `bson:"kinds,omitempty"`
+	GameSystemID   string            `bson:"game_system,omitempty"`
 	Actions        []ResetAction     `bson:"actions,omitempty"`
 	CreatedAt      time.Time         `bson:"created_at,omitempty"`
 	UpdatedAt      time.Time         `bson:"updated_at,omitempty"`

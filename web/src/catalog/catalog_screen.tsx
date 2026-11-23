@@ -79,6 +79,11 @@ function CatalogBody({ phase, onRetry, onOpen }: CatalogBodyProps) {
                 <span className="lg-catalog__text">
                   <span className="lg-catalog__name">{entry.name}</span>
                   <span className="lg-catalog__id">{entry.id}</span>
+                  {entry.gameSystem === undefined ? null : (
+                    <span className="lg-catalog__compatibility" data-testid="catalog-compatibility">
+                      {entry.gameSystem.compatibilityLabel}
+                    </span>
+                  )}
                 </span>
               </Button>
             </li>

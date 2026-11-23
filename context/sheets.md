@@ -42,6 +42,12 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   no user-supplied game content may ship; the registry and its DAGs are built once at boot, so a
   read costs neither a query nor a compile. Cost: a template change is a deploy, an incompatible
   change needs a new slug (`fantasy_v1` → `fantasy_v2`), and users cannot author templates.
+- **A code-defined Game system registry referenced by id over a field copied onto every Template
+  because** the name, compatibility label and notice belong to the system, not to one Template, and
+  a Template only chooses it. Boot refuses an unknown id, so a DTO never resolves a system at read
+  time. Cost: a new system is a deploy, a Template cannot change its system under the same slug, and
+  the notice path is validated twice (backend registry and web decoder) because it is rendered as a
+  same-origin link target.
 - **Dotted DAG keys with a validated alphabet over raw template keys because** formulas read
   identifiers such as `stats_dexterity` while documents and errors use `stats.dexterity`;
   restricting every segment to `^[A-Za-z][A-Za-z0-9]*$` makes the encodings collision-free.
@@ -200,7 +206,7 @@ non-numeric arguments (`ErrInvalidFloat`) are typed engine errors; the engine ne
 `GET /templates` returns an array and `GET /templates/:id` one object; both require an
 authenticated, active account and share the per-user rate limit.
 
-`TemplateDTO` is `{id, name, kinds, default, fields, dice?, actions?}`. `kinds` is the ordered list of
+`TemplateDTO` is `{id, name, kinds, default, fields, dice?, actions?, game_system?}`. `kinds` is the ordered list of
 Sheet kinds the Template accepts (`character`, `npc` or `enemy`); creation and generation with any
 other kind stay 400 `INVALID_REQUEST`, and a Template that declares none omits the key. A node
 carries exactly one of `schema` (leaf), `children` (group) or `list`; a group may carry `label` and
@@ -223,6 +229,24 @@ is `{target, expression, filter?}` (see Reset actions). Sections follow the temp
 `SectionOrder` and children their declared `Order`;
 unlisted keys are alphabetical. Template IDs are slugs (`^[a-z][a-z0-9_]*$`); a malformed ID is
 400, an unknown one 404.
+
+### Game system
+
+Game systems are code-defined and built once at boot, like Templates. `BuildGameSystems` validates
+every entry: the `id` matches `^[a-z][a-z0-9_]*$`, the name and compatibility label are non-empty,
+a duplicate id is refused and the notice path is a same-origin path. Exactly one entry ships:
+`fifth`, name `5E`, compatibility label `5E compatible`, notice `SRD 5.2.1` at `/srd`.
+
+A same-origin notice path starts with one `/`. A protocol-relative (`//host/x`), relative (`srd`),
+absolute (`http:`, `https://host/x`) or `javascript:` path, and one carrying a backslash or a
+control character, is refused by the backend registry and by the web decoder.
+
+`Template.GameSystemID` is optional and resolved at boot: an unknown or malformed id fails
+`BuildRegistry`, and `fantasy_v1` declares none. A Template never changes its Game system under the
+same slug; the change is a new slug. In the DTO, `game_system` is
+`{id, name, compatibility_label, notice: {label, path}}` and is omitted when the Template has none.
+The catalog entry and the create-sheet dialog show the compatibility label as plain text, with no
+attribution link and no notice label; a Template without a Game system renders exactly as before.
 
 ### Sheet DTO and endpoints
 
@@ -816,7 +840,8 @@ Backend:
   boot compilation and the one-lock `CalculateReset`; `row_identity.go` — Record Row keys, Section
   membership and the shape-aware fit schema.
 - `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry and the
-  `fantasy_v1` catalogue; `layout.go` — `SectionRowKeys`, `ValidateLayout`;
+  `fantasy_v1` catalogue; `game_system.go` — the code-defined Game system registry, its validation
+  and the DTO resolution; `layout.go` — `SectionRowKeys`, `ValidateLayout`;
   `dice_defaults.go`, `not_d20.go`, `name_leaf.go`, `generation_metadata.go`, `flags.go`, `dto.go` — boot
   validators and JSON shape (a list node is `{label, columns, capacity, shape, dice?, not_d20?}`).
 - `backend/internal/sheet/service.go`, `create_values.go` — create, fetch, patch, reset, preview,
@@ -838,8 +863,10 @@ Web:
 - `web/src/catalog/catalog_screen.tsx`, `create_sheet_dialog.tsx`, `queries.ts` — catalog,
   creation surface and query keys; the surface offers only the Template's `kinds`, preselects the
   first and shows a single kind without a choice, with the limit, Generate link and submit
-  following the selected kind; on Free the dialog's `Generate with AI` entry carries a Pro
-  badge and opens the upgrade dialog (see [web-client](web-client.md)).
+  following the selected kind; a Template with a Game system shows its compatibility label as plain
+  text in the catalog entry and the dialog, with no attribution link. On Free the dialog's
+  `Generate with AI` entry carries a Pro badge and opens the upgrade dialog (see
+  [web-client](web-client.md)).
 - `web/src/engine/field_grouping.ts` — schema → Sections and Rows (static Rows and one `record`
   Row per Record), the list column model and static row keys; `row_identity.ts` — list discovery,
   Record Row keys and order, shape Fields and Section membership; `layout.ts`, `arrange_ops.ts` —
@@ -911,7 +938,8 @@ Web:
   a write (the server computes it). The web client draws a list in the generic Edit form and in a
   Template without a preset; the frozen `fantasy_v1` preset draws no list.
 - Users cannot create or edit templates; the registry is frozen at boot and only `fantasy_v1`
-  ships. A template change requires a deploy and, if incompatible, a new ID.
+  ships. A template change requires a deploy and, if incompatible, a new ID. Only the `fifth` Game
+  system ships, and a Template bound to one keeps it for the life of its slug.
 - No offline open: the IndexedDB sheet copy is written and evicted but never read as a fallback,
   so a failed `GET /sheets/:id` fails the screen. A draft can be restored only after a successful
   open.

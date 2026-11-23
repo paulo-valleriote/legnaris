@@ -13,11 +13,24 @@ type TemplateDTO struct {
 	ID           string           `json:"id"`
 	Name         string           `json:"name"`
 	Kinds        []plan.SheetKind `json:"kinds,omitempty"`
+	GameSystem   *GameSystemDTO   `json:"game_system,omitempty"`
 	Fields       FieldGroupDTO    `json:"fields"`
 	Default      bool             `json:"default"`
 	SectionOrder []string         `json:"-"`
 	Dice         *DiceDTO         `json:"dice,omitempty"`
 	Actions      []ResetActionDTO `json:"actions,omitempty"`
+}
+
+type GameSystemDTO struct {
+	ID                 string              `json:"id"`
+	Name               string              `json:"name"`
+	CompatibilityLabel string              `json:"compatibility_label"`
+	Notice             GameSystemNoticeDTO `json:"notice"`
+}
+
+type GameSystemNoticeDTO struct {
+	Label string `json:"label"`
+	Path  string `json:"path"`
 }
 
 type ResetActionDTO struct {
@@ -138,6 +151,7 @@ func (t Template) ToDTO() TemplateDTO {
 		ID:           t.ID,
 		Name:         t.Name,
 		Kinds:        slices.Clone(t.Kinds),
+		GameSystem:   gameSystemToDTO(t.GameSystemID),
 		Fields:       t.Fields.toDTO(),
 		Default:      t.Default,
 		SectionOrder: slices.Clone(t.SectionOrder),
@@ -184,26 +198,28 @@ func notD20ToDTO(t Template) *NotD20DTO {
 
 func (d TemplateDTO) MarshalJSON() ([]byte, error) {
 	type payload struct {
-		ID      string           `json:"id"`
-		Name    string           `json:"name"`
-		Kinds   []plan.SheetKind `json:"kinds,omitempty"`
-		Fields  json.RawMessage  `json:"fields"`
-		Default bool             `json:"default"`
-		Dice    *DiceDTO         `json:"dice,omitempty"`
-		Actions []ResetActionDTO `json:"actions,omitempty"`
+		ID         string           `json:"id"`
+		Name       string           `json:"name"`
+		Kinds      []plan.SheetKind `json:"kinds,omitempty"`
+		GameSystem *GameSystemDTO   `json:"game_system,omitempty"`
+		Fields     json.RawMessage  `json:"fields"`
+		Default    bool             `json:"default"`
+		Dice       *DiceDTO         `json:"dice,omitempty"`
+		Actions    []ResetActionDTO `json:"actions,omitempty"`
 	}
 	fields, err := marshalFieldGroup(d.Fields, d.SectionOrder)
 	if err != nil {
 		return nil, err
 	}
 	return json.Marshal(payload{
-		ID:      d.ID,
-		Name:    d.Name,
-		Kinds:   d.Kinds,
-		Fields:  fields,
-		Default: d.Default,
-		Dice:    d.Dice,
-		Actions: d.Actions,
+		ID:         d.ID,
+		Name:       d.Name,
+		Kinds:      d.Kinds,
+		GameSystem: d.GameSystem,
+		Fields:     fields,
+		Default:    d.Default,
+		Dice:       d.Dice,
+		Actions:    d.Actions,
 	})
 }
 

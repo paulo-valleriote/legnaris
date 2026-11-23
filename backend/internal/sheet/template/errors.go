@@ -238,6 +238,12 @@ var (
 	ErrTemplateIDInvalid = errors.New("template id is not a valid slug")
 
 	ErrTemplateNotFound = errors.New("template not found")
+
+	ErrGameSystemIDInvalid         = errors.New("game system id is not a valid slug")
+	ErrGameSystemDuplicateID       = errors.New("game system id is declared twice")
+	ErrGameSystemFieldMissing      = errors.New("game system has an empty required field")
+	ErrGameSystemNoticePathInvalid = errors.New("game system notice path is not a same-origin path")
+	ErrGameSystemUnknown           = errors.New("template references an unknown game system")
 )
 
 func NewFormulaCompileError(formula string, nodeID string, err error) error {

@@ -17,6 +17,11 @@ import {
   withPlanUsage,
 } from './fake_transport';
 import { renderApp } from './render';
+import {
+  GAME_SYSTEM_CATALOG,
+  GAME_SYSTEM_ENTRY_NAME,
+  GAME_SYSTEM_TEMPLATE_DETAIL,
+} from './template_game_system_fixture';
 
 const BASE_URL = 'http://api.test';
 
@@ -73,6 +78,31 @@ describe('creation surface detail', () => {
     expect(screen.getByTestId('detail-name')).toHaveTextContent('Dungeons & Dragons 5e');
     expect(fake.attempts).toBe(2);
     expect(fake.lastRequest?.url).toContain('/templates/dnd5e');
+  });
+
+  it('Happy path: a template with a game system shows its compatibility label and no attribution link', async () => {
+    const fake = createFakeTransport(
+      successOutcome(GAME_SYSTEM_CATALOG),
+      successOutcome(GAME_SYSTEM_TEMPLATE_DETAIL),
+    );
+    const user = userEvent.setup();
+    renderApp('/', { client: clientWith(withPlanUsage(fake.transport)) });
+
+    await user.click(await screen.findByRole('button', { name: GAME_SYSTEM_ENTRY_NAME }));
+
+    expect(await screen.findByTestId('detail-compatibility')).toHaveTextContent('5E compatible');
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('SRD 5.2.1')).not.toBeInTheDocument();
+  });
+
+  it('Edge: a template without a game system draws no compatibility label', async () => {
+    const user = userEvent.setup();
+    await openSurface(user);
+
+    expect(screen.getByTestId('detail-name')).toBeInTheDocument();
+    expect(screen.queryByTestId('detail-compatibility')).not.toBeInTheDocument();
+    expect(screen.queryByText('5E compatible')).not.toBeInTheDocument();
   });
 
   it('Edge: while the detail is in flight it shows the loading copy and no previously opened detail', async () => {
