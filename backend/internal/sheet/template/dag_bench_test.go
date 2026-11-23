@@ -74,6 +74,85 @@ func BenchmarkNormalizeAndRecalculate_Chain200Parallel(b *testing.B) {
 	})
 }
 
+func buildListAtCapacityDAG(b *testing.B) (*DAG, map[string]any) {
+	b.Helper()
+
+	fields := FieldGroup{
+		"level": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 1}},
+		"inventory": {Children: FieldGroup{
+			"items": {List: &ListSchema{
+				Label:    "Items",
+				Capacity: MaxListCapacity,
+				Shape: FieldGroup{
+					"quantity": {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 1}},
+					"weight":   {Schema: &FieldSchema{Type: "number", IsEditable: true, Default: 1}},
+					"total": {Schema: &FieldSchema{
+						Type:      "number",
+						Formula:   "record_quantity * record_weight",
+						DependsOn: [][]string{{"quantity"}, {"weight"}},
+					}},
+					"scaled": {Schema: &FieldSchema{
+						Type:      "number",
+						Formula:   "record_quantity * level",
+						DependsOn: [][]string{{"quantity"}, {"level"}},
+					}},
+				},
+			}},
+		}},
+		"inventoryValue": {Schema: &FieldSchema{
+			Type:      "number",
+			Aggregate: &AggregateSchema{List: "inventory.items", Field: "total", Op: AggregateSum},
+		}},
+	}
+	dag, err := BuildDAG("bench_list_capacity", fields, engine.NewFormulaEngine())
+	require.NoError(b, err)
+
+	records := make(map[string]any, MaxListCapacity)
+	for i := range MaxListCapacity {
+		records[fmt.Sprintf("r%032x", i)] = map[string]any{
+			"quantity":        1.0,
+			"weight":          1.0,
+			"total":           1.0,
+			"scaled":          1.0,
+			ListPositionField: float64(i),
+		}
+	}
+	sheet := map[string]any{
+		"level":          1.0,
+		"inventory":      map[string]any{"items": records},
+		"inventoryValue": float64(MaxListCapacity),
+	}
+	return dag, sheet
+}
+
+func BenchmarkCalculateSave_ListCapacity200(b *testing.B) {
+	firstRecord := fmt.Sprintf("r%032x", 0)
+
+	b.Run("record edit", func(b *testing.B) {
+		dag, sheet := buildListAtCapacityDAG(b)
+		b.ResetTimer()
+		for i := range b.N {
+			_, err := dag.CalculateSave(sheet, map[string]any{
+				"inventory.items." + firstRecord + ".quantity": float64(i%10 + 2),
+			})
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+
+	b.Run("sheet field change", func(b *testing.B) {
+		dag, sheet := buildListAtCapacityDAG(b)
+		b.ResetTimer()
+		for i := range b.N {
+			_, err := dag.CalculateSave(sheet, map[string]any{"level": float64(i%10 + 2)})
+			if err != nil {
+				b.Fatal(err)
+			}
+		}
+	})
+}
+
 func BenchmarkNormalizeAndRecalculate_FantasyV1(b *testing.B) {
 	registry, err := BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(b, err)

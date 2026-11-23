@@ -35,6 +35,7 @@ func cloneFieldNode(node FieldNode) FieldNode {
 		schema.Min = clonePtr(node.Schema.Min)
 		schema.Max = clonePtr(node.Schema.Max)
 		schema.MaxLength = clonePtr(node.Schema.MaxLength)
+		schema.Aggregate = node.Schema.Aggregate.Clone()
 		cloned.Schema = &schema
 	}
 	cloned.Children = cloneFieldGroup(node.Children)

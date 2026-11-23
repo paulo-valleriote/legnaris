@@ -35,11 +35,39 @@ func listSheetWithRecord(id string, position float64) *sheet.Sheet {
 		id: map[string]any{
 			"name":         "Rope",
 			"quantity":     1.0,
+			"weight":       1.0,
 			"active":       0.0,
-			"derivedTotal": 0.0,
+			"derivedTotal": 1.0,
+			"scaled":       1.0,
+			"optionA":      0.0,
+			"optionB":      0.0,
 			"position":     position,
 		},
 	}
+	data["inventoryValue"] = 1.0
+	data["inventoryCount"] = 1.0
+	return &sheet.Sheet{
+		ID:         patchSheetID,
+		TemplateID: sheettest.ListTemplateID,
+		OwnerID:    ownerUserID,
+		Data:       data,
+	}
+}
+
+func listSheetWithTwoRecords() *sheet.Sheet {
+	data := sheettest.ListSeedData()
+	data["inventory"].(map[string]any)["items"] = map[string]any{
+		sheettest.ListRecordID: map[string]any{
+			"name": "Rope", "quantity": 1.0, "weight": 1.0, "active": 0.0,
+			"derivedTotal": 1.0, "scaled": 1.0, "optionA": 0.0, "optionB": 0.0, "position": 0.0,
+		},
+		sheettest.ListRecordID2: map[string]any{
+			"name": "Torch", "quantity": 1.0, "weight": 1.0, "active": 0.0,
+			"derivedTotal": 1.0, "scaled": 1.0, "optionA": 0.0, "optionB": 0.0, "position": 1.0,
+		},
+	}
+	data["inventoryValue"] = 2.0
+	data["inventoryCount"] = 2.0
 	return &sheet.Sheet{
 		ID:         patchSheetID,
 		TemplateID: sheettest.ListTemplateID,
@@ -90,8 +118,10 @@ func TestService_PartialUpdate_Records(t *testing.T) {
 				}
 				return record["name"] == "Rope" &&
 					record["quantity"] == 1.0 &&
+					record["weight"] == 1.0 &&
 					record["active"] == 0.0 &&
-					record["derivedTotal"] == 0.0 &&
+					record["derivedTotal"] == 1.0 &&
+					record["scaled"] == 1.0 &&
 					record["position"] == 0.0
 			})).
 			Return(int64(1), nil).
@@ -105,7 +135,18 @@ func TestService_PartialUpdate_Records(t *testing.T) {
 			},
 		}))
 		require.NoError(t, err)
-		assert.Equal(t, map[string]any{}, cascade)
+		assert.Equal(t, map[string]any{
+			"inventory": map[string]any{
+				"items": map[string]any{
+					sheettest.ListRecordID: map[string]any{
+						"derivedTotal": 1.0,
+						"scaled":       1.0,
+					},
+				},
+			},
+			"inventoryCount": 1.0,
+			"inventoryValue": 1.0,
+		}, cascade)
 	})
 
 	t.Run("Happy path: removing a record leaves an empty list", func(t *testing.T) {
@@ -292,7 +333,7 @@ func TestService_PartialUpdate_RecordErrors(t *testing.T) {
 		},
 		{
 			name:       "Error: an unknown record field",
-			data:       map[string]any{"inventory": map[string]any{"items": map[string]any{sheettest.ListRecordID: map[string]any{"weight": 2.0}}}},
+			data:       map[string]any{"inventory": map[string]any{"items": map[string]any{sheettest.ListRecordID: map[string]any{"volume": 2.0}}}},
 			wantCode:   apperr.CodeUnknownField,
 			wantStatus: 400,
 		},
@@ -414,8 +455,192 @@ func TestService_Preview_AcceptsRecordsWithoutWriting(t *testing.T) {
 		},
 	}))
 	require.NoError(t, err)
-	assert.Equal(t, map[string]any{}, cascade)
+	assert.Equal(t, map[string]any{
+		"inventory": map[string]any{
+			"items": map[string]any{
+				sheettest.ListRecordID: map[string]any{
+					"derivedTotal": 1.0,
+					"scaled":       1.0,
+				},
+			},
+		},
+		"inventoryCount": 1.0,
+		"inventoryValue": 1.0,
+	}, cascade)
 	repo.AssertNotCalled(t, "PartialUpdate", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+}
+
+func TestService_PartialUpdate_RecordDerivedValues(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Happy path: editing a record computes its derived fields and the aggregates", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(listSheetWithRecord(sheettest.ListRecordID, 0), nil).Once()
+		repo.EXPECT().
+			PartialUpdate(ctx, patchSheetID, int64(0), mock.MatchedBy(func(updates map[string]any) bool {
+				data, ok := updates["data"].(map[string]any)
+				if !ok {
+					return false
+				}
+				record := itemsOf(data)[sheettest.ListRecordID].(map[string]any)
+				return record["derivedTotal"] == 6.0 &&
+					record["scaled"] == 3.0 &&
+					data["inventoryValue"] == 6.0 &&
+					data["inventoryCount"] == 1.0
+			})).
+			Return(int64(1), nil).
+			Once()
+
+		cascade, err := newRecordsService(t, repo).PartialUpdate(ctx, recordsPatch(map[string]any{
+			"inventory": map[string]any{
+				"items": map[string]any{
+					sheettest.ListRecordID: map[string]any{"quantity": 3.0, "weight": 2.0},
+				},
+			},
+		}))
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{
+			"inventory": map[string]any{
+				"items": map[string]any{
+					sheettest.ListRecordID: map[string]any{
+						"derivedTotal": 6.0,
+						"scaled":       3.0,
+					},
+				},
+			},
+			"inventoryValue": 6.0,
+		}, cascade)
+	})
+
+	t.Run("Happy path: changing a sheet field recomputes every record", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(listSheetWithTwoRecords(), nil).Once()
+		repo.EXPECT().
+			PartialUpdate(ctx, patchSheetID, int64(0), mock.MatchedBy(func(updates map[string]any) bool {
+				data, ok := updates["data"].(map[string]any)
+				if !ok {
+					return false
+				}
+				first := itemsOf(data)[sheettest.ListRecordID].(map[string]any)
+				second := itemsOf(data)[sheettest.ListRecordID2].(map[string]any)
+				return data["level"] == 2.0 && first["scaled"] == 2.0 && second["scaled"] == 2.0
+			})).
+			Return(int64(1), nil).
+			Once()
+
+		cascade, err := newRecordsService(t, repo).PartialUpdate(ctx, recordsPatch(map[string]any{
+			"level": 2.0,
+		}))
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{
+			"inventory": map[string]any{
+				"items": map[string]any{
+					sheettest.ListRecordID:  map[string]any{"scaled": 2.0},
+					sheettest.ListRecordID2: map[string]any{"scaled": 2.0},
+				},
+			},
+		}, cascade)
+	})
+
+	t.Run("Happy path: removing the last record resets the aggregates", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(listSheetWithRecord(sheettest.ListRecordID, 0), nil).Once()
+		repo.EXPECT().
+			PartialUpdate(ctx, patchSheetID, int64(0), mock.MatchedBy(func(updates map[string]any) bool {
+				data, ok := updates["data"].(map[string]any)
+				return ok && len(itemsOf(data)) == 0 &&
+					data["inventoryValue"] == 0.0 && data["inventoryCount"] == 0.0
+			})).
+			Return(int64(1), nil).
+			Once()
+
+		cascade, err := newRecordsService(t, repo).PartialUpdate(ctx, recordsPatch(map[string]any{
+			"inventory": map[string]any{
+				"items": map[string]any{sheettest.ListRecordID: nil},
+			},
+		}))
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{
+			"inventoryValue": 0.0,
+			"inventoryCount": 0.0,
+		}, cascade)
+	})
+}
+
+func TestService_PartialUpdate_RecordExclusiveGroups(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("Error: two members on in one record are refused before the write", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(listSheetWithTwoRecords(), nil).Once()
+
+		_, err := newRecordsService(t, repo).PartialUpdate(ctx, recordsPatch(map[string]any{
+			"inventory": map[string]any{
+				"items": map[string]any{
+					sheettest.ListRecordID: map[string]any{"optionA": 1.0, "optionB": 1.0},
+				},
+			},
+		}))
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
+		assert.Equal(t, 400, appErr.HttpStatus())
+		repo.AssertNotCalled(t, "PartialUpdate", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
+	})
+
+	t.Run("Happy path: two records each choose their own member", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(ctx, patchSheetID).Return(listSheetWithTwoRecords(), nil).Once()
+		repo.EXPECT().
+			PartialUpdate(ctx, patchSheetID, int64(0), mock.MatchedBy(func(updates map[string]any) bool {
+				data, ok := updates["data"].(map[string]any)
+				if !ok {
+					return false
+				}
+				first := itemsOf(data)[sheettest.ListRecordID].(map[string]any)
+				second := itemsOf(data)[sheettest.ListRecordID2].(map[string]any)
+				return first["optionA"] == 1.0 && first["optionB"] == 0.0 &&
+					second["optionA"] == 0.0 && second["optionB"] == 1.0
+			})).
+			Return(int64(1), nil).
+			Once()
+
+		_, err := newRecordsService(t, repo).PartialUpdate(ctx, recordsPatch(map[string]any{
+			"inventory": map[string]any{
+				"items": map[string]any{
+					sheettest.ListRecordID:  map[string]any{"optionA": 1.0},
+					sheettest.ListRecordID2: map[string]any{"optionB": 1.0},
+				},
+			},
+		}))
+		require.NoError(t, err)
+	})
+}
+
+func TestService_Preview_MatchesSaveCascade(t *testing.T) {
+	ctx := context.Background()
+	repo := mocks.NewMockRepository(t)
+	repo.EXPECT().FetchByID(ctx, patchSheetID).Return(listSheetWithRecord(sheettest.ListRecordID, 0), nil).Twice()
+	repo.EXPECT().
+		PartialUpdate(ctx, patchSheetID, int64(0), mock.Anything).
+		Return(int64(1), nil).
+		Once()
+
+	svc := newRecordsService(t, repo)
+	patch := recordsPatch(map[string]any{
+		"inventory": map[string]any{
+			"items": map[string]any{
+				sheettest.ListRecordID: map[string]any{"quantity": 4.0, "weight": 2.0},
+			},
+		},
+	})
+
+	previewed, err := svc.Preview(ctx, patch)
+	require.NoError(t, err)
+	saved, err := svc.PartialUpdate(ctx, patch)
+	require.NoError(t, err)
+	assert.Equal(t, previewed, saved)
+	assert.NotEmpty(t, saved)
 }
 
 func TestService_Create_SeedsListsEmpty(t *testing.T) {
@@ -430,7 +655,8 @@ func TestService_Create_SeedsListsEmpty(t *testing.T) {
 	repo.EXPECT().
 		Create(ctx, mock.MatchedBy(func(stored *sheet.Sheet) bool {
 			items, ok := stored.Data["inventory"].(map[string]any)["items"].(map[string]any)
-			return ok && len(items) == 0
+			return ok && len(items) == 0 &&
+				stored.Data["inventoryValue"] == 0.0 && stored.Data["inventoryCount"] == 0.0
 		})).
 		Return(nil).
 		Once()
