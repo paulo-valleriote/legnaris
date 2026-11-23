@@ -153,6 +153,7 @@ func TestIntegration_ProtectedRoutesRequireJWT(t *testing.T) {
 		{http.MethodPatch, "/sheets/" + missingSheetID, `{"data":{"stats":{"dexterity":12}}}`},
 		{http.MethodDelete, "/sheets/" + missingSheetID, ""},
 		{http.MethodPost, "/sheets/" + missingSheetID + "/preview", `{"data":{"stats":{"dexterity":12}}}`},
+		{http.MethodPost, "/sheets/" + missingSheetID + "/resets/consume", `{"request_id":"01900000-0000-7000-8000-0000000000c1"}`},
 		{http.MethodPut, "/sheets/" + missingSheetID + "/layout", `{"layout":{}}`},
 		{http.MethodPatch, "/sheets/" + missingSheetID, `{"dice":{}}`},
 		{http.MethodGet, "/templates", ""},
