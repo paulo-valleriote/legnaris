@@ -94,7 +94,7 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 
 	formulaEngine := engine.NewFormulaEngine()
 
-	registry, err := template.BuildRegistry(formulaEngine, template.WithDraftsAllowed(template.DraftsAllowed(cfg.Variables.AppEnv)))
+	registry, err := buildTemplateRegistry(formulaEngine, cfg.Variables.AppEnv)
 	if err != nil {
 		return fmt.Errorf("build template registry: %w", err)
 	}
@@ -182,4 +182,8 @@ func serve(ctx context.Context, handler http.Handler, ln net.Listener, timeout t
 		return fmt.Errorf("graceful shutdown: %w", shutdownErr)
 	}
 	return nil
+}
+
+func buildTemplateRegistry(eng *engine.FormulaEngine, appEnv string) (*template.Registry, error) {
+	return template.BuildRegistry(eng, template.WithDraftsAllowed(template.DraftsAllowed(appEnv)))
 }
