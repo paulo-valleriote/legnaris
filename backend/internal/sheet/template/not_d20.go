@@ -13,12 +13,12 @@ func ValidateNotD20Tests(tmpl Template) error {
 
 	for _, key := range tmpl.NotD20Sections {
 		if !sections[key] {
-			return &UnknownNotD20SectionError{Key: key}
+			return ErrUnknownNotD20Section(key)
 		}
 	}
 	for _, key := range tmpl.NotD20Rows {
 		if !rows[key] {
-			return &UnknownNotD20RowError{Key: key}
+			return ErrUnknownNotD20Row(key)
 		}
 	}
 	return nil

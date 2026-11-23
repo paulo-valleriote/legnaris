@@ -50,7 +50,6 @@ func (d *DAG) buildRecordNode(
 	key := record.key()
 
 	env := maps.Clone(staticEnv)
-	env["record"] = recordMock(list)
 	for _, dependency := range node.Schema.DependsOn {
 		if err := d.addRecordDependency(listPath, list, key, dependency, env); err != nil {
 			return err
@@ -103,16 +102,6 @@ func (d *DAG) addRecordDependency(
 	}
 }
 
-func recordMock(list ListSchema) map[string]any {
-	mock := make(map[string]any, len(list.Shape))
-	for name, node := range list.Shape {
-		if node.IsLeaf() {
-			mock[name] = 0.0
-		}
-	}
-	return mock
-}
-
 func (d *DAG) processRecordNode(
 	node *recordNode,
 	sheetData, engineEnv map[string]any,
@@ -159,22 +148,17 @@ func (d *DAG) processRecordNode(
 }
 
 func (d *DAG) recordEngineEnv(base map[string]any, list ListSchema, record map[string]any) map[string]any {
-	env := make(map[string]any, len(d.nodes)+len(list.Shape)+1)
+	env := make(map[string]any, len(d.nodes)+len(list.Shape))
 	for _, node := range d.nodes {
 		key := node.Path.EngineKey()
 		env[key] = base[key]
 	}
-	recordCopy := make(map[string]any, len(list.Shape)+1)
 	for name, node := range list.Shape {
 		if !node.IsLeaf() {
 			continue
 		}
-		value := record[name]
-		env["record_"+name] = value
-		recordCopy[name] = value
+		env["record_"+name] = record[name]
 	}
-	recordCopy[ListPositionField] = record[ListPositionField]
-	env["record"] = recordCopy
 	return env
 }
 

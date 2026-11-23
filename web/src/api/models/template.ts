@@ -205,12 +205,12 @@ function parseFieldGroup(value: unknown): Record<string, FieldNode> {
 }
 
 function parseKinds(value: unknown): readonly SheetKind[] {
-  if (!Array.isArray(value)) {
-    throw drift('template "kinds" is not a list');
+  if (value === undefined) {
+    return [];
   }
 
-  if (value.length === 0) {
-    throw drift('template "kinds" is empty');
+  if (!Array.isArray(value)) {
+    throw drift('template "kinds" is not a list');
   }
 
   const kinds: SheetKind[] = [];
@@ -221,9 +221,6 @@ function parseKinds(value: unknown): readonly SheetKind[] {
     const match = SHEET_KINDS.find((kind) => kind === entry);
     if (match === undefined) {
       throw drift('template "kinds" holds an unknown kind');
-    }
-    if (kinds.includes(match)) {
-      throw drift('template "kinds" holds a duplicate kind');
     }
     kinds.push(match);
   }

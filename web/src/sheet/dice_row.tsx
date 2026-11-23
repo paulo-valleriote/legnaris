@@ -379,6 +379,20 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
     }
   };
 
+  const startPress = () => {
+    longPressed.current = false;
+    cancelPress();
+    pressTimer.current = window.setTimeout(() => {
+      pressTimer.current = undefined;
+      longPressed.current = true;
+      if (!offersMode && hasD20Term) {
+        roll('normal');
+        return;
+      }
+      edit();
+    }, LONG_PRESS_MS);
+  };
+
   useEffect(() => cancelPress, []);
 
   if (!resolution.rollable && !showEdit) {
@@ -400,15 +414,7 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
               : messageWith('dice.rollWith', { label, dice: summary })
           }
           aria-haspopup={offersMode ? 'dialog' : undefined}
-          onPointerDown={() => {
-            longPressed.current = false;
-            cancelPress();
-            pressTimer.current = window.setTimeout(() => {
-              pressTimer.current = undefined;
-              longPressed.current = true;
-              edit();
-            }, LONG_PRESS_MS);
-          }}
+          onPointerDown={startPress}
           onPointerUp={cancelPress}
           onPointerLeave={cancelPress}
           onPointerCancel={cancelPress}
@@ -418,6 +424,8 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
                   event.preventDefault();
                   if (offersMode) {
                     setChoosing(true);
+                  } else {
+                    roll('normal');
                   }
                 }
               : undefined

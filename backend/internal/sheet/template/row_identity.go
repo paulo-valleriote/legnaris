@@ -20,6 +20,10 @@ func RecordRowKey(listPath, recordID string) string {
 	return listPath + pathSeparator + recordID
 }
 
+func RecordFieldPath(listPath, recordID, field string) string {
+	return RecordRowKey(listPath, recordID) + pathSeparator + field
+}
+
 func ParseRecordRowKey(tmpl Template, key string) (RecordRow, bool) {
 	lists := templateLists(tmpl)
 	listPath, _, ok := listByName(lists, key)
@@ -54,22 +58,65 @@ func RowSectionKey(tmpl Template, key string) (string, bool) {
 	return row.Section, true
 }
 
-func staticRowKeys(tmpl Template) map[string]bool {
-	rows := make(map[string]bool)
+type templateRowIndex struct {
+	static      map[string]bool
+	lists       map[string]ListSchema
+	sectionRows map[string][]string
+}
+
+func buildTemplateRowIndex(tmpl Template) (*templateRowIndex, error) {
+	lists, err := collectLists(tmpl.Fields, nil)
+	if err != nil {
+		return nil, err
+	}
+	static := make(map[string]bool)
+	sectionRows := make(map[string][]string)
 	for _, section := range SectionRowKeys(tmpl) {
+		sectionRows[section.Section] = slices.Clone(section.Rows)
 		for _, row := range section.Rows {
-			rows[row] = true
+			static[row] = true
 		}
 	}
-	return rows
+	for _, listPath := range slices.Sorted(maps.Keys(lists)) {
+		section := sectionOfListPath(listPath)
+		sectionRows[section] = append(
+			sectionRows[section],
+			RecordRowKey(listPath, syntheticRecordID),
+		)
+	}
+	return &templateRowIndex{static: static, lists: lists, sectionRows: sectionRows}, nil
+}
+
+func (t *Template) prepareRowIndex() error {
+	index, err := buildTemplateRowIndex(*t)
+	if err != nil {
+		return err
+	}
+	t.rowIndex = index
+	return nil
+}
+
+func (t Template) rows() *templateRowIndex {
+	if t.rowIndex != nil {
+		return t.rowIndex
+	}
+	index, err := buildTemplateRowIndex(t)
+	if err != nil {
+		return &templateRowIndex{
+			static:      map[string]bool{},
+			lists:       map[string]ListSchema{},
+			sectionRows: map[string][]string{},
+		}
+	}
+	return index
+}
+
+func staticRowKeys(tmpl Template) map[string]bool {
+	return tmpl.rows().static
 }
 
 func templateLists(tmpl Template) map[string]ListSchema {
-	lists, err := collectLists(tmpl.Fields, nil)
-	if err != nil {
-		return map[string]ListSchema{}
-	}
-	return lists
+	return tmpl.rows().lists
 }
 
 func sectionOfListPath(listPath string) string {
@@ -78,16 +125,7 @@ func sectionOfListPath(listPath string) string {
 }
 
 func sectionRowsForFit(tmpl Template) map[string][]string {
-	rows := make(map[string][]string)
-	for _, section := range SectionRowKeys(tmpl) {
-		rows[section.Section] = slices.Clone(section.Rows)
-	}
-	lists := templateLists(tmpl)
-	for _, listPath := range slices.Sorted(maps.Keys(lists)) {
-		section := sectionOfListPath(listPath)
-		rows[section] = append(rows[section], RecordRowKey(listPath, syntheticRecordID))
-	}
-	return rows
+	return tmpl.rows().sectionRows
 }
 
 type templateRowSchema struct {

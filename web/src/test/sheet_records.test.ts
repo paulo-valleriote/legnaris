@@ -9,6 +9,7 @@ import {
   createSheetEditStore,
   isPending,
   pendingCount,
+  type RecordEditStore,
   type SheetEditStore,
 } from '../sheet/sheet_edit';
 import { createFakeTransport, errorOutcome, successOutcome } from './fake_transport';
@@ -35,7 +36,7 @@ function storeWith(
   ).transport,
   store = createMemorySheetStore(),
   data?: Record<string, unknown>,
-): SheetEditStore {
+): RecordEditStore {
   return createSheetEditStore(
     {
       template: parseTemplateDetail(listTemplatePayload()),

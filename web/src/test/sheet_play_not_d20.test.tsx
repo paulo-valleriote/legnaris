@@ -187,6 +187,17 @@ describe('a Template marking a Row as not a d20 test in Play', () => {
     expect(droppedDice()).toHaveLength(0);
   }, 15000);
 
+  it('Happy path: the Context Menu event on a marked d20 throws one die and opens no choice', async () => {
+    await openPlay({ row: ['stats.wisdom'] });
+
+    fireEvent.contextMenu(wisdomButton());
+
+    await waitFor(() => expect(panel()).not.toBeNull());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(panelDice()).toHaveLength(0);
+    expect(droppedDice()).toHaveLength(0);
+  }, 15000);
+
   it('Edge: an unmarked neighbour keeps advantage', async () => {
     const user = await openPlay({ row: ['stats.wisdom'] });
 
@@ -263,6 +274,28 @@ describe('a Template marking a Row as not a d20 test in Edit', () => {
 
     expect(screen.queryByRole('dialog')).toBeNull();
     await waitFor(() => expect(panel()).not.toBeNull());
+    expect(panelDice()).toHaveLength(0);
+    expect(droppedDice()).toHaveLength(0);
+  }, 15000);
+
+  it('Happy path: a long press on a marked d20 throws one die without an editor', async () => {
+    await openEdit({ row: ['alpha.one'] });
+
+    await longPress(editRollButton('One'));
+
+    await waitFor(() => expect(panel()).not.toBeNull());
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(panelDice()).toHaveLength(0);
+    expect(droppedDice()).toHaveLength(0);
+  }, 15000);
+
+  it('Happy path: the Context Menu event on a marked d20 throws one die without a choice', async () => {
+    await openEdit({ row: ['alpha.one'] });
+
+    fireEvent.contextMenu(editRollButton('One'));
+
+    await waitFor(() => expect(panel()).not.toBeNull());
+    expect(screen.queryByRole('dialog')).toBeNull();
     expect(panelDice()).toHaveLength(0);
     expect(droppedDice()).toHaveLength(0);
   }, 15000);

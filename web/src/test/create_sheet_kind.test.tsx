@@ -159,6 +159,8 @@ describe('creation surface sheet kind (LGN-238)', () => {
     expect(screen.getByText(message('catalog.kindLabel'))).toBeInTheDocument();
     expect(screen.getByText(message('kind.npc'))).toBeInTheDocument();
     expect(screen.getByText(messageWith('sheet.usage', usageFor('npc', [])))).toBeInTheDocument();
+    const kindGroup = screen.getByRole('group', { name: message('catalog.kindLabel') });
+    expect(kindGroup).toHaveAccessibleDescription(messageWith('sheet.usage', usageFor('npc', [])));
 
     await user.type(nameInput(), 'Mine');
     await user.click(createButton());

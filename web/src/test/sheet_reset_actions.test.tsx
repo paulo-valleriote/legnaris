@@ -8,6 +8,7 @@ import {
   CAPABILITIES_ACTION_LABEL,
   CAPABILITIES_LIST_PATH,
   CAPABILITIES_RECORD_ACTIVE,
+  CAPABILITIES_RECORD_IDLE,
   CAPABILITIES_SHEET_ID,
   capabilitiesData,
   capabilitiesResetActions,
@@ -198,6 +199,71 @@ describe('reset actions on the generic form', () => {
     await waitFor(() => expect(stub.resetRequests()).toHaveLength(2));
     const ids = requestIDs(stub.resetRequests());
     expect(ids[1]).toBe(ids[0]);
+  });
+
+  it('Edge: a replayed reset merges the current server state into the baseline without pending edits', async () => {
+    const serverState = {
+      stats: { level: 4, proficiency: 2, insight: 8 },
+      flags: { inspired: 1 },
+      inventory: {
+        items: {
+          [CAPABILITIES_RECORD_ACTIVE]: {
+            name: 'Torch',
+            quantity: 4,
+            weight: 2,
+            active: 1,
+            optionA: 1,
+            optionB: 0,
+            position: 1,
+            derivedTotal: 8,
+            scaled: 16,
+          },
+          [CAPABILITIES_RECORD_IDLE]: {
+            name: 'Rope',
+            quantity: 3,
+            weight: 1,
+            active: 0,
+            optionA: 0,
+            optionB: 1,
+            position: 2,
+            derivedTotal: 3,
+            scaled: 12,
+          },
+        },
+      },
+      totals: { inventoryValue: 11, inventoryCount: 2 },
+    };
+    const replayCascade = {
+      stats: { level: 4, insight: 8 },
+      inventory: {
+        items: {
+          [CAPABILITIES_RECORD_ACTIVE]: { quantity: 4, derivedTotal: 8, scaled: 16 },
+          [CAPABILITIES_RECORD_IDLE]: { quantity: 3, derivedTotal: 3, scaled: 12 },
+        },
+      },
+      totals: { inventoryValue: 11, inventoryCount: 2 },
+    };
+    const { stub, user, view } = await open({
+      resets: [{ failure: new Error('network') }, successOutcome(replayCascade)],
+    });
+
+    await user.click(resetButton());
+    await screen.findByTestId('sheet-reset-error');
+    await user.click(screen.getByRole('button', { name: message('common.retry') }));
+
+    await waitFor(() => expect(stub.resetRequests()).toHaveLength(2));
+    expect(levelField()).toHaveValue('4');
+    expect(
+      within(recordRows()[0] as HTMLElement).getByRole('textbox', { name: 'Quantity' }),
+    ).toHaveValue('4');
+    expect(
+      within(recordRows()[1] as HTMLElement).getByRole('textbox', { name: 'Quantity' }),
+    ).toHaveValue('3');
+    expect(screen.queryByText(message('sheet.pendingEdits'))).toBeNull();
+    await waitFor(async () => {
+      const cached = await view.sheetStore.readSheet(CAPABILITIES_SHEET_ID);
+      expect(cached?.data).toEqual(serverState);
+    });
   });
 
   it('Edge: a 409 offers a refresh and retry that reuses the request id', async () => {

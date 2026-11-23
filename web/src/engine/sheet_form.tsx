@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import type { FieldNode, FieldSchema } from '../api/models/template';
 import { valueAtPath } from '../api/models/sheet';
@@ -242,22 +242,20 @@ export function SheetForm({
   const RowFrame = frames?.Row ?? DefaultRow;
   const formId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
-  const pendingFocus = useRef<RecordFocus | null>(null);
+  const [pendingFocus, setPendingFocus] = useState<RecordFocus | null>(null);
   const labelIdFor = (key: string): string => `${formId}-label-${key.replace(/\s/g, '_')}`;
   const addIdFor = (listPath: string): string => `${formId}-add-${listPath.replace(/\s/g, '_')}`;
   const recordRows = records ?? (data === undefined ? undefined : recordsFromData(fields, data));
 
   useEffect(() => {
-    const request = pendingFocus.current;
-    if (request === null) {
+    if (pendingFocus === null) {
       return;
     }
-    pendingFocus.current = null;
     const root = rootRef.current;
     if (root !== null) {
-      focusRecordRequest(root, request);
+      focusRecordRequest(root, pendingFocus);
     }
-  });
+  }, [pendingFocus]);
 
   const rowLabel = (
     text: string,
@@ -477,8 +475,9 @@ export function SheetForm({
 
   const runAdd = (list: SheetList): void => {
     const recordID = recordActions?.add(list.path);
-    pendingFocus.current =
-      recordID === undefined ? null : { kind: 'record', key: recordRowKey(list.path, recordID) };
+    setPendingFocus(
+      recordID === undefined ? null : { kind: 'record', key: recordRowKey(list.path, recordID) },
+    );
   };
 
   const runRemove = (row: RecordRow): void => {
@@ -486,19 +485,20 @@ export function SheetForm({
     const index = ids.indexOf(row.recordID);
     const next = ids[index + 1] ?? ids[index - 1];
     recordActions?.remove(row.listPath, row.recordID);
-    pendingFocus.current =
+    setPendingFocus(
       next === undefined
         ? { kind: 'add', id: addIdFor(row.listPath) }
-        : { kind: 'record', key: recordRowKey(row.listPath, next) };
+        : { kind: 'record', key: recordRowKey(row.listPath, next) },
+    );
   };
 
   const runMove = (row: RecordRow, direction: -1 | 1): void => {
     recordActions?.move(row.listPath, row.recordID, direction);
-    pendingFocus.current = {
+    setPendingFocus({
       kind: 'record',
       key: recordRowKey(row.listPath, row.recordID),
       action: direction === 1 ? 'down' : 'up',
-    };
+    });
   };
 
   const renderRecordActions = (row: RecordRow): ReactNode => {

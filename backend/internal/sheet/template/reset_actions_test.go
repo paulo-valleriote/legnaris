@@ -453,3 +453,42 @@ func TestTemplateDTO_ResetActions(t *testing.T) {
 		assert.NotContains(t, raw, "actions")
 	})
 }
+
+func TestBuildDAG_RecordObjectIsNotAFormulaInput(t *testing.T) {
+	t.Run("Error: a Record formula reading record.x fails boot", func(t *testing.T) {
+		fields := resetTestFields()
+		fields["inventory"].Children["items"].List.Shape["bad"] = FieldNode{Schema: &FieldSchema{
+			Type:      resetTestNumberField,
+			Formula:   "record.quantity * 2",
+			DependsOn: [][]string{{"quantity"}},
+		}}
+
+		_, err := BuildDAG("record_object_forbidden", fields, engine.NewFormulaEngine())
+
+		require.Error(t, err)
+		var compileErr *FormulaCompileError
+		require.ErrorAs(t, err, &compileErr)
+	})
+
+	t.Run("Error: a Reset list expression reading record.x fails boot", func(t *testing.T) {
+		action := ResetAction{
+			ID:    "read_record",
+			Label: "Read record",
+			Assignments: []ResetAssignment{{
+				Target:     resetTestListPath + ".quantity",
+				Expression: "record.quantity + 1",
+			}},
+		}
+
+		_, err := buildResetDAG(t, []ResetAction{action})
+
+		require.Error(t, err)
+		var compileErr *FormulaCompileError
+		require.ErrorAs(t, err, &compileErr)
+	})
+
+	t.Run("Happy path: a Reset list expression still reads record_<field>", func(t *testing.T) {
+		_, err := buildResetDAG(t, []ResetAction{restockAction("")})
+		require.NoError(t, err)
+	})
+}

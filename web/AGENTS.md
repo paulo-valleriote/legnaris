@@ -35,7 +35,7 @@ no request, no mark. It mounts no screen; every case renders its modules directl
 - **Stable units for the Layout.** Every Section renders one `<section data-section-key>`
   (the top-level field key) holding its title and one `.lg-section__rows` container; every Row
   renders one wrapper carrying `data-row-key` and `data-row-kind` (`normal` | `exclusive` |
-  `table`). The row key comes from `rowKey(row)` in `field_grouping.ts`
+  `table` | `record`). The row key comes from `rowKey(row)` in `field_grouping.ts`
   (`<path>`, `<parent path>#<groupId>`, `<group path>`; the same keys the backend validates a
   layout against): it depends only on the template, never on position or value, and is
   unique across the sheet. A table Row is self-sufficient: it draws its own column header inside

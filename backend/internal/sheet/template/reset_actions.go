@@ -200,7 +200,6 @@ func validateResetFilter(actionID, listPath string, list ListSchema, assignment 
 
 func (d *DAG) resetRecordCompileEnv(list ListSchema, staticEnv map[string]any) map[string]any {
 	env := maps.Clone(staticEnv)
-	env["record"] = recordMock(list)
 	for name, node := range list.Shape {
 		if node.IsLeaf() {
 			env["record_"+name] = 0.0
@@ -211,6 +210,116 @@ func (d *DAG) resetRecordCompileEnv(list ListSchema, staticEnv map[string]any) m
 
 func resetCompileKey(actionID, target string) string {
 	return "reset." + actionID + "." + target
+}
+
+func (d *DAG) HasResetAction(actionID string) bool {
+	if d == nil {
+		return false
+	}
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	_, ok := d.actions[actionID]
+	return ok
+}
+
+func (d *DAG) ResetReplayEffects(actionID string, data map[string]any) (map[string]any, error) {
+	if d == nil {
+		return nil, ErrNilDAG
+	}
+	if data == nil {
+		return nil, ErrNilOriginalData
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	action, ok := d.actions[actionID]
+	if !ok {
+		return nil, ErrUnknownResetAction(actionID)
+	}
+
+	effects := make(map[string]any)
+	d.replayAssignedEffects(action, data, effects)
+	d.replayStaticDerivedEffects(data, effects)
+	d.replayRecordDerivedEffects(data, effects)
+	d.replayAggregateEffects(data, effects)
+	return effects, nil
+}
+
+func (d *DAG) replayAssignedEffects(
+	action *compiledResetAction,
+	data, effects map[string]any,
+) {
+	for _, assignment := range action.assignments {
+		if assignment.listPath == "" {
+			if value, found := maputils.GetFlat(data, assignment.target); found {
+				effects[assignment.target] = value
+			}
+			continue
+		}
+		records := storedRecords(data, assignment.listPath)
+		for _, recordID := range slices.Sorted(maps.Keys(records)) {
+			record, ok := records[recordID].(map[string]any)
+			if !ok {
+				continue
+			}
+			if value, found := record[assignment.field]; found {
+				effects[RecordFieldPath(assignment.listPath, recordID, assignment.field)] = value
+			}
+		}
+	}
+}
+
+func (d *DAG) replayStaticDerivedEffects(data, effects map[string]any) {
+	for _, key := range slices.Sorted(maps.Keys(d.nodes)) {
+		if !d.nodes[key].IsDerived() {
+			continue
+		}
+		if value, found := maputils.GetFlat(data, key); found {
+			effects[key] = value
+		}
+	}
+}
+
+func (d *DAG) replayRecordDerivedEffects(data, effects map[string]any) {
+	for _, listPath := range slices.Sorted(maps.Keys(d.recordNodesByList)) {
+		records := storedRecords(data, listPath)
+		for _, recordID := range slices.Sorted(maps.Keys(records)) {
+			record, ok := records[recordID].(map[string]any)
+			if !ok {
+				continue
+			}
+			for _, key := range d.recordNodesByList[listPath] {
+				node := d.recordNodes[key]
+				if node.compiledFormula == nil {
+					continue
+				}
+				if value, found := record[node.Field]; found {
+					effects[RecordFieldPath(listPath, recordID, node.Field)] = value
+				}
+			}
+		}
+	}
+}
+
+func (d *DAG) replayAggregateEffects(data, effects map[string]any) {
+	for _, key := range slices.Sorted(maps.Keys(d.aggregates)) {
+		if value, found := maputils.GetFlat(data, key); found {
+			effects[key] = value
+		}
+	}
+}
+
+func storedRecords(data map[string]any, listPath string) map[string]any {
+	stored, found := maputils.Get(data, strings.Split(listPath, pathSeparator))
+	if !found {
+		return nil
+	}
+	records, ok := stored.(map[string]any)
+	if !ok {
+		return nil
+	}
+	return records
 }
 
 func (d *DAG) CalculateReset(actionID string, data map[string]any) (ResetCalculation, error) {

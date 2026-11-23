@@ -98,7 +98,17 @@ func TestService_Reset_MongoWritesOnce(t *testing.T) {
 		RequestID: resetRequestID,
 	})
 	require.NoError(t, err)
-	assert.Empty(t, replayed)
+	assert.Equal(t, map[string]any{
+		"inventory": map[string]any{
+			"items": map[string]any{
+				sheettest.ListRecordID: map[string]any{
+					"quantity": 2.0, "derivedTotal": 2.0, "scaled": 2.0,
+				},
+			},
+		},
+		"inventoryValue": 2.0,
+		"inventoryCount": 1.0,
+	}, replayed)
 
 	stored, err = repo.FetchByID(ctx, sheetID)
 	require.NoError(t, err)

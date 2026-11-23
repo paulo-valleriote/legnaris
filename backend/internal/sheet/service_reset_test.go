@@ -88,14 +88,50 @@ func TestService_Reset(t *testing.T) {
 		assert.Equal(t, map[string]any{"level": 4.0}, effects)
 	})
 
-	t.Run("Edge: a replay of the last request id writes nothing and returns 200 with an empty cascade", func(t *testing.T) {
+	t.Run("Edge: a replay of the last request id writes nothing and returns the current assigned and derived values", func(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
 		repo.EXPECT().FetchByID(ctx, resetSheetID).
 			Return(resetSheet(8, ownerUserID, resetRequestID, 4, map[string]any{}), nil).Once()
 
 		effects, err := newResetService(t, repo, events.NoOp{}).Reset(ctx, resetCommand(sheettest.ListActionConsume, resetRequestID))
 		require.NoError(t, err)
-		assert.Empty(t, effects)
+		assert.Equal(t, map[string]any{
+			"level":          4.0,
+			"inventoryValue": 0.0,
+			"inventoryCount": 0.0,
+		}, effects)
+		repo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Edge: a list replay returns the assigned field of every Record and every derived value", func(t *testing.T) {
+		items := map[string]any{
+			sheettest.ListRecordID: map[string]any{
+				"name": "Rope", "quantity": 5.0, "weight": 2.0, "active": 0.0,
+				"optionA": 0.0, "optionB": 0.0, "derivedTotal": 10.0, "scaled": 5.0,
+			},
+		}
+		stored := resetSheet(8, ownerUserID, resetRequestID, 3, items)
+		stored.Data["inventoryValue"] = 10.0
+		stored.Data["inventoryCount"] = 1.0
+
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(ctx, resetSheetID).Return(stored, nil).Once()
+
+		effects, err := newResetService(t, repo, events.NoOp{}).Reset(ctx, resetCommand(sheettest.ListActionRestock, resetRequestID))
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{
+			"inventory": map[string]any{
+				"items": map[string]any{
+					sheettest.ListRecordID: map[string]any{
+						"quantity":     5.0,
+						"derivedTotal": 10.0,
+						"scaled":       5.0,
+					},
+				},
+			},
+			"inventoryValue": 10.0,
+			"inventoryCount": 1.0,
+		}, effects)
 		repo.AssertNotCalled(t, "PartialUpdate")
 	})
 
@@ -173,26 +209,66 @@ func TestService_Reset(t *testing.T) {
 		repo.AssertNotCalled(t, "PartialUpdate")
 	})
 
-	t.Run("Error: a missing request id is 400 INVALID_REQUEST before any read", func(t *testing.T) {
+	t.Run("Error: a missing request id is 400 INVALID_REQUEST after ownership and action", func(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(ctx, resetSheetID).
+			Return(resetSheet(1, ownerUserID, "", 1, map[string]any{}), nil).Once()
 
 		_, err := newResetService(t, repo, events.NoOp{}).Reset(ctx, resetCommand(sheettest.ListActionConsume, ""))
 		var appErr *apperr.Error
 		require.ErrorAs(t, err, &appErr)
 		assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
 		assert.Equal(t, sheet.MsgRequestIDMissing, appErr.Message)
-		repo.AssertNotCalled(t, "FetchByID")
+		repo.AssertNotCalled(t, "PartialUpdate")
 	})
 
-	t.Run("Error: a malformed request id is 400 INVALID_REQUEST before any read", func(t *testing.T) {
+	t.Run("Error: a malformed request id is 400 INVALID_REQUEST after ownership and action", func(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(ctx, resetSheetID).
+			Return(resetSheet(1, ownerUserID, "", 1, map[string]any{}), nil).Once()
 
 		_, err := newResetService(t, repo, events.NoOp{}).Reset(ctx, resetCommand(sheettest.ListActionConsume, "not-a-uuid"))
 		var appErr *apperr.Error
 		require.ErrorAs(t, err, &appErr)
 		assert.Equal(t, apperr.CodeInvalidRequest, appErr.Code)
 		assert.Equal(t, sheet.MsgRequestIDInvalid, appErr.Message)
-		repo.AssertNotCalled(t, "FetchByID")
+		repo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Error: a foreign Sheet with a malformed request id is 404 before 400", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(ctx, resetSheetID).
+			Return(resetSheet(1, resetForeignOwn, "", 1, map[string]any{}), nil).Once()
+
+		_, err := newResetService(t, repo, events.NoOp{}).Reset(ctx, resetCommand(sheettest.ListActionConsume, "not-a-uuid"))
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
+		repo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Error: an unknown action with a malformed request id is 404 before 400", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(ctx, resetSheetID).
+			Return(resetSheet(1, ownerUserID, "", 1, map[string]any{}), nil).Once()
+
+		_, err := newResetService(t, repo, events.NoOp{}).Reset(ctx, resetCommand("ghost", "not-a-uuid"))
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
+		repo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Error: an unknown action replaying the last request id is 404, not a 200 replay", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(ctx, resetSheetID).
+			Return(resetSheet(1, ownerUserID, resetRequestID, 1, map[string]any{}), nil).Once()
+
+		_, err := newResetService(t, repo, events.NoOp{}).Reset(ctx, resetCommand("ghost", resetRequestID))
+		var appErr *apperr.Error
+		require.ErrorAs(t, err, &appErr)
+		assert.Equal(t, apperr.CodeNotFound, appErr.Code)
+		repo.AssertNotCalled(t, "PartialUpdate")
 	})
 
 	t.Run("Error: a malformed sheet id is 400 INVALID_REQUEST before any read", func(t *testing.T) {

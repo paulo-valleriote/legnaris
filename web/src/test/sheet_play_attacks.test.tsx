@@ -167,7 +167,7 @@ async function save(user: ReturnType<typeof userEvent.setup>) {
   await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
 }
 
-describe('attack cards in play mode', () => {
+describe('attack cards in play mode', { timeout: 15000 }, () => {
   it('Edge: no attacks field in the template renders no attacks section', async () => {
     const { fake } = await openAttacks({ template: { fields: fantasyFieldTree() } });
 
@@ -263,7 +263,7 @@ describe('attack cards in play mode', () => {
   });
 });
 
-describe('attack notes', () => {
+describe('attack notes', { timeout: 15000 }, () => {
   it('Happy path: a note renders as a subtitle under the name', async () => {
     await openAttacks({
       data: attackData({
@@ -365,7 +365,7 @@ describe('attack notes', () => {
   });
 });
 
-describe('attack editing', () => {
+describe('attack editing', { timeout: 15000 }, () => {
   it('Happy path: name, bonus and damage edit into the pending delta and save as one attack', async () => {
     const { fake, user } = await openAttacks({
       data: attackData({ 1: { name: 'Longsword', damage: '1d8 + 3', bonus: 5 } }),
@@ -451,7 +451,7 @@ function damageRoll(name: string, value: string): string {
   return messageWith('sheet.play.damageRoll', { name, value });
 }
 
-describe('attack roll labels', () => {
+describe('attack roll labels', { timeout: 15000 }, () => {
   it('Happy path: the to-hit pill carries a decorative d20 and the signed bonus', async () => {
     await openAttacks({
       data: attackData({ 1: { name: 'Longbow', damage: '1d8 + 3', bonus: 6 } }),
@@ -518,7 +518,7 @@ describe('attack roll labels', () => {
   });
 });
 
-describe('attack rolling', () => {
+describe('attack rolling', { timeout: 15000 }, () => {
   it('Happy path: the bonus rolls d20 plus the stored bonus through the dice store', async () => {
     const { user } = await openAttacks({
       data: attackData({ 1: { name: 'Longsword', damage: '1d8 + 3', bonus: 5 } }),

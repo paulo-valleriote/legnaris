@@ -108,6 +108,8 @@ export function RollableValue({
                 event.preventDefault();
                 if (offersMode) {
                   openChoice();
+                } else {
+                  roll('normal');
                 }
               }
             : undefined

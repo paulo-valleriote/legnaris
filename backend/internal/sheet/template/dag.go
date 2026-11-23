@@ -527,14 +527,18 @@ func (d *DAG) validateUpdateKeysLocked(updatedData map[string]any) error {
 		if !ok {
 			continue
 		}
-		if err := node.checkFlagValue(updatedData[key]); err != nil {
-			return err
-		}
-		if err := node.checkTextLength(updatedData[key]); err != nil {
+		if err := checkNodeValue(node, updatedData[key]); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func checkNodeValue(node *Node, value any) error {
+	if err := node.checkFlagValue(value); err != nil {
+		return err
+	}
+	return node.checkTextLength(value)
 }
 
 func (d *DAG) hasNodePrefix(key string) bool {
@@ -567,10 +571,7 @@ func (d *DAG) validateEditableLocked(updates map[string]any) error {
 		if !node.IsEditable {
 			return ErrNotEditable(key)
 		}
-		if err := node.checkFlagValue(updates[key]); err != nil {
-			return err
-		}
-		if err := node.checkTextLength(updates[key]); err != nil {
+		if err := checkNodeValue(node, updates[key]); err != nil {
 			return err
 		}
 	}

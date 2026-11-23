@@ -81,17 +81,26 @@ describe('template models', () => {
     expect(decoded.kinds).not.toContain('character');
   });
 
-  it('Error: missing, non-list, empty, duplicate or unknown kinds are contract drift', () => {
-    const broken: unknown[] = [
-      undefined,
-      null,
-      'character',
-      [],
-      ['character', 'character'],
-      ['character', 'dragon'],
-      ['character', 7],
-      [7],
-    ];
+  it('Edge: a missing kinds key decodes as no accepted kinds', () => {
+    const decoded = parseTemplateDetail(template({ kinds: undefined }));
+
+    expect(decoded.kinds).toEqual([]);
+  });
+
+  it('Edge: an empty kinds list decodes as no accepted kinds', () => {
+    const decoded = parseTemplateDetail(template({ kinds: [] }));
+
+    expect(decoded.kinds).toEqual([]);
+  });
+
+  it('Edge: duplicate kinds keep the declared order', () => {
+    const decoded = parseTemplateDetail(template({ kinds: ['npc', 'npc', 'enemy'] }));
+
+    expect(decoded.kinds).toEqual(['npc', 'npc', 'enemy']);
+  });
+
+  it('Error: non-list, null, non-string or unknown kinds are contract drift', () => {
+    const broken: unknown[] = [null, 'character', ['character', 'dragon'], ['character', 7], [7]];
 
     for (const kinds of broken) {
       expect(() => parseTemplateDetail(template({ kinds }))).toThrow(DefensiveParseFailure);

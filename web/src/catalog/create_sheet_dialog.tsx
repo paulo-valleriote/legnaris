@@ -214,8 +214,15 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
             onChange={setSheetName}
           />
           {kind === undefined ? null : availableKinds.length === 1 ? (
-            <div className="lg-create-sheet__kind">
-              <span className="lg-form-field__label">{message('catalog.kindLabel')}</span>
+            <div
+              className="lg-form-field lg-create-sheet__kind"
+              role="group"
+              aria-labelledby="sheet-kind-label"
+              aria-describedby={kindHint === undefined ? undefined : 'sheet-kind-hint'}
+            >
+              <span className="lg-form-field__label" id="sheet-kind-label">
+                {message('catalog.kindLabel')}
+              </span>
               <span className="lg-create-sheet__kind-value">{message(KIND_LABEL_KEYS[kind])}</span>
               {kindHint === undefined ? null : (
                 <span id="sheet-kind-hint" className="lg-form-field__hint">

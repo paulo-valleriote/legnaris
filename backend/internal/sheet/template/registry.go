@@ -25,6 +25,9 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template) (*Registry, 
 
 	for _, tmpl := range templates {
 		stored := cloneTemplate(tmpl)
+		if err := stored.prepareRowIndex(); err != nil {
+			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
+		}
 
 		dag, err := BuildDAGWithActions(stored.ID, stored.Fields, stored.Actions, eng)
 		if err != nil {
