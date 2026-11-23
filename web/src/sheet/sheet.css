@@ -571,3 +571,22 @@
 .lg-mode-toggle {
   display: contents;
 }
+
+.lg-sheet__reset {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--lg-space-8) var(--lg-space-12);
+}
+
+.lg-sheet__reset-failure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lg-space-4) var(--lg-space-12);
+  min-width: 0;
+}
+
+.lg-sheet__reset-failure .lg-sheet__error {
+  flex: 1 1 100%;
+}

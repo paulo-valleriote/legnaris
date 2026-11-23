@@ -52,6 +52,18 @@ export interface ListNode {
 
 export type FieldNode = LeafNode | GroupNode | ListNode;
 
+export interface ResetAssignment {
+  readonly target: string;
+  readonly expression: string;
+  readonly filter?: string;
+}
+
+export interface ResetAction {
+  readonly id: string;
+  readonly label: string;
+  readonly assignments: readonly ResetAssignment[];
+}
+
 export interface TemplateDetail {
   readonly id: string;
   readonly name: string;
@@ -59,6 +71,7 @@ export interface TemplateDetail {
   readonly fields: Record<string, FieldNode>;
   readonly default: boolean;
   readonly dice?: DiceDefaults;
+  readonly actions?: readonly ResetAction[];
 }
 
 export type TemplateSummary = TemplateDetail;
@@ -217,6 +230,45 @@ function parseKinds(value: unknown): readonly SheetKind[] {
   return kinds;
 }
 
+function parseResetAssignments(value: unknown): readonly ResetAssignment[] {
+  if (!Array.isArray(value)) {
+    throw drift('template action "assignments" is not a list');
+  }
+
+  return value.map((entry) => {
+    if (!isPlainObject(entry)) {
+      throw drift('template action "assignments" holds a malformed assignment');
+    }
+    const filter = optionalString(entry, 'filter');
+    return {
+      target: requireString(entry, 'target'),
+      expression: requireString(entry, 'expression'),
+      ...(filter === undefined ? {} : { filter }),
+    };
+  });
+}
+
+function parseResetActions(value: unknown): readonly ResetAction[] | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw drift('template "actions" is not a list');
+  }
+
+  return value.map((entry) => {
+    if (!isPlainObject(entry)) {
+      throw drift('template "actions" holds a malformed action');
+    }
+    return {
+      id: requireString(entry, 'id'),
+      label: requireString(entry, 'label'),
+      assignments: parseResetAssignments(entry['assignments']),
+    };
+  });
+}
+
 function parseTemplate(value: unknown): TemplateDetail {
   if (!isPlainObject(value)) {
     throw drift('template payload is not an object');
@@ -233,6 +285,7 @@ function parseTemplate(value: unknown): TemplateDetail {
     default: requireBoolean(value, 'default'),
     fields: parseFieldGroup(value['fields']),
     dice: parseDiceDefaults(value['dice']),
+    actions: parseResetActions(value['actions']),
   };
 }
 

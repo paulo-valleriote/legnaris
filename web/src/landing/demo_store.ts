@@ -2,7 +2,7 @@ import type { Sheet } from '../api/models/sheet';
 import { valueAtPath } from '../api/models/sheet';
 import type { TemplateDetail } from '../api/models/template';
 import { isPlainObject } from '../api/parse';
-import { setPathValue, seedFromSheet } from '../engine/sheet_defaults';
+import { setPathValue, seedFromSheet, mergeCascade } from '../engine/sheet_defaults';
 import {
   ABILITY_KEYS,
   abilityModifierPath,
@@ -311,6 +311,21 @@ export function createDemoEditStore(template: TemplateDetail, sheet: Sheet): She
     removeRecord: () => undefined,
 
     moveRecord: () => undefined,
+
+    applyReset: (cascade) => {
+      const data = mergeCascade(state.data, cascade);
+      applyDerived(data);
+      commit({
+        ...state,
+        data,
+        defaults: mergeCascade(state.defaults, cascade),
+        revision: state.revision + 1,
+        previewedRevision: undefined,
+        previewMarks: undefined,
+      });
+    },
+
+    refresh: () => Promise.resolve(),
 
     setDice: (target: DiceTarget, key, expression) => {
       const current = target === 'row' ? state.dice.row : state.dice.section;
