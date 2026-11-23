@@ -76,6 +76,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.lg-dice-panel__minimum {
+  margin: 0;
+  color: var(--lg-color-text-muted);
+  font-size: var(--lg-type-13);
+}
+
 .lg-dice-panel__parts {
   display: grid;
   gap: var(--lg-space-4);

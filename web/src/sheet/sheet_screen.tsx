@@ -62,6 +62,7 @@ import {
   diceSectionRows,
   diceSchemaFromFields,
   templateDiceDefaults,
+  templateDiceMarking,
 } from './dice_view';
 import type { LayoutState, LayoutStore } from './layout_store';
 import { createLayoutStore, drawnArrangement, isArranging, isLayoutPending } from './layout_store';
@@ -554,6 +555,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       defaults: templateDiceDefaults(template.dice),
       rowKeys: new Set(sections.flatMap((section) => section.rows.map(rowKey))),
       sectionRows: diceSectionRowKeys,
+      notD20: templateDiceMarking(template.dice),
       savedValues: () => editStore.getState().defaults,
       draftValues: () => editStore.getPendingDelta(),
     }),

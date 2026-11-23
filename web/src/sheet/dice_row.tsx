@@ -31,7 +31,13 @@ import { Dialog } from '../ui/dialog';
 import { DiceIcon, PencilIcon } from '../ui/icons';
 import type { DiceCheck, DiceStore, DiceTarget } from './dice_store';
 import type { PendingDiceKeys } from './sheet_edit';
-import { diceErrorMessageKey, diceSummary, resolveRowForSheet } from './dice_view';
+import {
+  diceErrorMessageKey,
+  diceSummary,
+  isNotD20Test,
+  resolveRowForSheet,
+  type DiceMarking,
+} from './dice_view';
 import { DicePanel } from './dice_panel';
 import { rememberRoll, type RollEntry } from './dice_history';
 import { opensRollModeMenu, RollModeDialog, rollModeFromClick } from './roll_mode';
@@ -47,6 +53,7 @@ export interface DiceContextValue {
   readonly check: DiceCheck;
   readonly rowKeys: ReadonlySet<string>;
   readonly sectionRows: ReadonlyMap<string, readonly string[]>;
+  readonly notD20: DiceMarking;
   readonly savedValues: () => Record<string, unknown>;
   readonly draftValues: () => Record<string, unknown>;
 }
@@ -299,6 +306,8 @@ function useRowResolution(rowKey: string, sectionKey: string): Resolution {
 
 export interface RowRoll {
   readonly resolution: Resolution;
+  readonly offersMode: boolean;
+  readonly hasD20Term: boolean;
   readonly roll: (mode?: RollMode) => void;
 }
 
@@ -322,7 +331,9 @@ export function useRowRoll(rowKey: string, sectionKey: string, label: string): R
     },
     [dice, resolution, rowKey, label, sendRoll],
   );
-  return { resolution, roll };
+  const hasD20Term = resolution.rollable && rollsD20(resolution.parsed);
+  const offersMode = hasD20Term && !isNotD20Test(dice.notD20, rowKey, sectionKey);
+  return { resolution, offersMode, hasD20Term, roll };
 }
 
 export function useExpressionRoll(rowKey: string, label: string): (expression: Expression) => void {
@@ -349,10 +360,9 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
   const pressTimer = useRef<number | undefined>(undefined);
   const longPressed = useRef(false);
   const [choosing, setChoosing] = useState(false);
-  const { resolution, roll } = useRowRoll(rowKey, sectionKey, label);
+  const { resolution, offersMode, hasD20Term, roll } = useRowRoll(rowKey, sectionKey, label);
   const isEditing = editing === editKeyOf('row', rowKey);
   const showEdit = rowOffersEdit(resolution);
-  const d20 = resolution.rollable && rollsD20(resolution.parsed);
   const edit = () =>
     openEditor({ target: 'row', keyName: rowKey, label, current: resolution.expression ?? '' });
   const rollWith = (mode: RollMode) => {
@@ -387,7 +397,7 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
               ? messageWith('dice.roll', { label })
               : messageWith('dice.rollWith', { label, dice: summary })
           }
-          aria-haspopup={d20 ? 'dialog' : undefined}
+          aria-haspopup={offersMode ? 'dialog' : undefined}
           onPointerDown={() => {
             longPressed.current = false;
             cancelPress();
@@ -401,19 +411,25 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
           onPointerLeave={cancelPress}
           onPointerCancel={cancelPress}
           onContextMenu={
-            d20
+            hasD20Term
               ? (event) => {
                   event.preventDefault();
-                  setChoosing(true);
+                  if (offersMode) {
+                    setChoosing(true);
+                  }
                 }
               : undefined
           }
           onKeyDown={
-            d20
+            hasD20Term
               ? (event) => {
                   if (opensRollModeMenu(event)) {
                     event.preventDefault();
-                    setChoosing(true);
+                    if (offersMode) {
+                      setChoosing(true);
+                    } else {
+                      roll('normal');
+                    }
                   }
                 }
               : undefined
@@ -423,7 +439,7 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
               longPressed.current = false;
               return;
             }
-            roll(d20 ? rollModeFromClick(event) : 'normal');
+            roll(offersMode ? rollModeFromClick(event) : 'normal');
           }}
         >
           <DieIcon shape={dieShapeFor(resolution.parsed)} />

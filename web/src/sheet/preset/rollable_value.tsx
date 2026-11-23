@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Resolution } from '../../dice/resolve';
-import { rollsD20, type RollMode } from '../../dice/roll';
+import type { RollMode } from '../../dice/roll';
 import { messageWith } from '../../l10n/strings';
 import { LONG_PRESS_MS, useRowRoll } from '../dice_row';
 import { diceSummary } from '../dice_view';
@@ -35,7 +35,7 @@ export function RollableValue({
   accessibleName,
   icon,
 }: RollableValueProps) {
-  const { resolution, roll } = useRowRoll(rowKey, sectionKey, label);
+  const { resolution, offersMode, hasD20Term, roll } = useRowRoll(rowKey, sectionKey, label);
   const [choosing, setChoosing] = useState(false);
   const pressTimer = useRef<number | undefined>(undefined);
   const longPressed = useRef(false);
@@ -68,8 +68,6 @@ export function RollableValue({
     );
   }
 
-  const d20 = rollsD20(resolution.parsed);
-
   const rollWith = (mode: RollMode) => {
     cancelPress();
     setChoosing(false);
@@ -98,26 +96,32 @@ export function RollableValue({
         className={`${classes} lg-rollable--button`}
         data-rollable="true"
         aria-label={accessibleName ?? rollAccessibleName(label, resolution)}
-        aria-haspopup={d20 ? 'dialog' : undefined}
+        aria-haspopup={offersMode ? 'dialog' : undefined}
         title={accessibleName}
-        onPointerDown={d20 ? startPress : undefined}
-        onPointerUp={d20 ? cancelPress : undefined}
-        onPointerLeave={d20 ? cancelPress : undefined}
-        onPointerCancel={d20 ? cancelPress : undefined}
+        onPointerDown={offersMode ? startPress : undefined}
+        onPointerUp={offersMode ? cancelPress : undefined}
+        onPointerLeave={offersMode ? cancelPress : undefined}
+        onPointerCancel={offersMode ? cancelPress : undefined}
         onContextMenu={
-          d20
+          hasD20Term
             ? (event) => {
                 event.preventDefault();
-                openChoice();
+                if (offersMode) {
+                  openChoice();
+                }
               }
             : undefined
         }
         onKeyDown={
-          d20
+          hasD20Term
             ? (event) => {
                 if (opensRollModeMenu(event)) {
                   event.preventDefault();
-                  openChoice();
+                  if (offersMode) {
+                    openChoice();
+                  } else {
+                    roll('normal');
+                  }
                 }
               }
             : undefined
@@ -127,7 +131,7 @@ export function RollableValue({
             longPressed.current = false;
             return;
           }
-          roll(d20 ? rollModeFromClick(event) : 'normal');
+          roll(offersMode ? rollModeFromClick(event) : 'normal');
         }}
       >
         {content}

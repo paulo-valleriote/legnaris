@@ -21,6 +21,12 @@ type TemplateDTO struct {
 type DiceDTO struct {
 	Section map[string]string `json:"section,omitempty"`
 	Row     map[string]string `json:"row,omitempty"`
+	NotD20  *NotD20DTO        `json:"not_d20,omitempty"`
+}
+
+type NotD20DTO struct {
+	Section []string `json:"section,omitempty"`
+	Row     []string `json:"row,omitempty"`
 }
 
 type FieldGroupDTO map[string]FieldNodeDTO
@@ -117,10 +123,25 @@ func (t Template) ToDTO() TemplateDTO {
 }
 
 func diceToDTO(t Template) *DiceDTO {
-	if len(t.SectionDice) == 0 && len(t.RowDice) == 0 {
+	notD20 := notD20ToDTO(t)
+	if len(t.SectionDice) == 0 && len(t.RowDice) == 0 && notD20 == nil {
 		return nil
 	}
-	return &DiceDTO{Section: maps.Clone(t.SectionDice), Row: maps.Clone(t.RowDice)}
+	return &DiceDTO{
+		Section: maps.Clone(t.SectionDice),
+		Row:     maps.Clone(t.RowDice),
+		NotD20:  notD20,
+	}
+}
+
+func notD20ToDTO(t Template) *NotD20DTO {
+	if len(t.NotD20Sections) == 0 && len(t.NotD20Rows) == 0 {
+		return nil
+	}
+	return &NotD20DTO{
+		Section: slices.Clone(t.NotD20Sections),
+		Row:     slices.Clone(t.NotD20Rows),
+	}
 }
 
 func (d TemplateDTO) MarshalJSON() ([]byte, error) {

@@ -335,6 +335,22 @@ func (e *UnknownDiceRowError) Error() string {
 	return fmt.Sprintf("dice row '%s' is not a row of any section", e.Key)
 }
 
+type UnknownNotD20SectionError struct {
+	Key string
+}
+
+func (e *UnknownNotD20SectionError) Error() string {
+	return fmt.Sprintf("not a d20 test section '%s' is not a section of the template", e.Key)
+}
+
+type UnknownNotD20RowError struct {
+	Key string
+}
+
+func (e *UnknownNotD20RowError) Error() string {
+	return fmt.Sprintf("not a d20 test row '%s' is not a row of any section", e.Key)
+}
+
 type InvalidDiceError struct {
 	Scope string
 	Key   string

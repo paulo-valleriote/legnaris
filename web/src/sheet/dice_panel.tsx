@@ -87,6 +87,11 @@ function Result({ entry }: { readonly entry: RollEntry }) {
           </span>
           <span className="lg-dice-panel__total-value">{entry.outcome.value.total}</span>
         </p>
+        {entry.outcome.value.minimum !== undefined && (
+          <p className="lg-dice-panel__minimum">
+            {messageWith('dice.minimum', { minimum: entry.outcome.value.minimum })}
+          </p>
+        )}
         <Breakdown result={entry.outcome.value} />
       </>
     );

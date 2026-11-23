@@ -35,17 +35,19 @@ func (n *FieldNode) IsList() bool {
 }
 
 type Template struct {
-	ID           string            `bson:"_id,omitempty"`
-	Name         string            `bson:"name"`
-	Fields       FieldGroup        `bson:"fields"`
-	Default      bool              `bson:"default"`
-	SectionOrder []string          `bson:"section_order,omitempty"`
-	NameLeaf     string            `bson:"name_leaf,omitempty"`
-	SectionDice  map[string]string `bson:"section_dice,omitempty"`
-	RowDice      map[string]string `bson:"row_dice,omitempty"`
-	Kinds        []plan.SheetKind  `bson:"kinds,omitempty"`
-	CreatedAt    time.Time         `bson:"created_at,omitempty"`
-	UpdatedAt    time.Time         `bson:"updated_at,omitempty"`
+	ID             string            `bson:"_id,omitempty"`
+	Name           string            `bson:"name"`
+	Fields         FieldGroup        `bson:"fields"`
+	Default        bool              `bson:"default"`
+	SectionOrder   []string          `bson:"section_order,omitempty"`
+	NameLeaf       string            `bson:"name_leaf,omitempty"`
+	SectionDice    map[string]string `bson:"section_dice,omitempty"`
+	RowDice        map[string]string `bson:"row_dice,omitempty"`
+	NotD20Sections []string          `bson:"not_d20_sections,omitempty"`
+	NotD20Rows     []string          `bson:"not_d20_rows,omitempty"`
+	Kinds          []plan.SheetKind  `bson:"kinds,omitempty"`
+	CreatedAt      time.Time         `bson:"created_at,omitempty"`
+	UpdatedAt      time.Time         `bson:"updated_at,omitempty"`
 }
 
 type FieldSchema struct {

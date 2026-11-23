@@ -438,7 +438,8 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   "proficient" and "rollable" never share a shape. A d20 rollable takes a roll mode: Shift-click is
   advantage, Alt-click is disadvantage, and a long press or the Context Menu key / Shift+F10 opens one
   small dialog with Normal, Advantage and Disadvantage as full-width secondary buttons (the first
-  takes focus). A non-d20 roll ignores all of it. Read-only Play text (the at-will and prepared
+  takes focus). A Row or Section its Template marks as not a d20 test takes no mode at all, and a
+  non-d20 roll ignores all of it. Read-only Play text (the at-will and prepared
   spell lists) draws no input edge until hover or focus, while Edit keeps the generic input
   affordance. Initiative reads as a roll before hover: a decorative d20 sits beside its signed total
   at all times, named `Roll initiative, <signed value>`, and its ghost pencil waits for hover or

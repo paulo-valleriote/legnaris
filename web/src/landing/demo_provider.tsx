@@ -10,6 +10,7 @@ import {
   diceSchemaFromFields,
   diceSectionRows,
   templateDiceDefaults,
+  templateDiceMarking,
 } from '../sheet/dice_view';
 import type { PresetContextValue } from '../sheet/preset/preset_context';
 import { PresetProvider } from '../sheet/preset/preset_context';
@@ -40,6 +41,7 @@ export function createDemoRuntime(): DemoRuntime {
     defaults: templateDiceDefaults(DEMO_TEMPLATE.dice),
     rowKeys: new Set(sections.flatMap((section) => section.rows.map(rowKey))),
     sectionRows,
+    notD20: templateDiceMarking(DEMO_TEMPLATE.dice),
     savedValues: () => store.getState().data,
     draftValues: () => store.getPendingDelta(),
   };
