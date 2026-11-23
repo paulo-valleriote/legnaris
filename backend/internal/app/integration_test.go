@@ -55,6 +55,17 @@ var integrationEnv = map[string]string{
 
 func newIntegrationStack(t *testing.T, extra map[string]string) (http.Handler, *mongo.Database, *app.Modules) {
 	t.Helper()
+	return newIntegrationStackWithRegistry(t, extra)
+}
+
+func newIntegrationStackAllowingDrafts(t *testing.T) (http.Handler, *mongo.Database) {
+	t.Helper()
+	handler, mdb, _ := newIntegrationStackWithRegistry(t, nil, template.WithDraftsAllowed(true))
+	return handler, mdb
+}
+
+func newIntegrationStackWithRegistry(t *testing.T, extra map[string]string, options ...template.RegistryOption) (http.Handler, *mongo.Database, *app.Modules) {
+	t.Helper()
 
 	for _, overrides := range []map[string]string{integrationEnv, extra} {
 		for key, value := range overrides {
@@ -75,7 +86,7 @@ func newIntegrationStack(t *testing.T, extra map[string]string) (http.Handler, *
 
 	require.NoError(t, db.EnsureIndexes(ctx, mdb))
 
-	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
+	registry, err := template.BuildRegistry(engine.NewFormulaEngine(), options...)
 	require.NoError(t, err)
 
 	modules, err := app.NewModules(database, registry, env, auth.NewNopObserver(), auth.NewNopChallengeObserver(), events.NoOp{})

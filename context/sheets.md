@@ -11,19 +11,19 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
 
 ## Why
 
-- **Class-agnostic fifth-edition Templates (LGN-382), shipped as a foundation in LGN-406, with a
+- **Class-agnostic fifth-edition Templates (LGN-382), shipped complete, with a
   separate stat block Template over one class-aware character Template because** SRD 5.2.1
   carries only twelve classes with one subclass each and the engine has no choice field, and a
   creature's proficiency bonus comes from its challenge rating while a Template derives a value
   the same way for every kind it accepts. `fifth_character_v1` "5E Character" (`character`) keeps
   class, subclass, species and background as text, the player enters what they grant, and
   everything the rules derive from the Sheet is derived; `fifth_stat_block_v1` "5E Stat Block"
-  (`npc`, `enemy`) derives the proficiency bonus and later the XP from the challenge rating. Both
+  (`npc`, `enemy`) derives the proficiency bonus and the XP from the challenge rating. Both
   ship as `draft` Templates of the `fifth` Game system, so only a development deployment lists
-  and creates them. Cost: the player types class-granted values; the remaining epic sections
-  (combat and hit points, speed and initiative, hit dice and spellcasting, Records, rests, and the
-  stat block XP, hit points and actions) arrive in later release cards, and the engine
-  capabilities they need are already live: dice sized by Fields with a minimum total, Record
+  and creates them until the LGN-386 release cutover, and both are played and edited through
+  the generic Section/Row form with no preset. Cost: the player types class-granted values, and
+  the generic form is the whole presentation; the engine
+  capabilities they rely on are live: dice sized by Fields with a minimum total, Record
   lists with derived Record formulas, Reset actions, `min`, `max`, `lookup`, numeric flags and
   the d20-test marking of the Roll modes (LGN-390).
 - **Planned (LGN-383): composable presets with one config per Template over a bespoke preset
@@ -453,6 +453,16 @@ Row are marked as non-d20 tests. Both Templates use only SRD terms in labels, ke
   the derived `remaining` = max − used and a recharge text, so Legendary Resistance, X/Day and
   Recharge 5-6 are entered as printed. `details.resistances|immunities|senses|languages` are
   text. Every Record list holds at most 50 Records.
+
+Both Templates are usable end to end through the generic form: every Section draws with its
+title, a `flag` leaf draws as a toggle, a skill rank draws as a number entry, each Record list
+draws as its table, the character's Edit form draws the Reset action bar with `Long rest` and
+`Short rest`, and the Rows marked not a d20 test (the character's whole `hitDice` Section and
+the stat block's `hitPoints.maximum` Row) offer no Roll mode. Their wire contract is pinned by
+`testdata/templates/fifth_character_v1.json` and `fifth_stat_block_v1.json`, full
+`GET /templates/:id` bodies that a Go test compares to the registry's DTO and the web suite
+decodes with `parseTemplateDetail`; a DTO change moves the goldens deliberately. Their ids,
+names, labels, option and column labels and action labels stay SRD-only.
 
 ### Sheet DTO and endpoints
 
@@ -1152,7 +1162,11 @@ Web:
   a write (the server computes it). The web client draws a list in the generic Edit form and in a
   Template without a preset; the frozen `fantasy_v1` preset draws no list.
 - Users cannot create or edit templates; the registry is frozen at boot and only `fantasy_v1` is
-  active while the two fifth-edition Templates stay `draft`. A template change requires a deploy
+  active while the two fifth-edition Templates stay `draft` until the LGN-386 release cutover, so
+  a deployment outside development neither lists nor creates them. Until LGN-383 neither Template
+  has a Play preset, so a Sheet of either keeps the generic Edit form and its footer with no
+  Play/Edit toggle; until LGN-384 generation reads only their generatable leaves, with no
+  Template-specific AI generation config. A template change requires a deploy
   and, if incompatible, a new ID. Only the `fifth` Game system ships, and a Template bound to one
   keeps it for the life of its slug.
 - No offline open: the IndexedDB sheet copy is written and evicted but never read as a fallback,

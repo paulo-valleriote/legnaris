@@ -1,0 +1,2866 @@
+{
+  "data": {
+    "id": "fifth_stat_block_v1",
+    "name": "5E Stat Block",
+    "kinds": [
+      "npc",
+      "enemy"
+    ],
+    "game_system": {
+      "id": "fifth",
+      "name": "5E",
+      "compatibility_label": "5E compatible",
+      "notice": {
+        "label": "SRD 5.2.1",
+        "path": "/srd"
+      }
+    },
+    "fields": {
+      "identity": {
+        "children": {
+          "name": {
+            "schema": {
+              "type": "text",
+              "label": "Name",
+              "is_editable": true,
+              "default": 0,
+              "generatable": true,
+              "max_length": 60
+            }
+          },
+          "challengeRating": {
+            "schema": {
+              "type": "number",
+              "label": "Challenge rating",
+              "is_editable": true,
+              "default": 0,
+              "generatable": true,
+              "prefer_default": true,
+              "min": 0,
+              "max": 30
+            }
+          },
+          "proficiencyBonus": {
+            "schema": {
+              "type": "number",
+              "label": "Proficiency bonus",
+              "formula": "2 + floor((max(identity_challengeRating, 1) - 1) / 4)",
+              "depends_on": [
+                [
+                  "identity",
+                  "challengeRating"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0
+            }
+          }
+        }
+      },
+      "abilities": {
+        "children": {
+          "strength": {
+            "children": {
+              "score": {
+                "schema": {
+                  "type": "number",
+                  "label": "Strength",
+                  "is_editable": true,
+                  "default": 10,
+                  "column_label": "Score",
+                  "generatable": true,
+                  "min": 1,
+                  "max": 30
+                }
+              },
+              "mod": {
+                "schema": {
+                  "type": "number",
+                  "label": "Strength modifier",
+                  "formula": "floor((abilities_strength_score - 10) / 2)",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "strength",
+                      "score"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Modifier"
+                }
+              }
+            },
+            "columns": [
+              "score",
+              "mod"
+            ]
+          },
+          "dexterity": {
+            "children": {
+              "score": {
+                "schema": {
+                  "type": "number",
+                  "label": "Dexterity",
+                  "is_editable": true,
+                  "default": 10,
+                  "column_label": "Score",
+                  "generatable": true,
+                  "min": 1,
+                  "max": 30
+                }
+              },
+              "mod": {
+                "schema": {
+                  "type": "number",
+                  "label": "Dexterity modifier",
+                  "formula": "floor((abilities_dexterity_score - 10) / 2)",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "dexterity",
+                      "score"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Modifier"
+                }
+              }
+            },
+            "columns": [
+              "score",
+              "mod"
+            ]
+          },
+          "constitution": {
+            "children": {
+              "score": {
+                "schema": {
+                  "type": "number",
+                  "label": "Constitution",
+                  "is_editable": true,
+                  "default": 10,
+                  "column_label": "Score",
+                  "generatable": true,
+                  "min": 1,
+                  "max": 30
+                }
+              },
+              "mod": {
+                "schema": {
+                  "type": "number",
+                  "label": "Constitution modifier",
+                  "formula": "floor((abilities_constitution_score - 10) / 2)",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "constitution",
+                      "score"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Modifier"
+                }
+              }
+            },
+            "columns": [
+              "score",
+              "mod"
+            ]
+          },
+          "intelligence": {
+            "children": {
+              "score": {
+                "schema": {
+                  "type": "number",
+                  "label": "Intelligence",
+                  "is_editable": true,
+                  "default": 10,
+                  "column_label": "Score",
+                  "generatable": true,
+                  "min": 1,
+                  "max": 30
+                }
+              },
+              "mod": {
+                "schema": {
+                  "type": "number",
+                  "label": "Intelligence modifier",
+                  "formula": "floor((abilities_intelligence_score - 10) / 2)",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "intelligence",
+                      "score"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Modifier"
+                }
+              }
+            },
+            "columns": [
+              "score",
+              "mod"
+            ]
+          },
+          "wisdom": {
+            "children": {
+              "score": {
+                "schema": {
+                  "type": "number",
+                  "label": "Wisdom",
+                  "is_editable": true,
+                  "default": 10,
+                  "column_label": "Score",
+                  "generatable": true,
+                  "min": 1,
+                  "max": 30
+                }
+              },
+              "mod": {
+                "schema": {
+                  "type": "number",
+                  "label": "Wisdom modifier",
+                  "formula": "floor((abilities_wisdom_score - 10) / 2)",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "wisdom",
+                      "score"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Modifier"
+                }
+              }
+            },
+            "columns": [
+              "score",
+              "mod"
+            ]
+          },
+          "charisma": {
+            "children": {
+              "score": {
+                "schema": {
+                  "type": "number",
+                  "label": "Charisma",
+                  "is_editable": true,
+                  "default": 10,
+                  "column_label": "Score",
+                  "generatable": true,
+                  "min": 1,
+                  "max": 30
+                }
+              },
+              "mod": {
+                "schema": {
+                  "type": "number",
+                  "label": "Charisma modifier",
+                  "formula": "floor((abilities_charisma_score - 10) / 2)",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "charisma",
+                      "score"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Modifier"
+                }
+              }
+            },
+            "columns": [
+              "score",
+              "mod"
+            ]
+          }
+        }
+      },
+      "saves": {
+        "children": {
+          "strength": {
+            "children": {
+              "prof": {
+                "schema": {
+                  "type": "number",
+                  "label": "Strength save proficiency",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Proficient",
+                  "flag": true
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Strength save misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Strength save total",
+                  "formula": "abilities_strength_mod + identity_proficiencyBonus * saves_strength_prof + saves_strength_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "strength",
+                      "mod"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "saves",
+                      "strength",
+                      "prof"
+                    ],
+                    [
+                      "saves",
+                      "strength",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "prof",
+              "misc",
+              "total"
+            ]
+          },
+          "dexterity": {
+            "children": {
+              "prof": {
+                "schema": {
+                  "type": "number",
+                  "label": "Dexterity save proficiency",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Proficient",
+                  "flag": true
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Dexterity save misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Dexterity save total",
+                  "formula": "abilities_dexterity_mod + identity_proficiencyBonus * saves_dexterity_prof + saves_dexterity_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "dexterity",
+                      "mod"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "saves",
+                      "dexterity",
+                      "prof"
+                    ],
+                    [
+                      "saves",
+                      "dexterity",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "prof",
+              "misc",
+              "total"
+            ]
+          },
+          "constitution": {
+            "children": {
+              "prof": {
+                "schema": {
+                  "type": "number",
+                  "label": "Constitution save proficiency",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Proficient",
+                  "flag": true
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Constitution save misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Constitution save total",
+                  "formula": "abilities_constitution_mod + identity_proficiencyBonus * saves_constitution_prof + saves_constitution_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "constitution",
+                      "mod"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "saves",
+                      "constitution",
+                      "prof"
+                    ],
+                    [
+                      "saves",
+                      "constitution",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "prof",
+              "misc",
+              "total"
+            ]
+          },
+          "intelligence": {
+            "children": {
+              "prof": {
+                "schema": {
+                  "type": "number",
+                  "label": "Intelligence save proficiency",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Proficient",
+                  "flag": true
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Intelligence save misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Intelligence save total",
+                  "formula": "abilities_intelligence_mod + identity_proficiencyBonus * saves_intelligence_prof + saves_intelligence_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "intelligence",
+                      "mod"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "saves",
+                      "intelligence",
+                      "prof"
+                    ],
+                    [
+                      "saves",
+                      "intelligence",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "prof",
+              "misc",
+              "total"
+            ]
+          },
+          "wisdom": {
+            "children": {
+              "prof": {
+                "schema": {
+                  "type": "number",
+                  "label": "Wisdom save proficiency",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Proficient",
+                  "flag": true
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Wisdom save misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Wisdom save total",
+                  "formula": "abilities_wisdom_mod + identity_proficiencyBonus * saves_wisdom_prof + saves_wisdom_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "wisdom",
+                      "mod"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "saves",
+                      "wisdom",
+                      "prof"
+                    ],
+                    [
+                      "saves",
+                      "wisdom",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "prof",
+              "misc",
+              "total"
+            ]
+          },
+          "charisma": {
+            "children": {
+              "prof": {
+                "schema": {
+                  "type": "number",
+                  "label": "Charisma save proficiency",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Proficient",
+                  "flag": true
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Charisma save misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Charisma save total",
+                  "formula": "abilities_charisma_mod + identity_proficiencyBonus * saves_charisma_prof + saves_charisma_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "charisma",
+                      "mod"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "saves",
+                      "charisma",
+                      "prof"
+                    ],
+                    [
+                      "saves",
+                      "charisma",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "prof",
+              "misc",
+              "total"
+            ]
+          }
+        }
+      },
+      "skills": {
+        "children": {
+          "acrobatics": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Acrobatics rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Acrobatics misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Acrobatics total",
+                  "formula": "abilities_dexterity_mod + skills_acrobatics_rank * identity_proficiencyBonus + skills_acrobatics_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "dexterity",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "acrobatics",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "acrobatics",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "animalHandling": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Animal Handling rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Animal Handling misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Animal Handling total",
+                  "formula": "abilities_wisdom_mod + skills_animalHandling_rank * identity_proficiencyBonus + skills_animalHandling_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "wisdom",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "animalHandling",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "animalHandling",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "arcana": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Arcana rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Arcana misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Arcana total",
+                  "formula": "abilities_intelligence_mod + skills_arcana_rank * identity_proficiencyBonus + skills_arcana_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "intelligence",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "arcana",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "arcana",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "athletics": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Athletics rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Athletics misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Athletics total",
+                  "formula": "abilities_strength_mod + skills_athletics_rank * identity_proficiencyBonus + skills_athletics_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "strength",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "athletics",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "athletics",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "deception": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Deception rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Deception misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Deception total",
+                  "formula": "abilities_charisma_mod + skills_deception_rank * identity_proficiencyBonus + skills_deception_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "charisma",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "deception",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "deception",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "history": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "History rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "History misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "History total",
+                  "formula": "abilities_intelligence_mod + skills_history_rank * identity_proficiencyBonus + skills_history_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "intelligence",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "history",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "history",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "insight": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Insight rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Insight misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Insight total",
+                  "formula": "abilities_wisdom_mod + skills_insight_rank * identity_proficiencyBonus + skills_insight_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "wisdom",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "insight",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "insight",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "intimidation": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Intimidation rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Intimidation misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Intimidation total",
+                  "formula": "abilities_charisma_mod + skills_intimidation_rank * identity_proficiencyBonus + skills_intimidation_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "charisma",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "intimidation",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "intimidation",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "investigation": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Investigation rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Investigation misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Investigation total",
+                  "formula": "abilities_intelligence_mod + skills_investigation_rank * identity_proficiencyBonus + skills_investigation_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "intelligence",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "investigation",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "investigation",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "medicine": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Medicine rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Medicine misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Medicine total",
+                  "formula": "abilities_wisdom_mod + skills_medicine_rank * identity_proficiencyBonus + skills_medicine_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "wisdom",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "medicine",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "medicine",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "nature": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Nature rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Nature misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Nature total",
+                  "formula": "abilities_intelligence_mod + skills_nature_rank * identity_proficiencyBonus + skills_nature_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "intelligence",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "nature",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "nature",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "perception": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Perception rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Perception misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Perception total",
+                  "formula": "abilities_wisdom_mod + skills_perception_rank * identity_proficiencyBonus + skills_perception_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "wisdom",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "perception",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "perception",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "performance": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Performance rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Performance misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Performance total",
+                  "formula": "abilities_charisma_mod + skills_performance_rank * identity_proficiencyBonus + skills_performance_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "charisma",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "performance",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "performance",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "persuasion": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Persuasion rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Persuasion misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Persuasion total",
+                  "formula": "abilities_charisma_mod + skills_persuasion_rank * identity_proficiencyBonus + skills_persuasion_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "charisma",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "persuasion",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "persuasion",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "religion": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Religion rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Religion misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Religion total",
+                  "formula": "abilities_intelligence_mod + skills_religion_rank * identity_proficiencyBonus + skills_religion_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "intelligence",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "religion",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "religion",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "sleightOfHand": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Sleight of Hand rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Sleight of Hand misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Sleight of Hand total",
+                  "formula": "abilities_dexterity_mod + skills_sleightOfHand_rank * identity_proficiencyBonus + skills_sleightOfHand_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "dexterity",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "sleightOfHand",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "sleightOfHand",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "stealth": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Stealth rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Stealth misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Stealth total",
+                  "formula": "abilities_dexterity_mod + skills_stealth_rank * identity_proficiencyBonus + skills_stealth_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "dexterity",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "stealth",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "stealth",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          },
+          "survival": {
+            "children": {
+              "rank": {
+                "schema": {
+                  "type": "number",
+                  "label": "Survival rank",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Rank",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 2
+                }
+              },
+              "misc": {
+                "schema": {
+                  "type": "number",
+                  "label": "Survival misc",
+                  "is_editable": true,
+                  "default": 0,
+                  "column_label": "Misc",
+                  "generatable": true,
+                  "min": -20,
+                  "max": 20
+                }
+              },
+              "total": {
+                "schema": {
+                  "type": "number",
+                  "label": "Survival total",
+                  "formula": "abilities_wisdom_mod + skills_survival_rank * identity_proficiencyBonus + skills_survival_misc",
+                  "depends_on": [
+                    [
+                      "abilities",
+                      "wisdom",
+                      "mod"
+                    ],
+                    [
+                      "skills",
+                      "survival",
+                      "rank"
+                    ],
+                    [
+                      "identity",
+                      "proficiencyBonus"
+                    ],
+                    [
+                      "skills",
+                      "survival",
+                      "misc"
+                    ]
+                  ],
+                  "is_editable": false,
+                  "default": 0,
+                  "column_label": "Total"
+                }
+              }
+            },
+            "columns": [
+              "rank",
+              "misc",
+              "total"
+            ]
+          }
+        }
+      },
+      "exhaustion": {
+        "children": {
+          "level": {
+            "schema": {
+              "type": "number",
+              "label": "Exhaustion level",
+              "is_editable": true,
+              "default": 0,
+              "generatable": true,
+              "min": 0,
+              "max": 6
+            }
+          },
+          "penalty": {
+            "schema": {
+              "type": "number",
+              "label": "Exhaustion penalty",
+              "formula": "-2 * exhaustion_level",
+              "depends_on": [
+                [
+                  "exhaustion",
+                  "level"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0
+            }
+          }
+        }
+      },
+      "passive": {
+        "children": {
+          "choiceNone": {
+            "schema": {
+              "type": "number",
+              "label": "Passive Perception",
+              "is_editable": true,
+              "default": 1,
+              "exclusive_group": "perceptionChoice",
+              "option_label": "None"
+            }
+          },
+          "choiceAdvantage": {
+            "schema": {
+              "type": "number",
+              "label": "Passive Perception with advantage",
+              "is_editable": true,
+              "default": 0,
+              "exclusive_group": "perceptionChoice",
+              "option_label": "+5 (Advantage)"
+            }
+          },
+          "choiceDisadvantage": {
+            "schema": {
+              "type": "number",
+              "label": "Passive Perception with disadvantage",
+              "is_editable": true,
+              "default": 0,
+              "exclusive_group": "perceptionChoice",
+              "option_label": "-5 (Disadvantage)"
+            }
+          },
+          "perception": {
+            "schema": {
+              "type": "number",
+              "label": "Passive Perception",
+              "formula": "10 + skills_perception_total + 5 * passive_choiceAdvantage - 5 * passive_choiceDisadvantage",
+              "depends_on": [
+                [
+                  "skills",
+                  "perception",
+                  "total"
+                ],
+                [
+                  "passive",
+                  "choiceAdvantage"
+                ],
+                [
+                  "passive",
+                  "choiceDisadvantage"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0
+            }
+          }
+        }
+      },
+      "armor": {
+        "children": {
+          "choiceNone": {
+            "schema": {
+              "type": "number",
+              "label": "Armor",
+              "is_editable": true,
+              "default": 1,
+              "exclusive_group": "armorChoice",
+              "option_label": "None"
+            }
+          },
+          "choiceLight": {
+            "schema": {
+              "type": "number",
+              "label": "Armor",
+              "is_editable": true,
+              "default": 0,
+              "exclusive_group": "armorChoice",
+              "option_label": "Light armor"
+            }
+          },
+          "choiceMedium": {
+            "schema": {
+              "type": "number",
+              "label": "Armor",
+              "is_editable": true,
+              "default": 0,
+              "exclusive_group": "armorChoice",
+              "option_label": "Medium armor"
+            }
+          },
+          "choiceHeavy": {
+            "schema": {
+              "type": "number",
+              "label": "Armor",
+              "is_editable": true,
+              "default": 0,
+              "exclusive_group": "armorChoice",
+              "option_label": "Heavy armor"
+            }
+          },
+          "choiceBarbarian": {
+            "schema": {
+              "type": "number",
+              "label": "Unarmored defense",
+              "is_editable": true,
+              "default": 0,
+              "exclusive_group": "armorChoice",
+              "option_label": "Barbarian"
+            }
+          },
+          "choiceMonk": {
+            "schema": {
+              "type": "number",
+              "label": "Unarmored defense",
+              "is_editable": true,
+              "default": 0,
+              "exclusive_group": "armorChoice",
+              "option_label": "Monk"
+            }
+          },
+          "choiceNatural": {
+            "schema": {
+              "type": "number",
+              "label": "Armor",
+              "is_editable": true,
+              "default": 0,
+              "exclusive_group": "armorChoice",
+              "option_label": "Natural armor"
+            }
+          },
+          "base": {
+            "schema": {
+              "type": "number",
+              "label": "Armor class base",
+              "is_editable": true,
+              "default": 10,
+              "generatable": true,
+              "min": 1,
+              "max": 30
+            }
+          },
+          "shield": {
+            "schema": {
+              "type": "number",
+              "label": "Shield",
+              "is_editable": true,
+              "default": 0,
+              "flag": true
+            }
+          },
+          "misc": {
+            "schema": {
+              "type": "number",
+              "label": "Armor class misc",
+              "is_editable": true,
+              "default": 0,
+              "generatable": true,
+              "min": -10,
+              "max": 10
+            }
+          },
+          "armorClass": {
+            "schema": {
+              "type": "number",
+              "label": "Armor class",
+              "formula": "(armor_choiceNone * (10 + abilities_dexterity_mod) + armor_choiceLight * (armor_base + abilities_dexterity_mod) + armor_choiceMedium * (armor_base + min(abilities_dexterity_mod, 2)) + armor_choiceHeavy * armor_base + armor_choiceBarbarian * (10 + abilities_dexterity_mod + abilities_constitution_mod) + armor_choiceMonk * (10 + abilities_dexterity_mod + abilities_wisdom_mod * (1 - armor_shield)) + armor_choiceNatural * (armor_base + abilities_dexterity_mod)) + armor_shield * 2 + armor_misc",
+              "depends_on": [
+                [
+                  "armor",
+                  "choiceNone"
+                ],
+                [
+                  "armor",
+                  "choiceLight"
+                ],
+                [
+                  "armor",
+                  "choiceMedium"
+                ],
+                [
+                  "armor",
+                  "choiceHeavy"
+                ],
+                [
+                  "armor",
+                  "choiceBarbarian"
+                ],
+                [
+                  "armor",
+                  "choiceMonk"
+                ],
+                [
+                  "armor",
+                  "base"
+                ],
+                [
+                  "armor",
+                  "shield"
+                ],
+                [
+                  "armor",
+                  "misc"
+                ],
+                [
+                  "abilities",
+                  "dexterity",
+                  "mod"
+                ],
+                [
+                  "abilities",
+                  "constitution",
+                  "mod"
+                ],
+                [
+                  "abilities",
+                  "wisdom",
+                  "mod"
+                ],
+                [
+                  "armor",
+                  "choiceNatural"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0
+            }
+          }
+        }
+      },
+      "experience": {
+        "children": {
+          "xp": {
+            "schema": {
+              "type": "number",
+              "label": "Experience points",
+              "formula": "experience_zero == 1 \u0026\u0026 identity_challengeRating == 0 ? 0 : (experience_inLair == 1 \u0026\u0026 floor(identity_challengeRating) == identity_challengeRating \u0026\u0026 min(max(identity_challengeRating, 1), 29) == identity_challengeRating ? lookup((identity_challengeRating + 1), 0, 10, 0.125, 25, 0.25, 50, 0.5, 100, 1, 200, 2, 450, 3, 700, 4, 1100, 5, 1800, 6, 2300, 7, 2900, 8, 3900, 9, 5000, 10, 5900, 11, 7200, 12, 8400, 13, 10000, 14, 11500, 15, 13000, 16, 15000, 17, 18000, 18, 20000, 19, 22000, 20, 25000, 21, 33000, 22, 41000, 23, 50000, 24, 62000, 25, 75000, 26, 90000, 27, 105000, 28, 120000, 29, 135000, 30, 155000) : lookup(identity_challengeRating, 0, 10, 0.125, 25, 0.25, 50, 0.5, 100, 1, 200, 2, 450, 3, 700, 4, 1100, 5, 1800, 6, 2300, 7, 2900, 8, 3900, 9, 5000, 10, 5900, 11, 7200, 12, 8400, 13, 10000, 14, 11500, 15, 13000, 16, 15000, 17, 18000, 18, 20000, 19, 22000, 20, 25000, 21, 33000, 22, 41000, 23, 50000, 24, 62000, 25, 75000, 26, 90000, 27, 105000, 28, 120000, 29, 135000, 30, 155000))",
+              "depends_on": [
+                [
+                  "experience",
+                  "zero"
+                ],
+                [
+                  "identity",
+                  "challengeRating"
+                ],
+                [
+                  "experience",
+                  "inLair"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0
+            }
+          },
+          "zero": {
+            "schema": {
+              "type": "number",
+              "label": "XP 0",
+              "is_editable": true,
+              "default": 0,
+              "flag": true
+            }
+          },
+          "inLair": {
+            "schema": {
+              "type": "number",
+              "label": "In lair",
+              "is_editable": true,
+              "default": 0,
+              "flag": true
+            }
+          }
+        }
+      },
+      "hitPoints": {
+        "children": {
+          "count": {
+            "schema": {
+              "type": "number",
+              "label": "Hit point dice count",
+              "is_editable": true,
+              "default": 1,
+              "column_label": "Count",
+              "generatable": true,
+              "min": 1,
+              "max": 20
+            }
+          },
+          "size": {
+            "schema": {
+              "type": "number",
+              "label": "Hit point die size",
+              "is_editable": true,
+              "default": 8,
+              "column_label": "Die",
+              "generatable": true,
+              "min": 4,
+              "max": 20
+            }
+          },
+          "conBonus": {
+            "schema": {
+              "type": "number",
+              "label": "Constitution bonus",
+              "formula": "hitPoints_count * abilities_constitution_mod",
+              "depends_on": [
+                [
+                  "hitPoints",
+                  "count"
+                ],
+                [
+                  "abilities",
+                  "constitution",
+                  "mod"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0,
+              "column_label": "Constitution"
+            }
+          },
+          "maximum": {
+            "schema": {
+              "type": "number",
+              "label": "Hit points",
+              "formula": "floor(hitPoints_count * (hitPoints_size + 1) / 2) + hitPoints_conBonus",
+              "depends_on": [
+                [
+                  "hitPoints",
+                  "count"
+                ],
+                [
+                  "hitPoints",
+                  "size"
+                ],
+                [
+                  "hitPoints",
+                  "conBonus"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0,
+              "column_label": "Maximum"
+            }
+          },
+          "current": {
+            "schema": {
+              "type": "number",
+              "label": "Current hit points",
+              "is_editable": true,
+              "default": 0,
+              "column_label": "Current"
+            }
+          },
+          "temp": {
+            "schema": {
+              "type": "number",
+              "label": "Temporary hit points",
+              "is_editable": true,
+              "default": 0,
+              "column_label": "Temporary"
+            }
+          }
+        }
+      },
+      "initiative": {
+        "children": {
+          "modifier": {
+            "schema": {
+              "type": "number",
+              "label": "Initiative modifier",
+              "is_editable": true,
+              "default": 0,
+              "column_label": "Modifier",
+              "generatable": true,
+              "min": -30,
+              "max": 30
+            }
+          },
+          "score": {
+            "schema": {
+              "type": "number",
+              "label": "Initiative score",
+              "formula": "10 + initiative_modifier",
+              "depends_on": [
+                [
+                  "initiative",
+                  "modifier"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0,
+              "column_label": "Score"
+            }
+          }
+        }
+      },
+      "speed": {
+        "children": {
+          "walk": {
+            "schema": {
+              "type": "number",
+              "label": "Walk speed",
+              "is_editable": true,
+              "default": 30,
+              "column_label": "Walk",
+              "generatable": true,
+              "min": 0,
+              "max": 1000
+            }
+          },
+          "walkTotal": {
+            "schema": {
+              "type": "number",
+              "label": "Walk speed with exhaustion",
+              "formula": "speed_walk - 5 * exhaustion_level",
+              "depends_on": [
+                [
+                  "speed",
+                  "walk"
+                ],
+                [
+                  "exhaustion",
+                  "level"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0,
+              "column_label": "Walk with exhaustion"
+            }
+          },
+          "fly": {
+            "schema": {
+              "type": "number",
+              "label": "Fly speed",
+              "is_editable": true,
+              "default": 0,
+              "column_label": "Fly",
+              "generatable": true,
+              "min": 0,
+              "max": 1000
+            }
+          },
+          "flyTotal": {
+            "schema": {
+              "type": "number",
+              "label": "Fly speed with exhaustion",
+              "formula": "speed_fly - 5 * exhaustion_level",
+              "depends_on": [
+                [
+                  "speed",
+                  "fly"
+                ],
+                [
+                  "exhaustion",
+                  "level"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0,
+              "column_label": "Fly with exhaustion"
+            }
+          },
+          "swim": {
+            "schema": {
+              "type": "number",
+              "label": "Swim speed",
+              "is_editable": true,
+              "default": 0,
+              "column_label": "Swim",
+              "generatable": true,
+              "min": 0,
+              "max": 1000
+            }
+          },
+          "swimTotal": {
+            "schema": {
+              "type": "number",
+              "label": "Swim speed with exhaustion",
+              "formula": "speed_swim - 5 * exhaustion_level",
+              "depends_on": [
+                [
+                  "speed",
+                  "swim"
+                ],
+                [
+                  "exhaustion",
+                  "level"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0,
+              "column_label": "Swim with exhaustion"
+            }
+          },
+          "climb": {
+            "schema": {
+              "type": "number",
+              "label": "Climb speed",
+              "is_editable": true,
+              "default": 0,
+              "column_label": "Climb",
+              "generatable": true,
+              "min": 0,
+              "max": 1000
+            }
+          },
+          "climbTotal": {
+            "schema": {
+              "type": "number",
+              "label": "Climb speed with exhaustion",
+              "formula": "speed_climb - 5 * exhaustion_level",
+              "depends_on": [
+                [
+                  "speed",
+                  "climb"
+                ],
+                [
+                  "exhaustion",
+                  "level"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0,
+              "column_label": "Climb with exhaustion"
+            }
+          },
+          "burrow": {
+            "schema": {
+              "type": "number",
+              "label": "Burrow speed",
+              "is_editable": true,
+              "default": 0,
+              "column_label": "Burrow",
+              "generatable": true,
+              "min": 0,
+              "max": 1000
+            }
+          },
+          "burrowTotal": {
+            "schema": {
+              "type": "number",
+              "label": "Burrow speed with exhaustion",
+              "formula": "speed_burrow - 5 * exhaustion_level",
+              "depends_on": [
+                [
+                  "speed",
+                  "burrow"
+                ],
+                [
+                  "exhaustion",
+                  "level"
+                ]
+              ],
+              "is_editable": false,
+              "default": 0,
+              "column_label": "Burrow with exhaustion"
+            }
+          }
+        }
+      },
+      "details": {
+        "children": {
+          "resistances": {
+            "schema": {
+              "type": "text",
+              "label": "Damage resistances",
+              "is_editable": true,
+              "default": 0,
+              "max_length": 400
+            }
+          },
+          "immunities": {
+            "schema": {
+              "type": "text",
+              "label": "Damage immunities",
+              "is_editable": true,
+              "default": 0,
+              "max_length": 400
+            }
+          },
+          "senses": {
+            "schema": {
+              "type": "text",
+              "label": "Senses",
+              "is_editable": true,
+              "default": 0,
+              "max_length": 400
+            }
+          },
+          "languages": {
+            "schema": {
+              "type": "text",
+              "label": "Languages",
+              "is_editable": true,
+              "default": 0,
+              "max_length": 400
+            }
+          }
+        }
+      },
+      "traits": {
+        "list": {
+          "label": "Traits",
+          "columns": [
+            "name",
+            "text"
+          ],
+          "capacity": 50,
+          "shape": {
+            "name": {
+              "schema": {
+                "type": "text",
+                "label": "Name",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Name",
+                "max_length": 60
+              }
+            },
+            "text": {
+              "schema": {
+                "type": "text",
+                "label": "Text",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Text",
+                "max_length": 500
+              }
+            }
+          }
+        }
+      },
+      "actions": {
+        "list": {
+          "label": "Actions",
+          "columns": [
+            "name",
+            "toHit",
+            "damage",
+            "notes"
+          ],
+          "capacity": 50,
+          "shape": {
+            "abilityCharisma": {
+              "schema": {
+                "type": "number",
+                "label": "Charisma",
+                "is_editable": true,
+                "default": 0,
+                "exclusive_group": "actionAbility",
+                "option_label": "Charisma",
+                "flag": true
+              }
+            },
+            "abilityConstitution": {
+              "schema": {
+                "type": "number",
+                "label": "Constitution",
+                "is_editable": true,
+                "default": 0,
+                "exclusive_group": "actionAbility",
+                "option_label": "Constitution",
+                "flag": true
+              }
+            },
+            "abilityDexterity": {
+              "schema": {
+                "type": "number",
+                "label": "Dexterity",
+                "is_editable": true,
+                "default": 0,
+                "exclusive_group": "actionAbility",
+                "option_label": "Dexterity",
+                "flag": true
+              }
+            },
+            "abilityIntelligence": {
+              "schema": {
+                "type": "number",
+                "label": "Intelligence",
+                "is_editable": true,
+                "default": 0,
+                "exclusive_group": "actionAbility",
+                "option_label": "Intelligence",
+                "flag": true
+              }
+            },
+            "abilityStrength": {
+              "schema": {
+                "type": "number",
+                "label": "Strength",
+                "is_editable": true,
+                "default": 0,
+                "exclusive_group": "actionAbility",
+                "option_label": "Strength",
+                "flag": true
+              }
+            },
+            "abilityWisdom": {
+              "schema": {
+                "type": "number",
+                "label": "Wisdom",
+                "is_editable": true,
+                "default": 0,
+                "exclusive_group": "actionAbility",
+                "option_label": "Wisdom",
+                "flag": true
+              }
+            },
+            "damage": {
+              "schema": {
+                "type": "text",
+                "label": "Damage",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Damage",
+                "max_length": 80
+              }
+            },
+            "misc": {
+              "schema": {
+                "type": "number",
+                "label": "To hit misc",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Misc"
+              }
+            },
+            "name": {
+              "schema": {
+                "type": "text",
+                "label": "Action name",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Name",
+                "max_length": 60
+              }
+            },
+            "notes": {
+              "schema": {
+                "type": "text",
+                "label": "Notes",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Notes",
+                "max_length": 120
+              }
+            },
+            "proficient": {
+              "schema": {
+                "type": "number",
+                "label": "Proficient",
+                "is_editable": true,
+                "default": 0,
+                "flag": true
+              }
+            },
+            "toHit": {
+              "schema": {
+                "type": "number",
+                "label": "To hit",
+                "formula": "record_abilityStrength * abilities_strength_mod + record_abilityDexterity * abilities_dexterity_mod + record_abilityConstitution * abilities_constitution_mod + record_abilityIntelligence * abilities_intelligence_mod + record_abilityWisdom * abilities_wisdom_mod + record_abilityCharisma * abilities_charisma_mod + identity_proficiencyBonus * record_proficient + record_misc",
+                "depends_on": [
+                  [
+                    "abilityStrength"
+                  ],
+                  [
+                    "abilities",
+                    "strength",
+                    "mod"
+                  ],
+                  [
+                    "abilityDexterity"
+                  ],
+                  [
+                    "abilities",
+                    "dexterity",
+                    "mod"
+                  ],
+                  [
+                    "abilityConstitution"
+                  ],
+                  [
+                    "abilities",
+                    "constitution",
+                    "mod"
+                  ],
+                  [
+                    "abilityIntelligence"
+                  ],
+                  [
+                    "abilities",
+                    "intelligence",
+                    "mod"
+                  ],
+                  [
+                    "abilityWisdom"
+                  ],
+                  [
+                    "abilities",
+                    "wisdom",
+                    "mod"
+                  ],
+                  [
+                    "abilityCharisma"
+                  ],
+                  [
+                    "abilities",
+                    "charisma",
+                    "mod"
+                  ],
+                  [
+                    "proficient"
+                  ],
+                  [
+                    "identity",
+                    "proficiencyBonus"
+                  ],
+                  [
+                    "misc"
+                  ]
+                ],
+                "is_editable": false,
+                "default": 0,
+                "column_label": "To hit"
+              }
+            }
+          },
+          "dice": "1d20 + @.toHit + exhaustion.penalty"
+        }
+      },
+      "bonusActions": {
+        "list": {
+          "label": "Bonus actions",
+          "columns": [
+            "name",
+            "text"
+          ],
+          "capacity": 50,
+          "shape": {
+            "name": {
+              "schema": {
+                "type": "text",
+                "label": "Name",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Name",
+                "max_length": 60
+              }
+            },
+            "text": {
+              "schema": {
+                "type": "text",
+                "label": "Text",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Text",
+                "max_length": 500
+              }
+            }
+          }
+        }
+      },
+      "reactions": {
+        "list": {
+          "label": "Reactions",
+          "columns": [
+            "name",
+            "text"
+          ],
+          "capacity": 50,
+          "shape": {
+            "name": {
+              "schema": {
+                "type": "text",
+                "label": "Name",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Name",
+                "max_length": 60
+              }
+            },
+            "text": {
+              "schema": {
+                "type": "text",
+                "label": "Text",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Text",
+                "max_length": 500
+              }
+            }
+          }
+        }
+      },
+      "legendaryActions": {
+        "list": {
+          "label": "Legendary actions",
+          "columns": [
+            "name",
+            "text"
+          ],
+          "capacity": 50,
+          "shape": {
+            "name": {
+              "schema": {
+                "type": "text",
+                "label": "Name",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Name",
+                "max_length": 60
+              }
+            },
+            "text": {
+              "schema": {
+                "type": "text",
+                "label": "Text",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Text",
+                "max_length": 500
+              }
+            }
+          }
+        }
+      },
+      "resources": {
+        "list": {
+          "label": "Resources",
+          "columns": [
+            "name",
+            "max",
+            "used",
+            "remaining",
+            "recharge"
+          ],
+          "capacity": 50,
+          "shape": {
+            "max": {
+              "schema": {
+                "type": "number",
+                "label": "Maximum uses",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Max"
+              }
+            },
+            "name": {
+              "schema": {
+                "type": "text",
+                "label": "Resource name",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Name",
+                "max_length": 60
+              }
+            },
+            "recharge": {
+              "schema": {
+                "type": "text",
+                "label": "Recharge",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Recharge",
+                "max_length": 40
+              }
+            },
+            "remaining": {
+              "schema": {
+                "type": "number",
+                "label": "Remaining uses",
+                "formula": "record_max - record_used",
+                "depends_on": [
+                  [
+                    "max"
+                  ],
+                  [
+                    "used"
+                  ]
+                ],
+                "is_editable": false,
+                "default": 0,
+                "column_label": "Remaining"
+              }
+            },
+            "used": {
+              "schema": {
+                "type": "number",
+                "label": "Used uses",
+                "is_editable": true,
+                "default": 0,
+                "column_label": "Used"
+              }
+            }
+          }
+        }
+      }
+    },
+    "default": false,
+    "dice": {
+      "section": {
+        "abilities": "1d20 + @.mod + exhaustion.penalty",
+        "saves": "1d20 + @.total + exhaustion.penalty",
+        "skills": "1d20 + @.total + exhaustion.penalty"
+      },
+      "row": {
+        "hitPoints.maximum": "{hitPoints.count}d{hitPoints.size} + hitPoints.conBonus",
+        "initiative.score": "1d20 + initiative.modifier + exhaustion.penalty"
+      },
+      "not_d20": {
+        "row": [
+          "hitPoints.maximum"
+        ]
+      }
+    }
+  }
+}
