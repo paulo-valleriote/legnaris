@@ -104,7 +104,8 @@ func TestService_CreateWithValuesTemplateLifecycle(t *testing.T) {
 	}{
 		{name: "Edge: accepting a draft generation outside development is refused", state: template.StateDraft, draftsAllowed: false},
 		{name: "Happy path: accepting a draft generation in development creates the Sheet", state: template.StateDraft, draftsAllowed: true, wantCreated: true},
-		{name: "Error: accepting a retired generation is refused", state: template.StateRetired, draftsAllowed: true},
+		{name: "Happy path: accepting a retired generation outside development creates the Sheet", state: template.StateRetired, draftsAllowed: false, wantCreated: true},
+		{name: "Happy path: accepting a retired generation in development creates the Sheet", state: template.StateRetired, draftsAllowed: true, wantCreated: true},
 	}
 
 	for _, tc := range tests {
