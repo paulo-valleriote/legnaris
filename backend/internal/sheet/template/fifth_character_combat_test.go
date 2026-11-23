@@ -83,7 +83,11 @@ func TestFifthCharacterCombat_Structure(t *testing.T) {
 		require.NoError(t, ValidateDiceDefaults(tmpl))
 		assert.Equal(t, fifthCharacterRowDice(), tmpl.RowDice)
 
-		for row, expression := range fifthCharacterRowDice() {
+		rows := map[string]string{
+			Path{fifthCombatSection, fifthInitiativeKey}.String(): fifthInitiativeDice,
+			Path{fifthStatusSection, fifthDeathSavesKey}.String(): fifthDeathSaveDice,
+		}
+		for row, expression := range rows {
 			assert.Contains(t, expression, "exhaustion.penalty", row)
 			assert.LessOrEqual(t, len(expression), 64, row)
 			assert.NotContains(t, tmpl.NotD20Rows, row)

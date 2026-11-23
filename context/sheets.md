@@ -318,9 +318,9 @@ stores no `campaign_id` and publishes no link event; the client links the Sheet 
 `fifth_character_v1` and `fifth_stat_block_v1` share every field path below, so a later story
 extends a Template without renaming a shared part. Both are `draft` Templates of the `fifth` Game
 system, carry `identity.name` as their Name leaf, and use the same static Section order: `identity`,
-`abilities`, `saves`, `skills`, `exhaustion`, `passive`, `armor`. The character adds `combat`,
-`status` and `coins` after `armor` and appends its Record Sections `attacks`, `inventory`,
-`features`, `spells` and `resources` last.
+`abilities`, `saves`, `skills`, `exhaustion`, `passive`, `armor`. The character adds `hitDice`,
+`spellcasting`, `combat`, `status` and `coins` after `armor`, then its Record Sections `attacks`,
+`inventory`, `features`, `spells` and `resources`.
 
 - **Identity** — `identity.name` (text, generatable); `identity.level` (1–20, character only) or
   `identity.challengeRating` (0–30, fractional CRs entered as `0.125`, `0.25`, `0.5`) and the
@@ -349,6 +349,24 @@ system, carry `identity.name` as their Name leaf, and use the same static Sectio
   (a negative Dex still applies), heavy base, Barbarian 10 + Dex + Con, Monk 10 + Dex + Wis,
   natural base + Dex. The Shield adds +2 to every choice, except that a Monk with a Shield drops
   the Wisdom and uses 10 + Dex + 2; `armor.misc` stacks on top.
+- **Hit Dice** — character only. `hitDice.primary.size` enters the class Hit Die size (4–12,
+  default 8), `hitDice.primary.count` = `max(0, level − the extra counts)`, and each pool enters a
+  `spent` behind a derived `remaining` = `max(0, count − spent)`: `hitDice.primary.spent`, and
+  `hitDice.d6|d8|d10|d12.spent` for the multiclass `extra` counts (default 0, never generatable).
+  Every pool rolls one die plus the Constitution modifier with ` min 1`:
+  `1d{hitDice.primary.size} + abilities.constitution.mod min 1` for the primary pool (it reads the
+  entered size) and `1d6|d8|d10|d12 + abilities.constitution.mod min 1` for an extra pool. The
+  `hitDice` Section is marked as not a d20 test, so no Hit Die Row offers a Roll mode.
+- **Spellcasting** — character only. The six `spellcasting.ability<Ability>` leaves are the
+  exclusive `spellcastingAbility` group of numeric 0/1 flags; `spellcasting.abilityMod` selects the
+  chosen ability's modifier, `spellcasting.attack` = ability modifier + PB and
+  `spellcasting.saveDC` = 8 + ability modifier + PB. The spell attack Row rolls
+  `1d20 + @ + exhaustion.penalty` and stays a d20 test; the save DC never includes Exhaustion.
+  `spellcasting.preparedLimit` enters the prepared-spell limit. Levels 1–9 are `spellcasting.slotN`
+  with an entered `total` and `spent` behind `remaining` = `max(0, total − spent)`; Pact Magic is
+  `spellcasting.pact` with an entered `count`, `level` and `used` behind
+  `remaining` = `max(0, count − used)`. Every spent and used entry stays an editable number leaf so
+  a later rest action can zero it.
 - **Combat (character)** — `combat.initiative.alert` (numeric 0/1 flag), `.misc` and `.total`
   = Dex mod + Alert × PB + misc; its Row dice is `1d20 + @.total + exhaustion.penalty`, and Jack
   of All Trades never applies. `combat.speed.base` and `.total` = base − 5 × Exhaustion − 10 when
@@ -393,8 +411,8 @@ The three d20 Sections declare Section dice, not per-Row defaults: `abilities`
 `1d20 + @.mod + exhaustion.penalty`, `saves` and `skills` `1d20 + @.total + exhaustion.penalty`.
 The character's initiative and death save Rows declare Row dice: `1d20 + @.total +
 exhaustion.penalty` and `1d20 + exhaustion.penalty`. Every expression stays inside the
-64-character cap, and the Templates mark no Row or Section as a non-d20 test. Both Templates use
-only SRD terms in labels, keys and names.
+64-character cap, and no Section is marked as a non-d20 test except the character's `hitDice`.
+Both Templates use only SRD terms in labels, keys and names.
 
 ### Sheet DTO and endpoints
 

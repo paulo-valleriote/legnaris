@@ -242,13 +242,6 @@ func fifthCharacterCoinsGroup() FieldGroup {
 	return group
 }
 
-func fifthCharacterRowDice() map[string]string {
-	return map[string]string{
-		Path{fifthCombatSection, fifthInitiativeKey}.String(): fifthInitiativeDice,
-		Path{fifthStatusSection, fifthDeathSavesKey}.String(): fifthDeathSaveDice,
-	}
-}
-
 func fifthBoundedNumber(label string, def, lo, hi float64) FieldNode {
 	node := numField(label, def)
 	node.Schema.Min = &lo
