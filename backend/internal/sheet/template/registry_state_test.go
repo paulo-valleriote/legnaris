@@ -104,6 +104,33 @@ func contains(values []string, want string) bool {
 	return false
 }
 
+func TestRegistry_ListByGameSystemIgnoresState(t *testing.T) {
+	draft := stateFixture("draft_5e", StateDraft)
+	draft.GameSystemID = GameSystemFifth
+	active := stateFixture("active_5e", StateActive)
+	active.GameSystemID = GameSystemFifth
+	retired := stateFixture("retired_5e", StateRetired)
+	retired.GameSystemID = GameSystemFifth
+
+	registry, err := buildRegistry(engine.NewFormulaEngine(),
+		[]Template{draft, active, retired, stateFixture("standalone_v1", StateActive)},
+		WithDraftsAllowed(false),
+	)
+	require.NoError(t, err)
+
+	t.Run("Happy path: every state of the game system is returned", func(t *testing.T) {
+		assert.Equal(t, []string{"draft_5e", "active_5e", "retired_5e"}, catalogIDs(registry.ListByGameSystem(GameSystemFifth)))
+	})
+
+	t.Run("Edge: an unknown game system returns no templates", func(t *testing.T) {
+		assert.Empty(t, registry.ListByGameSystem("unknown"))
+	})
+
+	t.Run("Edge: an empty game system returns no templates", func(t *testing.T) {
+		assert.Empty(t, registry.ListByGameSystem(""))
+	})
+}
+
 func TestRegistry_InternalFetchAndDAGKeepEveryState(t *testing.T) {
 	for _, allowDrafts := range []bool{false, true} {
 		registry, err := buildRegistry(engine.NewFormulaEngine(), stateFixtures(), WithDraftsAllowed(allowDrafts))

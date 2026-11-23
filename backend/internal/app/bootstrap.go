@@ -294,6 +294,7 @@ func NewModules(
 		campaign.WithLinkStore(linkStore),
 		campaign.WithPasswordHasher(campaignHasher),
 		campaign.WithJoinLimiter(campaignJoinLimiter),
+		campaign.WithScopeResolver(newCampaignScopeResolver(registry)),
 	)
 	campaignController := NewCampaignController(campaignService)
 

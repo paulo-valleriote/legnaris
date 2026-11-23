@@ -39,6 +39,7 @@ type harness struct {
 	sheets    *mocks.MockCharacterStore
 	links     *mocks.MockLinkStore
 	limiter   *mocks.MockJoinLimiter
+	scopes    *mocks.MockScopeResolver
 	linked    []sheet.Sheet
 	linkedErr error
 	events    []events.Event
@@ -59,7 +60,21 @@ func newHarness(t *testing.T) *harness {
 		sheets:   mocks.NewMockCharacterStore(t),
 		links:    mocks.NewMockLinkStore(t),
 		limiter:  mocks.NewMockJoinLimiter(t),
+		scopes:   mocks.NewMockScopeResolver(t),
 	}
+	h.scopes.EXPECT().CreateScope(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, gameSystemID, templateID string) (campaign.Scope, error) {
+			return campaign.Scope{Name: templateID, TemplateIDs: []string{templateID}}, nil
+		},
+	).Maybe()
+	h.scopes.EXPECT().ResolveScope(mock.Anything, mock.Anything, mock.Anything).RunAndReturn(
+		func(_ context.Context, gameSystemID, templateID string) campaign.Scope {
+			if templateID != "" {
+				return campaign.Scope{Name: templateID, TemplateIDs: []string{templateID}}
+			}
+			return campaign.Scope{Name: gameSystemID, TemplateIDs: []string{gameSystemID}}
+		},
+	).Maybe()
 	h.sheets.EXPECT().ListByCampaignID(mock.Anything, mock.Anything).RunAndReturn(
 		func(context.Context, string) ([]sheet.Sheet, error) { return h.linked, h.linkedErr },
 	).Maybe()
@@ -85,6 +100,7 @@ func (h *harness) service(opts ...campaign.ServiceOption) campaign.Service {
 		campaign.WithClock(campaigntest.Now),
 		campaign.WithPasswordHasher(testHasher),
 		campaign.WithJoinLimiter(h.limiter),
+		campaign.WithScopeResolver(h.scopes),
 	}
 	return campaign.NewService(h.repo, h.tx, h.pub, append(base, opts...)...)
 }

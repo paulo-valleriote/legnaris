@@ -201,7 +201,7 @@ func (d DeletionDeps) publishDeleted(c Campaign, version int64) {
 		AggregateType:    aggregateType,
 		AggregateID:      c.ID,
 		AggregateVersion: version,
-		Data:             map[string]any{"template_id": c.TemplateID},
+		Data:             scopeEventData(c),
 	})
 }
 

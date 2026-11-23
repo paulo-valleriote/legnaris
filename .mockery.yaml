@@ -41,6 +41,7 @@ packages:
       NpcSheetLinks: {}
       OwnershipReleaser: {}
       OrphanLinks: {}
+      ScopeResolver: {}
   legnaris/backend/internal/sheet/template:
     config:
       dir: backend/internal/sheet/template/mocks
