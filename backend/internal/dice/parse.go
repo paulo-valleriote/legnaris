@@ -50,11 +50,19 @@ type Expression struct {
 	minimum *int
 }
 
-type partParse struct {
+type partResult struct {
 	value int
 	ref   *Reference
 	match bool
 	err   error
+}
+
+type partRule struct {
+	min      int
+	max      int
+	class    Class
+	empty    partResult
+	describe func(token string, min, max int) string
 }
 
 var (
@@ -252,14 +260,14 @@ func parseDiceToken(token string) (Term, bool, error) {
 	if !ok {
 		return Term{}, false, nil
 	}
-	count := parseCountPart(token, countPart)
+	count := parsePart(token, countPart, countPartRule)
 	if !count.match {
 		return Term{}, false, nil
 	}
 	if count.err != nil {
 		return Term{}, false, count.err
 	}
-	faces := parseFacesPart(token, facesPart)
+	faces := parsePart(token, facesPart, facesPartRule)
 	if !faces.match {
 		return Term{}, false, nil
 	}
@@ -295,40 +303,41 @@ func splitDiceParts(token string) (string, string, bool) {
 	return "", "", false
 }
 
-func parseCountPart(token, part string) partParse {
-	if part == "" {
-		return partParse{value: 1, match: true}
+var (
+	countPartRule = partRule{
+		min:   MinDice,
+		max:   MaxDice,
+		class: ClassDiceCount,
+		empty: partResult{value: 1, match: true},
+		describe: func(token string, min, max int) string {
+			return fmt.Sprintf("%q: roll between %d and %d dice at a time", token, min, max)
+		},
 	}
-	if ref, ok := parseReference(part); ok {
-		return partParse{ref: ref, match: true}
+	facesPartRule = partRule{
+		min:   MinFaces,
+		max:   MaxFaces,
+		class: ClassDiceFaces,
+		describe: func(token string, min, max int) string {
+			return fmt.Sprintf("%q: a die has between %d and %d faces", token, min, max)
+		},
 	}
-	if !numberPattern.MatchString(part) {
-		return partParse{}
-	}
-	value, ok := boundedInt(part, MaxDice)
-	if !ok || value < MinDice {
-		return partParse{match: true, err: newError(ClassDiceCount,
-			fmt.Sprintf("%q: roll between %d and %d dice at a time", token, MinDice, MaxDice))}
-	}
-	return partParse{value: value, match: true}
-}
+)
 
-func parseFacesPart(token, part string) partParse {
+func parsePart(token, part string, rule partRule) partResult {
 	if part == "" {
-		return partParse{}
+		return rule.empty
 	}
 	if ref, ok := parseReference(part); ok {
-		return partParse{ref: ref, match: true}
+		return partResult{ref: ref, match: true}
 	}
 	if !numberPattern.MatchString(part) {
-		return partParse{}
+		return partResult{}
 	}
-	value, ok := boundedInt(part, MaxFaces)
-	if !ok || value < MinFaces {
-		return partParse{match: true, err: newError(ClassDiceFaces,
-			fmt.Sprintf("%q: a die has between %d and %d faces", token, MinFaces, MaxFaces))}
+	value, ok := boundedInt(part, rule.max)
+	if !ok || value < rule.min {
+		return partResult{match: true, err: newError(rule.class, rule.describe(token, rule.min, rule.max))}
 	}
-	return partParse{value: value, match: true}
+	return partResult{value: value, match: true}
 }
 
 func parseReference(token string) (*Reference, bool) {

@@ -324,13 +324,13 @@ func recordAwareDelta(static map[string]any, records []template.RecordUpdate) ma
 		delta[key] = value
 	}
 	for _, update := range records {
-		path := update.ListPath + "." + update.RecordID
+		path := template.RecordRowKey(update.ListPath, update.RecordID)
 		if update.Remove {
 			delta[path] = nil
 			continue
 		}
 		for field, value := range update.Fields {
-			delta[path+"."+field] = value
+			delta[template.RecordFieldPath(update.ListPath, update.RecordID, field)] = value
 		}
 	}
 	return delta
@@ -392,22 +392,26 @@ func (s *ServiceImpl) Reset(ctx context.Context, cmd ResetActionCommand) (map[st
 	if err := cmd.ref().validate(); err != nil {
 		return nil, err
 	}
-	if err := requireRequestID(cmd.RequestID); err != nil {
-		return nil, err
-	}
 
 	storedSheet, err := s.fetchOwned(ctx, cmd.ref())
 	if err != nil {
 		return nil, err
-	}
-	if storedSheet.LastResetRequestID == cmd.RequestID {
-		return map[string]any{}, nil
 	}
 
 	dag, exists := s.provider.DAG(storedSheet.TemplateID)
 	if !exists {
 		return nil, apperr.NewError(apperr.CodeNotFound, "DAG not found for template", nil)
 	}
+	if !dag.HasResetAction(cmd.ActionID) {
+		return nil, translateDAGErr(template.ErrUnknownResetAction(cmd.ActionID))
+	}
+	if err := requireRequestID(cmd.RequestID); err != nil {
+		return nil, err
+	}
+	if storedSheet.LastResetRequestID == cmd.RequestID {
+		return replayResetEffects(dag, cmd.ActionID, storedSheet.Data)
+	}
+
 	calculation, err := dag.CalculateReset(cmd.ActionID, storedSheet.Data)
 	if err != nil {
 		return nil, translateDAGErr(err)
@@ -451,6 +455,18 @@ func resetEffects(calculation template.ResetCalculation) (map[string]any, error)
 		return nil, translateMapErr("update", err)
 	}
 	if err := maputils.ApplyUpdates(effects, calculation.Cascade); err != nil {
+		return nil, translateMapErr("update", err)
+	}
+	return effects, nil
+}
+
+func replayResetEffects(dag *template.DAG, actionID string, data map[string]any) (map[string]any, error) {
+	flat, err := dag.ResetReplayEffects(actionID, data)
+	if err != nil {
+		return nil, translateDAGErr(err)
+	}
+	effects := make(map[string]any)
+	if err := maputils.ApplyUpdates(effects, flat); err != nil {
 		return nil, translateMapErr("update", err)
 	}
 	return effects, nil

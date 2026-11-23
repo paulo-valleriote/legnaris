@@ -250,11 +250,12 @@ func applyListUpdates(
 	}
 
 	nextPosition := nextRecordPosition(listMap)
-	slices.SortFunc(updates, func(a, b RecordUpdate) int {
+	ordered := slices.Clone(updates)
+	slices.SortFunc(ordered, func(a, b RecordUpdate) int {
 		return strings.Compare(a.RecordID, b.RecordID)
 	})
 
-	for _, update := range updates {
+	for _, update := range ordered {
 		if update.Remove || removed[update.RecordID] {
 			continue
 		}

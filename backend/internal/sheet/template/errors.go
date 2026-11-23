@@ -288,6 +288,14 @@ func ErrListCapacity(path string, capacity, minCapacity, maxCapacity int) error 
 	return &ListCapacityError{Path: path, Capacity: capacity, Min: minCapacity, Max: maxCapacity}
 }
 
+func ErrUnknownNotD20Section(key string) error {
+	return &UnknownNotD20SectionError{Key: key}
+}
+
+func ErrUnknownNotD20Row(key string) error {
+	return &UnknownNotD20RowError{Key: key}
+}
+
 func ErrInvalidRecordID(id string) error {
 	return &RecordIDError{ID: id}
 }

@@ -81,7 +81,7 @@ func TestResets_Endpoint(t *testing.T) {
 		assert.NotContains(t, rec.Body.String(), "version")
 	})
 
-	t.Run("Edge: a replay of the same request id is 200 with no write", func(t *testing.T) {
+	t.Run("Edge: a replay of the same request id is 200 with the current values and no write", func(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
 		repo.EXPECT().FetchByID(mock.Anything, sheetStubID).
 			Return(resetRouteSheet(6, errorTestOwnerID, resetRouteRequestID, 4), nil).Once()
@@ -91,7 +91,11 @@ func TestResets_Endpoint(t *testing.T) {
 
 		var decoded response.Success[map[string]any]
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &decoded))
-		assert.Empty(t, decoded.Data)
+		assert.Equal(t, map[string]any{
+			"level":          4.0,
+			"inventoryValue": 0.0,
+			"inventoryCount": 0.0,
+		}, decoded.Data)
 		repo.AssertNotCalled(t, "PartialUpdate")
 	})
 
@@ -107,6 +111,8 @@ func TestResets_Endpoint(t *testing.T) {
 
 	t.Run("Error: an empty request id is 400 INVALID_REQUEST", func(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(mock.Anything, sheetStubID).
+			Return(resetRouteSheet(1, errorTestOwnerID, "", 1), nil).Once()
 
 		rec := doRequest(t, newResetRouter(t, repo), http.MethodPost, path, `{}`)
 		assertResetError(t, rec, http.StatusBadRequest, "INVALID_REQUEST")
@@ -118,6 +124,8 @@ func TestResets_Endpoint(t *testing.T) {
 
 	t.Run("Error: a malformed request id is 400 INVALID_REQUEST", func(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(mock.Anything, sheetStubID).
+			Return(resetRouteSheet(1, errorTestOwnerID, "", 1), nil).Once()
 
 		rec := doRequest(t, newResetRouter(t, repo), http.MethodPost, path, `{"request_id":"not-a-uuid"}`)
 		assertResetError(t, rec, http.StatusBadRequest, "INVALID_REQUEST")
@@ -125,6 +133,38 @@ func TestResets_Endpoint(t *testing.T) {
 		var decoded response.ErrorResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &decoded))
 		assert.Equal(t, sheet.MsgRequestIDInvalid, decoded.Error.Message)
+	})
+
+	t.Run("Error: a foreign Sheet with a malformed request id is 404 NOT_FOUND before 400", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(mock.Anything, sheetStubID).
+			Return(resetRouteSheet(1, "01900000-0000-7000-8000-0000000000fe", "", 1), nil).Once()
+
+		rec := doRequest(t, newResetRouter(t, repo), http.MethodPost, path, `{"request_id":"not-a-uuid"}`)
+		assertResetError(t, rec, http.StatusNotFound, "NOT_FOUND")
+		repo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Error: an unknown action with a malformed request id is 404 NOT_FOUND before 400", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(mock.Anything, sheetStubID).
+			Return(resetRouteSheet(1, errorTestOwnerID, "", 1), nil).Once()
+
+		rec := doRequest(t, newResetRouter(t, repo), http.MethodPost,
+			"/sheets/"+sheetStubID+"/resets/ghost", `{"request_id":"not-a-uuid"}`)
+		assertResetError(t, rec, http.StatusNotFound, "NOT_FOUND")
+		repo.AssertNotCalled(t, "PartialUpdate")
+	})
+
+	t.Run("Error: an unknown action replaying the last request id is 404 NOT_FOUND, not a 200 replay", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(mock.Anything, sheetStubID).
+			Return(resetRouteSheet(1, errorTestOwnerID, resetRouteRequestID, 1), nil).Once()
+
+		rec := doRequest(t, newResetRouter(t, repo), http.MethodPost,
+			"/sheets/"+sheetStubID+"/resets/ghost", body)
+		assertResetError(t, rec, http.StatusNotFound, "NOT_FOUND")
+		repo.AssertNotCalled(t, "PartialUpdate")
 	})
 
 	t.Run("Error: malformed JSON is 400 INVALID_JSON", func(t *testing.T) {
@@ -264,7 +304,7 @@ func TestResets_CapabilitiesFixture(t *testing.T) {
 		assert.InEpsilon(t, 2.0, count, 1e-9)
 	})
 
-	t.Run("Edge: replaying the stored request id answers an empty cascade with no write", func(t *testing.T) {
+	t.Run("Edge: replaying the stored request id answers the current assigned and derived values with no write", func(t *testing.T) {
 		repo := mocks.NewMockRepository(t)
 		repo.EXPECT().FetchByID(mock.Anything, sheetStubID).
 			Return(&sheet.Sheet{
@@ -281,7 +321,20 @@ func TestResets_CapabilitiesFixture(t *testing.T) {
 
 		var decoded response.Success[map[string]any]
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &decoded))
-		assert.Empty(t, decoded.Data)
+		assert.Equal(t, map[string]any{
+			"stats": map[string]any{"level": 3.0, "insight": 6.0},
+			"inventory": map[string]any{
+				"items": map[string]any{
+					sheettest.CapabilitiesRecordActive: map[string]any{
+						"quantity": 2.0, "derivedTotal": 4.0, "scaled": 6.0,
+					},
+					sheettest.CapabilitiesRecordIdle: map[string]any{
+						"quantity": 1.0, "derivedTotal": 1.0, "scaled": 3.0,
+					},
+				},
+			},
+			"totals": map[string]any{"inventoryValue": 5.0, "inventoryCount": 1.0},
+		}, decoded.Data)
 		repo.AssertNotCalled(t, "PartialUpdate")
 	})
 }

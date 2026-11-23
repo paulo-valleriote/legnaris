@@ -49,6 +49,7 @@ type Template struct {
 	Actions        []ResetAction     `bson:"actions,omitempty"`
 	CreatedAt      time.Time         `bson:"created_at,omitempty"`
 	UpdatedAt      time.Time         `bson:"updated_at,omitempty"`
+	rowIndex       *templateRowIndex
 }
 
 type FieldSchema struct {

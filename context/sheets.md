@@ -19,11 +19,11 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   "5E Character" (`character`) keeps class, subclass, species and background as text, the
   player enters what they grant, and everything the rules derive from the Sheet is derived;
   `fifth_stat_block_v1` "5E Stat Block" (`npc`, `enemy`) derives the proficiency bonus and
-  XP from the challenge rating. Cost: the player types class-granted values, and neither
-  Template enters the catalog until the opt-in engine capabilities of LGN-380 ship: dice sized by
-  Fields with a minimum total; Record lists, Reset actions, `min`, `max`, `lookup`, numeric flags
-  and Record formulas have shipped. The d20-test marking
-  for the existing Roll modes has shipped (LGN-390).
+  XP from the challenge rating. Cost: the player types class-granted values; both Templates need
+  only their own release card to enter the catalog, because the engine capabilities they rely on are
+  live: dice sized by Fields with a minimum total, Record lists with derived Record formulas, Reset
+  actions, `min`, `max`, `lookup`, numeric flags and the d20-test marking of the Roll modes
+  (LGN-390).
 - **Planned (LGN-383): composable presets with one config per Template over a bespoke preset
   per Template or Template-declared presentation roles because** a new Template should cost
   one config instead of about 35 files, while layout stays in the web rather than in the API
@@ -67,7 +67,7 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   validation path and lets one PATCH create, reorder or remove a Record without rewriting the list.
   Cost: the client owns the id format (`r` plus 32 lowercase hex characters), every Record carries a
   reserved numeric `position` (ties order by id), the capacity is a Template constant, and derived
-  formulas inside Records wait for LGN-393.
+  formulas inside Records compile at boot and evaluate per Record on every save.
 - **A compare-and-swap write over a server-side merge or lock because** it is one conditional
   `FindOneAndUpdate` with no lost writes and an honest conflict. Cost: a lost race spends a
   request on a 409, the version stays internal, and the client resends the delta.
@@ -139,19 +139,19 @@ draft immediately; the normal cadence is 60 seconds.
 ```mermaid
 sequenceDiagram
   Player->>API: POST /sheets/:id/resets/:actionId {request_id}
-  API->>API: fetch owned sheet, replay check, DAG.CalculateReset
+  API->>API: fetch owned sheet, action lookup, replay check or DAG.CalculateReset
   API->>API: FindOneAndUpdate on _id + version, $set data + last request id
   alt version matched
     API-->>Player: 200 cascade including the assigned Fields
   else version changed
     API-->>Player: 409 CONFLICT, Retry-After: 1
     Player->>API: retry with the same request_id
-    API-->>Player: 200 empty cascade, no second effect
+    API-->>Player: 200 current assigned and derived values, no second effect
   end
 ```
 
-An unknown action is 404 and a malformed request id is 400 before the write; a replay of the last
-applied id never reaches the write. The owner's Edit form draws one button per declared action
+A foreign Sheet and an unknown action are 404 before a malformed request id is 400, all before the
+write; a replay of the last applied id never reaches the write. The owner's Edit form draws one button per declared action
 through `web/src/sheet/reset_actions.tsx`: one request id per tap is reused until that tap
 succeeds, so an offline retry or a 409 resends the same id safely, and a 409 first refreshes the
 Sheet. The bar is absent from `fantasy_v1`, from read-only campaign views and from Arrange mode.
@@ -321,8 +321,8 @@ nothing derived answers `{}`.
 
 A derived shape Field is declared like any other derived leaf, but its formula runs once per Record
 and reads its own Record as `record_<field>`; the Sheet is read through the normal static keys, and
-`record` is a reserved top-level key (a top-level field of that name fails boot) that also carries
-the current Record as an object. Every own-Record dependency is a one-segment `depends_on` path (a
+`record` is only a reserved top-level key (a top-level field of that name fails boot), never a
+formula input, so a `record.<field>` read fails boot. Every own-Record dependency is a one-segment `depends_on` path (a
 shape field name, or a top-level static field name); every Sheet dependency is its dotted path.
 Boot rejects a missing shape field, a missing static path, an undeclared `record_<field>` read and a
 cycle that crosses a Record and an aggregate, because the Record and aggregate nodes join one
@@ -352,9 +352,9 @@ and an assignment is `{target, expression, filter?}`. The action `id` is a slug
 not editable; a list target is rejected when the field is absent from the shape, derived or not
 editable. `filter` is optional and only valid on a list target: it names a numeric shape Field, and
 only Records whose value is non-zero receive the assignment. An expression that does not compile —
-for its static environment or, on a list target, for one that also exposes `record_<field>` and
-`record` — fails boot, as does a filter on a static target, an unknown filter Field, a text filter
-and a duplicate id. `fantasy_v1` declares none, so its DTO has no `actions` key.
+for its static environment or, on a list target, for one that exposes only the declared
+`record_<field>` reads — fails boot, as does a filter on a static target, an unknown filter Field, a
+text filter and a duplicate id. `fantasy_v1` declares none, so its DTO has no `actions` key.
 
 `POST /sheets/:id/resets/:actionId` takes `{"request_id": "<uuid>"}` and is owner only. Every
 expression is evaluated against the Sheet as stored before the action, so two assignments in one
@@ -364,11 +364,14 @@ one compare-and-swap `data` save under one `version`, with `updated_at`; the res
 Fields plus the derived cascade. A lost race is the usual 409 `CONFLICT` with `Retry-After: 1`.
 
 The `request_id` is a canonical UUID (any version) and is required. The Sheet stores the last applied
-id: replaying it answers 200 with an empty cascade and no write and no event, so a retried rest never
-applies twice; a different id is a new rest. An unknown action is 404 `NOT_FOUND`, a malformed or
-missing request id 400 `INVALID_REQUEST`, and a foreign Sheet 404 before either. An action whose
-assignments change nothing still writes the request id and answers 200 with the assigned values. The
-`sheet.updated` event lists the assigned target paths that actually changed, flat, in sorted order.
+id: replaying it answers 200 with the current stored values of every path the action assigns (for a
+list target, that Field in every Record) plus every derived value, and writes nothing and emits no
+event, so a retried rest never applies twice and merging the response into a client baseline is
+idempotent; a different id is a new rest. A foreign or missing Sheet is 404 before anything else, an
+unknown action is 404 before a malformed or missing request id, and a malformed or missing request id
+is 400 `INVALID_REQUEST`. An action whose assignments change nothing still writes the request id and
+answers 200 with the assigned values. The `sheet.updated` event lists the assigned target paths that
+actually changed, flat, in sorted order.
 
 ### Layout
 
@@ -905,8 +908,8 @@ Web:
 - No sheet import or export endpoint exists; the server is the only backup.
 - Record lists store editable Fields and their derived Fields: a shape formula is compiled at boot
   and evaluated per Record, and Sheet aggregates read the list. A derived Field is still refused as
-  a write (the server computes it); the web client does not draw a list yet, so Records are edited
-  through the normal PATCH delta only.
+  a write (the server computes it). The web client draws a list in the generic Edit form and in a
+  Template without a preset; the frozen `fantasy_v1` preset draws no list.
 - Users cannot create or edit templates; the registry is frozen at boot and only `fantasy_v1`
   ships. A template change requires a deploy and, if incompatible, a new ID.
 - No offline open: the IndexedDB sheet copy is written and evicted but never read as a fallback,

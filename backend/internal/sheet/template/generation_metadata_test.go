@@ -217,6 +217,57 @@ func TestValidateGenerationMetadata(t *testing.T) {
 			}}}),
 			wantErr: ErrRangeInverted,
 		},
+		{
+			name: "Happy path: a list shape text leaf with a length bound is valid",
+			tmpl: genTemplate(FieldGroup{"inventory": {Children: FieldGroup{
+				"items": {List: &ListSchema{
+					Label:    "Items",
+					Capacity: 1,
+					Shape: FieldGroup{
+						"name": genLeaf(FieldSchema{Type: fieldTypeText, MaxLength: intPtr(40)}),
+					},
+				}},
+			}}}),
+		},
+		{
+			name: "Error: a list shape max length on a number leaf is rejected",
+			tmpl: genTemplate(FieldGroup{"inventory": {Children: FieldGroup{
+				"items": {List: &ListSchema{
+					Label:    "Items",
+					Capacity: 1,
+					Shape: FieldGroup{
+						"quantity": genLeaf(FieldSchema{MaxLength: intPtr(3)}),
+					},
+				}},
+			}}}),
+			wantErr: ErrMaxLengthOnNonText,
+		},
+		{
+			name: "Error: a list shape zero max length is rejected",
+			tmpl: genTemplate(FieldGroup{"inventory": {Children: FieldGroup{
+				"items": {List: &ListSchema{
+					Label:    "Items",
+					Capacity: 1,
+					Shape: FieldGroup{
+						"name": genLeaf(FieldSchema{Type: fieldTypeText, MaxLength: intPtr(0)}),
+					},
+				}},
+			}}}),
+			wantErr: ErrMaxLengthInvalid,
+		},
+		{
+			name: "Error: a list shape range on a text leaf is rejected",
+			tmpl: genTemplate(FieldGroup{"inventory": {Children: FieldGroup{
+				"items": {List: &ListSchema{
+					Label:    "Items",
+					Capacity: 1,
+					Shape: FieldGroup{
+						"name": genLeaf(FieldSchema{Type: fieldTypeText, Min: f64(0)}),
+					},
+				}},
+			}}}),
+			wantErr: ErrRangeOnNonNumber,
+		},
 	}
 
 	for _, tc := range tests {

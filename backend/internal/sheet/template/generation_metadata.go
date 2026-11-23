@@ -43,6 +43,14 @@ func validateGenerationGroup(group FieldGroup, prefix Path) error {
 			}
 			continue
 		}
+		if node.IsList() {
+			if node.List != nil {
+				if err := validateGenerationGroup(node.List.Shape, current); err != nil {
+					return err
+				}
+			}
+			continue
+		}
 		if node.IsGroup() {
 			if err := validateGenerationGroup(node.Children, current); err != nil {
 				return err
