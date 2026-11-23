@@ -1,14 +1,25 @@
 import type { FieldNode, FieldSchema } from '../api/models/template';
 import { isPlainObject } from '../api/parse';
-import { buildSections } from './field_grouping';
 
 export function seedDefaults(fields: Record<string, FieldNode>): Record<string, unknown> {
   const data: Record<string, unknown> = {};
-  for (const section of buildSections(fields)) {
-    for (const field of section.leaves) {
-      setPathValue(data, field.path, seedValue(field.schema));
+
+  const walk = (nodes: Readonly<Record<string, FieldNode>>, prefix: string): void => {
+    for (const [key, node] of Object.entries(nodes)) {
+      const path = prefix === '' ? key : `${prefix}.${key}`;
+      if (node.kind === 'leaf') {
+        setPathValue(data, path, seedValue(node.schema));
+        continue;
+      }
+      if (node.kind === 'list') {
+        setPathValue(data, path, {});
+        continue;
+      }
+      walk(node.children, path);
     }
-  }
+  };
+
+  walk(fields, '');
   return data;
 }
 

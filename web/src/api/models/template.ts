@@ -36,7 +36,21 @@ export interface GroupNode {
   readonly columns?: readonly string[];
 }
 
-export type FieldNode = LeafNode | GroupNode;
+export interface ListSchema {
+  readonly label: string;
+  readonly columns?: readonly string[];
+  readonly capacity: number;
+  readonly shape: Record<string, LeafNode>;
+  readonly dice?: string;
+  readonly notD20?: boolean;
+}
+
+export interface ListNode {
+  readonly kind: 'list';
+  readonly list: ListSchema;
+}
+
+export type FieldNode = LeafNode | GroupNode | ListNode;
 
 export interface TemplateDetail {
   readonly id: string;
@@ -112,6 +126,34 @@ function parseColumns(value: unknown): readonly string[] | undefined {
   return columns;
 }
 
+function parseListShape(value: unknown): Record<string, LeafNode> {
+  const group = parseFieldGroup(value);
+  const shape: Record<string, LeafNode> = {};
+  for (const [key, node] of Object.entries(group)) {
+    if (node.kind !== 'leaf') {
+      throw drift('template list shape holds a node that is not a leaf');
+    }
+    shape[key] = node;
+  }
+  return shape;
+}
+
+function parseListSchema(value: unknown): ListSchema {
+  if (!isPlainObject(value)) {
+    throw drift('template list is not an object');
+  }
+
+  const dice = optionalString(value, 'dice');
+  return {
+    label: requireString(value, 'label'),
+    columns: parseColumns(value['columns']),
+    capacity: requireNumber(value, 'capacity'),
+    shape: parseListShape(value['shape']),
+    ...(dice === undefined ? {} : { dice }),
+    ...(value['not_d20'] === true ? { notD20: true } : {}),
+  };
+}
+
 function parseFieldNode(value: unknown): FieldNode {
   if (!isPlainObject(value)) {
     throw drift('template field node is not an object');
@@ -119,6 +161,10 @@ function parseFieldNode(value: unknown): FieldNode {
 
   if (value['schema'] !== undefined && value['schema'] !== null) {
     return { kind: 'leaf', schema: parseFieldSchema(value['schema']) };
+  }
+
+  if (value['list'] !== undefined && value['list'] !== null) {
+    return { kind: 'list', list: parseListSchema(value['list']) };
   }
 
   if (value['children'] !== undefined && value['children'] !== null) {
@@ -130,7 +176,7 @@ function parseFieldNode(value: unknown): FieldNode {
     };
   }
 
-  throw drift('template field node carries neither a schema nor children');
+  throw drift('template field node carries neither a schema, children nor a list');
 }
 
 function parseFieldGroup(value: unknown): Record<string, FieldNode> {

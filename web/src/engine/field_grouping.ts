@@ -47,7 +47,11 @@ export function buildSections(fields: Record<string, FieldNode>): SheetSection[]
       label:
         node.kind === 'group'
           ? groupDisplayName(key, node.label)
-          : fieldDisplayName(key, node.schema),
+          : node.kind === 'list'
+            ? node.list.label.trim() === ''
+              ? humanize(key)
+              : node.list.label
+            : fieldDisplayName(key, node.schema),
       leaves,
       rows: buildRows(key, node),
     });
@@ -148,6 +152,9 @@ function flatten(prefix: string, node: FieldNode): SheetField[] {
   if (node.kind === 'leaf') {
     return [{ path: prefix, schema: node.schema }];
   }
+  if (node.kind === 'list') {
+    return [];
+  }
   return Object.entries(node.children).flatMap(([key, child]) =>
     flatten(`${prefix}.${key}`, child),
   );
@@ -177,6 +184,9 @@ function buildRows(prefix: string, root: FieldNode): SheetRow[] {
   const walk = (path: string, node: FieldNode) => {
     if (node.kind === 'leaf') {
       addLeaf({ path, schema: node.schema });
+      return;
+    }
+    if (node.kind === 'list') {
       return;
     }
 

@@ -21,6 +21,8 @@ type ListSchema struct {
 	Columns  []string   `bson:"columns,omitempty"`
 	Capacity int        `bson:"capacity"`
 	Shape    FieldGroup `bson:"shape"`
+	Dice     string     `bson:"dice,omitempty"`
+	NotD20   bool       `bson:"not_d20,omitempty"`
 }
 
 func (l *ListSchema) SeedRecord(position float64) map[string]any {
@@ -43,6 +45,8 @@ func (l *ListSchema) Clone() *ListSchema {
 		Columns:  slices.Clone(l.Columns),
 		Capacity: l.Capacity,
 		Shape:    cloneFieldGroup(l.Shape),
+		Dice:     l.Dice,
+		NotD20:   l.NotD20,
 	}
 }
 

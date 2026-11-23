@@ -59,6 +59,8 @@ type ListDTO struct {
 	Columns  []string      `json:"columns,omitempty"`
 	Capacity int           `json:"capacity"`
 	Shape    FieldGroupDTO `json:"shape"`
+	Dice     string        `json:"dice,omitempty"`
+	NotD20   bool          `json:"not_d20,omitempty"`
 }
 
 func (n FieldNodeDTO) MarshalJSON() ([]byte, error) {
@@ -97,12 +99,16 @@ func (l ListDTO) marshalJSON() (json.RawMessage, error) {
 		Columns  []string        `json:"columns,omitempty"`
 		Capacity int             `json:"capacity"`
 		Shape    json.RawMessage `json:"shape"`
+		Dice     string          `json:"dice,omitempty"`
+		NotD20   bool            `json:"not_d20,omitempty"`
 	}
 	return json.Marshal(payload{
 		Label:    l.Label,
 		Columns:  l.Columns,
 		Capacity: l.Capacity,
 		Shape:    shape,
+		Dice:     l.Dice,
+		NotD20:   l.NotD20,
 	})
 }
 
@@ -273,6 +279,8 @@ func (l *ListSchema) toDTO() *ListDTO {
 		Columns:  slices.Clone(l.Columns),
 		Capacity: l.Capacity,
 		Shape:    l.Shape.toDTO(),
+		Dice:     l.Dice,
+		NotD20:   l.NotD20,
 	}
 }
 
