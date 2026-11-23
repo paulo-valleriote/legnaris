@@ -4,8 +4,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { AdSlot } from '../ads/ad_slot';
 import { failureCopy, failureKind } from '../api/error_mapper';
+import type { CreateCampaignInput } from '../api/client';
 import type { CampaignRole, CampaignSummary } from '../api/models/campaign';
-import type { TemplateSummary } from '../api/models/template';
 import { useApiClient } from '../app/providers';
 import { CATALOG_QUERY_KEY, PLAN_QUERY_KEY, usePlanUsage } from '../catalog/queries';
 import { message, messageWith } from '../l10n/strings';
@@ -17,7 +17,8 @@ import { Notice } from '../ui/notice';
 import { PageHeader } from '../ui/page_header';
 import { Select } from '../ui/select';
 import { EmptyState, ErrorState, LoadingState } from '../ui/state';
-import { atOwnedLimit } from './campaign_view';
+import type { CampaignScopeOption } from './campaign_view';
+import { atOwnedLimit, campaignScopeOptions, createCampaignInput } from './campaign_view';
 import { CAMPAIGNS_QUERY_KEY, seedCampaign, useCampaigns } from './campaign_queries';
 import './campaigns.css';
 
@@ -54,15 +55,9 @@ export function orderCampaigns(list: readonly CampaignSummary[]): CampaignSummar
     .map((entry) => entry.campaign);
 }
 
-function CampaignRow({
-  campaign,
-  templateName,
-}: {
-  campaign: CampaignSummary;
-  templateName: string | undefined;
-}) {
-  const parts = [templateName, updatedText(campaign.updatedAt)].filter(
-    (part): part is string => part !== undefined,
+function CampaignRow({ campaign }: { campaign: CampaignSummary }) {
+  const parts = [campaign.scopeName, updatedText(campaign.updatedAt)].filter(
+    (part): part is string => part !== undefined && part !== '',
   );
 
   return (
@@ -87,44 +82,34 @@ function CampaignRow({
   );
 }
 
-function CampaignList({
-  campaigns,
-  templateNames,
-}: {
-  campaigns: readonly CampaignSummary[];
-  templateNames: ReadonlyMap<string, string>;
-}) {
+function CampaignList({ campaigns }: { campaigns: readonly CampaignSummary[] }) {
   return (
     <ul className="lg-campaigns__list" aria-label={message('campaigns.listHeading')}>
       {campaigns.map((campaign) => (
-        <CampaignRow
-          key={campaign.id}
-          campaign={campaign}
-          templateName={templateNames.get(campaign.templateId)}
-        />
+        <CampaignRow key={campaign.id} campaign={campaign} />
       ))}
     </ul>
   );
 }
 
 function CreateCampaignForm({
-  templates,
+  options,
   pending,
   error,
   onSubmit,
   onCancel,
 }: {
-  templates: readonly TemplateSummary[];
+  options: readonly CampaignScopeOption[];
   pending: boolean;
   error: string | undefined;
-  onSubmit: (name: string, templateId: string) => void;
+  onSubmit: (input: CreateCampaignInput) => void;
   onCancel: () => void;
 }) {
   const [name, setName] = useState('');
-  const [templateChoice, setTemplateChoice] = useState('');
+  const [scopeChoice, setScopeChoice] = useState('');
   const [nameError, setNameError] = useState<string | undefined>(undefined);
   const nameRef = useRef<HTMLInputElement>(null);
-  const templateId = templateChoice || templates[0]?.id || '';
+  const selected = options.find((option) => option.key === scopeChoice) ?? options[0];
 
   useEffect(() => {
     nameRef.current?.focus();
@@ -137,8 +122,11 @@ function CreateCampaignForm({
       setNameError(message('campaigns.nameRequired'));
       return;
     }
+    if (selected === undefined) {
+      return;
+    }
     setNameError(undefined);
-    onSubmit(trimmed, templateId);
+    onSubmit(createCampaignInput(trimmed, selected));
   };
 
   return (
@@ -152,23 +140,23 @@ function CreateCampaignForm({
         error={nameError}
         onChange={setName}
       />
-      {templates.length > 1 ? (
+      {options.length > 1 ? (
         <Select
-          label={message('campaigns.templateLabel')}
-          id="campaign-template"
-          value={templateId}
+          label={message('campaigns.scopeLabel')}
+          id="campaign-scope"
+          value={selected?.key ?? ''}
           disabled={pending}
-          options={templates.map((template) => ({ value: template.id, label: template.name }))}
-          onChange={setTemplateChoice}
+          options={options.map((option) => ({ value: option.key, label: option.label }))}
+          onChange={setScopeChoice}
         />
-      ) : templates.length === 1 ? (
+      ) : selected === undefined ? null : (
         <dl className="lg-campaigns__template">
-          <dt className="lg-campaigns__template-label">{message('campaigns.templateLabel')}</dt>
+          <dt className="lg-campaigns__template-label">{message('campaigns.scopeLabel')}</dt>
           <dd className="lg-campaigns__template-name" data-testid="campaigns-template">
-            {templates[0].name}
+            {selected.label}
           </dd>
         </dl>
-      ) : null}
+      )}
       {error ? <ErrorState message={error} /> : null}
       <div className="lg-campaigns__actions">
         <Button
@@ -181,7 +169,7 @@ function CreateCampaignForm({
           type="submit"
           label={pending ? message('campaigns.creating') : message('campaigns.create')}
           loading={pending}
-          disabled={templateId === ''}
+          disabled={selected === undefined}
         />
       </div>
     </form>
@@ -203,7 +191,7 @@ export function CampaignsScreen() {
   const [createOpen, setCreateOpen] = useState(false);
 
   const create = useMutation({
-    mutationFn: (input: { name: string; templateId: string }) => client.createCampaign(input),
+    mutationFn: (input: CreateCampaignInput) => client.createCampaign(input),
     onSuccess: (campaign) => {
       setCreateError(undefined);
       setCreateOpen(false);
@@ -237,9 +225,7 @@ export function CampaignsScreen() {
   const templatesMissing = templates.data === undefined;
   const templatesLoading = templatesMissing && templates.isPending;
   const templatesFailed = templatesMissing && templates.isError;
-  const templateNames = new Map(
-    (templates.data ?? []).map((template) => [template.id, template.name]),
-  );
+  const scopeOptions = campaignScopeOptions(templates.data ?? []);
 
   let listing;
   if (campaigns.isPending) {
@@ -254,9 +240,7 @@ export function CampaignsScreen() {
   } else if (campaigns.data.length === 0) {
     listing = <EmptyState message={message('campaigns.empty')} />;
   } else {
-    listing = (
-      <CampaignList campaigns={orderCampaigns(campaigns.data)} templateNames={templateNames} />
-    );
+    listing = <CampaignList campaigns={orderCampaigns(campaigns.data)} />;
   }
 
   let createBlockedReason: string | undefined;
@@ -316,10 +300,10 @@ export function CampaignsScreen() {
         onClose={closeCreate}
       >
         <CreateCampaignForm
-          templates={templates.data ?? []}
+          options={scopeOptions}
           pending={create.isPending}
           error={createError}
-          onSubmit={(name, templateId) => create.mutate({ name, templateId })}
+          onSubmit={(input) => create.mutate(input)}
           onCancel={closeCreate}
         />
       </Dialog>

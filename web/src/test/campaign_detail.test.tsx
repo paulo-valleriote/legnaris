@@ -62,6 +62,24 @@ describe('campaign screen: members and roles (LGN-218)', () => {
     expect(screen.getByText(message('campaigns.owner'))).toHaveClass('lg-campaigns__role');
   });
 
+  it('Happy path: the header shows the scope name from the payload, even for a Retired Template', async () => {
+    const script = scripted(
+      detailRoutes(
+        campaignView({
+          template_id: 'retired_v1',
+          scope_name: 'Retired Archive',
+          template_ids: ['retired_v1'],
+        }),
+      ),
+    );
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    expect(
+      await screen.findByRole('heading', { name: 'Ember Coast', level: 1 }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('campaign-scope')).toHaveTextContent('Retired Archive');
+  });
+
   it('Edge: a section heading carries its count in the accessible name', async () => {
     const script = scripted(detailRoutes(campaignView()));
     renderApp(DETAIL, { client: clientFor(script.transport) });

@@ -26,7 +26,10 @@ function summary(overrides: Partial<CampaignSummary> = {}): CampaignSummary {
   return {
     id: CAMPAIGN_ID,
     name: 'Ember Coast',
+    scopeName: 'Fantasy Template',
+    templateIds: ['fantasy_v1'],
     templateId: 'fantasy_v1',
+    gameSystem: undefined,
     version: 3,
     viewerRole: 'gm',
     viewerOwner: true,
@@ -62,10 +65,14 @@ const rowCases: readonly RowCase[] = [
     meta: `Fantasy Template · ${UPDATED}`,
   },
   {
-    name: 'Edge: a campaign whose template is not in the catalog shows only the update',
-    summary: campaignSummary({ template_id: 'missing_v1' }),
+    name: 'Edge: a Campaign of a Retired Template still shows its scope name from the payload',
+    summary: campaignSummary({
+      template_id: 'retired_v1',
+      scope_name: 'Retired Archive',
+      template_ids: ['retired_v1'],
+    }),
     role: message('campaigns.owner'),
-    meta: UPDATED,
+    meta: `Retired Archive · ${UPDATED}`,
   },
   {
     name: 'Edge: an unreadable update date shows only the template name',
@@ -248,7 +255,7 @@ describe('campaigns list and create (LGN-218)', () => {
     const dialog = await screen.findByRole('dialog', { name: message('campaigns.create') });
     expect(within(dialog).getByLabelText(message('campaigns.nameLabel'))).toHaveFocus();
     expect(within(dialog).getByTestId('campaigns-template')).toHaveTextContent('Fantasy Template');
-    expect(within(dialog).getByText(message('campaigns.templateLabel')).tagName).toBe('DT');
+    expect(within(dialog).getByText(message('campaigns.scopeLabel')).tagName).toBe('DT');
     expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
     expect(screen.getByTestId('campaigns-usage')).toHaveTextContent(
       messageWith('campaigns.ownedCount', { used: 0, limit: 2 }),
@@ -335,7 +342,7 @@ describe('campaigns list and create (LGN-218)', () => {
     await user.click(screen.getByRole('button', { name: message('campaigns.new') }));
 
     const choice = await screen.findByRole('combobox', {
-      name: message('campaigns.templateLabel'),
+      name: message('campaigns.scopeLabel'),
     });
     expect(within(choice).getAllByRole('option')).toHaveLength(2);
     expect(within(choice).getByRole('option', { name: 'Other Template' })).toBeInTheDocument();
@@ -406,6 +413,77 @@ describe('campaigns list and create (LGN-218)', () => {
     expect(within(dialog).getByLabelText(message('campaigns.nameLabel'))).toHaveValue(
       'Ember Coast',
     );
+  });
+
+  it('Happy path: two Templates of one Game system offer one Game system option and create with it', async () => {
+    const gameSystem = {
+      id: 'fifth',
+      name: '5E',
+      compatibility_label: '5E compatible',
+      notice: { label: 'SRD 5.2.1', path: '/srd' },
+    };
+    const character = {
+      ...(capturedTemplates()[0] as Record<string, unknown>),
+      id: 'fifth_character_v1',
+      name: '5E Character',
+      game_system: gameSystem,
+    };
+    const statBlock = {
+      ...(capturedTemplates()[0] as Record<string, unknown>),
+      id: 'fifth_statblock_v1',
+      name: '5E Stat Block',
+      game_system: gameSystem,
+    };
+    const systemView = campaignView({
+      template_id: undefined,
+      game_system: { id: 'fifth', name: '5E' },
+      scope_name: '5E',
+      template_ids: ['fifth_character_v1', 'fifth_statblock_v1'],
+    });
+    const script = scripted([
+      ...baseRoutes().filter((route) => route.path !== '/templates'),
+      { method: 'GET', path: '/templates', respond: () => ok([character, statBlock]) },
+      { method: 'GET', path: '/campaigns', respond: () => ok([]) },
+      { method: 'POST', path: '/campaigns', respond: () => ok(systemView, 201) },
+      { method: 'GET', path: `/campaigns/${CAMPAIGN_ID}`, respond: () => ok(systemView) },
+    ]);
+    const user = userEvent.setup();
+    renderApp('/campaigns', { client: clientFor(script.transport) });
+
+    await screen.findByText(message('campaigns.empty'));
+    await user.click(screen.getByRole('button', { name: message('campaigns.new') }));
+    const dialog = await screen.findByRole('dialog', { name: message('campaigns.create') });
+
+    expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(dialog).getByTestId('campaigns-template')).toHaveTextContent('5E');
+    await user.type(within(dialog).getByLabelText(message('campaigns.nameLabel')), 'Ember Coast');
+    await user.click(within(dialog).getByRole('button', { name: message('campaigns.create') }));
+
+    await waitFor(() => expect(script.calls('POST', '/campaigns')).toHaveLength(1));
+    expect(JSON.parse(script.calls('POST', '/campaigns')[0]?.request.body ?? '')).toEqual({
+      name: 'Ember Coast',
+      game_system: 'fifth',
+    });
+  });
+
+  it('Edge: no Templates offer no scope choice and block creation', async () => {
+    const script = scripted([
+      ...baseRoutes().filter((route) => route.path !== '/templates'),
+      { method: 'GET', path: '/templates', respond: () => ok([]) },
+      { method: 'GET', path: '/campaigns', respond: () => ok([]) },
+    ]);
+    const user = userEvent.setup();
+    renderApp('/campaigns', { client: clientFor(script.transport) });
+
+    await screen.findByText(message('campaigns.empty'));
+    await user.click(screen.getByRole('button', { name: message('campaigns.new') }));
+    const dialog = await screen.findByRole('dialog', { name: message('campaigns.create') });
+
+    expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
+    expect(within(dialog).queryByTestId('campaigns-template')).not.toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('button', { name: message('campaigns.create') }),
+    ).toBeDisabled();
   });
 
   it('Happy path: creating a campaign posts name and template and opens its page', async () => {
