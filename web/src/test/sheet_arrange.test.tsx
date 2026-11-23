@@ -72,7 +72,15 @@ describe('Arrange mode is explicit and separate from play mode', () => {
   });
 
   it('Edge: a template with no sections offers no Arrange mode', async () => {
-    await open({ template: { id: 'plain_v1', name: 'Empty', default: true, fields: {} } });
+    await open({
+      template: {
+        id: 'plain_v1',
+        name: 'Empty',
+        default: true,
+        kinds: ['character', 'npc', 'enemy'],
+        fields: {},
+      },
+    });
 
     expect(
       screen.queryByRole('button', { name: message('arrange.start') }),

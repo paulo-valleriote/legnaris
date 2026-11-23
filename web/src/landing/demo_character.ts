@@ -229,6 +229,7 @@ export const DEMO_TEMPLATE: TemplateDetail = {
   id: DEMO_TEMPLATE_ID,
   name: 'Living sheet demo',
   default: false,
+  kinds: ['character', 'npc', 'enemy'],
   fields: {
     identity: group('Identity', {
       characterName: textLeaf('Character name'),

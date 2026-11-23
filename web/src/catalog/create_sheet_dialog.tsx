@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import type { UseQueryResult } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
@@ -6,7 +6,7 @@ import { DefensiveParseFailure, DomainFailure } from '../api/errors';
 import { failureCopy } from '../api/error_mapper';
 import type { TemplateDetail } from '../api/models/template';
 import { useApiClient } from '../app/providers';
-import { isSheetLimitReached, SHEET_KINDS } from '../api/models/plan';
+import { isSheetLimitReached } from '../api/models/plan';
 import type { SheetKind } from '../api/models/plan';
 import { isFreePlan } from '../generate/generation_flow';
 import { UpgradeDialog } from '../generate/upgrade_dialog';
@@ -20,7 +20,6 @@ import { Select } from '../ui/select';
 import { ErrorState, LoadingState } from '../ui/state';
 import { PLAN_QUERY_KEY, seedCreatedSheet, usePlanUsage, useTemplateDetail } from './queries';
 
-const DEFAULT_KIND: SheetKind = 'character';
 const LIMIT_NOTICE_ID = 'sheet-kind-limit';
 
 const KIND_LABEL_KEYS = {
@@ -31,7 +30,7 @@ const KIND_LABEL_KEYS = {
 
 type DetailRenderPhase =
   | { readonly kind: 'loading' }
-  | { readonly kind: 'loaded'; readonly name: string }
+  | { readonly kind: 'loaded'; readonly name: string; readonly kinds: readonly SheetKind[] }
   | { readonly kind: 'error'; readonly copy: string }
   | { readonly kind: 'notFound'; readonly copy: string }
   | { readonly kind: 'parseError'; readonly copy: string };
@@ -57,7 +56,9 @@ function resolveDetailPhase(query: UseQueryResult<TemplateDetail, Error>): Detai
   }
 
   const data = query.data;
-  return data === undefined ? { kind: 'loading' } : { kind: 'loaded', name: data.name };
+  return data === undefined
+    ? { kind: 'loading' }
+    : { kind: 'loaded', name: data.name, kinds: data.kinds };
 }
 
 interface DetailBodyProps {
@@ -108,7 +109,7 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [sheetName, setSheetName] = useState('');
-  const [kind, setKind] = useState<SheetKind>(DEFAULT_KIND);
+  const [chosenKind, setChosenKind] = useState<SheetKind | undefined>(undefined);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>(undefined);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -116,13 +117,19 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
   const phase = resolveDetailPhase(query);
   const trimmedName = sheetName.trim();
   const hasName = trimmedName !== '';
-  const limitReached = isSheetLimitReached(plan.data, kind);
-  const kindUsage = plan.data?.sheets[kind];
-  const canSubmit = hasName && !limitReached;
+  const availableKinds = phase.kind === 'loaded' ? phase.kinds : [];
+  const kind = availableKinds.find((candidate) => candidate === chosenKind) ?? availableKinds[0];
+  const limitReached = kind !== undefined && isSheetLimitReached(plan.data, kind);
+  const kindUsage = kind === undefined ? undefined : plan.data?.sheets[kind];
+  const kindHint =
+    kindUsage === undefined
+      ? undefined
+      : messageWith('sheet.usage', { used: kindUsage.used, limit: kindUsage.limit });
+  const canSubmit = kind !== undefined && hasName && !limitReached;
   const reason = canSubmit ? undefined : blockedReason(hasName, limitReached);
 
-  const handleCreate = useCallback(() => {
-    if (!canSubmit || isSubmitting) {
+  const handleCreate = () => {
+    if (kind === undefined || !canSubmit || isSubmitting) {
       return;
     }
     setIsSubmitting(true);
@@ -139,22 +146,33 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
         setIsSubmitting(false);
         void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY });
       });
-  }, [canSubmit, isSubmitting, client, templateId, kind, trimmedName, queryClient, navigate]);
+  };
 
-  const generateTo = `/generate/${encodeURIComponent(templateId)}?kind=${encodeURIComponent(kind)}`;
+  const generateTo =
+    kind === undefined
+      ? undefined
+      : `/generate/${encodeURIComponent(templateId)}?kind=${encodeURIComponent(kind)}`;
   const generateLabel = message('generate.entry');
-  const generate = limitReached ? (
-    <Button variant="secondary" label={generateLabel} disabled ariaDescribedBy={LIMIT_NOTICE_ID} />
-  ) : isFreePlan(plan.data) ? (
-    <Button variant="secondary" name={generateLabel} onClick={() => setUpgradeOpen(true)}>
-      <span className="lg-create-sheet__generate">
-        <span>{generateLabel}</span>
-        <span className="lg-create-sheet__pro">{message('generate.upgrade.badge')}</span>
-      </span>
-    </Button>
-  ) : (
-    <Button variant="secondary" label={generateLabel} to={generateTo} />
-  );
+  const generate =
+    kind === undefined ? (
+      <Button variant="secondary" label={generateLabel} disabled />
+    ) : limitReached ? (
+      <Button
+        variant="secondary"
+        label={generateLabel}
+        disabled
+        ariaDescribedBy={LIMIT_NOTICE_ID}
+      />
+    ) : isFreePlan(plan.data) ? (
+      <Button variant="secondary" name={generateLabel} onClick={() => setUpgradeOpen(true)}>
+        <span className="lg-create-sheet__generate">
+          <span>{generateLabel}</span>
+          <span className="lg-create-sheet__pro">{message('generate.upgrade.badge')}</span>
+        </span>
+      </Button>
+    ) : (
+      <Button variant="secondary" label={generateLabel} to={generateTo} />
+    );
 
   return (
     <>
@@ -195,26 +213,34 @@ export function CreateSheetDialog({ templateId, onClose }: CreateSheetDialogProp
             placeholder={message('sheet.namePlaceholder')}
             onChange={setSheetName}
           />
-          <Select
-            label={message('catalog.kindLabel')}
-            id="sheet-kind"
-            value={kind}
-            hint={
-              kindUsage === undefined
-                ? undefined
-                : messageWith('sheet.usage', { used: kindUsage.used, limit: kindUsage.limit })
-            }
-            onChange={(value) => {
-              setKind(value as SheetKind);
-              setSubmitError(undefined);
-            }}
-          >
-            {SHEET_KINDS.map((option) => (
-              <option key={option} value={option}>
-                {message(KIND_LABEL_KEYS[option])}
-              </option>
-            ))}
-          </Select>
+          {kind === undefined ? null : availableKinds.length === 1 ? (
+            <div className="lg-create-sheet__kind">
+              <span className="lg-form-field__label">{message('catalog.kindLabel')}</span>
+              <span className="lg-create-sheet__kind-value">{message(KIND_LABEL_KEYS[kind])}</span>
+              {kindHint === undefined ? null : (
+                <span id="sheet-kind-hint" className="lg-form-field__hint">
+                  {kindHint}
+                </span>
+              )}
+            </div>
+          ) : (
+            <Select
+              label={message('catalog.kindLabel')}
+              id="sheet-kind"
+              value={kind}
+              hint={kindHint}
+              onChange={(value) => {
+                setChosenKind(value as SheetKind);
+                setSubmitError(undefined);
+              }}
+            >
+              {availableKinds.map((option) => (
+                <option key={option} value={option}>
+                  {message(KIND_LABEL_KEYS[option])}
+                </option>
+              ))}
+            </Select>
+          )}
           {limitReached ? (
             <Notice tone="warning" live="off" id={LIMIT_NOTICE_ID}>
               {message('sheet.limitReached')}

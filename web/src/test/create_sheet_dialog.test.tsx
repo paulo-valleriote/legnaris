@@ -21,8 +21,20 @@ import { renderApp } from './render';
 const BASE_URL = 'http://api.test';
 
 const CATALOG: readonly TemplateSummary[] = [
-  { id: 'dnd5e', name: 'Dungeons & Dragons 5e', default: true, fields: {} },
-  { id: 'pbta', name: 'Powered by the Apocalypse', default: false, fields: {} },
+  {
+    id: 'dnd5e',
+    name: 'Dungeons & Dragons 5e',
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
+  {
+    id: 'pbta',
+    name: 'Powered by the Apocalypse',
+    default: false,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
 ];
 
 const ENTRY_NAME = /Dungeons & Dragons 5e/;
@@ -32,7 +44,13 @@ function clientWith(transport: Transport) {
 }
 
 function detailEnvelope(name: string, id = 'dnd5e') {
-  return successOutcome({ id, name, default: true, fields: {} });
+  return successOutcome({
+    id,
+    name,
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  });
 }
 
 async function openSurface(user: UserEvent, plan: unknown = FREE_PLAN_USAGE) {
@@ -143,6 +161,28 @@ describe('creation surface detail', () => {
     await waitFor(() => expect(screen.getByText(parseFailureMessage())).toBeInTheDocument());
     expect(screen.queryByTestId('detail-name')).not.toBeInTheDocument();
     expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('Edge: malformed kinds show the parse-failure copy and no half-filled detail', async () => {
+    const deferred = createDeferredTransport();
+    const user = userEvent.setup();
+    renderApp('/', { client: clientWith(withPlanUsage(deferred.transport)) });
+
+    deferred.resolve(successOutcome(CATALOG));
+    await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
+    deferred.resolve(
+      successOutcome({
+        id: 'dnd5e',
+        name: 'Dungeons & Dragons 5e',
+        default: true,
+        kinds: ['dragon'],
+        fields: {},
+      }),
+    );
+
+    await waitFor(() => expect(screen.getByText(parseFailureMessage())).toBeInTheDocument());
+    expect(screen.queryByTestId('detail-name')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(message('catalog.kindLabel'))).not.toBeInTheDocument();
   });
 
   it('Happy path: the surface Retry re-requests the detail exactly once', async () => {

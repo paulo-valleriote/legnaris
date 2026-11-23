@@ -125,6 +125,7 @@ describe('dice defaults on the template payload', () => {
     id: 'fantasy_v1',
     name: 'Fantasy',
     default: true,
+    kinds: ['character', 'npc', 'enemy'],
     fields: {},
     ...extra,
   });

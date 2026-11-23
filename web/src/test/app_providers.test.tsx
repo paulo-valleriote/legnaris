@@ -8,7 +8,13 @@ import type { TemplateSummary } from '../api/models/template';
 import { createFakeTransport, successOutcome } from './fake_transport';
 
 const ONE_TEMPLATE: readonly TemplateSummary[] = [
-  { id: 'dnd5e', name: 'Dungeons & Dragons 5e', default: true, fields: {} },
+  {
+    id: 'dnd5e',
+    name: 'Dungeons & Dragons 5e',
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
 ];
 
 function CatalogProbe({ onResult }: { onResult: (names: readonly string[]) => void }) {

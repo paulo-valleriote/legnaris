@@ -13,10 +13,22 @@ const BASE_URL = 'http://api.test';
 const ENTRY_NAME = /Dungeons & Dragons 5e/;
 
 const CATALOG: readonly TemplateSummary[] = [
-  { id: 'dnd5e', name: 'Dungeons & Dragons 5e', default: true, fields: {} },
+  {
+    id: 'dnd5e',
+    name: 'Dungeons & Dragons 5e',
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
 ];
 
-const DETAIL = { id: 'dnd5e', name: 'Dungeons & Dragons 5e', default: true, fields: {} };
+const DETAIL = {
+  id: 'dnd5e',
+  name: 'Dungeons & Dragons 5e',
+  default: true,
+  kinds: ['character', 'npc', 'enemy'],
+  fields: {},
+};
 
 const CHARACTER_FULL = {
   plan: 'free',

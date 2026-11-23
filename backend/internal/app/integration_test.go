@@ -16,6 +16,7 @@ import (
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/engine"
 	"legnaris/backend/internal/events"
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/template"
@@ -214,6 +215,7 @@ func TestIntegration_TemplatesList(t *testing.T) {
 	assert.Equal(t, "fantasy_v1", tmpl.ID)
 	assert.Equal(t, "Fantasy Template", tmpl.Name)
 	assert.True(t, tmpl.Default)
+	assert.Equal(t, []plan.SheetKind{plan.KindCharacter, plan.KindNPC, plan.KindEnemy}, tmpl.Kinds)
 
 	stats, ok := tmpl.Fields["stats"]
 	require.True(t, ok)
@@ -237,6 +239,7 @@ func TestIntegration_TemplatesFetchByID(t *testing.T) {
 	var body response.Success[template.TemplateDTO]
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	assert.Equal(t, "fantasy_v1", body.Data.ID)
+	assert.Equal(t, []plan.SheetKind{plan.KindCharacter, plan.KindNPC, plan.KindEnemy}, body.Data.Kinds)
 
 	modifiers, ok := body.Data.Fields["modifiers"]
 	require.True(t, ok)

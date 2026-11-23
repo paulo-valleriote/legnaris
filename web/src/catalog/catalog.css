@@ -130,3 +130,18 @@
   line-height: var(--lg-line-tight);
   white-space: nowrap;
 }
+
+.lg-create-sheet__kind {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-4);
+}
+
+.lg-create-sheet__kind-value {
+  min-height: var(--lg-size-control);
+  display: flex;
+  align-items: center;
+  font-size: var(--lg-type-15);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-text);
+}

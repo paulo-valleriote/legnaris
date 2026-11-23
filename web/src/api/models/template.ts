@@ -1,4 +1,6 @@
 import { parseDiceDefaults, type DiceDefaults } from './dice';
+import { SHEET_KINDS } from './plan';
+import type { SheetKind } from './plan';
 import {
   drift,
   isPlainObject,
@@ -39,6 +41,7 @@ export type FieldNode = LeafNode | GroupNode;
 export interface TemplateDetail {
   readonly id: string;
   readonly name: string;
+  readonly kinds: readonly SheetKind[];
   readonly fields: Record<string, FieldNode>;
   readonly default: boolean;
   readonly dice?: DiceDefaults;
@@ -142,6 +145,32 @@ function parseFieldGroup(value: unknown): Record<string, FieldNode> {
   return nodes;
 }
 
+function parseKinds(value: unknown): readonly SheetKind[] {
+  if (!Array.isArray(value)) {
+    throw drift('template "kinds" is not a list');
+  }
+
+  if (value.length === 0) {
+    throw drift('template "kinds" is empty');
+  }
+
+  const kinds: SheetKind[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string') {
+      throw drift('template "kinds" holds a non-string entry');
+    }
+    const match = SHEET_KINDS.find((kind) => kind === entry);
+    if (match === undefined) {
+      throw drift('template "kinds" holds an unknown kind');
+    }
+    if (kinds.includes(match)) {
+      throw drift('template "kinds" holds a duplicate kind');
+    }
+    kinds.push(match);
+  }
+  return kinds;
+}
+
 function parseTemplate(value: unknown): TemplateDetail {
   if (!isPlainObject(value)) {
     throw drift('template payload is not an object');
@@ -154,6 +183,7 @@ function parseTemplate(value: unknown): TemplateDetail {
   return {
     id: requireString(value, 'id'),
     name: requireString(value, 'name'),
+    kinds: parseKinds(value['kinds']),
     default: requireBoolean(value, 'default'),
     fields: parseFieldGroup(value['fields']),
     dice: parseDiceDefaults(value['dice']),

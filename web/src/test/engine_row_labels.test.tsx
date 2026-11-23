@@ -10,6 +10,7 @@ function tree(children: Record<string, unknown>): ReturnType<typeof parseTemplat
     id: 'fantasy_v1',
     name: 'Fantasy',
     default: true,
+    kinds: ['character', 'npc', 'enemy'],
     fields: { stats: { label: 'Stats', children } },
   }).fields;
 }
