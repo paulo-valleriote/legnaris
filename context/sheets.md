@@ -58,6 +58,10 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
 - **Numeric 0/1 proxies for exclusive groups over an enum field because** one schema drives the
   formula environment and the single-choice control. Cost: members are numbers, a non-numeric
   member is a 400, and turning the chosen member off does not choose a sibling.
+- **An opt-in `flag` marker on a number leaf over a `bool` field because** the generic sheet can
+  draw an explicit 0/1 toggle in any path while formulas keep reading a number. Cost: a flag is a
+  number with a marker, boot validates that it is an editable number defaulting to 0 or 1, and a
+  value other than 0 or 1 is rejected.
 - **A compare-and-swap write over a server-side merge or lock because** it is one conditional
   `FindOneAndUpdate` with no lost writes and an honest conflict. Cost: a lost race spends a
   request on a 409, the version stays internal, and the client resends the delta.
@@ -167,8 +171,10 @@ authenticated, active account and share the per-user rate limit.
 `TemplateDTO` is `{id, name, default, fields, dice?}`. A node carries either `schema` (leaf) or
 `children` (group); a group may carry `label` and `columns`; a leaf schema is `{type, label,
 is_editable, default, formula?, depends_on?, exclusive_group?, option_label?, column_label?,
-generatable?, generatable_kinds?, prefer_default?, min?, max?, max_length?}`. `default` stays
-numeric for every type, so a text leaf shows `0`. `dice` is omitted when the template has no
+generatable?, generatable_kinds?, prefer_default?, min?, max?, max_length?, flag?}`. `default` stays
+numeric for every type, so a text leaf shows `0`. `flag` marks an editable number leaf as a 0/1
+toggle and is absent otherwise; boot rejects it on a non-number or derived leaf, or with a default
+other than 0 or 1. `dice` is omitted when the template has no
 defaults. Sections follow the template's `SectionOrder` and children their declared `Order`;
 unlisted keys are alphabetical. Template IDs are slugs (`^[a-z][a-z0-9_]*$`); a malformed ID is
 400, an unknown one 404.
@@ -203,7 +209,9 @@ is 409 `SHEET_LIMIT_REACHED` and on duplicate 403 `PLAN_LIMIT_REACHED`.
 prefix is 400 `UNKNOWN_FIELD`; a derived leaf is 400 `INVALID_REQUEST`. A text leaf longer than its
 schema `max_length` (counted in runes) is 400 `INVALID_REQUEST`, checked on every PATCH and preview
 that carries the leaf; stored text is never re-validated, so a legacy sheet still saves an unrelated
-delta. Each touched exclusive group may have at most one non-zero member in the payload: two is 400,
+delta. A leaf carrying `flag` accepts only a numeric 0 or 1 on PATCH, preview and create with
+values; anything else is 400 `INVALID_REQUEST`. Each touched exclusive group may have at most one
+non-zero member in the payload: two is 400,
 a non-numeric member is 400, and a member set to zero leaves siblings unchanged.
 
 `dice` is `{"section": {sectionKey: expr | null}, "row": {rowKey: expr | null}}`. A present block
@@ -605,8 +613,8 @@ Backend:
   exclusive normalization and change detection.
 - `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry and the
   `fantasy_v1` catalogue; `layout.go` — `SectionRowKeys`, `ValidateLayout`;
-  `dice_defaults.go`, `name_leaf.go`, `generation_metadata.go`, `dto.go` — boot validators and
-  JSON shape.
+  `dice_defaults.go`, `name_leaf.go`, `generation_metadata.go`, `flags.go`, `dto.go` — boot
+  validators and JSON shape.
 - `backend/internal/sheet/service.go`, `create_values.go` — create, fetch, patch, preview,
   layout, delete, seeding and `CreateWithValues` for generation, which drops derived (non-editable) leaves sent back from the
   preview and recalculates them, while unknown keys are still refused.
@@ -624,7 +632,8 @@ Web:
   creation surface and query keys; on Free the dialog's `Generate with AI` entry carries a Pro
   badge and opens the upgrade dialog (see [web-client](web-client.md)).
 - `web/src/engine/field_grouping.ts` — schema → Sections and Rows, row keys; `layout.ts`,
-  `arrange_ops.ts` — arrangement resolution, view and staging.
+  `arrange_ops.ts` — arrangement resolution, view and staging; a flagged leaf is a toggle, never
+  a number Row.
 - `web/src/engine/sheet_form.tsx`, `field_control.tsx`, `exclusive_control.tsx`,
   `sheet_defaults.ts`, `sheet_mark.ts`, `dependents.ts` — stateless rendering core, seed/merge
   and marks.

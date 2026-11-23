@@ -2,6 +2,7 @@ import { parseDiceDefaults, type DiceDefaults } from './dice';
 import {
   drift,
   isPlainObject,
+  optionalBoolean,
   optionalString,
   requireBoolean,
   requireString,
@@ -18,6 +19,7 @@ export interface FieldSchema {
   readonly exclusiveGroup?: string;
   readonly optionLabel?: string;
   readonly columnLabel?: string;
+  readonly flag?: boolean;
 }
 
 export interface LeafNode {
@@ -84,6 +86,7 @@ function parseFieldSchema(value: unknown): FieldSchema {
     exclusiveGroup: optionalString(value, 'exclusive_group'),
     optionLabel: optionalString(value, 'option_label'),
     columnLabel: optionalString(value, 'column_label'),
+    flag: optionalBoolean(value, 'flag'),
   };
 }
 

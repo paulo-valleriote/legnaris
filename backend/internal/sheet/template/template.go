@@ -56,6 +56,7 @@ type FieldSchema struct {
 	Generatable      bool             `bson:"generatable,omitempty"`
 	GeneratableKinds []plan.SheetKind `bson:"generatable_kinds,omitempty"`
 	PreferDefault    bool             `bson:"prefer_default,omitempty"`
+	Flag             bool             `bson:"flag,omitempty"`
 	Min              *float64         `bson:"min,omitempty"`
 	Max              *float64         `bson:"max,omitempty"`
 	MaxLength        *int             `bson:"max_length,omitempty"`

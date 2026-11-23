@@ -131,6 +131,30 @@ describe('sheet form composition', () => {
     expect(select).toHaveValue('ability.stealth');
   });
 
+  it('Happy path: a flagged leaf inside a Record renders the toggle and reports 1 and 0', () => {
+    const onChanged = vi.fn();
+    const fields: Record<string, FieldNode> = {
+      features: group(
+        {
+          traits: group({ hardMode: leaf({ label: 'Hard mode', flag: true, defaultValue: 1 }) }),
+        },
+        { label: 'Features' },
+      ),
+    };
+    render(
+      <SheetForm
+        fields={fields}
+        data={{ features: { traits: { hardMode: 1 } } }}
+        onChanged={onChanged}
+      />,
+    );
+
+    const toggle = screen.getByRole('checkbox', { name: 'Hard mode' });
+    expect(toggle).toBeChecked();
+    fireEvent.click(toggle);
+    expect(onChanged).toHaveBeenCalledWith('features.traits.hardMode', 0);
+  });
+
   it('Happy path: builder mode consults the injected builders once per row and renders no default control', () => {
     const controlBuilder = vi.fn((field: { path: string }) => (
       <span data-testid={`builder-${field.path}`} />

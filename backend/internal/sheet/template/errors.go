@@ -84,6 +84,14 @@ func (e *FieldNameError) Error() string {
 	return fmt.Sprintf("invalid field name '%s': %s", e.Field, e.Reason)
 }
 
+type FlagValueError struct {
+	Key string
+}
+
+func (e *FlagValueError) Error() string {
+	return fmt.Sprintf("field '%s' must be 0 or 1", e.Key)
+}
+
 type TextTooLongError struct {
 	Key    string
 	Length int
@@ -135,6 +143,10 @@ func ErrUnknownField(key string) error {
 
 func ErrTextTooLong(key string, length, maxLength int) error {
 	return &TextTooLongError{Key: key, Length: length, Max: maxLength}
+}
+
+func ErrFlagValue(key string) error {
+	return &FlagValueError{Key: key}
 }
 
 func ErrNotEditable(key string) error {
