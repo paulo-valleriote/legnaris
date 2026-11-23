@@ -280,12 +280,21 @@ func (s *ServiceImpl) recalculate(ctx context.Context, ref sheetRef, data map[st
 		return nil, translateMapErr("update", err)
 	}
 
-	normalized, cascadingEffects, err := dag.NormalizeAndRecalculate(storedSheet.Data, updates)
+	staticUpdates, recordUpdates, err := dag.SplitRecordUpdates(updates)
 	if err != nil {
 		return nil, translateDAGErr(err)
 	}
 
 	mergedData := maputils.DeepCopy(storedSheet.Data)
+	if err := dag.ApplyRecordUpdates(mergedData, recordUpdates); err != nil {
+		return nil, translateDAGErr(err)
+	}
+
+	normalized, cascadingEffects, err := dag.NormalizeAndRecalculate(storedSheet.Data, staticUpdates)
+	if err != nil {
+		return nil, translateDAGErr(err)
+	}
+
 	if err := maputils.ApplyUpdates(mergedData, normalized); err != nil {
 		return nil, translateMapErr("update", err)
 	}
@@ -296,10 +305,28 @@ func (s *ServiceImpl) recalculate(ctx context.Context, ref sheetRef, data map[st
 	return &preparedSave{
 		templateID: storedSheet.TemplateID,
 		version:    storedSheet.Version,
-		delta:      normalized,
+		delta:      recordAwareDelta(normalized, recordUpdates),
 		merged:     mergedData,
 		cascade:    cascadingEffects,
 	}, nil
+}
+
+func recordAwareDelta(static map[string]any, records []template.RecordUpdate) map[string]any {
+	delta := make(map[string]any, len(static)+len(records))
+	for key, value := range static {
+		delta[key] = value
+	}
+	for _, update := range records {
+		path := update.ListPath + "." + update.RecordID
+		if update.Remove {
+			delta[path] = nil
+			continue
+		}
+		for field, value := range update.Fields {
+			delta[path+"."+field] = value
+		}
+	}
+	return delta
 }
 
 func (s *ServiceImpl) fetchOwned(ctx context.Context, ref sheetRef) (*Sheet, error) {
@@ -440,7 +467,7 @@ func (s *ServiceImpl) PreviewTemplate(ctx context.Context, cmd PreviewTemplateCo
 
 	seeded := buildNestedAllFields(tmpl.Fields)
 
-	flatSeed, err := maputils.FlattenPathKeys(seeded)
+	flatSeed, err := maputils.FlattenPathKeys(buildNestedDAGFields(tmpl.Fields))
 	if err != nil {
 		return nil, translateMapErr("create", err)
 	}
@@ -458,7 +485,15 @@ func (s *ServiceImpl) PreviewTemplate(ctx context.Context, cmd PreviewTemplateCo
 		return nil, translateMapErr("update", err)
 	}
 
-	_, cascading, err := dag.NormalizeAndRecalculate(seeded, updates)
+	staticUpdates, recordUpdates, err := dag.SplitRecordUpdates(updates)
+	if err != nil {
+		return nil, translateDAGErr(err)
+	}
+	if err := dag.ApplyRecordUpdates(seeded, recordUpdates); err != nil {
+		return nil, translateDAGErr(err)
+	}
+
+	_, cascading, err := dag.NormalizeAndRecalculate(seeded, staticUpdates)
 	if err != nil {
 		return nil, translateDAGErr(err)
 	}
@@ -647,6 +682,9 @@ func translateDAGErr(err error) error {
 	if errors.As(err, &notEditable) {
 		return apperr.NewError(apperr.CodeInvalidRequest, notEditable.Error(), nil)
 	}
+	if recordErr := translateRecordErr(err); recordErr != nil {
+		return recordErr
+	}
 	var tooLong *template.TextTooLongError
 	if errors.As(err, &tooLong) {
 		return apperr.NewError(apperr.CodeInvalidRequest, tooLong.Error(), err)
@@ -687,6 +725,26 @@ func translateDAGErr(err error) error {
 	return apperr.NewError(apperr.CodeInternal, "dag recalculation failed", err)
 }
 
+func translateRecordErr(err error) error {
+	var unknownRecordField *template.UnknownRecordFieldError
+	if errors.As(err, &unknownRecordField) {
+		return apperr.NewError(
+			apperr.CodeUnknownField,
+			MsgFieldDoesNotExist+unknownRecordField.ListPath+"."+unknownRecordField.Field,
+			nil,
+		)
+	}
+	var invalidRecordID *template.RecordIDError
+	var invalidRecordValue *template.InvalidRecordValueError
+	var recordPosition *template.RecordPositionError
+	var capacityExceeded *template.ListCapacityExceededError
+	if errors.As(err, &invalidRecordID) || errors.As(err, &invalidRecordValue) ||
+		errors.As(err, &recordPosition) || errors.As(err, &capacityExceeded) {
+		return apperr.NewError(apperr.CodeInvalidRequest, err.Error(), err)
+	}
+	return nil
+}
+
 func translateMapErr(op string, err error) error {
 	if err == nil {
 		return nil
@@ -715,15 +773,26 @@ func nestedCascadingEffects(flat map[string]any) (map[string]any, error) {
 }
 
 func buildNestedAllFields(group template.FieldGroup) map[string]any {
+	return buildNestedFields(group, true)
+}
+
+func buildNestedDAGFields(group template.FieldGroup) map[string]any {
+	return buildNestedFields(group, false)
+}
+
+func buildNestedFields(group template.FieldGroup, includeLists bool) map[string]any {
 	result := make(map[string]any)
 	for name, node := range group {
-		if node.IsLeaf() {
+		switch {
+		case node.IsLeaf():
 			result[name] = node.Schema.SeedValue()
-		} else if node.IsGroup() {
-			nested := buildNestedAllFields(node.Children)
+		case node.IsGroup():
+			nested := buildNestedFields(node.Children, includeLists)
 			if len(nested) > 0 {
 				result[name] = nested
 			}
+		case node.IsList() && includeLists:
+			result[name] = map[string]any{}
 		}
 	}
 	return result

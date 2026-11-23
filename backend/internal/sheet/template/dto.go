@@ -28,15 +28,24 @@ type FieldGroupDTO map[string]FieldNodeDTO
 type FieldNodeDTO struct {
 	Schema   *FieldSchemaDTO `json:"schema,omitempty"`
 	Children FieldGroupDTO   `json:"children,omitempty"`
+	List     *ListDTO        `json:"list,omitempty"`
 	Label    string          `json:"label,omitempty"`
 	Columns  []string        `json:"columns,omitempty"`
 	Order    []string        `json:"-"`
+}
+
+type ListDTO struct {
+	Label    string        `json:"label"`
+	Columns  []string      `json:"columns,omitempty"`
+	Capacity int           `json:"capacity"`
+	Shape    FieldGroupDTO `json:"shape"`
 }
 
 func (n FieldNodeDTO) MarshalJSON() ([]byte, error) {
 	type payload struct {
 		Schema   *FieldSchemaDTO `json:"schema,omitempty"`
 		Children json.RawMessage `json:"children,omitempty"`
+		List     json.RawMessage `json:"list,omitempty"`
 		Label    string          `json:"label,omitempty"`
 		Columns  []string        `json:"columns,omitempty"`
 	}
@@ -48,7 +57,33 @@ func (n FieldNodeDTO) MarshalJSON() ([]byte, error) {
 		}
 		out.Children = children
 	}
+	if n.List != nil {
+		list, err := n.List.marshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		out.List = list
+	}
 	return json.Marshal(out)
+}
+
+func (l ListDTO) marshalJSON() (json.RawMessage, error) {
+	shape, err := marshalFieldGroup(l.Shape, nil)
+	if err != nil {
+		return nil, err
+	}
+	type payload struct {
+		Label    string          `json:"label"`
+		Columns  []string        `json:"columns,omitempty"`
+		Capacity int             `json:"capacity"`
+		Shape    json.RawMessage `json:"shape"`
+	}
+	return json.Marshal(payload{
+		Label:    l.Label,
+		Columns:  l.Columns,
+		Capacity: l.Capacity,
+		Shape:    shape,
+	})
 }
 
 type FieldSchemaDTO struct {
@@ -159,9 +194,22 @@ func (n FieldNode) toDTO() FieldNodeDTO {
 	return FieldNodeDTO{
 		Schema:   n.Schema.toDTO(),
 		Children: n.Children.toDTO(),
+		List:     n.List.toDTO(),
 		Label:    n.Label,
 		Columns:  slices.Clone(n.Columns),
 		Order:    slices.Clone(n.Order),
+	}
+}
+
+func (l *ListSchema) toDTO() *ListDTO {
+	if l == nil {
+		return nil
+	}
+	return &ListDTO{
+		Label:    l.Label,
+		Columns:  slices.Clone(l.Columns),
+		Capacity: l.Capacity,
+		Shape:    l.Shape.toDTO(),
 	}
 }
 

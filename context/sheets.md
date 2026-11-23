@@ -62,6 +62,12 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   draw an explicit 0/1 toggle in any path while formulas keep reading a number. Cost: a flag is a
   number with a marker, boot validates that it is an editable number defaulting to 0 or 1, and a
   value other than 0 or 1 is rejected.
+- **Record lists as maps keyed by a client-made id over arrays because** the edit path is dotted
+  keys and a slice is an opaque leaf, while a map keeps every Record Field on the same flatten and
+  validation path and lets one PATCH create, reorder or remove a Record without rewriting the list.
+  Cost: the client owns the id format (`r` plus 32 lowercase hex characters), every Record carries a
+  reserved numeric `position` (ties order by id), the capacity is a Template constant, and derived
+  formulas inside Records wait for LGN-393.
 - **A compare-and-swap write over a server-side merge or lock because** it is one conditional
   `FindOneAndUpdate` with no lost writes and an honest conflict. Cost: a lost race spends a
   request on a 409, the version stays internal, and the client resends the delta.
@@ -168,13 +174,17 @@ non-numeric arguments (`ErrInvalidFloat`) are typed engine errors; the engine ne
 `GET /templates` returns an array and `GET /templates/:id` one object; both require an
 authenticated, active account and share the per-user rate limit.
 
-`TemplateDTO` is `{id, name, default, fields, dice?}`. A node carries either `schema` (leaf) or
-`children` (group); a group may carry `label` and `columns`; a leaf schema is `{type, label,
+`TemplateDTO` is `{id, name, default, fields, dice?}`. A node carries exactly one of `schema`
+(leaf), `children` (group) or `list`; a group may carry `label` and `columns`; a list carries
+`{label, columns, capacity, shape}` where `shape` is a flat group of leaf schemas using the same
+schema shape as a leaf. A leaf schema is `{type, label,
 is_editable, default, formula?, depends_on?, exclusive_group?, option_label?, column_label?,
 generatable?, generatable_kinds?, prefer_default?, min?, max?, max_length?, flag?}`. `default` stays
 numeric for every type, so a text leaf shows `0`. `flag` marks an editable number leaf as a 0/1
 toggle and is absent otherwise; boot rejects it on a non-number or derived leaf, or with a default
-other than 0 or 1. `dice` is omitted when the template has no
+other than 0 or 1. A list path has at most three segments and its capacity is 1–200; boot rejects a
+reserved `position` shape key, an invalid shape key, a group or list inside the shape, a deeper
+path or an out-of-range capacity. `dice` is omitted when the template has no
 defaults. Sections follow the template's `SectionOrder` and children their declared `Order`;
 unlisted keys are alphabetical. Template IDs are slugs (`^[a-z][a-z0-9_]*$`); a malformed ID is
 400, an unknown one 404.
@@ -226,6 +236,40 @@ Preview reads `data` only and never writes; the Dice grammar and both implementa
 The response is only the changed derived leaves, nested. A PATCH whose values do not change
 returns `{}` and recomputes nothing. Sheets nest at most five levels; deeper input is 400.
 
+### Record lists
+
+A Template list declares a Record shape, a label, a display column order and a required capacity
+(1–200). The list path is at most three segments, so a Record Field path (`<list>.<id>.<field>`)
+never exceeds the five-level limit. The shape is flat: only leaves, using the normal leaf schema,
+with the normal key rules; `position` is reserved, and a nested list or group fails boot. Flags and
+`max_length` apply inside a Record exactly as on a static leaf.
+
+The stored shape is always a map keyed by Record id, never an array:
+`{"inventory": {"items": {"r<32 hex>": {"name": "Rope", "quantity": 1, "position": 0}}}}`. The
+client creates the id as `r` followed by 32 lowercase hex characters (a UUID without hyphens); it is
+not a `Sheet`-style server entity id and is never validated with `idgen`. A new Sheet seeds every
+list as `{}`. Each Record carries the reserved numeric `position`; readers order Records by
+`position` and, on a tie, by id. The server stores the value and never sorts or rewrites the map.
+
+`PATCH /sheets/:id` and `POST /sheets/:id/preview` accept the same nested `data`; a key under a list
+path is split out before the DAG runs:
+
+- writing any shaped Field under a new id creates the Record, seeded from the shape (leaf defaults
+  and the position after the current maximum), then applies the Fields;
+- writing `<list>.<id>.position` moves the Record; the value must be numeric;
+- `null` at `<list>.<id>` removes the Record; removing an absent id is a no-op, and a removal wins
+  over a Field write to the same id in one PATCH (so a client cannot resurrect it in the same
+  request);
+- capacity is checked on the merged list, not on the delta, so removing one Record while adding
+  another at capacity is allowed and one Record over capacity is 400;
+- an empty list (`{}`), including one just cleared to empty, accepts a new Record.
+
+Unknown Fields in a shape are 400 `UNKNOWN_FIELD`; a malformed id, a derived or non-editable shape
+Field, a `null` Field value, a non-numeric `position`, a `flag` value other than 0 or 1, text over
+`max_length` and an over-capacity list are 400 `INVALID_REQUEST`. The response is still only the
+derived cascade, so a Record-only save answers `{}`. Record Fields are stored only; formulas inside
+a Record are the next story (LGN-393) and a derived Field in a shape is refused for writes today.
+
 ### Layout
 
 Body: `{"layout": {"section_order": [...], "pinned": [...]}}`; `{"layout": null}` or empty lists
@@ -266,8 +310,8 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 | Code | Status | Raised when |
 | --- | --- | --- |
 | `INVALID_JSON` | 400 | malformed body, wrong value type, unknown body key |
-| `INVALID_REQUEST` | 400 | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id |
-| `UNKNOWN_FIELD` | 400 | data key or group prefix absent from the DAG |
+| `INVALID_REQUEST` | 400 | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id, malformed Record id, non-numeric Record `position`, over-capacity list, invalid Record field value |
+| `UNKNOWN_FIELD` | 400 | data key or group prefix absent from the DAG, or a Record Field absent from its shape |
 | `NOT_FOUND` | 404 | sheet or template missing, including a foreign sheet |
 | `CONFLICT` | 409 | value/Dice save lost the version race; `Retry-After: 1` |
 | `SHEET_LIMIT_REACHED` | 409 | create would exceed the plan; details carry `kind` and `limit` |
@@ -610,17 +654,21 @@ Backend:
 
 - `backend/internal/sheet/template/template.go` — `Template`, `FieldGroup`, `FieldNode`,
   `FieldSchema`, seed values; `dag.go` — DAG build, topological order, cycle detection,
-  exclusive normalization and change detection.
+  exclusive normalization and change detection; `list.go` — `ListSchema`, list boot validation and
+  Record seeding; `records.go` — splitting a PATCH into static and Record updates, Record id
+  validation, applying create/remove/position and checking capacity.
 - `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry and the
   `fantasy_v1` catalogue; `layout.go` — `SectionRowKeys`, `ValidateLayout`;
   `dice_defaults.go`, `name_leaf.go`, `generation_metadata.go`, `flags.go`, `dto.go` — boot
-  validators and JSON shape.
+  validators and JSON shape (a list node is `{label, columns, capacity, shape}`).
 - `backend/internal/sheet/service.go`, `create_values.go` — create, fetch, patch, preview,
   layout, delete, seeding and `CreateWithValues` for generation, which drops derived (non-editable) leaves sent back from the
-  preview and recalculates them, while unknown keys are still refused.
+  preview and recalculates them, while unknown keys are still refused. `recalculate` splits Record
+  updates out of the delta, applies them to the merged copy and keeps the DAG on static leaves.
 - `backend/internal/sheet/repository.go` — reads, CAS PATCH, layout write and plan counters;
   `duplicate.go`, `limits.go`, `migrate.go`, `dto.go`, `events.go` — duplicate rules, limits,
-  migration, DTO and events.
+  migration, DTO and events; `sheettest/list_fixture.go` — the test-only list Template (not in
+  production).
 - `backend/internal/engine/engine.go` — expr-lang wrapper and `floor`/`max`/`min`/`lookup`;
   `backend/internal/app/template.go`, `sheet.go`, `router.go`, `errors.go` — routes, decoding
   and boundary translation.
@@ -694,6 +742,10 @@ Web:
 ## Known limits
 
 - No sheet import or export endpoint exists; the server is the only backup.
+- Record lists store editable Fields only: a derived Field in a shape is seeded with its default
+  but is refused for writes, and no formula is evaluated inside a Record until LGN-393. The web
+  client does not draw a list yet; the list is declared in the Template DTO and edited through the
+  normal PATCH delta only.
 - Users cannot create or edit templates; the registry is frozen at boot and only `fantasy_v1`
   ships. A template change requires a deploy and, if incompatible, a new ID.
 - No offline open: the IndexedDB sheet copy is written and evicted but never read as a fallback,

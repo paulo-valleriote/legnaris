@@ -29,6 +29,19 @@ func validateFlagGroup(group FieldGroup, prefix Path) error {
 			}
 			continue
 		}
+		if node.IsList() {
+			for _, shapeKey := range slices.Sorted(maps.Keys(node.List.Shape)) {
+				shapeNode := node.List.Shape[shapeKey]
+				if !shapeNode.IsLeaf() {
+					continue
+				}
+				shapePath := append(append(Path{}, current...), shapeKey)
+				if err := validateFlagLeaf(shapeNode.Schema); err != nil {
+					return fmt.Errorf("field %q: %w", shapePath.String(), err)
+				}
+			}
+			continue
+		}
 		if node.IsGroup() {
 			if err := validateFlagGroup(node.Children, current); err != nil {
 				return err
