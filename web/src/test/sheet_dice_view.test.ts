@@ -237,6 +237,16 @@ describe('diceSummary', () => {
       expression: '2d6+1d8+attrs.dex',
       want: '2d6+d8',
     },
+    {
+      name: 'Edge: Field-sized count and faces keep their references',
+      expression: '{stats.count}d8+1d{stats.size}',
+      want: '{stats.count}d8+d{stats.size}',
+    },
+    {
+      name: 'Edge: a minimum is not part of the dice summary',
+      expression: '1d20 min 2',
+      want: 'd20',
+    },
   ];
   for (const tc of tests) {
     it(tc.name, () => {

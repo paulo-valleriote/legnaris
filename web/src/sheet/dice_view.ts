@@ -1,5 +1,5 @@
 import type { DiceError, DiceErrorClass } from '../dice/errors';
-import type { Expression } from '../dice/parse';
+import { referenceLabel, type Expression } from '../dice/parse';
 import {
   schemaFromKinds,
   validateRow,
@@ -163,8 +163,15 @@ export function diceSummary(expression: Expression): string | undefined {
   }
   const named = dice.slice(0, SUMMARY_MAX_DICE).map((term, index) => {
     const sign = term.sign === -1 ? '-' : index === 0 ? '' : '+';
-    const count = term.count === 1 ? '' : String(term.count);
-    return `${sign}${count}d${term.faces}`;
+    const count =
+      term.countRef !== undefined
+        ? `{${referenceLabel(term.countRef)}}`
+        : term.count === 1
+          ? ''
+          : String(term.count);
+    const faces =
+      term.facesRef !== undefined ? `{${referenceLabel(term.facesRef)}}` : String(term.faces);
+    return `${sign}${count}d${faces}`;
   });
   return dice.length > SUMMARY_MAX_DICE ? `${named.join('')}+…` : named.join('');
 }

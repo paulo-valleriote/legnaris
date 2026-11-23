@@ -60,6 +60,7 @@ describe('evaluateExpression against the shared vectors', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.total).toBe(vector.total);
+      expect(result.value.minimum).toBe(vector.minimum);
       expect(result.value.parts).toEqual(vector.parts);
       expect(roller.used()).toBe(vector.dice.length);
     }

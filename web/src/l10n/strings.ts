@@ -327,6 +327,7 @@ export const messages = {
   'dice.rolledDisadvantage': '{label} rolled {total} with disadvantage',
   'dice.rolls': '[{rolls}]',
   'dice.keptRolls': '[{rolls}] kept {kept}',
+  'dice.minimum': 'Minimum {minimum}',
   'dice.mode.normal': 'Normal',
   'dice.mode.advantage': 'Advantage',
   'dice.mode.disadvantage': 'Disadvantage',

@@ -188,7 +188,7 @@ when that write landed; otherwise it says the changes could not be kept (`sheet.
 
 ## Dice expressions (`src/dice/`)
 
-Pure TypeScript parsing, resolution and rolling live in `src/dice/`; the Go package `backend/internal/dice` validates and `src/sheet/dice_*` owns the UI and pending work. The grammar, precedence, save contract and vectors are documented in [../context/dice.md](../context/dice.md); a grammar change starts in `testdata/dice/vectors.json` and moves both implementations together. Advantage and disadvantage are a keep mode of the client Roll (`keep: 'highest' | 'lowest'`, only a d20 term throws one extra die), never grammar: the stored expression stays plain `NdM`.
+Pure TypeScript parsing, resolution and rolling live in `src/dice/`; the Go package `backend/internal/dice` validates and `src/sheet/dice_*` owns the UI and pending work. The grammar, precedence, save contract and vectors are documented in [../context/dice.md](../context/dice.md); a grammar change starts in `testdata/dice/vectors.json` and moves both implementations together. A die's count and faces may each be a numeric Field in braces and a final ` min N` may raise the total; Advantage and disadvantage are a keep mode of the client Roll (`keep: 'highest' | 'lowest'`, only a literal d20 term throws one extra die), never grammar, and a term whose faces come from a Field never takes one.
 
 ## Layout and Arrange mode
 

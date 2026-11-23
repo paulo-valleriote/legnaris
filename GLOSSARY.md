@@ -121,15 +121,15 @@ The explicit mode in which a player reorders Sections. Pins can also be toggled 
 _Avoid_: Edit mode, customize mode
 
 **Dice expression**:
-A short roll formula made of dice (`NdM`), whole numbers and numeric Fields joined by plus or minus, such as `1d20 + stats.dexterity`. On a Section, or on a Row of a table, it can name "this Row" instead of a fixed Field (`1d20 + @`, `1d20 + @.total`), so one Section default serves every Row in it. It attaches to a Row or to a Section (inherited by that Section's Rows). A Template supplies the defaults; a player can replace one, add one where the Template gave none, or turn rolling off for a Row on their own Sheet. The most specific choice wins: the player's for the Row, then the player's "no dice" for the Section, then the Template's for the Row, then the player's expression for the Section, then the Template's for the Section; with none, the Row cannot be rolled. The shorthand `d20` means `1d20`.
+A short roll formula made of dice (`NdM`), whole numbers and numeric Fields joined by plus or minus, such as `1d20 + stats.dexterity`. The count or the faces of a die may instead come from a numeric Field in braces (`{hitDice.count}d{hitDice.size}`, `1d{hitDice.size}`), resolved when the Roll happens, and an optional final ` min N` raises the total to at least N. On a Section, or on a Row of a table, it can name "this Row" instead of a fixed Field (`1d20 + @`, `1d20 + @.total`), so one Section default serves every Row in it. It attaches to a Row or to a Section (inherited by that Section's Rows). A Template supplies the defaults; a player can replace one, add one where the Template gave none, or turn rolling off for a Row on their own Sheet. The most specific choice wins: the player's for the Row, then the player's "no dice" for the Section, then the Template's for the Row, then the player's expression for the Section, then the Template's for the Section; with none, the Row cannot be rolled. The shorthand `d20` means `1d20`.
 _Avoid_: Dice, die, roll formula
 
 **Roll**:
-One performance of a Dice expression: each die is thrown, the Fields it names are read at that moment, and the total is shown with each die and number that made it, dropped dice included. Nothing about it is saved: it is not part of the Sheet and there is no Roll history in the first version.
+One performance of a Dice expression: each die is thrown, the Fields it names are read at that moment, and the total is shown with each die and number that made it, dropped dice included. A Field-sized die shows the count and faces it resolved to, and a minimum that raised the total is shown too. Nothing about it is saved: it is not part of the Sheet and there is no Roll history in the first version.
 _Avoid_: Throw, dice result
 
 **Roll mode**:
-How a d20 Roll is made: normal, advantage (two d20, keep the higher) or disadvantage (two d20, keep the lower). The player picks it at the moment of rolling; it never changes a Field.
+How a d20 Roll is made: normal, advantage (two d20, keep the higher) or disadvantage (two d20, keep the lower). The player picks it at the moment of rolling; it never changes a Field. Only a die with literal d20 faces takes a Roll mode: a face count read from a Field never does, even when that value is 20.
 _Avoid_: Roll type, keep mode
 
 **Reset action**:
