@@ -128,6 +128,7 @@ export const STAT_BLOCK_DETAIL = {
   id: STAT_BLOCK_TEMPLATE_ID,
   name: 'Fantasy',
   default: true,
+  kinds: ['character', 'npc', 'enemy'],
   fields: {
     identity: {
       label: 'Identity',

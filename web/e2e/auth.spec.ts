@@ -8,7 +8,15 @@ test.use({ serviceWorkers: 'block' });
 const TEMPLATE_ID = 'fantasy_v1';
 const SHEET_ID = '01a14236-21c9-7546-945e-40c46d1fcd1d';
 
-const CATALOG = [{ id: TEMPLATE_ID, name: 'Fantasy', default: true, fields: {} }];
+const CATALOG = [
+  {
+    id: TEMPLATE_ID,
+    name: 'Fantasy',
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
+];
 
 const SHEET = {
   id: SHEET_ID,

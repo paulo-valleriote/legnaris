@@ -211,6 +211,7 @@ export const TEMPLATE = {
   id: TEMPLATE_ID,
   name: 'Fantasy',
   default: true,
+  kinds: ['character', 'npc', 'enemy'],
   fields: FIELDS,
   dice: {
     section: { skills: '1d20 + @.total', saves: '1d20 + @', attacks: '1d20 + @.bonus' },
