@@ -47,9 +47,9 @@ func fifthCharacterRecordLists() []fifthRecordListCase {
 			listKey:  fifthInventoryItemsKey,
 			listPath: "inventory.items",
 			capacity: fifthInventoryCapacity,
-			columns:  []string{"name", "quantity", "weight", "totalWeight", "attuned", "notes"},
-			shape:    []string{"name", "quantity", "weight", "attuned", "notes", "totalWeight"},
-			derived:  []string{"totalWeight"},
+			columns:  []string{"name", "quantity", "weight", "lineWeight", "attuned", "notes"},
+			shape:    []string{"name", "quantity", "weight", "attuned", "notes", "lineWeight"},
+			derived:  []string{"lineWeight"},
 			flags:    []string{"attuned"},
 		},
 		{
@@ -157,7 +157,7 @@ func TestFifthCharacter_RecordSections(t *testing.T) {
 		require.NotNil(t, totalWeight.Aggregate)
 		assert.Equal(t, AggregateSchema{
 			List:  "inventory.items",
-			Field: "totalWeight",
+			Field: "lineWeight",
 			Op:    AggregateSum,
 		}, *totalWeight.Aggregate)
 
@@ -178,7 +178,7 @@ func TestFifthCharacter_RecordSections(t *testing.T) {
 
 		chosen := 0
 		for _, ability := range abilities {
-			schema := list.Shape[fifthAttackAbilityKey(ability.key)].Schema
+			schema := list.Shape[fifthAbilityFlagKey(ability.key)].Schema
 			require.NotNil(t, schema, ability.key)
 			assert.True(t, schema.IsEditable)
 			assert.Equal(t, fifthAttackAbilityGroup, schema.ExclusiveGroup)
@@ -300,12 +300,12 @@ func TestFifthCharacter_AttackToHitAndDamage(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			data := fifthSheet(t, tmpl, map[string]any{
-				"identity.level":                          tc.level,
-				"abilities." + tc.ability + ".score":      tc.score,
-				"attacks.list." + validRecordID + ".name": "Attack",
-				"attacks.list." + validRecordID + "." + fifthAttackAbilityKey(tc.ability): 1.0,
-				"attacks.list." + validRecordID + ".proficient":                           tc.prof,
-				"attacks.list." + validRecordID + ".misc":                                 tc.misc,
+				"identity.level":                                                        tc.level,
+				"abilities." + tc.ability + ".score":                                    tc.score,
+				"attacks.list." + validRecordID + ".name":                               "Attack",
+				"attacks.list." + validRecordID + "." + fifthAbilityFlagKey(tc.ability): 1.0,
+				"attacks.list." + validRecordID + ".proficient":                         tc.prof,
+				"attacks.list." + validRecordID + ".misc":                               tc.misc,
 			})
 			assert.InDelta(t, tc.wantToHit, fifthRecordValue(t, data, "attacks.list", validRecordID, "toHit"), 1e-9)
 			assert.InDelta(t, tc.wantBonus, fifthRecordValue(t, data, "attacks.list", validRecordID, "damageBonus"), 1e-9)
@@ -415,7 +415,7 @@ func TestFifthCharacter_InventoryAggregates(t *testing.T) {
 			for i, item := range tc.lines {
 				wantLine := item.quantity * item.weight
 				assert.InDelta(t, wantLine,
-					fifthRecordValue(t, data, "inventory.items", ids[i], "totalWeight"), 1e-9)
+					fifthRecordValue(t, data, "inventory.items", ids[i], "lineWeight"), 1e-9)
 			}
 		})
 	}

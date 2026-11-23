@@ -27,6 +27,42 @@
               "max_length": 60
             }
           },
+          "class": {
+            "schema": {
+              "type": "text",
+              "label": "Class",
+              "is_editable": true,
+              "default": 0,
+              "max_length": 60
+            }
+          },
+          "subclass": {
+            "schema": {
+              "type": "text",
+              "label": "Subclass",
+              "is_editable": true,
+              "default": 0,
+              "max_length": 60
+            }
+          },
+          "species": {
+            "schema": {
+              "type": "text",
+              "label": "Species",
+              "is_editable": true,
+              "default": 0,
+              "max_length": 60
+            }
+          },
+          "background": {
+            "schema": {
+              "type": "text",
+              "label": "Background",
+              "is_editable": true,
+              "default": 0,
+              "max_length": 60
+            }
+          },
           "level": {
             "schema": {
               "type": "number",
@@ -3842,7 +3878,7 @@
                 "name",
                 "quantity",
                 "weight",
-                "totalWeight",
+                "lineWeight",
                 "attuned",
                 "notes"
               ],
@@ -3855,6 +3891,23 @@
                     "is_editable": true,
                     "default": 0,
                     "flag": true
+                  }
+                },
+                "lineWeight": {
+                  "schema": {
+                    "type": "number",
+                    "label": "Total weight",
+                    "formula": "record_quantity * record_weight",
+                    "depends_on": [
+                      [
+                        "quantity"
+                      ],
+                      [
+                        "weight"
+                      ]
+                    ],
+                    "is_editable": false,
+                    "default": 0
                   }
                 },
                 "name": {
@@ -3881,23 +3934,6 @@
                     "default": 1
                   }
                 },
-                "totalWeight": {
-                  "schema": {
-                    "type": "number",
-                    "label": "Total weight",
-                    "formula": "record_quantity * record_weight",
-                    "depends_on": [
-                      [
-                        "quantity"
-                      ],
-                      [
-                        "weight"
-                      ]
-                    ],
-                    "is_editable": false,
-                    "default": 0
-                  }
-                },
                 "weight": {
                   "schema": {
                     "type": "number",
@@ -3917,7 +3953,7 @@
               "default": 0,
               "aggregate": {
                 "list": "inventory.items",
-                "field": "totalWeight",
+                "field": "lineWeight",
                 "op": "sum"
               }
             }

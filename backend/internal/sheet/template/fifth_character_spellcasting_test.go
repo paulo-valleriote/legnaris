@@ -14,7 +14,7 @@ func TestFifthSpellcasting_Structure(t *testing.T) {
 
 	t.Run("Happy path: the six abilities form one exclusive group of numeric flags", func(t *testing.T) {
 		for _, ability := range abilities {
-			key := fifthSpellcastingAbilityLeafKey(ability.key)
+			key := fifthAbilityFlagKey(ability.key)
 			schema := group[key].Schema
 			require.NotNil(t, schema, key)
 			assert.Equal(t, fieldTypeNumber, schema.Type, key)
@@ -115,6 +115,10 @@ func TestFifthSpellcasting_AttackAndSaveDC(t *testing.T) {
 		{name: "Happy path: wisdom spellcasting", ability: abilityWisdom, score: 8, level: 9, wantMod: -1, wantAttack: 3, wantDC: 11},
 		{name: "Happy path: charisma spellcasting", ability: abilityCharisma, score: 12, level: 13, wantMod: 1, wantAttack: 6, wantDC: 14},
 		{name: "Edge: no ability chosen leaves the bare proficiency bonus", ability: "", score: 20, level: 1, wantMod: 0, wantAttack: 2, wantDC: 10},
+		{name: "Edge: no ability chosen at level 5 gives the bare bonus and a DC of eight plus it", ability: "", score: 20, level: 5, wantMod: 0, wantAttack: 3, wantDC: 11},
+		{name: "Edge: a negative ability modifier lowers the attack and the DC", ability: abilityDexterity, score: 8, level: 5, wantMod: -1, wantAttack: 2, wantDC: 10},
+		{name: "Edge: level 4 keeps the proficiency bonus at two", ability: abilityIntelligence, score: 14, level: 4, wantMod: 2, wantAttack: 4, wantDC: 12},
+		{name: "Edge: level 5 raises the proficiency bonus to three", ability: abilityIntelligence, score: 14, level: 5, wantMod: 2, wantAttack: 5, wantDC: 13},
 	}
 
 	for _, tc := range tests {
@@ -122,7 +126,7 @@ func TestFifthSpellcasting_AttackAndSaveDC(t *testing.T) {
 			updates := map[string]any{"identity.level": tc.level}
 			if tc.ability != "" {
 				updates[Path{fifthAbilitiesSection, tc.ability, fifthScoreKey}.String()] = tc.score
-				updates[Path{fifthSpellcastingSection, fifthSpellcastingAbilityLeafKey(tc.ability)}.String()] = float64(1)
+				updates[Path{fifthSpellcastingSection, fifthAbilityFlagKey(tc.ability)}.String()] = float64(1)
 			}
 
 			data := fifthSheet(t, fifthTemplateByID(t, fifthCharacterID), updates)

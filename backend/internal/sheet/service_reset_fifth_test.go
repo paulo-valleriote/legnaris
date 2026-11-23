@@ -9,6 +9,7 @@ import (
 	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
+	"legnaris/backend/internal/sheet/sheettest"
 	"legnaris/backend/internal/sheet/template"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
 	"legnaris/backend/shared/maputils"
@@ -27,30 +28,17 @@ const (
 	fifthResetNoneRecordID  = "r0123456789abcdef0123456789abcde1"
 )
 
-func fifthSeedGroup(group template.FieldGroup, includeLists bool) map[string]any {
-	result := make(map[string]any)
-	for name, node := range group {
-		switch {
-		case node.IsLeaf():
-			result[name] = node.Schema.SeedValue()
-		case node.IsGroup():
-			nested := fifthSeedGroup(node.Children, includeLists)
-			if len(nested) > 0 {
-				result[name] = nested
-			}
-		case node.IsList() && includeLists:
-			result[name] = map[string]any{}
-		}
-	}
-	return result
-}
-
 func fifthSpentCharacterData(t *testing.T, tmpl template.Template, dag *template.DAG) map[string]any {
 	t.Helper()
 
-	seeded := fifthSeedGroup(tmpl.Fields, true)
-	flat, err := maputils.FlattenPathKeys(fifthSeedGroup(tmpl.Fields, false))
+	seeded := sheettest.SeedTemplateData(tmpl.Fields)
+	flat, err := maputils.FlattenPathKeys(sheettest.SeedTemplateData(tmpl.Fields))
 	require.NoError(t, err)
+	for key, value := range flat {
+		if _, isList := value.(map[string]any); isList {
+			delete(flat, key)
+		}
+	}
 	derived, err := dag.Recalculate(map[string]any{}, flat)
 	require.NoError(t, err)
 	require.NoError(t, maputils.ApplyUpdates(seeded, derived))

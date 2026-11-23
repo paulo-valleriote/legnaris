@@ -128,7 +128,7 @@ func fifthStatBlockActionsShape() FieldGroup {
 	shape[fifthStatBlockRecordToHitKey] = toHit
 	shape[fifthStatBlockRecordDamageKey] = damage
 	shape[fifthStatBlockRecordNotesKey] = notes
-	shape[fifthStatBlockRecordProficientKey] = fifthStatBlockToggle("Proficient")
+	shape[fifthStatBlockRecordProficientKey] = fifthRecordFlag("Proficient")
 	shape[fifthStatBlockRecordMiscKey] = misc
 	return shape
 }
@@ -136,16 +136,11 @@ func fifthStatBlockActionsShape() FieldGroup {
 func fifthStatBlockActionAbilityShape() FieldGroup {
 	shape := make(FieldGroup, len(abilities))
 	for _, ability := range abilities {
-		node := fifthStatBlockToggle(upperFirst(ability.label))
-		node.Schema.ExclusiveGroup = fifthStatBlockActionAbilityGroup
-		node.Schema.OptionLabel = upperFirst(ability.label)
-		shape[fifthStatBlockActionAbilityKey(ability.key)] = node
+		shape[fifthAbilityFlagKey(ability.key)] = fifthChoice(
+			"Ability", ability.label, 0, fifthStatBlockActionAbilityGroup,
+		)
 	}
 	return shape
-}
-
-func fifthStatBlockActionAbilityKey(ability string) string {
-	return "ability" + upperFirst(ability)
 }
 
 func fifthStatBlockActionToHitFormula() (string, [][]string) {
@@ -153,7 +148,7 @@ func fifthStatBlockActionToHitFormula() (string, [][]string) {
 	dependsOn := make([][]string, 0, len(abilities)*2+2)
 
 	for _, ability := range abilities {
-		field := fifthStatBlockActionAbilityKey(ability.key)
+		field := fifthAbilityFlagKey(ability.key)
 		terms = append(terms, fmt.Sprintf(
 			"record_%s * %s",
 			field,

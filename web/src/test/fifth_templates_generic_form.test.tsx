@@ -73,7 +73,7 @@ function characterData(): Record<string, unknown> {
           weight: 1,
           attuned: 1,
           notes: '',
-          totalWeight: 2,
+          lineWeight: 2,
           position: 0,
         },
       },

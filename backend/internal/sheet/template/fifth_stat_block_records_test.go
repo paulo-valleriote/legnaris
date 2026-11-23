@@ -251,14 +251,16 @@ func TestFifthStatBlock_RecordBootValidation(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("Edge: the action abilities form one exclusive group of flags", func(t *testing.T) {
+	t.Run("Edge: the action abilities form one exclusive choice group", func(t *testing.T) {
 		shape := statBlock.Fields[fifthStatBlockActionsSection].List.Shape
 		for _, ability := range abilities {
-			node, ok := shape["ability"+upperFirst(ability.key)]
+			node, ok := shape[fifthAbilityFlagKey(ability.key)]
 			require.True(t, ok, ability.key)
 			require.NotNil(t, node.Schema)
-			assert.True(t, node.Schema.Flag, ability.key)
+			assert.Equal(t, fieldTypeNumber, node.Schema.Type, ability.key)
+			assert.True(t, node.Schema.IsEditable, ability.key)
 			assert.Equal(t, fifthStatBlockActionAbilityGroup, node.Schema.ExclusiveGroup, ability.key)
+			assert.Equal(t, ability.label, node.Schema.OptionLabel, ability.key)
 			assert.InDelta(t, 0.0, node.Schema.Default, 1e-9, ability.key)
 		}
 	})

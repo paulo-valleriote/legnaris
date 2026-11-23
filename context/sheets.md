@@ -322,7 +322,9 @@ system, carry `identity.name` as their Name leaf, and use the same static Sectio
 `spellcasting`, `combat`, `status` and `coins` after `armor`, then its Record Sections `attacks`,
 `inventory`, `features`, `spells` and `resources`.
 
-- **Identity** — `identity.name` (text, generatable); `identity.level` (1–20, character only) or
+- **Identity** — `identity.name` (text, generatable); `identity.class`, `identity.subclass`,
+  `identity.species` and `identity.background` (editable text, capped at 60 like the name, not
+  generatable, character only); `identity.level` (1–20, character only) or
   `identity.challengeRating` (0–30, fractional CRs entered as `0.125`, `0.25`, `0.5`) and the
   derived `identity.proficiencyBonus`. The character bonus is `2 + floor((level - 1) / 4)`; the
   stat block bonus is `2 + floor((max(CR, 1) - 1) / 4)`, so CR 0 and every fractional CR give +2.
@@ -391,7 +393,7 @@ system, carry `identity.name` as their Name leaf, and use the same static Sectio
   Exhaustion penalty never enters the displayed `toHit`.
 - **Inventory (character Records)** — `inventory.items` (capacity 100) with `name`, `quantity`
   (default 1), `weight`, the numeric 0/1 `attuned` flag and `notes`, plus the derived Record
-  `totalWeight` = quantity × weight. `inventory.totalWeight` sums those Record values and
+  `lineWeight` = quantity × weight. `inventory.totalWeight` sums those Record values and
   `inventory.attuned` counts the non-zero `attuned` flags; an empty list gives 0, a quantity of 0
   adds nothing, and attunement is shown, never blocked. Coins stay static leaves outside the list,
   so they never enter the total.
@@ -401,7 +403,9 @@ system, carry `identity.name` as their Name leaf, and use the same static Sectio
   cantrip), the numeric 0/1 `prepared`, `concentration` and `ritual` flags, and `notes`.
 - **Resources (character Records)** — `resources.list` (capacity 20) with `name`, `max`, `used` and
   the exclusive `resourceRecharge` group `rechargeShort`, `rechargeLong` and `rechargeNone` (the
-  default), so a Reset action can filter the Records of one recharge kind.
+  default). The rests zero `used` by recharge kind: the long rest sets it to
+  `record_used * record_rechargeNone` and the short rest to
+  `record_used * (1 - record_rechargeShort)`.
 - **Rests (character)** — two Reset actions. `long_rest` sets `combat.hp.current` to
   `combat.hp.max`, zeroes `spent` in `hitDice.primary` and each `hitDice.d6|d8|d10|d12` pool, in
   every `spellcasting.slot1..slot9` and in `spellcasting.pact.used`, zeroes both
@@ -443,11 +447,12 @@ Row are marked as non-d20 tests. Both Templates use only SRD terms in labels, ke
 - **Initiative and speed (stat block)** — `initiative.modifier` is entered and the derived
   `initiative.score` = 10 + modifier is never imported; its Roll is
   `1d20 + initiative.modifier + exhaustion.penalty`. `speed.walk|fly|swim|climb|burrow` are
-  entered as printed (walk defaults to 30) and each derived `<speed>Total` = entered − 5 ×
-  `exhaustion.level`, with no floor and no Strength-requirement penalty.
+  entered as printed (walk defaults to 30) and each derived `<speed>Total` is
+  `entered > 0 ? entered − 5 × exhaustion.level : 0`, so a printed speed has no floor while an
+  unprinted 0 stays 0; the Strength-requirement penalty is character only.
 - **Records (stat block)** — `traits`, `bonusActions`, `reactions` and `legendaryActions` are
   name-and-text Record lists. `actions` holds a name, an `actionAbility` exclusive group of
-  numeric 0/1 flags (one per ability), the `proficient` flag, `misc`, a derived
+  numeric choices (one per ability), the `proficient` flag, `misc`, a derived
   `toHit` = ability modifier + PB if proficient + misc, damage and notes; its Records roll
   `1d20 + @.toHit + exhaustion.penalty` as a d20 test. `resources` holds a name, `max`, `used`,
   the derived `remaining` = max − used and a recharge text, so Legendary Resistance, X/Day and
@@ -1179,6 +1184,9 @@ Web:
   the client.
 - The relative epsilon and `float64` formulas make the engine unsuitable for exact currency or
   experience arithmetic; values above 2^53 lose precision.
+- The ranges on 5E entries — `status.deathSaves.successes|failures` 0..3, a skill `rank` 0..2,
+  `exhaustion.level` 0..6 and `identity.level` 1..20 — are generation metadata only and are not
+  enforced on PATCH: an entered value outside its range is stored as entered.
 - A layout is seeded at open, so a template refresh that changes Sections within the same session
   does not reseed it. Row order inside a Section is template-defined; only pins lift a Row, and
   there is no pin cap.
