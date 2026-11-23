@@ -14,7 +14,12 @@ import (
 
 var formulaIdentRe = regexp.MustCompile(`[A-Za-z_][A-Za-z0-9_]*`)
 
-var engineFunctions = map[string]bool{"floor": true, "max": true}
+var engineFunctions = map[string]bool{
+	"floor":  true,
+	"max":    true,
+	"min":    true,
+	"lookup": true,
+}
 
 func groupKeys(group FieldGroup) []string {
 	keys := make([]string, 0, len(group))

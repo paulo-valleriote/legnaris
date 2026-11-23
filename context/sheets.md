@@ -146,6 +146,19 @@ never marks values as unsaved and `Ctrl+S` saves nothing.
 
 - **Ad slot on the catalog.** The catalog (`catalog_screen.tsx`, the sheet list) ends with an `AdSlot` (`catalog` surface) shown only to Free accounts; the sheet screen, dice and Arrange mode never show ads (see web-client Ads).
 
+### Formula functions
+
+The engine exposes `floor(v)`, `max(a, b)`, `min(a, b)` and
+`lookup(x, k1, v1, k2, v2, ...)` to template formulas. Every argument is coerced to `float64`, so
+int and float literals and field values mix freely and every result is a float; a non-numeric
+argument is a typed engine error. `min` and `max` take exactly two arguments. `lookup` takes an
+input plus at least one key/value pair, requires strictly ascending keys, and returns the value of
+the greatest key less than or equal to `x`; below the first key it returns the first value and
+above the last the last value, so a half-typed input never breaks a save. Wrong arity
+(`ErrInvalidLookupArity`), unordered or duplicate keys (`ErrInvalidLookupKeyOrder`) and
+non-numeric arguments (`ErrInvalidFloat`) are typed engine errors; the engine never imports
+`apperr`, and the service translates failures at the boundary. `fantasy_v1` uses only `floor`.
+
 ### Template DTO
 
 `GET /templates` returns an array and `GET /templates/:id` one object; both require an
@@ -600,7 +613,7 @@ Backend:
 - `backend/internal/sheet/repository.go` — reads, CAS PATCH, layout write and plan counters;
   `duplicate.go`, `limits.go`, `migrate.go`, `dto.go`, `events.go` — duplicate rules, limits,
   migration, DTO and events.
-- `backend/internal/engine/engine.go` — expr-lang wrapper and `floor`/`max`;
+- `backend/internal/engine/engine.go` — expr-lang wrapper and `floor`/`max`/`min`/`lookup`;
   `backend/internal/app/template.go`, `sheet.go`, `router.go`, `errors.go` — routes, decoding
   and boundary translation.
 - `backend/internal/dice` — Dice grammar used by defaults and choices; see [dice](dice.md).
@@ -656,8 +669,8 @@ Web:
 
 ## Tools & dependencies
 
-- **expr-lang/expr** evaluates formulas; the engine exposes `floor` and `max` and coerces numeric
-  types. Formulas compile once per template at boot.
+- **expr-lang/expr** evaluates formulas; the engine exposes `floor`, `max`, `min` and `lookup` and
+  coerces numeric types. Formulas compile once per template at boot.
 - **MongoDB** stores `sheets` and the `sheet_counts` plan counters; a conditional
   `FindOneAndUpdate` is the only concurrency control for values.
 - **React, TanStack Query and React Router** drive the catalog and sheet screens; query keys are
