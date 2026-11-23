@@ -410,9 +410,16 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   semibold and a hairline. Rows are never cards: they are hairline-divided lines inside it.
   In the play view the title row is a disclosure control that folds the Section's Rows away (see
   "Sheet navigation"); in Arrange mode it is plain text beside the handle.
-- **Row.** Every Row (lone field, exclusive group, table row) is one full-width line of at least
-  `--lg-size-control`, label left and control right on the shared 2:3 split. A table row stacks
+- **Row.** Every Row (lone field, exclusive group, table row, Record) is one full-width line of at
+  least `--lg-size-control`, label left and control right on the shared 2:3 split. A table row stacks
   its label above its cells in a narrow container.
+- **Record rows.** A Record of a list is its own Row drawn as one line of the list's table: its
+  position label and per-Record actions lead, then the shape's columns as cells with the same
+  raised editable controls and recessed derived readouts. One header naming the columns opens each
+  run of Records; on a narrow container the cells stack, each above its own small column name, so
+  the page never scrolls horizontally. Add is a ghost button under the list (disabled with its
+  reason at capacity); Move up, Move down and Remove are icon buttons on a full
+  `--lg-size-control` target.
 - **Editable versus derived.** An editable field is a raised, bordered control
   (`--lg-color-raised`, `--lg-color-border-strong`). A derived field is a recessed readout on
   `--lg-color-bg` with no border, its value in `--lg-color-text` and bold, so it reads as a result
@@ -550,7 +557,8 @@ controls: a handle on each Section and a star on each Row.
 - **Section handle.** A grip glyph in `--lg-color-text-muted` on a `--lg-size-control` target
   (`--lg-color-text` and `--lg-color-surface-hover` on hover, the shared focus ring on focus), with
   `touch-action: none` so a touch drag does not scroll. It is the only way to reorder Sections;
-  Rows are never reordered and there are no Move up / Move down buttons.
+  Rows are never reordered and there are no Move up / Move down buttons for them; a Record's own
+  list order is a value edited by its form controls, never by the Layout.
 - **Pin star.** An icon button on the same `--lg-size-control` target, drawn as an inline SVG on
   `currentColor`: an outline star in `--lg-color-text-muted` when the Row is not pinned, a filled
   star in `--lg-color-accent` when it is (the state is carried by shape as well as colour). It is a

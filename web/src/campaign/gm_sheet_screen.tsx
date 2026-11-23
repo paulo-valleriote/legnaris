@@ -9,6 +9,7 @@ import { valueAtPath } from '../api/models/sheet';
 import type { Sheet } from '../api/models/sheet';
 import { useApiClient } from '../app/providers';
 import { templateDetailKey } from '../catalog/queries';
+import { ReadOnlyRecordTable } from '../engine/record_table';
 import { message, messageWith } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { PageHeader } from '../ui/page_header';
@@ -79,6 +80,12 @@ function FieldRows({
     }
     if (node.kind === 'list') {
       flushLeaves();
+      blocks.push(
+        <div className="lg-campaign__group" key={path}>
+          <h3 className="lg-campaign__subheading">{node.list.label || key}</h3>
+          <ReadOnlyRecordTable listPath={path} list={node.list} data={data} />
+        </div>,
+      );
       continue;
     }
     leaves.push(

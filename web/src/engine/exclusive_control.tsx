@@ -16,6 +16,7 @@ export interface SheetExclusiveControlProps {
   readonly group: SheetExclusiveGroup;
   readonly selectedPath?: string;
   readonly mark?: SheetMark;
+  readonly controlId?: string;
   readonly onSelect?: (signal: string) => void;
 }
 
@@ -23,6 +24,7 @@ export function SheetExclusiveControl({
   group,
   selectedPath,
   mark,
+  controlId,
   onSelect,
 }: SheetExclusiveControlProps) {
   const label = groupDisplayName(group.id);
@@ -33,11 +35,12 @@ export function SheetExclusiveControl({
       : undefined;
   const showsHint = active === undefined && !allowsNone;
   const value = active ?? (allowsNone ? EXCLUSIVE_NONE_VALUE : '');
+  const id = controlId ?? `lg-exclusive-${label}`;
 
   return (
-    <label htmlFor={`lg-exclusive-${label}`} className="lg-field__label-wrapper">
+    <label htmlFor={id} className="lg-field__label-wrapper">
       <select
-        id={`lg-exclusive-${label}`}
+        id={id}
         className={`lg-field${mark !== undefined ? ` ${FIELD_MARKED_CLASS}` : ''}`}
         aria-label={label}
         value={value}

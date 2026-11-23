@@ -423,6 +423,32 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 | `SHEET_KIND_MISMATCH` | 422 | duplicate of a character sheet |
 | `RATE_LIMITED` | 429 | shared per-user budget (`USER_RATE_LIMIT_*`, 80 per minute) |
 
+### Record lists in the Edit form
+
+A Template list draws in the generic Edit form as one table inside its Section: a header naming the
+columns, then one Row per Record keyed `<list>.<id>`, ordered by the stored `position` and then the
+id. The columns are the list's declared `columns` first and any remaining shape Field after them;
+an exclusive group collapses into one choice cell, a `flag` leaf draws the toggle, and a derived
+shape Field draws the read-only readout. Cells edit `<list>.<id>.<field>` through the usual draft,
+Preview and Save cycle. A Record keeps its Row key, so it is pinned, revealed and rolled like any
+other Row; the list's `dice`/`not_d20` declaration gives every Record its Row default and d20-test
+marking.
+
+Add appends a Record: the client makes the id (`r` plus 32 lowercase hex characters), seeds every
+editable shape Field and writes the next `position`, all inside the pending delta. The button is
+disabled with the reason `At capacity (N of M).` once the list is full. Remove writes `null` at
+`<list>.<id>`; Move up and Move down rewrite the positions of the two Records. All three are real
+buttons reachable from the keyboard. Focus lands on the new Record's first cell after Add, on the
+next (or previous) Record's first cell after Remove, and on the moved Row's action after a move; one
+polite live region announces the add, the removal and the new position. The edit store owns these
+operations (`addRecord`, `removeRecord`, `moveRecord`), and its draft filter accepts Record Field,
+`position` and removal paths, so a restored draft keeps added Records, a Discard restores removed
+ones and drops added ones, and a 409 keeps the whole pending list.
+
+Without the record seam the same table is drawn with no Add, Move or Remove control. The Campaign GM
+sheet draws the same columns through `ReadOnlyRecordTable` as plain values with no input or action,
+and the generation review reuses the data-mode form.
+
 ### Play and Edit presentation
 
 A sheet whose template id has a preset opens in **Play**; every other template opens in **Edit**,
@@ -794,15 +820,15 @@ Web:
   first and shows a single kind without a choice, with the limit, Generate link and submit
   following the selected kind; on Free the dialog's `Generate with AI` entry carries a Pro
   badge and opens the upgrade dialog (see [web-client](web-client.md)).
-- `web/src/engine/field_grouping.ts` — schema → Sections and Rows, static row keys;
-  `row_identity.ts` — list discovery, Record Row keys, shape Fields and Section membership;
-  `layout.ts`, `arrange_ops.ts` — arrangement resolution, view and staging; a flagged leaf is a
-  toggle, never a number Row.
+- `web/src/engine/field_grouping.ts` — schema → Sections and Rows (static Rows and one `record`
+  Row per Record), the list column model and static row keys; `row_identity.ts` — list discovery,
+  Record Row keys and order, shape Fields and Section membership; `layout.ts`, `arrange_ops.ts` —
+  arrangement resolution, view and staging; a flagged leaf is a toggle, never a number Row.
 - `web/src/engine/sheet_form.tsx`, `field_control.tsx`, `exclusive_control.tsx`,
   `sheet_defaults.ts`, `sheet_mark.ts`, `dependents.ts` — stateless rendering core, seed/merge
-  and marks.
+  and marks; `record_table.tsx` — the read-only Record table of the Campaign GM sheet.
 - `web/src/sheet/sheet_open.ts` — open situation; `sheet_edit.ts` — edit store, delta, marks,
-  throttle and restore; `save_retry.ts` — 409 retry.
+  Record add/remove/move, throttle and restore; `save_retry.ts` — 409 retry.
 - `web/src/sheet/sheet_screen.tsx` — mounted screen, the Edit-only footer, the Play discard
   shortcut and the guards; `layout_store.ts` — committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
