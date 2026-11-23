@@ -7,7 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
-var ErrInvalidID = errors.New("not a canonical UUID v7")
+var (
+	ErrInvalidID        = errors.New("not a canonical UUID v7")
+	ErrInvalidRequestID = errors.New("not a canonical UUID")
+)
 
 func New() (string, error) {
 	id, err := uuid.NewV7()
@@ -26,6 +29,19 @@ func Validate(id string) error {
 		return fmt.Errorf("%w: version %d variant %d", ErrInvalidID, u.Version(), u.Variant())
 	case id != u.String():
 		return fmt.Errorf("%w: %q is not the canonical form", ErrInvalidID, id)
+	}
+	return nil
+}
+
+func ValidateRequestID(id string) error {
+	u, err := uuid.Parse(id)
+	switch {
+	case err != nil:
+		return fmt.Errorf("%w: %w", ErrInvalidRequestID, err)
+	case u.Variant() != uuid.RFC4122:
+		return fmt.Errorf("%w: variant %d", ErrInvalidRequestID, u.Variant())
+	case id != u.String():
+		return fmt.Errorf("%w: %q is not the canonical form", ErrInvalidRequestID, id)
 	}
 	return nil
 }

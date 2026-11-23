@@ -720,6 +720,65 @@ func (_c *MockService_PreviewTemplate_Call) RunAndReturn(run func(context.Contex
 	return _c
 }
 
+// Reset provides a mock function with given fields: ctx, cmd
+func (_m *MockService) Reset(ctx context.Context, cmd sheet.ResetActionCommand) (map[string]any, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Reset")
+	}
+
+	var r0 map[string]any
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, sheet.ResetActionCommand) (map[string]any, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, sheet.ResetActionCommand) map[string]any); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]any)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, sheet.ResetActionCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_Reset_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Reset'
+type MockService_Reset_Call struct {
+	*mock.Call
+}
+
+// Reset is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd sheet.ResetActionCommand
+func (_e *MockService_Expecter) Reset(ctx interface{}, cmd interface{}) *MockService_Reset_Call {
+	return &MockService_Reset_Call{Call: _e.mock.On("Reset", ctx, cmd)}
+}
+
+func (_c *MockService_Reset_Call) Run(run func(ctx context.Context, cmd sheet.ResetActionCommand)) *MockService_Reset_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(sheet.ResetActionCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_Reset_Call) Return(_a0 map[string]any, _a1 error) *MockService_Reset_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_Reset_Call) RunAndReturn(run func(context.Context, sheet.ResetActionCommand) (map[string]any, error)) *MockService_Reset_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // SetLayout provides a mock function with given fields: ctx, cmd
 func (_m *MockService) SetLayout(ctx context.Context, cmd sheet.SetLayoutCommand) (*sheet.Layout, error) {
 	ret := _m.Called(ctx, cmd)

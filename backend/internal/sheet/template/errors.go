@@ -160,6 +160,23 @@ func (e *InvalidAggregateError) Error() string {
 	return fmt.Sprintf("invalid aggregate '%s': %s", e.Path, e.Reason)
 }
 
+type InvalidResetActionError struct {
+	Action string
+	Reason string
+}
+
+func (e *InvalidResetActionError) Error() string {
+	return fmt.Sprintf("invalid reset action '%s': %s", e.Action, e.Reason)
+}
+
+type UnknownResetActionError struct {
+	ID string
+}
+
+func (e *UnknownResetActionError) Error() string {
+	return fmt.Sprintf("unknown reset action '%s'", e.ID)
+}
+
 type RecordIDError struct {
 	ID string
 }
@@ -281,6 +298,14 @@ func ErrInvalidAggregate(path, reason string) error {
 
 func ErrUnknownRecordField(listPath, field string) error {
 	return &UnknownRecordFieldError{ListPath: listPath, Field: field}
+}
+
+func ErrInvalidResetAction(action, reason string) error {
+	return &InvalidResetActionError{Action: action, Reason: reason}
+}
+
+func ErrUnknownResetAction(id string) error {
+	return &UnknownResetActionError{ID: id}
 }
 
 func ErrInvalidRecordValue(path, reason string) error {

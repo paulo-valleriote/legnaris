@@ -17,6 +17,19 @@ type TemplateDTO struct {
 	Default      bool             `json:"default"`
 	SectionOrder []string         `json:"-"`
 	Dice         *DiceDTO         `json:"dice,omitempty"`
+	Actions      []ResetActionDTO `json:"actions,omitempty"`
+}
+
+type ResetActionDTO struct {
+	ID          string               `json:"id"`
+	Label       string               `json:"label"`
+	Assignments []ResetAssignmentDTO `json:"assignments"`
+}
+
+type ResetAssignmentDTO struct {
+	Target     string `json:"target"`
+	Expression string `json:"expression"`
+	Filter     string `json:"filter,omitempty"`
 }
 
 type DiceDTO struct {
@@ -122,7 +135,23 @@ func (t Template) ToDTO() TemplateDTO {
 		Fields:       t.Fields.toDTO(),
 		Default:      t.Default,
 		SectionOrder: slices.Clone(t.SectionOrder),
+		Actions:      resetActionsToDTO(t.Actions),
 	}
+}
+
+func resetActionsToDTO(actions []ResetAction) []ResetActionDTO {
+	if len(actions) == 0 {
+		return nil
+	}
+	dtos := make([]ResetActionDTO, len(actions))
+	for i, action := range actions {
+		assignments := make([]ResetAssignmentDTO, len(action.Assignments))
+		for j, assignment := range action.Assignments {
+			assignments[j] = ResetAssignmentDTO(assignment)
+		}
+		dtos[i] = ResetActionDTO{ID: action.ID, Label: action.Label, Assignments: assignments}
+	}
+	return dtos
 }
 
 func diceToDTO(t Template) *DiceDTO {
@@ -155,12 +184,21 @@ func (d TemplateDTO) MarshalJSON() ([]byte, error) {
 		Fields  json.RawMessage  `json:"fields"`
 		Default bool             `json:"default"`
 		Dice    *DiceDTO         `json:"dice,omitempty"`
+		Actions []ResetActionDTO `json:"actions,omitempty"`
 	}
 	fields, err := marshalFieldGroup(d.Fields, d.SectionOrder)
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(payload{ID: d.ID, Name: d.Name, Kinds: d.Kinds, Fields: fields, Default: d.Default, Dice: d.Dice})
+	return json.Marshal(payload{
+		ID:      d.ID,
+		Name:    d.Name,
+		Kinds:   d.Kinds,
+		Fields:  fields,
+		Default: d.Default,
+		Dice:    d.Dice,
+		Actions: d.Actions,
+	})
 }
 
 func marshalFieldGroup(group FieldGroupDTO, order []string) (json.RawMessage, error) {
