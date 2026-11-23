@@ -910,13 +910,13 @@ func TestService_PreviewTemplate(t *testing.T) {
 	require.NoError(t, err)
 
 	dagCache := sheettest.DAGMap{"test": dag}
-	tmpl := &template.Template{ID: "test", Name: "Test Template", Fields: fields, Kinds: []plan.SheetKind{plan.KindCharacter}}
+	tmpl := &template.Template{ID: "test", Name: "Test Template", State: template.StateActive, Fields: fields, Kinds: []plan.SheetKind{plan.KindCharacter}}
 	ctx := context.Background()
 
 	t.Run("Happy path: valid delta returns the cascade over the seeded fields", func(t *testing.T) {
 		mockTemplateSvc := templatemocks.NewMockService(t)
 		mockTemplateSvc.EXPECT().
-			FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: "test"}).
+			FetchCatalogTemplate(ctx, &template.FetchTemplateByIDCommand{ID: "test"}).
 			Return(tmpl, nil).
 			Once()
 		mockRepo := mocks.NewMockRepository(t)
@@ -940,9 +940,13 @@ func TestService_PreviewTemplate(t *testing.T) {
 	t.Run("Happy path: the seed equals the data Create builds for the template", func(t *testing.T) {
 		mockTemplateSvc := templatemocks.NewMockService(t)
 		mockTemplateSvc.EXPECT().
+			FetchCatalogTemplate(ctx, &template.FetchTemplateByIDCommand{ID: "test"}).
+			Return(tmpl, nil).
+			Once()
+		mockTemplateSvc.EXPECT().
 			FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: "test"}).
 			Return(tmpl, nil).
-			Twice()
+			Once()
 
 		var createdData map[string]any
 		mockRepo := mocks.NewMockRepository(t)
@@ -1018,7 +1022,7 @@ func TestService_PreviewTemplate(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				mockTemplateSvc := templatemocks.NewMockService(t)
 				mockTemplateSvc.EXPECT().
-					FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: tc.id}).
+					FetchCatalogTemplate(ctx, &template.FetchTemplateByIDCommand{ID: tc.id}).
 					Return(nil, tc.fetchErr).
 					Once()
 				mockRepo := mocks.NewMockRepository(t)
@@ -1067,7 +1071,7 @@ func TestService_PreviewTemplate(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				mockTemplateSvc := templatemocks.NewMockService(t)
 				mockTemplateSvc.EXPECT().
-					FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: "test"}).
+					FetchCatalogTemplate(ctx, &template.FetchTemplateByIDCommand{ID: "test"}).
 					Return(tmpl, nil).
 					Once()
 				mockRepo := mocks.NewMockRepository(t)
@@ -1127,6 +1131,7 @@ func TestService_Create(t *testing.T) {
 	tmpl := &template.Template{
 		ID:    "test",
 		Name:  "Test Template",
+		State: template.StateActive,
 		Kinds: []plan.SheetKind{plan.KindCharacter},
 		Fields: template.FieldGroup{
 			"stats": {Children: template.FieldGroup{
@@ -1217,7 +1222,7 @@ func TestService_Create_SeedsTypedValues(t *testing.T) {
 	dag, err := template.BuildDAG("test", fields, formulaEngine)
 	require.NoError(t, err)
 
-	tmpl := &template.Template{ID: "test", Name: "Test Template", Fields: fields, Kinds: []plan.SheetKind{plan.KindCharacter}}
+	tmpl := &template.Template{ID: "test", Name: "Test Template", State: template.StateActive, Fields: fields, Kinds: []plan.SheetKind{plan.KindCharacter}}
 
 	mockTemplateSvc := templatemocks.NewMockService(t)
 	mockTemplateSvc.EXPECT().

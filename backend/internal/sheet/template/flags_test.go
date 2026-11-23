@@ -15,7 +15,7 @@ func flagLeaf(schema FieldSchema) FieldNode {
 }
 
 func flagTemplate(group FieldGroup) Template {
-	return Template{ID: "flag_test", Fields: group}
+	return Template{ID: "flag_test", State: StateActive, Fields: group}
 }
 
 func TestValidateFlags(t *testing.T) {

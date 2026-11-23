@@ -37,6 +37,7 @@ func (n *FieldNode) IsList() bool {
 type Template struct {
 	ID             string            `bson:"_id,omitempty"`
 	Name           string            `bson:"name"`
+	State          State             `bson:"state"`
 	Fields         FieldGroup        `bson:"fields"`
 	Default        bool              `bson:"default"`
 	SectionOrder   []string          `bson:"section_order,omitempty"`

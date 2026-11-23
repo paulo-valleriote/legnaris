@@ -35,6 +35,9 @@ func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind 
 	if err != nil {
 		return creationBase{}, translateTemplateErr(err)
 	}
+	if !tmpl.Creatable(s.draftsAllowed) {
+		return creationBase{}, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateStateRefused, nil)
+	}
 	if !tmpl.AcceptsKind(kind) {
 		return creationBase{}, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateKindRefused, nil)
 	}

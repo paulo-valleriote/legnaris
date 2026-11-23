@@ -116,7 +116,7 @@ func TestErrorMapping_UnknownTemplateReturns404(t *testing.T) {
 	h, mockTemplateSvc := newSheetErrorRouter(t, mockRepo, newErrorTestDAG(t))
 	mockTemplateSvc.EXPECT().
 		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown_template"}).
-		Return(&template.Template{ID: "unknown_template", Name: "Unknown", Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).
+		Return(&template.Template{ID: "unknown_template", Name: "Unknown", State: template.StateActive, Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).
 		Once()
 
 	rec := doRequest(t, h, http.MethodPost, "/sheets", `{"template_id":"unknown_template","kind":"character","sheet_name":"x"}`)
@@ -131,7 +131,7 @@ func TestErrorMapping_UnknownTemplateReturns404(t *testing.T) {
 func TestErrorMapping_UnknownTemplateFetchReturns404(t *testing.T) {
 	mockTemplateSvc := templatemocks.NewMockService(t)
 	mockTemplateSvc.EXPECT().
-		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown_template"}).
+		FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown_template"}).
 		Return(nil, template.ErrTemplateNotFound).
 		Once()
 
@@ -533,7 +533,7 @@ func newTemplatePreviewDAG(t *testing.T) (sheettest.DAGMap, *template.Template) 
 
 	dag, err := template.BuildDAG("test", fields, engine.NewFormulaEngine())
 	require.NoError(t, err)
-	return sheettest.DAGMap{"test": dag}, &template.Template{ID: "test", Name: "Test Template", Fields: fields}
+	return sheettest.DAGMap{"test": dag}, &template.Template{ID: "test", Name: "Test Template", State: template.StateActive, Fields: fields}
 }
 
 func newTemplatePreviewRouter(t *testing.T, mockRepo *mocks.MockRepository, dagCache sheettest.DAGMap) (http.Handler, *templatemocks.MockService) {
@@ -556,7 +556,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 		mockTemplateSvc.EXPECT().
-			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
+			FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
 			Return(tmpl, nil).
 			Once()
 
@@ -578,7 +578,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 		mockTemplateSvc.EXPECT().
-			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
+			FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
 			Return(tmpl, nil).
 			Once()
 
@@ -597,7 +597,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 		mockTemplateSvc.EXPECT().
-			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "Fantasy-V1"}).
+			FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "Fantasy-V1"}).
 			Return(nil, template.ErrTemplateIDInvalid).
 			Once()
 
@@ -615,7 +615,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 		mockTemplateSvc.EXPECT().
-			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: ""}).
+			FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: ""}).
 			Return(nil, template.ErrTemplateIDNotProvided).
 			Once()
 
@@ -633,7 +633,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 		h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 		mockTemplateSvc.EXPECT().
-			FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown"}).
+			FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "unknown"}).
 			Return(nil, apperr.NewError(apperr.CodeNotFound, "template not found", nil)).
 			Once()
 
@@ -683,7 +683,7 @@ func TestErrorMapping_PreviewTemplate(t *testing.T) {
 
 				h, mockTemplateSvc := newTemplatePreviewRouter(t, mockRepo, dagCache)
 				mockTemplateSvc.EXPECT().
-					FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
+					FetchCatalogTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "test"}).
 					Return(tmpl, nil).
 					Once()
 

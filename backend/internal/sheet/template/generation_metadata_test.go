@@ -23,7 +23,7 @@ func genLeaf(schema FieldSchema) FieldNode {
 }
 
 func genTemplate(group FieldGroup) Template {
-	return Template{ID: "gen_test", Fields: group}
+	return Template{ID: "gen_test", State: StateActive, Fields: group}
 }
 
 func TestValidateGenerationMetadata(t *testing.T) {
