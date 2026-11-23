@@ -1,8 +1,32 @@
 import type { CreateCampaignInput, MemberAction } from '../api/client';
-import type { Campaign, CampaignMember } from '../api/models/campaign';
+import type { Campaign, CampaignMember, CampaignRole } from '../api/models/campaign';
+import type { SheetKind } from '../api/models/plan';
 import type { TemplateSummary } from '../api/models/template';
 
 export const GM_POLL_INTERVAL_MS = 60_000;
+
+export const PLAYER_SHEET_KINDS = ['character'] as const satisfies readonly SheetKind[];
+
+export const GM_SHEET_KINDS = ['npc', 'enemy'] as const satisfies readonly SheetKind[];
+
+export function creatableKinds(role: CampaignRole): readonly SheetKind[] {
+  return role === 'gm' ? GM_SHEET_KINDS : PLAYER_SHEET_KINDS;
+}
+
+export function allowedKindsFor(
+  kinds: readonly SheetKind[],
+  role: CampaignRole,
+): readonly SheetKind[] {
+  const allowed = creatableKinds(role);
+  return kinds.filter((kind) => allowed.includes(kind));
+}
+
+export function hasLinkedCharacter(
+  sheets: readonly { readonly campaignId?: string }[],
+  campaignId: string,
+): boolean {
+  return sheets.some((sheet) => sheet.campaignId === campaignId);
+}
 
 export type CampaignScopeOption =
   | { readonly key: string; readonly label: string; readonly gameSystemId: string }

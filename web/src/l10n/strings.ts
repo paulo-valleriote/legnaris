@@ -698,6 +698,17 @@ export const messages = {
   'campaign.you': 'you',
   'campaign.noEligibleSheets':
     'You have no free character sheet of this campaign’s template. Create one, or unlink it from its other campaign.',
+  'campaign.createCharacterHeading': 'Start a new character',
+  'campaign.createNpcHeading': 'Start a new NPC or enemy',
+  'campaign.newCharacter': 'New character sheet',
+  'campaign.newNpc': 'New NPC/enemy',
+  'campaign.newCharacterFor': 'New character for {name}',
+  'campaign.newNpcFor': 'New NPC/enemy for {name}',
+  'campaign.createReplaceWarning':
+    'You already have a character linked to this campaign. Creating and linking another one replaces it.',
+  'campaign.createLinking': 'Linking the sheet to this campaign',
+  'campaign.createLinkFailed': 'The sheet was created but could not be linked to this campaign.',
+  'campaign.createLinkRetry': 'Retry link',
   'invite.heading': 'Invite players',
   'invite.codeLabel': 'Invite code',
   'invite.linkLabel': 'Share link',
