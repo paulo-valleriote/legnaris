@@ -123,6 +123,22 @@ func preferDefaultFixtureTemplate() *template.Template {
 	}
 }
 
+func listedFixtureTemplate() *template.Template {
+	tmpl := fixtureTemplate()
+	tmpl.Fields["inventory"] = template.FieldNode{Children: template.FieldGroup{
+		"items": {List: &template.ListSchema{
+			Label:    "Items",
+			Capacity: 2,
+			Shape: template.FieldGroup{
+				"name": {Schema: &template.FieldSchema{
+					Type: "text", Label: "Name", IsEditable: true,
+				}},
+			},
+		}},
+	}}
+	return tmpl
+}
+
 func brokenFormulaFixtureTemplate() *template.Template {
 	return &template.Template{
 		ID:   fixtureID,

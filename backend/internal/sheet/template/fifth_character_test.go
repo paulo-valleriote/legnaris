@@ -16,6 +16,8 @@ func TestFifthCharacter_Structure(t *testing.T) {
 		want := []string{
 			fifthIdentitySection, fifthAbilitiesSection, fifthSavesSection,
 			fifthSkillsSection, fifthExhaustionSection, fifthPassiveSection, fifthArmorSection,
+			fifthAttacksSection, fifthInventorySection, fifthFeaturesSection,
+			fifthSpellsSection, fifthResourcesSection,
 		}
 		assert.Equal(t, want, tmpl.SectionOrder)
 		assert.ElementsMatch(t, groupKeys(tmpl.Fields), tmpl.SectionOrder)

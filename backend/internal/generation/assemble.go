@@ -16,9 +16,9 @@ func Assemble(tmpl *template.Template, dag *template.DAG, kind plan.SheetKind, v
 	if tmpl == nil || dag == nil {
 		return nil, ErrNoTemplate
 	}
-	seeded := seedNested(tmpl.Fields)
+	seeded := seedNested(tmpl.Fields, true)
 
-	flatSeed, err := maputils.FlattenPathKeys(seeded)
+	flatSeed, err := maputils.FlattenPathKeys(seedNested(tmpl.Fields, false))
 	if err != nil {
 		return nil, assembleFailure("flatten seed", err)
 	}
@@ -92,14 +92,19 @@ func filterGenerated(group template.FieldGroup, kind plan.SheetKind, values map[
 	return out
 }
 
-func seedNested(group template.FieldGroup) map[string]any {
+func seedNested(group template.FieldGroup, includeLists bool) map[string]any {
 	out := make(map[string]any, len(group))
 	for name, node := range group {
 		switch {
 		case node.IsLeaf():
 			out[name] = node.Schema.SeedValue()
 		case node.IsGroup():
-			out[name] = seedNested(node.Children)
+			nested := seedNested(node.Children, includeLists)
+			if len(nested) > 0 {
+				out[name] = nested
+			}
+		case node.IsList() && includeLists:
+			out[name] = map[string]any{}
 		}
 	}
 	return out
