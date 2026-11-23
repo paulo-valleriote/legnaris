@@ -727,7 +727,7 @@ export const messages = {
   'gm.refreshing': 'Refreshing',
   'gm.loading': 'Loading the sheet',
   'gm.emptyValue': 'No value recorded',
-  'gm.template': 'Template: {name}',
+  'gm.templatePrefix': 'Template: ',
   'ui.dismiss': 'Dismiss',
 } as const;
 

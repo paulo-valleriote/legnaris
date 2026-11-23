@@ -103,6 +103,13 @@
   text-wrap: pretty;
 }
 
+.lg-generate__template {
+  margin: 0;
+  font-size: var(--lg-type-15);
+  color: var(--lg-color-text-muted);
+  overflow-wrap: anywhere;
+}
+
 .lg-generate__note {
   margin: 0;
   font-size: var(--lg-type-13);

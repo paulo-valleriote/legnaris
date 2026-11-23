@@ -179,7 +179,7 @@ All routes are under `/campaigns` behind authentication, an active account and t
 - `web/src/campaign/campaigns_screen.tsx` — list, create dialog, owned limit and ordering (Owner, GM, Player).
 - `web/src/campaign/campaign_screen.tsx`, `campaign_view.ts`, `campaign_queries.ts` — detail, role-aware actions, character and NPC sections, polling keys.
 - `web/src/campaign/campaign_settings.tsx`, `invite_panel.tsx` — password, delete and invite rotation panels.
-- `web/src/campaign/gm_sheet_screen.tsx` — read-only GM and NPC Sheet views with the caption, the shared read-only Record table and manual refresh.
+- `web/src/campaign/gm_sheet_screen.tsx` — read-only GM and NPC Sheet views with the caption, the shared read-only Record table, manual refresh and the Template name with its notice link (`web/src/catalog/template_name.tsx`).
 - `web/src/join/join_screen.tsx`, `web/src/app/router.tsx`, `web/src/app/routes.ts` — `/join/:code` and the Campaign routes.
 - `web/src/api/client.ts`, `web/src/api/models/campaign.ts`, `web/src/api/error_mapper.ts` — request paths, payload validation and error copy.
 
