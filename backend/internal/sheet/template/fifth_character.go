@@ -43,6 +43,7 @@ var fifthCharacterTemplate = Template{
 	SectionDice:    fifthCheckDice(),
 	RowDice:        fifthCharacterRowDice(),
 	NotD20Sections: []string{fifthHitDiceSection},
+	Actions:        fifthCharacterRestActions(),
 }
 
 var fifthCharacterIdentityOrder = []string{
