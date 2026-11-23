@@ -649,7 +649,7 @@ func TestService_Create_SeedsListsEmpty(t *testing.T) {
 	tmpl := templatemocks.NewMockService(t)
 	tmpl.EXPECT().
 		FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: sheettest.ListTemplateID}).
-		Return(&template.Template{ID: sheettest.ListTemplateID, Name: "Records", Fields: sheettest.ListFields, Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).
+		Return(&template.Template{ID: sheettest.ListTemplateID, Name: "Records", State: template.StateActive, Fields: sheettest.ListFields, Kinds: []plan.SheetKind{plan.KindCharacter}}, nil).
 		Once()
 	repo.EXPECT().ReserveSlot(ctx, ownerUserID, plan.KindCharacter, mock.Anything).Return(nil).Once()
 	repo.EXPECT().
@@ -687,7 +687,12 @@ func TestService_Duplicate_DeepCopiesRecords(t *testing.T) {
 		Return(nil).
 		Once()
 
-	svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{}, limitOpts(t))
+	tmplSvc := templatemocks.NewMockService(t)
+	tmplSvc.EXPECT().
+		FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: sheettest.ListTemplateID}).
+		Return(&template.Template{ID: sheettest.ListTemplateID, State: template.StateActive}, nil).
+		Once()
+	svc := sheet.NewService(repo, tmplSvc, sheettest.DAGMap{}, testLog, events.NoOp{}, limitOpts(t))
 	copied, err := svc.Duplicate(ctx, sheet.DuplicateSheetCommand{SheetID: patchSheetID, OwnerID: ownerUserID})
 	require.NoError(t, err)
 	require.NotNil(t, created)

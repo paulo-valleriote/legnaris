@@ -23,8 +23,9 @@ var ErrActiveExists = errors.New("generation already in progress")
 var errNotAcceptable = errors.New("generation is not succeeded")
 
 type Config struct {
-	Enabled  bool
-	DailyCap int
+	Enabled        bool
+	DailyCap       int
+	DraftTemplates bool
 }
 
 type Deps struct {
@@ -298,6 +299,9 @@ func (s *Service) requireTemplate(ctx context.Context, templateID string, kind p
 			return appErr
 		}
 		return apperr.NewError(apperr.CodeInternal, MsgUnavailable, err)
+	}
+	if !tmpl.Creatable(s.cfg.DraftTemplates) {
+		return apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateState, nil)
 	}
 	if !tmpl.AcceptsKind(kind) {
 		return apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateKind, nil)

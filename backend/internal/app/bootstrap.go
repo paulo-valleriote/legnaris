@@ -164,6 +164,7 @@ func NewModules(
 	sheetService := sheet.NewService(sheetRepository, templateService, registry, log, publisher,
 		sheet.WithPlanLimits(user.NewPlanSource(userRepository), db.NewTransactor(database.Client, nil)),
 		sheet.WithLinkCleaner(campaign.NewSheetLinkCleaner(linkStore, publisher)),
+		sheet.WithDraftTemplates(template.DraftsAllowed(cfg.Variables.AppEnv)),
 	)
 	sheetController := NewSheetController(sheetService)
 
@@ -374,7 +375,8 @@ func newGenerationService(cfg env.Env, options moduleOptions, deps generation.De
 		deps.Observer = noopCapObserver{}
 	}
 	return generation.NewService(generation.Config{
-		Enabled:  cfg.Variables.GenerationEnabled,
-		DailyCap: cfg.Variables.GenerationDailyCap,
+		Enabled:        cfg.Variables.GenerationEnabled,
+		DailyCap:       cfg.Variables.GenerationDailyCap,
+		DraftTemplates: template.DraftsAllowed(cfg.Variables.AppEnv),
 	}, deps, time.Now)
 }

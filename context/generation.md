@@ -84,13 +84,22 @@ stateDiagram-v2
 
 | Endpoint | Success | Contract |
 | --- | --- | --- |
-| `POST /generations` | `202 {id}` | Body `{template_id, kind, concept}`; `kind` is `character`, `npc` or `enemy` and `concept` is 10–1000 runes after sanitizing. Gates: kill switch, shape, Template accepts the kind, paid Plan, consent, read-only Sheet limit, no open job, then one transaction for cap, quota and the `queued` insert. The publish follows the commit; a failed publish still answers 202. A Free account is refused with 403 `PLAN_UPGRADE_REQUIRED` before any reservation. |
+| `POST /generations` | `202 {id}` | Body `{template_id, kind, concept}`; `kind` is `character`, `npc` or `enemy` and `concept` is 10–1000 runes after sanitizing. Gates: kill switch, shape, Template state (a Draft only in development, a Retired Template never), Template accepts the kind, paid Plan, consent, read-only Sheet limit, no open job, then one transaction for cap, quota and the `queued` insert. The publish follows the commit; a failed publish still answers 202. A Free account is refused with 403 `PLAN_UPGRADE_REQUIRED` before any reservation. |
 | `GET /generations/{id}` | `200` | `{id, status, kind, template_id, values?, error_code?, suggested_name, created_at}`. `values` appears on `succeeded`/`accepted`, `error_code` on `failed`, and `suggested_name` is always present, `null` when absent. A missing or foreign id is 404. |
 | `POST /generations/{id}/accept` | `201 {sheet_id}`, `200` on repeat | Body `{sheet_name, values}`. Values go through the normal DAG path used by a Sheet create; derived (non-editable) leaves sent back from the preview are dropped and recalculated, while unknown keys are still refused, then the slot is reserved and the Sheet created in one transaction. A job that is not `succeeded` is 409. |
 | `PUT`/`DELETE /me/llm-consent` | `204` | `PUT {version}` records consent idempotently; another version is 400 `VALIDATION` and a Free Plan is 403 `PLAN_UPGRADE_REQUIRED`. `DELETE` clears consent, refunds open reservations and deletes the user's generation documents. |
 | `GET /me/plan` | `200` | Adds `llm_consent_required`, `llm_consent_at`, `llm_consent_version` and `active_generation_id` beside the paid daily counter. A Free account returns only `plan: "free"`: no counter and no `llm_consent_required`. `active_generation_id` lets the screen resume polling. |
 
 Create and accept share 5 requests/min per user (`GENERATION_CREATE_RATE_LIMIT_*`); reads allow 30/min (`GENERATION_READ_RATE_LIMIT_*`); refusals are 429 `RATE_LIMITED` with `Retry-After`.
+
+### Template lifecycle
+
+A Draft Template may start a generation only when `APP_ENV`, trimmed and case-insensitive, is
+`development`; an empty or any other value is 400 `INVALID_REQUEST` before consent, plan, Sheet
+room, the daily cap and the quota, so a refused request reserves nothing. A Retired Template is
+400 too. Accepting a succeeded job runs the same Sheet-create gate: a Draft job is accepted only in
+development, while a Retired job still accepts so an existing draft can become a Sheet. The state
+is not exposed to the client; see [sheets](sheets.md).
 
 ### Statuses and errors
 

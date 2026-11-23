@@ -91,6 +91,7 @@ const (
 	MsgKindInvalid         = "generation kind must be character, npc or enemy"
 	MsgConceptLength       = "concept must be between 10 and 1000 characters"
 	MsgTemplateKind        = "template does not accept this sheet kind"
+	MsgTemplateState       = "template is not available in this environment"
 	MsgIDInvalid           = "generation id must be a canonical UUID v7"
 	MsgNotFound            = "generation not found"
 	MsgNameRequired        = "sheet name is required"

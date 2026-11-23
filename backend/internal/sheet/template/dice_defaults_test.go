@@ -186,6 +186,7 @@ func TestBuildRegistry_DiceDefaults(t *testing.T) {
 	base := func(section, row map[string]string) Template {
 		return Template{
 			ID:          "dice_v1",
+			State:       StateActive,
 			Fields:      FieldGroup{"stats": {Children: FieldGroup{"strength": layoutLeaf("")}}},
 			SectionDice: section,
 			RowDice:     row,

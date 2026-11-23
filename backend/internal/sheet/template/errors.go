@@ -6,6 +6,18 @@ import (
 	"slices"
 )
 
+type InvalidTemplateStateError struct {
+	TemplateID string
+	State      State
+}
+
+func (e *InvalidTemplateStateError) Error() string {
+	if e.State == "" {
+		return fmt.Sprintf("template '%s' has no lifecycle state", e.TemplateID)
+	}
+	return fmt.Sprintf("template '%s' has unknown lifecycle state '%s'", e.TemplateID, e.State)
+}
+
 type CycleError struct {
 	Nodes []string
 }
@@ -248,6 +260,10 @@ var (
 
 func NewFormulaCompileError(formula string, nodeID string, err error) error {
 	return &FormulaCompileError{Formula: formula, NodeID: nodeID, Err: err}
+}
+
+func ErrInvalidTemplateState(id string, state State) error {
+	return &InvalidTemplateStateError{TemplateID: id, State: state}
 }
 
 func ErrCycleDetected(nodes []string) error {

@@ -30,10 +30,15 @@ type creationBase struct {
 	limit int
 }
 
-func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind plan.SheetKind, templateID string) (creationBase, error) {
+type templateGate func(tmpl *template.Template, draftsAllowed bool) bool
+
+func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind plan.SheetKind, templateID string, allowed templateGate) (creationBase, error) {
 	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: templateID})
 	if err != nil {
 		return creationBase{}, translateTemplateErr(err)
+	}
+	if !allowed(tmpl, s.draftsAllowed) {
+		return creationBase{}, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateStateRefused, nil)
 	}
 	if !tmpl.AcceptsKind(kind) {
 		return creationBase{}, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateKindRefused, nil)
@@ -82,7 +87,7 @@ func (s *ServiceImpl) CreateWithValues(ctx context.Context, cmd CreateWithValues
 		return nil, err
 	}
 
-	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID)
+	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID, (*template.Template).Available)
 	if err != nil {
 		return nil, err
 	}

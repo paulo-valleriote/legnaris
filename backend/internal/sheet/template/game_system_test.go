@@ -208,20 +208,25 @@ func TestBuildRegistry_GameSystem(t *testing.T) {
 	}{
 		{
 			name: "Happy path: a template resolves a registered game system",
-			tmpl: Template{ID: "fifth_character_v1", GameSystemID: GameSystemFifth, Fields: FieldGroup{}},
+			tmpl: Template{
+				ID:           "fifth_character_v1",
+				State:        StateActive,
+				GameSystemID: GameSystemFifth,
+				Fields:       FieldGroup{},
+			},
 		},
 		{
 			name: "Edge: a template without a game system builds",
-			tmpl: Template{ID: "fantasy_v1", Fields: FieldGroup{}},
+			tmpl: Template{ID: "fantasy_v1", State: StateActive, Fields: FieldGroup{}},
 		},
 		{
 			name:    "Error: an unknown game system id fails boot",
-			tmpl:    Template{ID: "unknown_v1", GameSystemID: "sixth", Fields: FieldGroup{}},
+			tmpl:    Template{ID: "unknown_v1", State: StateActive, GameSystemID: "sixth", Fields: FieldGroup{}},
 			wantErr: ErrGameSystemUnknown,
 		},
 		{
 			name:    "Error: a malformed game system id fails boot",
-			tmpl:    Template{ID: "malformed_v1", GameSystemID: "Fifth", Fields: FieldGroup{}},
+			tmpl:    Template{ID: "malformed_v1", State: StateActive, GameSystemID: "Fifth", Fields: FieldGroup{}},
 			wantErr: ErrGameSystemUnknown,
 		},
 	}

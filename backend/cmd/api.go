@@ -94,7 +94,7 @@ func run(ctx context.Context, log logger.StructuredLogger, cfg env.Env) error {
 
 	formulaEngine := engine.NewFormulaEngine()
 
-	registry, err := template.BuildRegistry(formulaEngine)
+	registry, err := template.BuildRegistry(formulaEngine, template.WithDraftsAllowed(template.DraftsAllowed(cfg.Variables.AppEnv)))
 	if err != nil {
 		return fmt.Errorf("build template registry: %w", err)
 	}
