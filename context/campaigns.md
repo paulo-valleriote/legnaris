@@ -115,7 +115,7 @@ stateDiagram-v2
   end note
 ```
 
-The web list at `/campaigns` orders owned Campaigns first, then GM roles, then Player roles, shows the owned count against the Plan limit, and blocks creation at the limit with a link to the Plans screen. The detail screen grants Owner and GM panels by `viewer_role` and `viewer_owner`; a Player gets the character link form, the members list, leave and the revealed NPC list. `/join/:code` submits the code from the URL, reveals a password field only after `PASSWORD_REQUIRED`, and then reports the joined Campaign. The GM Sheet and NPC screens are read-only, poll every minute and offer a manual refresh. NPC and Enemy kind labels on the detail screen use the shared `kind.npc` and `kind.enemy` copy that the sheet stat block header also uses.
+The web list at `/campaigns` orders owned Campaigns first, then GM roles, then Player roles, shows the owned count against the Plan limit, and blocks creation at the limit with a link to the Plans screen. The detail screen grants Owner and GM panels by `viewer_role` and `viewer_owner`; a Player gets the character link form, the members list, leave and the revealed NPC list. `/join/:code` submits the code from the URL, reveals a password field only after `PASSWORD_REQUIRED`, and then reports the joined Campaign. The GM Sheet and NPC screens are read-only, poll every minute and offer a manual refresh. A Record list in a GM or NPC Sheet draws as the same table the owner sees, with plain values and no Add, Move or Remove control. NPC and Enemy kind labels on the detail screen use the shared `kind.npc` and `kind.enemy` copy that the sheet stat block header also uses.
 
 ## Contracts
 
@@ -179,7 +179,7 @@ All routes are under `/campaigns` behind authentication, an active account and t
 - `web/src/campaign/campaigns_screen.tsx` — list, create dialog, owned limit and ordering (Owner, GM, Player).
 - `web/src/campaign/campaign_screen.tsx`, `campaign_view.ts`, `campaign_queries.ts` — detail, role-aware actions, character and NPC sections, polling keys.
 - `web/src/campaign/campaign_settings.tsx`, `invite_panel.tsx` — password, delete and invite rotation panels.
-- `web/src/campaign/gm_sheet_screen.tsx` — read-only GM and NPC Sheet views with the caption and manual refresh.
+- `web/src/campaign/gm_sheet_screen.tsx` — read-only GM and NPC Sheet views with the caption, the shared read-only Record table and manual refresh.
 - `web/src/join/join_screen.tsx`, `web/src/app/router.tsx`, `web/src/app/routes.ts` — `/join/:code` and the Campaign routes.
 - `web/src/api/client.ts`, `web/src/api/models/campaign.ts`, `web/src/api/error_mapper.ts` — request paths, payload validation and error copy.
 
