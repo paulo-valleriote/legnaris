@@ -10,6 +10,7 @@ import { valueAtPath } from '../api/models/sheet';
 import type { FieldNode, FieldSchema, TemplateDetail } from '../api/models/template';
 import { hasEntries, isPlainObject } from '../api/parse';
 import { buildSections } from '../engine/field_grouping';
+import { isRowKey as isTemplateRowKey } from '../engine/row_identity';
 import {
   diceSchemaFromFields,
   diceSectionRows,
@@ -288,6 +289,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     rowKeys: new Set([...sectionRows.values()].flat()),
     sectionRows,
     schema: diceSchemaFromFields(seed.template.fields),
+    isRowKey: (key) => isTemplateRowKey(seed.template.fields, key),
   };
   const seededDice = pruneStaleChoices(seed.sheet.dice ?? EMPTY_DICE, diceRules);
   const seeded = seedFromSheet(seed.template.fields, seed.sheet.data);

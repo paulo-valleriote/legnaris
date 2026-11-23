@@ -225,6 +225,8 @@ func TestListDTO_MarshalJSON(t *testing.T) {
 					Label:    "Items",
 					Columns:  []string{"name", "quantity"},
 					Capacity: 12,
+					Dice:     "1d20 + @.quantity",
+					NotD20:   true,
 					Shape: FieldGroup{
 						"name":     {Schema: &FieldSchema{Type: fieldTypeText, Label: "Name", IsEditable: true}},
 						"quantity": {Schema: &FieldSchema{Type: fieldTypeNumber, Label: "Qty", IsEditable: true}},
@@ -249,6 +251,8 @@ func TestListDTO_MarshalJSON(t *testing.T) {
 							"label": "Items",
 							"columns": ["name", "quantity"],
 							"capacity": 12,
+							"dice": "1d20 + @.quantity",
+							"not_d20": true,
 							"shape": {
 								"name": {"schema": {"type": "text", "label": "Name", "is_editable": true, "default": 0}},
 								"quantity": {"schema": {"type": "number", "label": "Qty", "is_editable": true, "default": 0}}

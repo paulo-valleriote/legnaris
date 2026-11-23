@@ -18,6 +18,7 @@ import { SheetFieldControl } from '../engine/field_control';
 import type { SheetExclusiveGroup, SheetField } from '../engine/field_grouping';
 import type { FieldNode } from '../api/models/template';
 import { buildSections, fieldDisplayName, lastSegment, rowKey } from '../engine/field_grouping';
+import { isRowKey as isTemplateRowKey } from '../engine/row_identity';
 import type { SheetMark } from '../engine/sheet_mark';
 import { markLabel, SheetForm } from '../engine/sheet_form';
 import type { RowActionsInfo } from '../engine/sheet_form';
@@ -552,10 +553,11 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       store: diceStore,
       schema: diceSchema,
       check: diceCheck,
-      defaults: templateDiceDefaults(template.dice),
+      defaults: templateDiceDefaults(template.dice, template.fields),
       rowKeys: new Set(sections.flatMap((section) => section.rows.map(rowKey))),
       sectionRows: diceSectionRowKeys,
-      notD20: templateDiceMarking(template.dice),
+      isRowKey: (key) => isTemplateRowKey(template.fields, key),
+      notD20: templateDiceMarking(template.dice, template.fields),
       savedValues: () => editStore.getState().defaults,
       draftValues: () => editStore.getPendingDelta(),
     }),
@@ -569,14 +571,19 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   const layoutStore = useMemo(
     () =>
       createLayoutStore(
-        { sheetId, sections: mainSections, layout: committedLayout },
+        {
+          sheetId,
+          sections: mainSections,
+          layout: committedLayout,
+          isRowKey: (key) => isTemplateRowKey(template.fields, key),
+        },
         {
           client,
           store: storePort,
           onCommitted: (layout) => updateSheetLayout(queryClient, sheetId, layout),
         },
       ),
-    [client, storePort, queryClient, sheetId, mainSections, committedLayout],
+    [client, storePort, queryClient, sheetId, mainSections, committedLayout, template.fields],
   );
   const layoutState = useLayoutState(layoutStore);
   const arranging = isArranging(layoutState);

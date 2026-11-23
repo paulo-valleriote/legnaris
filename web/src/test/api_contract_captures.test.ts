@@ -90,6 +90,9 @@ function findLeaf(
   if (node.kind === 'leaf') {
     return predicate(node.schema) ? node.schema : undefined;
   }
+  if (node.kind === 'list') {
+    return undefined;
+  }
 
   for (const child of Object.values(node.children)) {
     const found = findLeaf(child, predicate);
