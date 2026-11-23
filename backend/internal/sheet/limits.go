@@ -39,6 +39,10 @@ func WithLinkCleaner(cleaner LinkCleaner) ServiceOption {
 	return func(s *ServiceImpl) { s.linkCleaner = cleaner }
 }
 
+func WithDraftTemplates(allowed bool) ServiceOption {
+	return func(s *ServiceImpl) { s.draftsAllowed = allowed }
+}
+
 type LimitStatus struct {
 	Kind  plan.SheetKind
 	Used  int
@@ -55,9 +59,10 @@ type PlanUsage struct {
 }
 
 const (
-	MsgKindInvalid         = "sheet kind must be one of character, npc, enemy"
-	MsgTemplateKindRefused = "template does not accept this sheet kind"
-	MsgLimitsNotConfigured = "sheet limits are not configured"
+	MsgKindInvalid          = "sheet kind must be one of character, npc, enemy"
+	MsgTemplateKindRefused  = "template does not accept this sheet kind"
+	MsgTemplateStateRefused = "template is not available in this environment"
+	MsgLimitsNotConfigured  = "sheet limits are not configured"
 )
 
 func requireKind(raw string) (plan.SheetKind, error) {

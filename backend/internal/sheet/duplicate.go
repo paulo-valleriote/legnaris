@@ -7,6 +7,7 @@ import (
 
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet/sheeterr"
+	"legnaris/backend/internal/sheet/template"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
 	"legnaris/backend/shared/maputils"
@@ -39,6 +40,13 @@ func (s *ServiceImpl) Duplicate(ctx context.Context, cmd DuplicateSheetCommand) 
 	}
 	if stored.Kind != plan.KindNPC && stored.Kind != plan.KindEnemy {
 		return nil, apperr.NewError(apperr.CodeSheetKindMismatch, MsgDuplicateKindMismatch, nil)
+	}
+	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: stored.TemplateID})
+	if err != nil {
+		return nil, translateTemplateErr(err)
+	}
+	if !tmpl.Available(s.draftsAllowed) {
+		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateStateRefused, nil)
 	}
 	if !s.planLimitsEnabled() {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgLimitsNotConfigured, nil)

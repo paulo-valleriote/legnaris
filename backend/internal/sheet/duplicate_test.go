@@ -12,6 +12,7 @@ import (
 	"legnaris/backend/internal/sheet/mocks"
 	"legnaris/backend/internal/sheet/sheeterr"
 	"legnaris/backend/internal/sheet/sheettest"
+	"legnaris/backend/internal/sheet/template"
 	templatemocks "legnaris/backend/internal/sheet/template/mocks"
 	"legnaris/backend/shared/apperr"
 	"legnaris/backend/shared/idgen"
@@ -52,7 +53,12 @@ func duplicateSource(t *testing.T) sheet.Sheet {
 
 func newDuplicateService(t *testing.T, repo sheet.Repository, plans sheet.PlanSource, tx sheet.TransactionRunner, pub events.Publisher) sheet.Service {
 	t.Helper()
-	return sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, pub,
+	tmplSvc := templatemocks.NewMockService(t)
+	tmplSvc.EXPECT().
+		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "fantasy_v1"}).
+		Return(&template.Template{ID: "fantasy_v1", State: template.StateActive}, nil).
+		Maybe()
+	return sheet.NewService(repo, tmplSvc, sheettest.DAGMap{}, testLog, pub,
 		sheet.WithPlanLimits(plans, tx),
 	)
 }
@@ -244,9 +250,14 @@ func TestService_Duplicate_RejectsMalformedInput(t *testing.T) {
 func TestService_Duplicate_WithoutPlanLimitsRefuses(t *testing.T) {
 	repo := mocks.NewMockRepository(t)
 	repo.EXPECT().FetchByID(mock.Anything, updateSheetID).Return(&sheet.Sheet{
-		ID: updateSheetID, OwnerID: ownerUserID, Kind: plan.KindNPC,
+		ID: updateSheetID, TemplateID: "fantasy_v1", OwnerID: ownerUserID, Kind: plan.KindNPC,
 	}, nil).Once()
-	svc := sheet.NewService(repo, templatemocks.NewMockService(t), sheettest.DAGMap{}, testLog, events.NoOp{})
+	tmplSvc := templatemocks.NewMockService(t)
+	tmplSvc.EXPECT().
+		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "fantasy_v1"}).
+		Return(&template.Template{ID: "fantasy_v1", State: template.StateActive}, nil).
+		Once()
+	svc := sheet.NewService(repo, tmplSvc, sheettest.DAGMap{}, testLog, events.NoOp{})
 
 	_, err := svc.Duplicate(context.Background(), sheet.DuplicateSheetCommand{SheetID: updateSheetID, OwnerID: ownerUserID})
 	var appErr *apperr.Error

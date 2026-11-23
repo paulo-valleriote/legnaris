@@ -144,6 +144,13 @@ and `failed_total`, labelled by queue, are the operational contract.
   `main`/`run`: the API through `app.NewModules` and `app.NewRouter`, the relay
   and worker through their own dependency tables. It closes what it opened.
   There is no package-level singleton and no wiring in `init`.
+- **Environment policy enters at the composition root** — an environment value
+  that changes domain behaviour (`APP_ENV` today) is resolved in `cmd/api.go`
+  and `app.NewModules` into an explicit option passed down
+  (`template.WithDraftsAllowed`, `sheet.WithDraftTemplates`,
+  `generation.Config.DraftTemplates`). The template, sheet and generation
+  packages never read the process environment, and a missing or unknown value
+  takes the closed default.
 - **Browser boundary** — CORS uses an explicit origin allowlist with
   credentials, allows `X-CSRF-Token`, exposes `X-Request-ID` and `ETag`, and
   names every accepted method. The API and the web client are separate origins,

@@ -8,6 +8,7 @@ import (
 type Service interface {
 	List(ctx context.Context) ([]Template, error)
 	FetchTemplate(ctx context.Context, cmd *FetchTemplateByIDCommand) (*Template, error)
+	FetchCatalogTemplate(ctx context.Context, cmd *FetchTemplateByIDCommand) (*Template, error)
 }
 
 type ServiceImpl struct {
@@ -31,6 +32,21 @@ func (s *ServiceImpl) List(ctx context.Context) ([]Template, error) {
 }
 
 func (s *ServiceImpl) FetchTemplate(ctx context.Context, cmd *FetchTemplateByIDCommand) (*Template, error) {
+	return s.fetch(cmd)
+}
+
+func (s *ServiceImpl) FetchCatalogTemplate(ctx context.Context, cmd *FetchTemplateByIDCommand) (*Template, error) {
+	tmpl, err := s.fetch(cmd)
+	if err != nil {
+		return nil, err
+	}
+	if !tmpl.Available(s.registry.DraftsAllowed()) {
+		return nil, ErrTemplateNotFound
+	}
+	return tmpl, nil
+}
+
+func (s *ServiceImpl) fetch(cmd *FetchTemplateByIDCommand) (*Template, error) {
 	if cmd == nil || cmd.ID == "" {
 		return nil, ErrTemplateIDNotProvided
 	}

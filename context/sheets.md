@@ -31,13 +31,15 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   config plays through the generic Section/Row view, which also draws Record lists, Reset
   actions and Roll modes. Cost: the library must grow generically, and the bespoke `fantasy`
   preset stays a frozen exception.
-- **Planned (LGN-381): a Template lifecycle (`draft`, `active`, `retired`) over feature flags
-  or registering new Templates only at release because** the codebase has no flags and a new
-  Template must merge and be playable in local development before it is offered. A Draft
-  Template is listed and creatable only when `APP_ENV` is `development`; an empty or any
-  other value refuses it, so a process without the variable fails closed. Cost: every
-  creation path checks the state, nobody can try a Draft in production, and the release is
-  one cutover pull request (LGN-386) that also carries the landing.
+- **A Template lifecycle (`draft`, `active`, `retired`) over feature flags or registering new
+  Templates only at release because** the codebase has no flags and a new Template must merge and be
+  playable in local development before it is offered. Every Template declares its state at boot; a
+  Draft is listed, fetched and creatable only when the API's `APP_ENV` is `development` (trimmed,
+  case-insensitive), and an empty or any other value refuses it, so a process without the variable
+  fails closed. A Retired Template leaves the catalog but keeps its existing Sheets, their reads,
+  edits, rolls, layouts and duplicates working, and stays fetchable so the web can render them.
+  Cost: every creation path checks the state, nobody can try a Draft in production, and the release
+  is one cutover pull request (LGN-386) that also carries the landing.
 - **Templates as code over a `template` collection because** a template is reviewed content and
   no user-supplied game content may ship; the registry and its DAGs are built once at boot, so a
   read costs neither a query nor a compile. Cost: a template change is a deploy, an incompatible
@@ -223,6 +225,33 @@ is `{target, expression, filter?}` (see Reset actions). Sections follow the temp
 `SectionOrder` and children their declared `Order`;
 unlisted keys are alphabetical. Template IDs are slugs (`^[a-z][a-z0-9_]*$`); a malformed ID is
 400, an unknown one 404.
+
+### Template lifecycle
+
+Every Template declares `state` as `draft`, `active` or `retired`; boot rejects a missing or
+unknown value, and `fantasy_v1` is `active`. The state stays server-side: it is not in
+`TemplateDTO`, so the responses of a deployment whose only Template is active are unchanged.
+
+Drafts are visible only when `APP_ENV`, trimmed and compared case-insensitively, is `development`.
+An empty value, `production`, `staging` or anything else fails closed; the production API
+deliberately carries no `APP_ENV` (only the worker sets `production`), so a bare `go run` without
+the variable hides Drafts, while `scripts/dev.sh` exports `development`.
+
+| Path | active | draft in development | draft elsewhere | retired |
+| --- | --- | --- | --- | --- |
+| `GET /templates` | listed | listed | omitted | omitted |
+| `GET /templates/:id`, `POST /templates/:id/preview` | yes | yes | 404 | yes |
+| `POST /sheets`, `POST /generations` | yes | yes | 400 | 400 |
+| Accept a succeeded generation job | yes | yes | 400 | yes |
+| Duplicate an existing NPC or enemy | yes | yes | 400 | yes |
+| Read, edit, roll, layout or link an existing Sheet | yes | yes | yes | yes |
+
+A refused creation or generation is 400 `INVALID_REQUEST` before any plan slot, quota or daily-cap
+reservation. Duplicating a Retired Template is allowed because it follows the existing-Sheet rule.
+The Draft 404 is public only: `Registry.FetchByID` and `Registry.DAG` return every state, so an
+existing Sheet's recalculation, rolls, Dice validation, layout and Reset actions never depend on
+the environment. Campaign creation and the Retired exception inside a Campaign are not part of this
+lifecycle yet.
 
 ### Sheet DTO and endpoints
 
@@ -420,7 +449,7 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 | Code | Status | Raised when |
 | --- | --- | --- |
 | `INVALID_JSON` | 400 | malformed body, wrong value type, unknown body key |
-| `INVALID_REQUEST` | 400 | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id, malformed Record id, non-numeric Record `position`, over-capacity list, invalid Record field value, missing or malformed Reset `request_id` |
+| `INVALID_REQUEST` | 400 | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id, malformed Record id, non-numeric Record `position`, over-capacity list, invalid Record field value, missing or malformed Reset `request_id`, or a Template whose lifecycle state refuses the path |
 | `UNKNOWN_FIELD` | 400 | data key or group prefix absent from the DAG, or a Record Field absent from its shape |
 | `NOT_FOUND` | 404 | sheet or template missing, including a foreign sheet; unknown Reset action |
 | `CONFLICT` | 409 | value/Dice save lost the version race; `Retry-After: 1` |
@@ -944,3 +973,6 @@ Web:
   catalog uses `GET /sheets/owned` with an explicit kind.
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are
   read through the campaign routes and rendered read-only there; see [campaigns](campaigns.md).
+- Template state is code with no admin surface, so moving a Template between `draft`, `active` and
+  `retired` is a deploy. Campaign creation and the Retired exception inside a Campaign are not
+  implemented yet.

@@ -160,6 +160,7 @@ type ServiceImpl struct {
 	linkCleaner     LinkCleaner
 	log             logger.StructuredLogger
 	publisher       events.Publisher
+	draftsAllowed   bool
 }
 
 func NewService(repository Repository, templateService template.Service, provider DAGProvider, log logger.StructuredLogger, publisher events.Publisher, opts ...ServiceOption) Service {
@@ -189,7 +190,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 		return nil, err
 	}
 
-	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID)
+	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID, (*template.Template).Creatable)
 	if err != nil {
 		return nil, err
 	}
@@ -546,7 +547,7 @@ func (s *ServiceImpl) Preview(ctx context.Context, cmd PartialUpdateSheetCommand
 }
 
 func (s *ServiceImpl) PreviewTemplate(ctx context.Context, cmd PreviewTemplateCommand) (map[string]any, error) {
-	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: cmd.TemplateID})
+	tmpl, err := s.templateService.FetchCatalogTemplate(ctx, &template.FetchTemplateByIDCommand{ID: cmd.TemplateID})
 	if err != nil {
 		return nil, translateTemplateErr(err)
 	}

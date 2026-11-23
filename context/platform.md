@@ -92,6 +92,9 @@ flowchart LR
 
 Local development starts no Traefik, OAuth proxy or observability stack. The dev
 sender prints one-time codes, and every run starts from empty data.
+`scripts/dev.sh` exports `APP_ENV=development`, which is what makes Draft
+Templates visible and creatable there; production sets no `APP_ENV` on the API,
+so Drafts stay hidden.
 
 ## Contracts
 
@@ -150,7 +153,12 @@ sender prints one-time codes, and every run starts from empty data.
   `backend/shared/env`; keys and defaults are in `.env.example`,
   `deploy/.env.example` and the owning context files. Production receives the
   whole file as one GitHub environment secret; rotation is editing it and
-  redeploying.
+  redeploying. `APP_ENV` is the one key that changes a domain rule: the API
+  passes it as an explicit option into the Template registry and the Sheet and
+  Generation services, and only a trimmed, case-insensitive `development` lets
+  Draft Templates through. The production API sets no `APP_ENV` and therefore
+  fails closed, the worker sets `production`, and `scripts/dev.sh` exports
+  `development`; a bare `go run` hides Drafts.
 - **Home funnel metrics (LGN-346).** `POST /funnel/home` takes
   `{"event":"visit"}` or `{"event":"cta_click"}` and answers 204; it is public
   and IP rate limited through the same public limiter settings as
