@@ -16,10 +16,14 @@ const (
 	ListRecordID2 = "r0123456789abcdef0123456789abcdee"
 	ListRecordID3 = "r0123456789abcdef0123456789abcde1"
 
+	ListActionConsume = "consume"
+	ListActionRestock = "restock"
+
 	listNameField     = "name"
 	listLevelField    = "level"
 	listQuantityField = "quantity"
 	listWeightField   = "weight"
+	listActiveField   = "active"
 	listNumberType    = "number"
 )
 
@@ -107,15 +111,41 @@ func ListShape() template.FieldGroup {
 
 func ListTemplate() template.Template {
 	return template.Template{
-		ID:     ListTemplateID,
-		Name:   "Records Test",
-		Fields: ListFields,
+		ID:      ListTemplateID,
+		Name:    "Records Test",
+		Fields:  ListFields,
+		Actions: ListResetActions(),
+	}
+}
+
+func ListResetActions() []template.ResetAction {
+	return []template.ResetAction{
+		{
+			ID:    ListActionConsume,
+			Label: "Consume",
+			Assignments: []template.ResetAssignment{
+				{Target: listLevelField, Expression: "max(0, level - 1)"},
+			},
+		},
+		{
+			ID:    ListActionRestock,
+			Label: "Restock",
+			Assignments: []template.ResetAssignment{
+				{
+					Target:     ListPath + "." + listQuantityField,
+					Expression: "record_quantity + 1",
+					Filter:     listActiveField,
+				},
+			},
+		},
 	}
 }
 
 func ListDAG(t *testing.T) *template.DAG {
 	t.Helper()
-	dag, err := template.BuildDAG(ListTemplateID, ListFields, engine.NewFormulaEngine())
+	dag, err := template.BuildDAGWithActions(
+		ListTemplateID, ListFields, ListResetActions(), engine.NewFormulaEngine(),
+	)
 	if err != nil {
 		t.Fatalf("build list DAG: %v", err)
 	}

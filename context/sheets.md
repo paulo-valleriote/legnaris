@@ -20,9 +20,9 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   player enters what they grant, and everything the rules derive from the Sheet is derived;
   `fifth_stat_block_v1` "5E Stat Block" (`npc`, `enemy`) derives the proficiency bonus and
   XP from the challenge rating. Cost: the player types class-granted values, and neither
-  Template enters the catalog until the opt-in engine capabilities of LGN-380 ship: Record
-  lists, Reset actions, a pinned `min` and a range lookup, the already enforced accepted kinds
-  exposed to the client, and dice sized by Fields with a minimum total. The d20-test marking
+  Template enters the catalog until the opt-in engine capabilities of LGN-380 ship: dice sized by
+  Fields with a minimum total; Record lists, Reset actions, `min`, `max`, `lookup`, numeric flags
+  and Record formulas have shipped. The d20-test marking
   for the existing Roll modes has shipped (LGN-390).
 - **Planned (LGN-383): composable presets with one config per Template over a bespoke preset
   per Template or Template-declared presentation roles because** a new Template should cost
@@ -71,6 +71,10 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
 - **A compare-and-swap write over a server-side merge or lock because** it is one conditional
   `FindOneAndUpdate` with no lost writes and an honest conflict. Cost: a lost race spends a
   request on a 409, the version stays internal, and the client resends the delta.
+- **Declared Reset actions over client-side arithmetic because** a rest may touch several leaves in
+  one atomic save, and the server can validate every target against the DAG at boot. Cost: only a
+  Template author can add an action, a target is an editable `number` leaf or list Field, and the
+  server stores just the last applied request id.
 - **Layout as user data on the sheet, with its own endpoint, over template variants or a `data`
   field because** the arrangement belongs to the player, survives devices and never enters the
   flatten/editability/DAG path. Cost: a second write path, a row-key grammar defined twice, and
@@ -130,6 +134,25 @@ sequenceDiagram
 A new edit clears the preview marks. An offline save or preview writes the pending delta to the
 draft immediately; the normal cadence is 60 seconds.
 
+### Rest → reset action
+
+```mermaid
+sequenceDiagram
+  Player->>API: POST /sheets/:id/resets/:actionId {request_id}
+  API->>API: fetch owned sheet, replay check, DAG.CalculateReset
+  API->>API: FindOneAndUpdate on _id + version, $set data + last request id
+  alt version matched
+    API-->>Player: 200 cascade including the assigned Fields
+  else version changed
+    API-->>Player: 409 CONFLICT, Retry-After: 1
+    Player->>API: retry with the same request_id
+    API-->>Player: 200 empty cascade, no second effect
+  end
+```
+
+An unknown action is 404 and a malformed request id is 400 before the write; a replay of the last
+applied id never reaches the write.
+
 ### Arrange → commit layout
 
 ```mermaid
@@ -174,7 +197,7 @@ non-numeric arguments (`ErrInvalidFloat`) are typed engine errors; the engine ne
 `GET /templates` returns an array and `GET /templates/:id` one object; both require an
 authenticated, active account and share the per-user rate limit.
 
-`TemplateDTO` is `{id, name, kinds, default, fields, dice?}`. `kinds` is the ordered list of
+`TemplateDTO` is `{id, name, kinds, default, fields, dice?, actions?}`. `kinds` is the ordered list of
 Sheet kinds the Template accepts (`character`, `npc` or `enemy`); creation and generation with any
 other kind stay 400 `INVALID_REQUEST`, and a Template that declares none omits the key. A node
 carries exactly one of `schema` (leaf), `children` (group) or `list`; a group may carry `label` and
@@ -191,7 +214,9 @@ list gives 0. A list path has at most three segments and its capacity is 1–200
 reserved `position` shape key, an invalid shape key, a group or list inside the shape, a deeper
 path or an out-of-range capacity. `dice` is `{section?, row?, not_d20?}`; it is omitted when the
 Template has no defaults and no marking, and `not_d20` is `{section: [...], row: [...]}` naming the
-Rows and Sections whose dice are not d20 tests (see [dice](dice.md)). Sections follow the template's
+Rows and Sections whose dice are not d20 tests (see [dice](dice.md)). `actions` is omitted when the
+Template declares none and is otherwise a list of `{id, label, assignments}`, where each assignment
+is `{target, expression, filter?}` (see Reset actions). Sections follow the template's
 `SectionOrder` and children their declared `Order`;
 unlisted keys are alphabetical. Template IDs are slugs (`^[a-z][a-z0-9_]*$`); a malformed ID is
 400, an unknown one 404.
@@ -210,6 +235,7 @@ never exposed.
 | `GET /sheets/:id` | — | 200 sheet |
 | `PATCH /sheets/:id` | `{data?, dice?}` | 200 cascade |
 | `POST /sheets/:id/preview` | `{data}` | 200 cascade, no write |
+| `POST /sheets/:id/resets/:actionId` | `{request_id}` | 200 cascade, one write |
 | `PUT /sheets/:id/layout` | `{layout}` | 200 `{layout}` |
 | `POST /sheets/:id/duplicate` | — | 201 sheet (NPC and enemy only) |
 | `DELETE /sheets/:id` | — | 204 |
@@ -311,6 +337,36 @@ editable or derived — may feed another formula, and joins the same cascade. Th
 `<list>.<field>` is implicit, an empty or missing list gives 0, and the values are summed as stored
 (non-numeric or missing values count as 0, and `count` ignores zero).
 
+### Reset actions
+
+A Template may declare named Reset actions; nothing about them is stored on the Template collection
+because templates are code. `actions` in the DTO is the ordered list of `{id, label, assignments}`,
+and an assignment is `{target, expression, filter?}`. The action `id` is a slug
+(`^[a-z][a-z0-9_]*$`) and is unique within the Template.
+
+`target` is an editable `number` leaf (`level`) or a list Field written as `<list>.<field>`
+(`inventory.items.quantity`). A static target is rejected at boot when it is unknown, derived or
+not editable; a list target is rejected when the field is absent from the shape, derived or not
+editable. `filter` is optional and only valid on a list target: it names a numeric shape Field, and
+only Records whose value is non-zero receive the assignment. An expression that does not compile —
+for its static environment or, on a list target, for one that also exposes `record_<field>` and
+`record` — fails boot, as does a filter on a static target, an unknown filter Field, a text filter
+and a duplicate id. `fantasy_v1` declares none, so its DTO has no `actions` key.
+
+`POST /sheets/:id/resets/:actionId` takes `{"request_id": "<uuid>"}` and is owner only. Every
+expression is evaluated against the Sheet as stored before the action, so two assignments in one
+action never see each other's result; a list assignment is evaluated per matching Record. The
+assigned values, the recalculated Record and aggregate values and the derived cascade are written in
+one compare-and-swap `data` save under one `version`, with `updated_at`; the response is the assigned
+Fields plus the derived cascade. A lost race is the usual 409 `CONFLICT` with `Retry-After: 1`.
+
+The `request_id` is a canonical UUID (any version) and is required. The Sheet stores the last applied
+id: replaying it answers 200 with an empty cascade and no write and no event, so a retried rest never
+applies twice; a different id is a new rest. An unknown action is 404 `NOT_FOUND`, a malformed or
+missing request id 400 `INVALID_REQUEST`, and a foreign Sheet 404 before either. An action whose
+assignments change nothing still writes the request id and answers 200 with the assigned values. The
+`sheet.updated` event lists the assigned target paths that actually changed, flat, in sorted order.
+
 ### Layout
 
 Body: `{"layout": {"section_order": [...], "pinned": [...]}}`; `{"layout": null}` or empty lists
@@ -358,9 +414,9 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 | Code | Status | Raised when |
 | --- | --- | --- |
 | `INVALID_JSON` | 400 | malformed body, wrong value type, unknown body key |
-| `INVALID_REQUEST` | 400 | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id, malformed Record id, non-numeric Record `position`, over-capacity list, invalid Record field value |
+| `INVALID_REQUEST` | 400 | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id, malformed Record id, non-numeric Record `position`, over-capacity list, invalid Record field value, missing or malformed Reset `request_id` |
 | `UNKNOWN_FIELD` | 400 | data key or group prefix absent from the DAG, or a Record Field absent from its shape |
-| `NOT_FOUND` | 404 | sheet or template missing, including a foreign sheet |
+| `NOT_FOUND` | 404 | sheet or template missing, including a foreign sheet; unknown Reset action |
 | `CONFLICT` | 409 | value/Dice save lost the version race; `Retry-After: 1` |
 | `SHEET_LIMIT_REACHED` | 409 | create would exceed the plan; details carry `kind` and `limit` |
 | `PLAN_LIMIT_REACHED` | 403 | duplicate would exceed the plan |
@@ -710,13 +766,14 @@ Backend:
   static and Record updates, Record id validation, applying create/remove/position, per-Record
   exclusive groups and checking capacity; `record_formula.go` — Record formula compilation, the
   `record_<field>` environment and per-Record evaluation; `aggregate.go` — aggregate declaration,
-  boot validation and `sum`/`count` evaluation; `row_identity.go` — Record Row keys, Section
+  boot validation and `sum`/`count` evaluation; `reset_actions.go` — Reset action declaration,
+  boot compilation and the one-lock `CalculateReset`; `row_identity.go` — Record Row keys, Section
   membership and the shape-aware fit schema.
 - `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry and the
   `fantasy_v1` catalogue; `layout.go` — `SectionRowKeys`, `ValidateLayout`;
   `dice_defaults.go`, `not_d20.go`, `name_leaf.go`, `generation_metadata.go`, `flags.go`, `dto.go` — boot
   validators and JSON shape (a list node is `{label, columns, capacity, shape, dice?, not_d20?}`).
-- `backend/internal/sheet/service.go`, `create_values.go` — create, fetch, patch, preview,
+- `backend/internal/sheet/service.go`, `create_values.go` — create, fetch, patch, reset, preview,
   layout, delete, seeding and `CreateWithValues` for generation, which drops derived (non-editable) leaves sent back from the
   preview and recalculates them, while unknown keys are still refused. `recalculate` hands the whole
   flattened delta to `DAG.CalculateSave`, which splits and applies Record updates and derives Record
@@ -820,6 +877,9 @@ Web:
 - A layout is seeded at open, so a template refresh that changes Sections within the same session
   does not reseed it. Row order inside a Section is template-defined; only pins lift a Row, and
   there is no pin cap.
+- A Reset action only assigns numeric leaves and list Fields, evaluates no text expression and
+  stores only the last applied request id: replaying an older id after a newer rest applies again.
+  The web client does not draw action buttons yet.
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
 - The landing demo's cascade is local to `web/src/landing/demo_store.ts`; it is an original demo

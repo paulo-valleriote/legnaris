@@ -28,6 +28,7 @@ type DAG struct {
 	aggregates          map[string]AggregateSchema
 	aggregatesByList    map[string][]string
 	listExclusiveGroups map[string]map[string][]string
+	actions             map[string]*compiledResetAction
 	formulaEngine       *engine.FormulaEngine
 }
 
@@ -37,6 +38,7 @@ type Node struct {
 	compiledFormula *vm.Program
 	IsEditable      bool
 	isFlag          bool
+	isNumber        bool
 	maxLength       int
 }
 
@@ -105,6 +107,15 @@ func (d *DAG) GetChildren(key string) []string {
 }
 
 func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (*DAG, error) {
+	return BuildDAGWithActions(templateID, fields, nil, eng)
+}
+
+func BuildDAGWithActions(
+	templateID string,
+	fields FieldGroup,
+	actions []ResetAction,
+	eng *engine.FormulaEngine,
+) (*DAG, error) {
 	if eng == nil {
 		return nil, ErrNilFormulaEngine
 	}
@@ -142,6 +153,10 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 		return nil, err
 	}
 
+	if err := dag.buildActions(actions, compilationEnv); err != nil {
+		return nil, err
+	}
+
 	topoOrder, err := topologicalSort(dag.graphKeys(), dag.adjacencyList)
 	if err != nil {
 		return nil, err
@@ -163,6 +178,7 @@ func newDAG(templateID string, eng *engine.FormulaEngine) *DAG {
 		aggregates:          make(map[string]AggregateSchema),
 		aggregatesByList:    make(map[string][]string),
 		listExclusiveGroups: make(map[string]map[string][]string),
+		actions:             make(map[string]*compiledResetAction),
 		formulaEngine:       eng,
 	}
 }
@@ -265,6 +281,7 @@ func (d *DAG) compileNodeFormulas(schemas []*FieldSchema, paths []Path, compilat
 			FormulaString: schema.Formula,
 			IsEditable:    schema.IsEditable,
 			isFlag:        schema.Flag,
+			isNumber:      schema.Type == fieldTypeNumber,
 		}
 
 		if schema.MaxLength != nil {
