@@ -68,6 +68,7 @@ func TestService_CreateRetiredTemplateFromCampaign(t *testing.T) {
 		reserveErr   error
 		wantCreated  bool
 		wantCode     apperr.Code
+		wantStatus   int
 		wantMessage  string
 	}{
 		{
@@ -77,9 +78,9 @@ func TestService_CreateRetiredTemplateFromCampaign(t *testing.T) {
 			wantMessage: sheet.MsgCampaignScopeRefused,
 		},
 		{
-			name:        "Edge: a missing campaign id keeps the template state refusal",
+			name:        "Edge: a missing campaign id reports the retired template refusal",
 			wantCode:    apperr.CodeInvalidRequest,
-			wantMessage: sheet.MsgTemplateStateRefused,
+			wantMessage: sheet.MsgTemplateRetiredRefused,
 		},
 		{
 			name:        "Error: a foreign campaign or a non-member is refused",
@@ -96,12 +97,13 @@ func TestService_CreateRetiredTemplateFromCampaign(t *testing.T) {
 			wantMessage: sheet.MsgCampaignScopeRefused,
 		},
 		{
-			name:        "Error: a campaign lookup failure is refused with the same message",
+			name:        "Error: a campaign lookup failure is internal and keeps the generic refusal for the client",
 			campaignID:  campaignCreateID,
 			scopeErr:    portErr,
 			scopeCalled: true,
-			wantCode:    apperr.CodeInvalidRequest,
-			wantMessage: sheet.MsgCampaignScopeRefused,
+			wantCode:    apperr.CodeInternal,
+			wantStatus:  500,
+			wantMessage: sheet.MsgCampaignScopeUnavailable,
 		},
 		{
 			name:         "Error: a reached plan limit still reports the sheet limit",
@@ -181,6 +183,9 @@ func TestService_CreateRetiredTemplateFromCampaign(t *testing.T) {
 			require.ErrorAs(t, err, &appErr)
 			assert.Equal(t, tc.wantCode, appErr.Code)
 			assert.Equal(t, tc.wantMessage, appErr.Message)
+			if tc.wantStatus != 0 {
+				assert.Equal(t, tc.wantStatus, appErr.HttpStatus())
+			}
 			repo.AssertNotCalled(t, "Create", mock.Anything, mock.Anything)
 			repo.AssertNotCalled(t, "LinkCampaign", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 			assert.Empty(t, published)

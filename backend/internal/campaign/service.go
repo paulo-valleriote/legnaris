@@ -24,10 +24,10 @@ type CreateGuard interface {
 }
 
 type CreateCommand struct {
-	OwnerID    string `json:"-"`
-	Name       string `json:"name"`
-	GameSystem string `json:"game_system"`
-	TemplateID string `json:"template_id"`
+	OwnerID      string `json:"-"`
+	Name         string `json:"name"`
+	GameSystemID string `json:"game_system"`
+	TemplateID   string `json:"template_id"`
 }
 
 type LeaveCommand struct {
@@ -266,13 +266,13 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateCommand) (View, erro
 	if !ValidName(name) {
 		return View{}, apperr.NewError(apperr.CodeInvalidRequest, MsgNameInvalid, nil)
 	}
-	if err := requireOneScope(cmd.GameSystem, cmd.TemplateID); err != nil {
+	if err := requireOneScope(cmd.GameSystemID, cmd.TemplateID); err != nil {
 		return View{}, err
 	}
 	if cmd.TemplateID != "" && !ValidTemplateID(cmd.TemplateID) {
 		return View{}, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateInvalid, nil)
 	}
-	scope, err := s.scopes.CreateScope(ctx, cmd.GameSystem, cmd.TemplateID)
+	scope, err := s.scopes.CreateScope(ctx, cmd.GameSystemID, cmd.TemplateID)
 	if err != nil {
 		return View{}, createScopeError(err)
 	}
@@ -288,7 +288,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateCommand) (View, erro
 	created := &Campaign{
 		ID:           id,
 		Name:         name,
-		GameSystemID: cmd.GameSystem,
+		GameSystemID: cmd.GameSystemID,
 		TemplateID:   cmd.TemplateID,
 		Status:       StatusActive,
 		InviteCode:   inviteCode,

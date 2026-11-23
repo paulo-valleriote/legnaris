@@ -105,7 +105,7 @@ func TestCampaignRoutes_Create(t *testing.T) {
 
 func TestCampaignRoutes_CreateGameSystem(t *testing.T) {
 	svc := campaignmocks.NewMockService(t)
-	svc.EXPECT().Create(mock.Anything, campaign.CreateCommand{OwnerID: campaignTestUserID, Name: "Curse", GameSystem: "fifth"}).
+	svc.EXPECT().Create(mock.Anything, campaign.CreateCommand{OwnerID: campaignTestUserID, Name: "Curse", GameSystemID: "fifth"}).
 		Return(campaign.View{ID: campaignTestID, Name: "Curse"}, nil).Once()
 
 	rec := doCampaignRequest(t, newCampaignRouter(svc), http.MethodPost, "/campaigns", `{"name":"Curse","game_system":"fifth"}`)

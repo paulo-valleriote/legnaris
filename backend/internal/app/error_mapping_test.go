@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"testing"
@@ -164,6 +165,45 @@ func TestErrorMapping_SheetCreateUnknownTemplateReturns404(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	assert.Equal(t, "NOT_FOUND", body.Error.Code)
 	assert.Equal(t, "template not found", body.Error.Message)
+}
+
+func TestErrorMapping_SheetCreateCampaignScopeFailureReturns500(t *testing.T) {
+	const (
+		campaignID = "01900000-0000-7000-8000-0000000000cc"
+		templateID = "fantasy_v1"
+	)
+
+	mockRepo := mocks.NewMockRepository(t)
+	scope := mocks.NewMockCampaignScope(t)
+	scope.EXPECT().
+		AllowsTemplate(mock.Anything, errorTestOwnerID, campaignID, templateID).
+		Return(false, errors.New("campaign lookup failed")).
+		Once()
+	mockTemplateSvc := templatemocks.NewMockService(t)
+	mockTemplateSvc.EXPECT().
+		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: templateID}).
+		Return(&template.Template{
+			ID:    templateID,
+			Name:  "Fantasy",
+			State: template.StateRetired,
+		}, nil).
+		Once()
+
+	svc := sheet.NewService(mockRepo, mockTemplateSvc, newErrorTestDAG(t), testLog, events.NoOp{},
+		sheet.WithCampaignScope(scope))
+	e := echo.New()
+	e.HTTPErrorHandler = app.HTTPErrorHandler
+	e.Use(withOwner(errorTestOwnerID))
+	app.NewSheetController(svc).RegisterRoutes(e.Group("/sheets"))
+
+	rec := doRequest(t, e, http.MethodPost, "/sheets",
+		`{"template_id":"`+templateID+`","kind":"character","sheet_name":"x","campaign_id":"`+campaignID+`"}`)
+
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	var body response.ErrorResponse
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.Equal(t, "INTERNAL_ERROR", body.Error.Code)
+	assert.Equal(t, sheet.MsgCampaignScopeUnavailable, body.Error.Message)
 }
 
 func TestErrorMapping_PatchFieldErrors(t *testing.T) {

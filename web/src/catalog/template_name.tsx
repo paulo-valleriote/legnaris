@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { message } from '../l10n/strings';
 import { leaveIsGuarded, requestLeave } from '../shell/leave_guard';
 import './template_name.css';
 
@@ -28,7 +29,7 @@ export function TemplateName({ name, notice }: TemplateNameProps) {
     <>
       {name}
       <span className="lg-template-name__separator" aria-hidden="true">
-        {' · '}
+        {message('catalog.templateNoticeSeparator')}
       </span>
       <Link
         className="lg-template-name__notice"

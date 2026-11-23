@@ -165,7 +165,7 @@ func TestBuildGameSystems(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Len(t, registry.List(), len(tc.systems))
+			assert.Len(t, registry.systems, len(tc.systems))
 		})
 	}
 }
@@ -189,15 +189,15 @@ func TestGameSystems_Fetch(t *testing.T) {
 }
 
 func TestDefaultGameSystems_PinnedEntry(t *testing.T) {
-	systems := DefaultGameSystems().List()
+	system, ok := DefaultGameSystems().Fetch(GameSystemFifth)
+	require.True(t, ok)
 
-	require.Len(t, systems, 1)
 	assert.Equal(t, GameSystem{
 		ID:                 GameSystemFifth,
 		Name:               "5E",
 		CompatibilityLabel: "5E compatible",
 		Notice:             GameSystemNotice{Label: "SRD 5.2.1", Path: "/srd"},
-	}, systems[0])
+	}, system)
 }
 
 func TestBuildRegistry_GameSystem(t *testing.T) {

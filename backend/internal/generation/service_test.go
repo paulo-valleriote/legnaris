@@ -326,14 +326,15 @@ func TestCreate_TemplateLifecycle(t *testing.T) {
 		draftsAllowed bool
 		wantCode      apperr.Code
 		wantStatus    int
+		wantMessage   string
 		wantCreated   bool
 	}{
-		{name: "Edge: a draft outside development is refused before any reservation", state: template.StateDraft, draftsAllowed: false, wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
+		{name: "Edge: a draft outside development is refused before any reservation", state: template.StateDraft, draftsAllowed: false, wantCode: apperr.CodeInvalidRequest, wantStatus: 400, wantMessage: generation.MsgTemplateState},
 		{name: "Happy path: a draft in development is queued", state: template.StateDraft, draftsAllowed: true, wantCreated: true},
 		{name: "Happy path: an active template outside development is queued", state: template.StateActive, draftsAllowed: false, wantCreated: true},
 		{name: "Happy path: an active template in development is queued", state: template.StateActive, draftsAllowed: true, wantCreated: true},
-		{name: "Error: a retired template outside development is refused", state: template.StateRetired, draftsAllowed: false, wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
-		{name: "Error: a retired template in development is refused", state: template.StateRetired, draftsAllowed: true, wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
+		{name: "Error: a retired template outside development is refused as retired", state: template.StateRetired, draftsAllowed: false, wantCode: apperr.CodeInvalidRequest, wantStatus: 400, wantMessage: generation.MsgTemplateRetired},
+		{name: "Error: a retired template in development is refused as retired", state: template.StateRetired, draftsAllowed: true, wantCode: apperr.CodeInvalidRequest, wantStatus: 400, wantMessage: generation.MsgTemplateRetired},
 	}
 
 	for _, tc := range tests {
@@ -369,7 +370,7 @@ func TestCreate_TemplateLifecycle(t *testing.T) {
 
 			assert.Empty(t, id)
 			requireCode(t, err, tc.wantCode, tc.wantStatus)
-			assert.Equal(t, generation.MsgTemplateState, appErrorOf(t, err).Message)
+			assert.Equal(t, tc.wantMessage, appErrorOf(t, err).Message)
 			f.tx.AssertNotCalled(t, "WithTransaction")
 			f.store.AssertNotCalled(t, "ReserveCap")
 			f.store.AssertNotCalled(t, "Insert")

@@ -249,13 +249,14 @@ same slug; the change is a new slug. In the DTO, `game_system` is
 `{id, name, compatibility_label, notice: {label, path}}` and is omitted when the Template has none.
 The catalog entry and the create-sheet dialog show the compatibility label as plain text, with no
 attribution link and no notice label; a Template without a Game system renders exactly as before.
-`Registry.ListByGameSystem` returns every Template of a Game system regardless of state; Campaign
-scope resolution filters that list with `Available` so Drafts appear only in development and Retired
-Templates always do.
+`Registry.TemplateStatesByGameSystem` returns every Template id of a Game system with its state,
+without cloning; Campaign scope resolution filters that list with `Available` so Drafts appear
+only in development and Retired Templates always do.
 
 Every web view that draws a Template name draws its notice beside it through
 `web/src/catalog/template_name.tsx`: the owner Sheet in Play and Edit, the campaign read-only GM and
-NPC views, and the generation review. The name reads `5E Character · SRD 5.2.1`, and the notice
+NPC views, and the generation review. The name reads `5E Character · SRD 5.2.1` (the ` · `
+separator is copy from `web/src/l10n/strings.ts`, never a literal in the component), and the notice
 label is a router link to the Template's same-origin notice path. The link passes through the shell
 leave guard, so leaving a Sheet with unsaved work still asks first. A Template without a Game system
 draws the previous name markup with no link; `fantasy_v1` views are unchanged, and the catalog, the
@@ -284,17 +285,28 @@ the variable hides Drafts, while `scripts/dev.sh` exports `development`.
 | Read, edit, roll, layout or link an existing Sheet | yes | yes | yes | yes |
 
 A refused creation or generation is 400 `INVALID_REQUEST` before any plan slot, quota or daily-cap
-reservation. Duplicating a Retired Template is allowed because it follows the existing-Sheet rule.
+reservation, and the message names the reason: a Draft outside development says the Template is
+not available in this environment, a Retired Template says it is retired and cannot start new
+sheets (or generations). Duplicating a Retired Template is allowed because it follows the
+existing-Sheet rule.
 The Draft 404 is public only: `Registry.FetchByID` and `Registry.DAG` return every state, so an
 existing Sheet's recalculation, rolls, Dice validation, layout and Reset actions never depend on
 the environment.
 
+The web loads a Sheet's Template through `GET /templates/:id`, which 404s for a Draft outside
+development. There is no separate endpoint for it: a Draft Sheet can only be created where Drafts
+are allowed, a Template never moves back to `draft`, and running without `APP_ENV=development`
+against a database that holds Draft Sheets leaves those Sheets unopenable in the web. Keep the
+environment aligned with the database instead of widening the Template read.
+
 `POST /sheets` accepts an optional `campaign_id`, and that field is the only way to create a Sheet
 from a Retired Template: it must name an active Campaign the caller belongs to whose `template_ids`
-includes the Template. Every campaign failure (malformed id, unknown, foreign or non-member,
-deleting, out of scope) is the same 400 `INVALID_REQUEST` with
+includes the Template. Every "not allowed" campaign outcome (malformed id, unknown, foreign or
+non-member, deleting, out of scope) is the same 400 `INVALID_REQUEST` with
 `campaign does not allow creating a sheet from this template`, so a foreign Campaign is
-indistinguishable from one that does not exist. For an Active Template the field is ignored and not
+indistinguishable from one that does not exist; an unexpected Campaign read failure is 500
+`INTERNAL_ERROR` with `campaign scope could not be checked`, so an outage is never reported as a
+refusal. For an Active Template the field is ignored and not
 even validated, and it never bypasses the Draft gate, the accepted kinds or the plan limit. Creation
 stores no `campaign_id` and publishes no link event; the client links the Sheet afterwards. See
 [campaigns](campaigns.md) for the Campaign side.
@@ -890,8 +902,8 @@ Backend:
   boot validation and `sum`/`count` evaluation; `reset_actions.go` — Reset action declaration,
   boot compilation and the one-lock `CalculateReset`; `row_identity.go` — Record Row keys, Section
   membership and the shape-aware fit schema.
-- `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry, `ListByGameSystem`
-  and the `fantasy_v1` catalogue; `game_system.go` — the code-defined Game system registry, its validation
+- `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry,
+  `TemplateStatesByGameSystem` and the `fantasy_v1` catalogue; `game_system.go` — the code-defined Game system registry, its validation
   and the DTO resolution; `layout.go` — `SectionRowKeys`, `ValidateLayout`;
   `dice_defaults.go`, `not_d20.go`, `name_leaf.go`, `generation_metadata.go`, `flags.go`, `dto.go` — boot
   validators and JSON shape (a list node is `{label, columns, capacity, shape, dice?, not_d20?}`).
