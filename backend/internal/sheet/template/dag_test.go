@@ -925,6 +925,62 @@ func TestRecalculate_DerivedFieldUpdate(t *testing.T) {
 	assert.InDelta(t, float64(8.0), cascadingEffects["derived.dmg"], 1e-9)
 }
 
+func TestRecalculate_MinAndLookup(t *testing.T) {
+	formulaEngine := engine.NewFormulaEngine()
+
+	fields := FieldGroup{
+		"stats": {Children: FieldGroup{
+			"str": {Schema: &FieldSchema{Type: "number", IsEditable: true}},
+		}},
+		"derived": {Children: FieldGroup{
+			"score": {Schema: &FieldSchema{
+				Type:       "number",
+				IsEditable: false,
+				Formula:    "min(stats_str, 20) + lookup(stats_str, 0, 0, 10, 1, 20, 2)",
+				DependsOn:  [][]string{{"stats", "str"}},
+			}},
+		}},
+	}
+
+	dag, err := BuildDAG("test", fields, formulaEngine)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name     string
+		input    float64
+		expected float64
+	}{
+		{
+			name:     "Happy path: both functions feed one derived value",
+			input:    15.0,
+			expected: 16.0,
+		},
+		{
+			name:     "Edge: below the first lookup key returns the first value",
+			input:    -5.0,
+			expected: -5.0,
+		},
+		{
+			name:     "Edge: above the last lookup key returns the last value",
+			input:    30.0,
+			expected: 22.0,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			originalData := map[string]any{
+				"stats":   map[string]any{"str": 0.0},
+				"derived": map[string]any{"score": 0.0},
+			}
+
+			changed, err := dag.Recalculate(originalData, map[string]any{"stats.str": tc.input})
+			require.NoError(t, err)
+			assert.InDelta(t, tc.expected, changed["derived.score"], 1e-9)
+		})
+	}
+}
+
 func TestRecalculate_RuntimeFormulaError(t *testing.T) {
 	formulaEngine := engine.NewFormulaEngine()
 
