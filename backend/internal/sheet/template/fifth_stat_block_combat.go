@@ -143,7 +143,7 @@ func fifthStatBlockHitPointsGroup() FieldGroup {
 	constitutionKey := Path{fifthAbilitiesSection, abilityConstitution, fifthModKey}.EngineKey()
 
 	count := generatableNumber(numField("Hit point dice count", 1), 1, 20)
-	count.Schema.ColumnLabel = "Count"
+	count.Schema.ColumnLabel = fifthCountColumnLabel
 
 	size := generatableNumber(numField("Hit point die size", 8), 4, 20)
 	size.Schema.ColumnLabel = "Die"
