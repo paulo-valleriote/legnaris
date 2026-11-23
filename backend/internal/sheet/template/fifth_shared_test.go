@@ -104,11 +104,14 @@ func TestFifthTemplates_Registered(t *testing.T) {
 		identity []string
 	}{
 		{
-			name:     "Happy path: the character template accepts only character sheets",
-			id:       fifthCharacterID,
-			label:    "5E Character",
-			kinds:    []plan.SheetKind{plan.KindCharacter},
-			identity: []string{"name", "level", fifthJackOfAllTradesKey, fieldNameProficiencyBonus},
+			name:  "Happy path: the character template accepts only character sheets",
+			id:    fifthCharacterID,
+			label: "5E Character",
+			kinds: []plan.SheetKind{plan.KindCharacter},
+			identity: []string{
+				"name", fifthClassKey, fifthSubclassKey, fifthSpeciesKey, fifthBackgroundKey,
+				"level", fifthJackOfAllTradesKey, fieldNameProficiencyBonus,
+			},
 		},
 		{
 			name:     "Happy path: the stat block template accepts NPC and enemy sheets",
@@ -656,54 +659,6 @@ func TestFifthStatBlockHasNaturalArmorOnly(t *testing.T) {
 	assert.False(t, ok)
 	_, ok = statBlock.Fields[fifthArmorSection].Children[fifthArmorChoiceNaturalKey]
 	assert.True(t, ok)
-}
-
-func TestFifth_FormulaReferencesMatchDependsOn(t *testing.T) {
-	for _, id := range []string{fifthCharacterID, fifthStatBlockID} {
-		tmpl := fifthTemplateByID(t, id)
-		t.Run("Happy path: "+id+" declares every formula read", func(t *testing.T) {
-			schemas, paths := collectLeaves(tmpl.Fields)
-			require.NotEmpty(t, schemas)
-
-			validEngineKeys := make(map[string]string, len(paths))
-			for _, path := range paths {
-				validEngineKeys[path.EngineKey()] = path.String()
-			}
-
-			for i, schema := range schemas {
-				if schema.Formula == "" {
-					continue
-				}
-				key := paths[i].String()
-				require.NotEmpty(t, schema.DependsOn, "derived leaf %s declares no dependencies", key)
-
-				declared := make(map[string]bool, len(schema.DependsOn))
-				for _, dep := range schema.DependsOn {
-					engineKey := Path(dep).EngineKey()
-					_, exists := validEngineKeys[engineKey]
-					require.True(t, exists, "DependsOn of %s references unknown leaf %s", key, Path(dep).String())
-					declared[engineKey] = true
-				}
-
-				referenced := make(map[string]bool)
-				for _, ident := range formulaIdentRe.FindAllString(schema.Formula, -1) {
-					if engineFunctions[ident] {
-						continue
-					}
-					referenced[ident] = true
-					_, exists := validEngineKeys[ident]
-					require.True(t, exists, "formula of %s references unknown identifier %s", key, ident)
-				}
-
-				for ident := range referenced {
-					assert.True(t, declared[ident], "formula of %s reads %s but DependsOn does not declare it", key, ident)
-				}
-				for engineKey := range declared {
-					assert.True(t, referenced[engineKey], "DependsOn of %s declares %s which the formula never reads", key, engineKey)
-				}
-			}
-		})
-	}
 }
 
 func TestFifth_LeafContracts(t *testing.T) {

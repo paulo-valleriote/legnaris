@@ -56,6 +56,16 @@ func TestFifthStatBlock_XP(t *testing.T) {
 			assert.InDelta(t, want, fifthValue(t, data, "experience.xp"), 1e-9)
 		})
 	}
+
+	t.Run("Edge: a CR above 30 keeps the CR-30 value through the lookup clamp", func(t *testing.T) {
+		data := fifthSheet(t, statBlock, map[string]any{"identity.challengeRating": float64(31)})
+		assert.InDelta(t, 155000, fifthValue(t, data, "experience.xp"), 1e-9)
+	})
+
+	t.Run("Edge: a negative CR keeps the CR-0 value through the lookup clamp", func(t *testing.T) {
+		data := fifthSheet(t, statBlock, map[string]any{"identity.challengeRating": float64(-1)})
+		assert.InDelta(t, 10, fifthValue(t, data, "experience.xp"), 1e-9)
+	})
 }
 
 func TestFifthStatBlock_XPZero(t *testing.T) {
@@ -219,25 +229,34 @@ func TestFifthStatBlock_Initiative(t *testing.T) {
 func TestFifthStatBlock_Speed(t *testing.T) {
 	tests := []struct {
 		name      string
+		walk      float64
 		exhausted float64
 		want      float64
 	}{
-		{name: "Happy path: no exhaustion keeps the printed speed", exhausted: 0, want: 40},
-		{name: "Happy path: one level removes 5 feet", exhausted: 1, want: 35},
-		{name: "Happy path: three levels remove 15 feet", exhausted: 3, want: 25},
-		{name: "Edge: a low speed may go below zero", exhausted: 6, want: 10},
+		{name: "Happy path: no exhaustion keeps the printed speed", walk: 40, exhausted: 0, want: 40},
+		{name: "Happy path: one level removes 5 feet", walk: 40, exhausted: 1, want: 35},
+		{name: "Happy path: three levels remove 15 feet", walk: 40, exhausted: 3, want: 25},
+		{name: "Edge: a printed speed has no floor and may go below zero", walk: 20, exhausted: 6, want: -10},
 	}
 
 	statBlock := fifthTemplateByID(t, fifthStatBlockID)
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			data := fifthSheet(t, statBlock, map[string]any{
-				"speed.walk":       float64(40),
+				"speed.walk":       tc.walk,
 				"exhaustion.level": tc.exhausted,
 			})
 			assert.InDelta(t, tc.want, fifthValue(t, data, "speed.walkTotal"), 1e-9)
 		})
 	}
+
+	t.Run("Edge: an unprinted speed stays zero under Exhaustion", func(t *testing.T) {
+		data := fifthSheet(t, statBlock, map[string]any{
+			"speed.fly":        float64(0),
+			"exhaustion.level": float64(6),
+		})
+		assert.InDelta(t, 0.0, fifthValue(t, data, "speed.flyTotal"), 1e-9)
+	})
 
 	t.Run("Happy path: every speed applies the same penalty", func(t *testing.T) {
 		data := fifthSheet(t, statBlock, map[string]any{

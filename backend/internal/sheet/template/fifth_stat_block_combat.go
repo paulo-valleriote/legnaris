@@ -100,8 +100,8 @@ func fifthStatBlockExperienceGroup() FieldGroup {
 	zeroKey := Path{fifthStatBlockExperienceSection, fifthStatBlockExperienceZeroKey}.EngineKey()
 	inLairKey := Path{fifthStatBlockExperienceSection, fifthStatBlockExperienceInLairKey}.EngineKey()
 
-	zero := fifthStatBlockToggle("XP 0")
-	inLair := fifthStatBlockToggle("In lair")
+	zero := fifthRecordFlag("XP 0")
+	inLair := fifthRecordFlag("In lair")
 
 	xp := calcField(
 		"Experience points",
@@ -214,9 +214,10 @@ func fifthStatBlockSpeedGroup() FieldGroup {
 		entered := generatableNumber(numField(label+" speed", base), 0, 1000)
 		entered.Schema.ColumnLabel = label
 
+		speedKey := Path{fifthStatBlockSpeedSection, name}.EngineKey()
 		total := calcField(
 			label+" speed with exhaustion",
-			fmt.Sprintf("%s - 5 * %s", Path{fifthStatBlockSpeedSection, name}.EngineKey(), exhaustionKey),
+			fmt.Sprintf("%s > 0 ? %s - 5 * %s : 0", speedKey, speedKey, exhaustionKey),
 			[]string{fifthStatBlockSpeedSection, name},
 			[]string{fifthExhaustionSection, fifthExhaustionLevelKey},
 		)
@@ -247,10 +248,4 @@ func fifthStatBlockRowDice() map[string]string {
 
 func fifthStatBlockNotD20Rows() []string {
 	return []string{Path{fifthStatBlockHitPointsSection, fifthStatBlockHitPointsMaximumKey}.String()}
-}
-
-func fifthStatBlockToggle(label string) FieldNode {
-	node := numField(label, 0)
-	node.Schema.Flag = true
-	return node
 }

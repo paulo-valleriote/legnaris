@@ -339,6 +339,16 @@ func fifthChoice(label, option string, def float64, group string) FieldNode {
 	return node
 }
 
+func fifthAbilityFlagKey(ability string) string {
+	return "ability" + upperFirst(ability)
+}
+
+func fifthRecordFlag(label string) FieldNode {
+	node := numField(label, 0)
+	node.Schema.Flag = true
+	return node
+}
+
 func fifthAbilitiesOrder() []string {
 	return abilityKeys(identityKey)
 }

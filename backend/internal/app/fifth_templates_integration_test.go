@@ -93,7 +93,7 @@ func TestIntegration_FifthEditionTemplates(t *testing.T) {
 		assert.InDelta(t, 3.0, nestedNumber(t, effects.Data, "abilities", "strength", "mod"), 1e-9)
 	})
 
-	t.Run("Happy path: a dice override on a d20 Row saves and an unknown Row is refused", func(t *testing.T) {
+	t.Run("Happy path: a dice override on a d20 Row saves", func(t *testing.T) {
 		rec := doAuthRequest(t, h, playerToken, http.MethodPatch, characterPath,
 			`{"dice":{"row":{"skills.perception":"1d20 + @.total"}}}`)
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
@@ -101,10 +101,13 @@ func TestIntegration_FifthEditionTemplates(t *testing.T) {
 		stored := fetchFifthSheet(t, h, playerToken, character.ID)
 		require.NotNil(t, stored.Dice.Row["skills.perception"])
 		assert.Equal(t, "1d20 + @.total", *stored.Dice.Row["skills.perception"])
+	})
 
-		rec = doAuthRequest(t, h, playerToken, http.MethodPatch, characterPath,
+	t.Run("Error: an unknown dice Row is refused", func(t *testing.T) {
+		rec := doAuthRequest(t, h, playerToken, http.MethodPatch, characterPath,
 			`{"dice":{"row":{"skills.ghost":"1d20"}}}`)
 		require.Equal(t, http.StatusBadRequest, rec.Code)
+
 		var failure response.ErrorResponse
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &failure))
 		assert.Equal(t, "INVALID_REQUEST", failure.Error.Code)

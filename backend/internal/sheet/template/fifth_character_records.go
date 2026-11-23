@@ -34,7 +34,7 @@ const (
 	fifthInventoryWeightKey      = "weight"
 	fifthInventoryAttunedKey     = "attuned"
 	fifthInventoryNotesKey       = "notes"
-	fifthInventoryLineWeightKey  = "totalWeight"
+	fifthInventoryLineWeightKey  = "lineWeight"
 	fifthInventoryTotalWeightKey = "totalWeight"
 
 	fifthFeatureSourceKey = "source"
@@ -97,7 +97,7 @@ func fifthAttackShape() FieldGroup {
 	dependencies := make([][]string, 0, len(abilities)*2)
 
 	for _, ability := range abilities {
-		key := fifthAttackAbilityKey(ability.key)
+		key := fifthAbilityFlagKey(ability.key)
 		def := 0.0
 		if ability.key == abilityStrength {
 			def = 1
@@ -123,10 +123,6 @@ func fifthAttackShape() FieldGroup {
 	shape[fifthAttackToHitKey] = calcField("To hit", toHitFormula, toHitDependencies...)
 	shape[fifthAttackDamageBonusKey] = calcField("Damage bonus", strings.Join(damageTerms, " + "), dependencies...)
 	return shape
-}
-
-func fifthAttackAbilityKey(ability string) string {
-	return "ability" + upperFirst(ability)
 }
 
 func fifthInventoryGroup() FieldGroup {
@@ -233,10 +229,4 @@ func fifthResourcesGroup() FieldGroup {
 			},
 		}},
 	}
-}
-
-func fifthRecordFlag(label string) FieldNode {
-	node := numField(label, 0)
-	node.Schema.Flag = true
-	return node
 }

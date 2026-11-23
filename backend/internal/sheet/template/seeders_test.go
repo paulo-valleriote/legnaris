@@ -29,50 +29,54 @@ func groupKeys(group FieldGroup) []string {
 	return keys
 }
 
-func TestFantasyV1_FormulaReferencesMatchDependsOn(t *testing.T) {
-	schemas, paths := collectLeaves(fantasyV1Template.Fields)
-	require.NotEmpty(t, schemas)
+func TestTemplates_FormulaReferencesMatchDependsOn(t *testing.T) {
+	for _, tmpl := range DefaultTemplates() {
+		t.Run("Happy path: "+tmpl.ID+" declares every formula read", func(t *testing.T) {
+			schemas, paths := collectLeaves(tmpl.Fields)
+			require.NotEmpty(t, schemas)
 
-	validEngineKeys := make(map[string]string, len(paths))
-	for _, path := range paths {
-		validEngineKeys[path.EngineKey()] = path.String()
-	}
-
-	for i, schema := range schemas {
-		if schema.Formula == "" {
-			continue
-		}
-		key := paths[i].String()
-		require.NotEmpty(t, schema.DependsOn, "derived leaf %s declares no dependencies", key)
-
-		declared := make(map[string]bool, len(schema.DependsOn))
-		for _, dep := range schema.DependsOn {
-			engineKey := Path(dep).EngineKey()
-			_, exists := validEngineKeys[engineKey]
-			require.True(t, exists,
-				"DependsOn of %s references unknown leaf %s", key, Path(dep).String())
-			declared[engineKey] = true
-		}
-
-		referenced := make(map[string]bool)
-		for _, ident := range formulaIdentRe.FindAllString(schema.Formula, -1) {
-			if engineFunctions[ident] {
-				continue
+			validEngineKeys := make(map[string]string, len(paths))
+			for _, path := range paths {
+				validEngineKeys[path.EngineKey()] = path.String()
 			}
-			referenced[ident] = true
-			_, exists := validEngineKeys[ident]
-			require.True(t, exists,
-				"formula of %s references unknown identifier %s", key, ident)
-		}
 
-		for ident := range referenced {
-			assert.True(t, declared[ident],
-				"formula of %s reads %s but DependsOn does not declare it", key, ident)
-		}
-		for engineKey := range declared {
-			assert.True(t, referenced[engineKey],
-				"DependsOn of %s declares %s which the formula never reads", key, engineKey)
-		}
+			for i, schema := range schemas {
+				if schema.Formula == "" {
+					continue
+				}
+				key := paths[i].String()
+				require.NotEmpty(t, schema.DependsOn, "derived leaf %s declares no dependencies", key)
+
+				declared := make(map[string]bool, len(schema.DependsOn))
+				for _, dep := range schema.DependsOn {
+					engineKey := Path(dep).EngineKey()
+					_, exists := validEngineKeys[engineKey]
+					require.True(t, exists,
+						"DependsOn of %s references unknown leaf %s", key, Path(dep).String())
+					declared[engineKey] = true
+				}
+
+				referenced := make(map[string]bool)
+				for _, ident := range formulaIdentRe.FindAllString(schema.Formula, -1) {
+					if engineFunctions[ident] {
+						continue
+					}
+					referenced[ident] = true
+					_, exists := validEngineKeys[ident]
+					require.True(t, exists,
+						"formula of %s references unknown identifier %s", key, ident)
+				}
+
+				for ident := range referenced {
+					assert.True(t, declared[ident],
+						"formula of %s reads %s but DependsOn does not declare it", key, ident)
+				}
+				for engineKey := range declared {
+					assert.True(t, referenced[engineKey],
+						"DependsOn of %s declares %s which the formula never reads", key, engineKey)
+				}
+			}
+		})
 	}
 }
 

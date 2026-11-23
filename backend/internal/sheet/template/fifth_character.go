@@ -6,6 +6,13 @@ import (
 	"legnaris/backend/internal/plan"
 )
 
+const (
+	fifthClassKey      = "class"
+	fifthSubclassKey   = "subclass"
+	fifthSpeciesKey    = "species"
+	fifthBackgroundKey = "background"
+)
+
 var fifthCharacterTemplate = Template{
 	ID:           fifthCharacterID,
 	Name:         "5E Character",
@@ -47,7 +54,8 @@ var fifthCharacterTemplate = Template{
 }
 
 var fifthCharacterIdentityOrder = []string{
-	fieldNameName, fifthLevelKey, fifthJackOfAllTradesKey, fieldNameProficiencyBonus,
+	fieldNameName, fifthClassKey, fifthSubclassKey, fifthSpeciesKey, fifthBackgroundKey,
+	fifthLevelKey, fifthJackOfAllTradesKey, fieldNameProficiencyBonus,
 }
 
 var fifthExhaustionOrder = []string{fifthExhaustionLevelKey, fifthExhaustionPenaltyKey}
@@ -67,8 +75,22 @@ func fifthCharacterIdentityGroup() FieldGroup {
 		[]string{fifthIdentitySection, fifthLevelKey},
 	)
 
+	maxLength := 60
+	class := textField("Class")
+	class.Schema.MaxLength = &maxLength
+	subclass := textField("Subclass")
+	subclass.Schema.MaxLength = &maxLength
+	species := textField("Species")
+	species.Schema.MaxLength = &maxLength
+	background := textField("Background")
+	background.Schema.MaxLength = &maxLength
+
 	return FieldGroup{
 		fieldNameName:             generatableText(textField("Name"), 60),
+		fifthClassKey:             class,
+		fifthSubclassKey:          subclass,
+		fifthSpeciesKey:           species,
+		fifthBackgroundKey:        background,
 		fifthLevelKey:             level,
 		fifthJackOfAllTradesKey:   jack,
 		fieldNameProficiencyBonus: proficiency,

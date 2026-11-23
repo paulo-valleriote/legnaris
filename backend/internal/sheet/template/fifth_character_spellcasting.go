@@ -26,7 +26,7 @@ func fifthSpellcastingGroup() FieldGroup {
 	modDependencies := make([][]string, 0, len(abilities)*2)
 
 	for _, ability := range abilities {
-		abilityKey := fifthSpellcastingAbilityLeafKey(ability.key)
+		abilityKey := fifthAbilityFlagKey(ability.key)
 		group[abilityKey] = fifthChoice(
 			"Spellcasting ability", ability.label, 0, exclusiveGroupSpellcastingAbility,
 		)
@@ -81,7 +81,7 @@ func fifthSpellcastingGroup() FieldGroup {
 func fifthSpellcastingOrder() []string {
 	order := make([]string, 0, len(abilities)+4+9+1)
 	for _, ability := range abilities {
-		order = append(order, fifthSpellcastingAbilityLeafKey(ability.key))
+		order = append(order, fifthAbilityFlagKey(ability.key))
 	}
 	order = append(order,
 		fifthSpellAbilityModKey, fifthSpellAttackKey, fifthSpellSaveDCKey, fifthPreparedLimitKey,
@@ -90,10 +90,6 @@ func fifthSpellcastingOrder() []string {
 		order = append(order, fifthSpellSlotKey(level))
 	}
 	return append(order, fifthPactKey)
-}
-
-func fifthSpellcastingAbilityLeafKey(ability string) string {
-	return "ability" + upperFirst(ability)
 }
 
 func fifthSpellSlotKey(level int) string {

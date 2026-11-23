@@ -36,6 +36,24 @@ func TestFifthCharacter_Structure(t *testing.T) {
 		require.NotNil(t, name.MaxLength)
 		assert.Equal(t, 60, *name.MaxLength)
 
+		texts := map[string]string{
+			fifthClassKey:      "Class",
+			fifthSubclassKey:   "Subclass",
+			fifthSpeciesKey:    "Species",
+			fifthBackgroundKey: "Background",
+		}
+		for key, label := range texts {
+			schema := identity[key].Schema
+			require.NotNil(t, schema, key)
+			assert.Equal(t, fieldTypeText, schema.Type, key)
+			assert.True(t, schema.IsEditable, key)
+			assert.False(t, schema.Generatable, key)
+			assert.Empty(t, schema.Formula, key)
+			assert.Equal(t, label, schema.Label, key)
+			require.NotNil(t, schema.MaxLength, key)
+			assert.Equal(t, 60, *schema.MaxLength, key)
+		}
+
 		level := identity[fifthLevelKey].Schema
 		require.NotNil(t, level)
 		assert.Equal(t, fieldTypeNumber, level.Type)

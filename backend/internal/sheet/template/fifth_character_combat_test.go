@@ -230,6 +230,16 @@ func TestFifthCharacterSpeed(t *testing.T) {
 			},
 			want: -5,
 		},
+		{
+			name: "Edge: Exhaustion six with the heavy armor penalty goes below zero",
+			updates: map[string]any{
+				"armor.choiceHeavy":               float64(1),
+				"combat.armorStrengthRequirement": float64(13),
+				"abilities.strength.score":        float64(12),
+				"exhaustion.level":                float64(6),
+			},
+			want: -10,
+		},
 	}
 
 	for _, tc := range tests {

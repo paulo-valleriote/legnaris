@@ -2260,7 +2260,7 @@
             "schema": {
               "type": "number",
               "label": "Walk speed with exhaustion",
-              "formula": "speed_walk - 5 * exhaustion_level",
+              "formula": "speed_walk \u003e 0 ? speed_walk - 5 * exhaustion_level : 0",
               "depends_on": [
                 [
                   "speed",
@@ -2292,7 +2292,7 @@
             "schema": {
               "type": "number",
               "label": "Fly speed with exhaustion",
-              "formula": "speed_fly - 5 * exhaustion_level",
+              "formula": "speed_fly \u003e 0 ? speed_fly - 5 * exhaustion_level : 0",
               "depends_on": [
                 [
                   "speed",
@@ -2324,7 +2324,7 @@
             "schema": {
               "type": "number",
               "label": "Swim speed with exhaustion",
-              "formula": "speed_swim - 5 * exhaustion_level",
+              "formula": "speed_swim \u003e 0 ? speed_swim - 5 * exhaustion_level : 0",
               "depends_on": [
                 [
                   "speed",
@@ -2356,7 +2356,7 @@
             "schema": {
               "type": "number",
               "label": "Climb speed with exhaustion",
-              "formula": "speed_climb - 5 * exhaustion_level",
+              "formula": "speed_climb \u003e 0 ? speed_climb - 5 * exhaustion_level : 0",
               "depends_on": [
                 [
                   "speed",
@@ -2388,7 +2388,7 @@
             "schema": {
               "type": "number",
               "label": "Burrow speed with exhaustion",
-              "formula": "speed_burrow - 5 * exhaustion_level",
+              "formula": "speed_burrow \u003e 0 ? speed_burrow - 5 * exhaustion_level : 0",
               "depends_on": [
                 [
                   "speed",
@@ -2492,67 +2492,61 @@
             "abilityCharisma": {
               "schema": {
                 "type": "number",
-                "label": "Charisma",
+                "label": "Ability",
                 "is_editable": true,
                 "default": 0,
                 "exclusive_group": "actionAbility",
-                "option_label": "Charisma",
-                "flag": true
+                "option_label": "Charisma"
               }
             },
             "abilityConstitution": {
               "schema": {
                 "type": "number",
-                "label": "Constitution",
+                "label": "Ability",
                 "is_editable": true,
                 "default": 0,
                 "exclusive_group": "actionAbility",
-                "option_label": "Constitution",
-                "flag": true
+                "option_label": "Constitution"
               }
             },
             "abilityDexterity": {
               "schema": {
                 "type": "number",
-                "label": "Dexterity",
+                "label": "Ability",
                 "is_editable": true,
                 "default": 0,
                 "exclusive_group": "actionAbility",
-                "option_label": "Dexterity",
-                "flag": true
+                "option_label": "Dexterity"
               }
             },
             "abilityIntelligence": {
               "schema": {
                 "type": "number",
-                "label": "Intelligence",
+                "label": "Ability",
                 "is_editable": true,
                 "default": 0,
                 "exclusive_group": "actionAbility",
-                "option_label": "Intelligence",
-                "flag": true
+                "option_label": "Intelligence"
               }
             },
             "abilityStrength": {
               "schema": {
                 "type": "number",
-                "label": "Strength",
+                "label": "Ability",
                 "is_editable": true,
                 "default": 0,
                 "exclusive_group": "actionAbility",
-                "option_label": "Strength",
-                "flag": true
+                "option_label": "Strength"
               }
             },
             "abilityWisdom": {
               "schema": {
                 "type": "number",
-                "label": "Wisdom",
+                "label": "Ability",
                 "is_editable": true,
                 "default": 0,
                 "exclusive_group": "actionAbility",
-                "option_label": "Wisdom",
-                "flag": true
+                "option_label": "Wisdom"
               }
             },
             "damage": {
