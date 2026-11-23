@@ -19,13 +19,16 @@ The schema-driven rendering core (feature `web-ui-engine`): it turns a decoded
 no request, no mark. It mounts no screen; every case renders its modules directly.
 
 - `field_grouping.ts` — pure derivation of ordered, labeled sections and render rows
-  (stacked leaf, declared-column table, exclusive group); `row_identity.ts` — list discovery and
-  Record Row keys (`<list>.<id>`), whose Fields and Section resolve from the Template shape without
-  reading Sheet data. A Record is one Row, and a list's `dice`/`not_d20` declaration applies to
-  every Record.
+  (stacked leaf, declared-column table, exclusive group, and one `record` Row per Record of a list,
+  drawn as a table); `row_identity.ts` — list discovery, Record Row keys (`<list>.<id>`) and their
+  `position` order, whose Fields and Section resolve from the Template shape without reading Sheet
+  data. A Record is one Row, and a list's `dice`/`not_d20` declaration applies to every Record.
 - `field_control.tsx` / `exclusive_control.tsx` — one control per leaf schema, one
   single-choice control per exclusive group.
-- `sheet_form.tsx` — the composition; `sheet_defaults.ts` — the draft seed/overlay/merge;
+- `sheet_form.tsx` — the composition; it takes an optional `records` map and `recordActions`
+  (`add`/`remove`/`move`) and draws Add, Move up/down and Remove with predictable focus; without
+  `recordActions` the same table is read-only. `record_table.tsx` — the read-only table the Campaign
+  GM sheet draws. `sheet_defaults.ts` — the draft seed/overlay/merge;
   `sheet_mark.ts` — the preview-mark contract; `engine.css` — token-only styles.
 - Every string resolves through `src/l10n/strings.ts`; every visual value is a `--lg-*`
   token. Data is rendered as text; markup in a value or label stays literal (no DOM sink).
@@ -116,8 +119,8 @@ the F2 client and the F4 engine and owns no wire model.
   then one `GET /templates/:id`, a seeded fresh `['sheet', id]` rendered with no second
   fetch, and a `NOT_FOUND` that evicts the sheet and its draft.
 - `src/sheet/sheet_edit.ts` — the in-memory edit store: `editedPaths`, the copy-on-write
-  `data`, the pending delta, the save/preview lifecycle, the preview marks, two rolling
-  throttle windows and the draft restore. It emits immutable snapshots for
+  `data`, the pending delta, Record add/remove/move, the save/preview lifecycle, the preview marks,
+  two rolling throttle windows and the draft restore. It emits immutable snapshots for
   `useSyncExternalStore` and binds no listener itself.
 - `src/sheet/sheet_screen.tsx` — the mounted screen: header, the F4 form in builder mode,
   the sticky footer and the one guard modal.
@@ -214,8 +217,9 @@ no recalculation). Only the lists that deviate from the Template are sent.
   confirming discards the staging, its backup and any value edits.
 - **Rows never move, they pin.** A pinned Row rises to the top of its own Section, ordered by pin
   time (the order of `pinned`); unpinning returns it to its Template position, and a Section whose
-  Rows are all pinned renders as any other. There is no page-level pinned zone, no Row reordering and no Move up / Move
-  down control. A `pinned` key naming no Row is ignored on read; the layout
+  Rows are all pinned renders as any other. There is no page-level pinned zone and no Row reordering.
+  A Record's own list order is a value (`position`) edited by the form's Move up / Move down controls,
+  never by the Layout. A `pinned` key naming no Row is ignored on read; the layout
   store resolves every staged result, so one never stays staged or reaches the wire.
   An optional **pinned filter** in the play view (per viewer and per sheet, remembered in the view
   store, never part of the Layout, never sent to the server and never unsaved work; off until first

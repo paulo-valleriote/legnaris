@@ -378,6 +378,7 @@
   flex-direction: column;
   gap: var(--lg-space-16);
   margin: 0;
+  container-type: inline-size;
 }
 
 .lg-campaign__field-list {

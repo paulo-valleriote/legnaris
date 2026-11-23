@@ -1,13 +1,16 @@
 import type { FieldNode, FieldSchema } from '../api/models/template';
-import { buildSections, rowKey } from './field_grouping';
+import { isPlainObject } from '../api/parse';
+import { buildSections, RECORD_ID_PATTERN, recordRowKey, rowKey } from './field_grouping';
 
-export const RECORD_ID_PATTERN = /^r[0-9a-f]{32}$/;
+export { RECORD_ID_PATTERN, recordRowKey };
 
 export const SYNTHETIC_RECORD_ID = 'r00000000000000000000000000000000';
 
 export interface ListInfo {
   readonly path: string;
   readonly section: string;
+  readonly label: string;
+  readonly capacity: number;
   readonly shape: Readonly<Record<string, FieldSchema>>;
   readonly dice?: string;
   readonly notD20: boolean;
@@ -19,8 +22,9 @@ export interface RecordRow {
   readonly section: string;
 }
 
-export function recordRowKey(listPath: string, recordID: string): string {
-  return `${listPath}.${recordID}`;
+export interface RecordOrderEntry {
+  readonly id: string;
+  readonly position: number;
 }
 
 function collectLists(fields: Readonly<Record<string, FieldNode>>): ListInfo[] {
@@ -42,6 +46,8 @@ function collectLists(fields: Readonly<Record<string, FieldNode>>): ListInfo[] {
         lists.push({
           path,
           section: owner,
+          label: node.list.label,
+          capacity: node.list.capacity,
           shape,
           ...(node.list.dice === undefined ? {} : { dice: node.list.dice }),
           notD20: node.list.notD20 === true,
@@ -101,6 +107,102 @@ export function recordFieldSchema(
     return list.shape[field];
   }
   return undefined;
+}
+
+function readPath(data: Record<string, unknown>, path: string): unknown {
+  let current: unknown = data;
+  for (const segment of path.split('.')) {
+    if (!isPlainObject(current)) {
+      return undefined;
+    }
+    current = current[segment];
+  }
+  return current;
+}
+
+export function orderedRecords(
+  listPath: string,
+  data: Readonly<Record<string, unknown>>,
+): readonly RecordOrderEntry[] {
+  const stored = readPath(data as Record<string, unknown>, listPath);
+  if (!isPlainObject(stored)) {
+    return [];
+  }
+  const entries: RecordOrderEntry[] = [];
+  for (const [id, value] of Object.entries(stored)) {
+    if (!RECORD_ID_PATTERN.test(id) || !isPlainObject(value) || value === null) {
+      continue;
+    }
+    const raw = value.position;
+    const position =
+      typeof raw === 'number' && Number.isFinite(raw) ? raw : Number.MAX_SAFE_INTEGER;
+    entries.push({ id, position });
+  }
+  return entries.sort((left, right) =>
+    left.position === right.position
+      ? left.id.localeCompare(right.id)
+      : left.position - right.position,
+  );
+}
+
+export function orderedRecordIDs(
+  fields: Readonly<Record<string, FieldNode>>,
+  listPath: string,
+  data: Readonly<Record<string, unknown>>,
+): readonly string[] {
+  if (listInfoAtPath(fields, listPath) === undefined) {
+    return [];
+  }
+  return orderedRecords(listPath, data).map((entry) => entry.id);
+}
+
+export function recordsByList(
+  fields: Readonly<Record<string, FieldNode>>,
+  data: Readonly<Record<string, unknown>>,
+): Record<string, readonly string[]> {
+  const rows: Record<string, readonly string[]> = {};
+  for (const list of collectLists(fields)) {
+    rows[list.path] = orderedRecords(list.path, data).map((entry) => entry.id);
+  }
+  return rows;
+}
+
+export function recordsSignature(
+  fields: Readonly<Record<string, FieldNode>>,
+  data: Readonly<Record<string, unknown>>,
+): string {
+  return collectLists(fields)
+    .map(
+      (list) =>
+        `${list.path}=${orderedRecords(list.path, data)
+          .map((entry) => entry.id)
+          .join(',')}`,
+    )
+    .sort()
+    .join(';');
+}
+
+export function listInfoAtPath(
+  fields: Readonly<Record<string, FieldNode>>,
+  listPath: string,
+): ListInfo | undefined {
+  return collectLists(fields).find((list) => list.path === listPath);
+}
+
+export function newRecordID(random: (bytes: Uint8Array) => void = defaultRandomBytes): string {
+  const bytes = new Uint8Array(16);
+  random(bytes);
+  let hex = '';
+  for (const byte of bytes) {
+    hex += byte.toString(16).padStart(2, '0');
+  }
+  return `r${hex}`;
+}
+
+function defaultRandomBytes(bytes: Uint8Array): void {
+  const buffer = new Uint8Array(new ArrayBuffer(bytes.length));
+  globalThis.crypto.getRandomValues(buffer);
+  bytes.set(buffer);
 }
 
 function staticRows(fields: Readonly<Record<string, FieldNode>>): Map<string, string> {

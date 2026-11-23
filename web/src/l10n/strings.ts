@@ -493,6 +493,19 @@ export const messages = {
   'engine.decrease': 'Decrease {label}',
   'engine.increase': 'Increase {label}',
 
+  'record.rowLabel': '{list} {position}',
+  'record.add': 'Add to {list}',
+  'record.empty': 'No records yet.',
+  'record.atCapacity': 'At capacity ({count} of {capacity}).',
+  'record.moveUp': 'Move {label} up',
+  'record.moveDown': 'Move {label} down',
+  'record.remove': 'Remove {label}',
+  'record.added': 'Record added, {count} in the list',
+  'record.removed': 'Record removed, {count} left',
+  'record.moved': 'Record moved to position {position}',
+  'record.on': 'Yes',
+  'record.off': 'No',
+
   'arrange.start': 'Arrange',
   'arrange.hint':
     'Drag handles to reorder sections. Star rows to pin them. Nothing saves until Done.',

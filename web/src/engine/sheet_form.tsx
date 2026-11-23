@@ -1,11 +1,15 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import type { FieldNode, FieldSchema } from '../api/models/template';
 import { valueAtPath } from '../api/models/sheet';
-import { message } from '../l10n/strings';
+import { message, messageWith } from '../l10n/strings';
 import type {
+  RecordCell,
+  RecordRow,
+  RecordRows,
   SheetExclusiveGroup,
   SheetField,
+  SheetList,
   NormalRow,
   ExclusiveRow,
   SheetRow,
@@ -18,7 +22,10 @@ import {
   fieldDisplayName,
   groupDisplayName,
   lastSegment,
+  needsRecordHeader,
   needsTableHeader,
+  recordCellFields,
+  recordRowKey,
   rowFieldPaths,
   rowLabelText,
 } from './field_grouping';
@@ -29,9 +36,17 @@ import { DependentList, DependentReadout } from './dependent_readout';
 import { buildDependentsIndex, dependentsOf } from './dependents';
 import { SheetFieldControl } from './field_control';
 import { PinStar } from './pin_star';
-import { ChevronRightIcon } from '../ui/icons';
+import { recordsByList as recordsFromData } from './row_identity';
+import { Button } from '../ui/button';
+import { ChevronDownIcon, ChevronRightIcon, CloseIcon, PlusIcon } from '../ui/icons';
 import type { SheetMark } from './sheet_mark';
 import './engine.css';
+
+export interface RecordListActions {
+  readonly add: (listPath: string) => string | undefined;
+  readonly remove: (listPath: string, recordID: string) => void;
+  readonly move: (listPath: string, recordID: string, direction: -1 | 1) => void;
+}
 
 export interface RootFrameProps {
   readonly sectionKeys: readonly string[];
@@ -71,6 +86,8 @@ function isDerivedRow(row: SheetRow): boolean {
       return false;
     case 'table':
       return row.fields.every((field) => !field.schema.isEditable);
+    case 'record':
+      return false;
   }
 }
 
@@ -108,6 +125,7 @@ export interface SheetFormProps {
     group: SheetExclusiveGroup,
     selectedPath: string | undefined,
     onSelect: ((signal: string) => void) | undefined,
+    controlId?: string,
   ) => ReactNode;
   readonly dependentBuilder?: (dependent: SheetField, source: SheetField) => ReactNode;
   readonly rowMarkBuilder?: (paths: readonly string[], rowKey: string) => ReactNode;
@@ -119,6 +137,8 @@ export interface SheetFormProps {
     rowKeys: readonly string[],
   ) => ReactNode;
   readonly rowActionsBuilder?: (row: RowActionsInfo) => ReactNode;
+  readonly records?: RecordRows;
+  readonly recordActions?: RecordListActions;
   readonly arrangement?: Arrangement;
   readonly frames?: SheetFormFrames;
 }
@@ -131,6 +151,60 @@ export interface RowActionsInfo {
 
 export function markLabel(mark: SheetMark): string {
   return mark === 'modified' ? message('engine.modified') : message('engine.recalculated');
+}
+
+type RecordFocus =
+  | { readonly kind: 'add'; readonly id: string }
+  | {
+      readonly kind: 'record';
+      readonly key: string;
+      readonly action?: 'up' | 'down' | 'remove';
+    };
+
+function recordRowElement(root: HTMLElement, key: string): HTMLElement | undefined {
+  return Array.from(root.querySelectorAll<HTMLElement>('[data-row-key]')).find(
+    (element) => element.dataset.rowKey === key,
+  );
+}
+
+function focusableControls(row: HTMLElement): HTMLElement[] {
+  return Array.from(
+    row.querySelectorAll<HTMLElement>(
+      '.lg-record-row__cells input, .lg-record-row__cells select, .lg-record-row__cells textarea, .lg-record-row__cells button',
+    ),
+  ).filter((element) => !(element as HTMLButtonElement).disabled);
+}
+
+function actionButton(row: HTMLElement, action: 'up' | 'down' | 'remove'): HTMLElement | undefined {
+  const button = row.querySelector<HTMLButtonElement>(`[data-record-action="${action}"] button`);
+  return button !== null && !button.disabled ? button : undefined;
+}
+
+function focusRecordRequest(root: HTMLElement, request: RecordFocus): void {
+  if (request.kind === 'add') {
+    root.querySelector<HTMLElement>(`[id="${request.id}"]`)?.focus();
+    return;
+  }
+  const row = recordRowElement(root, request.key);
+  if (row === undefined) {
+    return;
+  }
+  const target =
+    (request.action === undefined ? undefined : actionButton(row, request.action)) ??
+    focusableControls(row)[0] ??
+    actionButton(row, 'remove') ??
+    actionButton(row, 'up');
+  target?.focus();
+}
+
+function recordColumnLabel(cell: RecordCell): string {
+  return cell.kind === 'field'
+    ? fieldColumnName(lastSegment(cell.field.path), cell.field.schema)
+    : cell.label;
+}
+
+function recordCellKey(cell: RecordCell, index: number): string {
+  return cell.kind === 'field' ? cell.field.path : `${cell.group.id}-${index}`;
 }
 
 export function SheetForm({
@@ -146,6 +220,8 @@ export function SheetForm({
   onlyPinned = false,
   sectionBadgeBuilder,
   rowActionsBuilder,
+  records,
+  recordActions,
   arrangement,
   frames,
 }: SheetFormProps) {
@@ -165,7 +241,23 @@ export function SheetForm({
   const SectionFrame = frames?.Section ?? DefaultSection;
   const RowFrame = frames?.Row ?? DefaultRow;
   const formId = useId();
+  const rootRef = useRef<HTMLDivElement>(null);
+  const pendingFocus = useRef<RecordFocus | null>(null);
   const labelIdFor = (key: string): string => `${formId}-label-${key.replace(/\s/g, '_')}`;
+  const addIdFor = (listPath: string): string => `${formId}-add-${listPath.replace(/\s/g, '_')}`;
+  const recordRows = records ?? (data === undefined ? undefined : recordsFromData(fields, data));
+
+  useEffect(() => {
+    const request = pendingFocus.current;
+    if (request === null) {
+      return;
+    }
+    pendingFocus.current = null;
+    const root = rootRef.current;
+    if (root !== null) {
+      focusRecordRequest(root, request);
+    }
+  });
 
   const rowLabel = (
     text: string,
@@ -188,7 +280,7 @@ export function SheetForm({
     </>
   );
 
-  const sections = buildSections(fields);
+  const sections = buildSections(fields, recordRows);
   const dependentsIndex = buildDependentsIndex(sections);
   const beside = dependentBuilder !== undefined || dataMode;
 
@@ -357,8 +449,179 @@ export function SheetForm({
     </>
   );
 
+  const renderRecordCell = (cell: RecordCell): ReactNode => {
+    if (cell.kind === 'field') {
+      return renderControl(cell.field);
+    }
+    const selectedPath = activeOption(cell.group);
+    const controlId = `${formId}-${cell.group.options[0]?.path.replace(/\s/g, '_')}`;
+    return exclusiveControlBuilder === undefined ? (
+      <SheetExclusiveControl group={cell.group} selectedPath={selectedPath} controlId={controlId} />
+    ) : (
+      exclusiveControlBuilder(cell.group, selectedPath, undefined, controlId)
+    );
+  };
+
+  const renderRecordHeader = (row: RecordRow): ReactNode => (
+    <div className="lg-record-row__header">
+      <span className="lg-record-row__lead" aria-hidden="true" />
+      <span className="lg-record-row__cells">
+        {row.columns.map((cell, index) => (
+          <span className="lg-record-cell" key={recordCellKey(cell, index)}>
+            <span className="lg-record-cell__label">{recordColumnLabel(cell)}</span>
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+
+  const runAdd = (list: SheetList): void => {
+    const recordID = recordActions?.add(list.path);
+    pendingFocus.current =
+      recordID === undefined ? null : { kind: 'record', key: recordRowKey(list.path, recordID) };
+  };
+
+  const runRemove = (row: RecordRow): void => {
+    const ids = recordRows?.[row.listPath] ?? [];
+    const index = ids.indexOf(row.recordID);
+    const next = ids[index + 1] ?? ids[index - 1];
+    recordActions?.remove(row.listPath, row.recordID);
+    pendingFocus.current =
+      next === undefined
+        ? { kind: 'add', id: addIdFor(row.listPath) }
+        : { kind: 'record', key: recordRowKey(row.listPath, next) };
+  };
+
+  const runMove = (row: RecordRow, direction: -1 | 1): void => {
+    recordActions?.move(row.listPath, row.recordID, direction);
+    pendingFocus.current = {
+      kind: 'record',
+      key: recordRowKey(row.listPath, row.recordID),
+      action: direction === 1 ? 'down' : 'up',
+    };
+  };
+
+  const renderRecordActions = (row: RecordRow): ReactNode => {
+    if (recordActions === undefined) {
+      return null;
+    }
+    const ids = recordRows?.[row.listPath] ?? [];
+    const index = ids.indexOf(row.recordID);
+    const label = rowLabelText(row);
+    return (
+      <span className="lg-record-row__actions">
+        <span data-record-action="up">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg-record__action"
+            icon={<ChevronDownIcon className="lg-record__action-icon lg-record__action-icon--up" />}
+            label={messageWith('record.moveUp', { label })}
+            disabled={index <= 0}
+            onClick={() => runMove(row, -1)}
+          >
+            <span aria-hidden="true" />
+          </Button>
+        </span>
+        <span data-record-action="down">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg-record__action"
+            icon={<ChevronDownIcon className="lg-record__action-icon" />}
+            label={messageWith('record.moveDown', { label })}
+            disabled={index < 0 || index >= ids.length - 1}
+            onClick={() => runMove(row, 1)}
+          >
+            <span aria-hidden="true" />
+          </Button>
+        </span>
+        <span data-record-action="remove">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="lg-record__action"
+            icon={<CloseIcon className="lg-record__action-icon" />}
+            label={messageWith('record.remove', { label })}
+            onClick={() => runRemove(row)}
+          >
+            <span aria-hidden="true" />
+          </Button>
+        </span>
+      </span>
+    );
+  };
+
+  const renderRecordRow = (
+    row: RecordRow,
+    key: string,
+    withHeader: boolean,
+    pinned: boolean,
+    actions: ReactNode,
+  ): ReactNode => (
+    <>
+      {withHeader && renderRecordHeader(row)}
+      <span className="lg-record-row__lead">
+        {rowLabel(
+          rowLabelText(row),
+          recordCellFields(row).map((field) => field.path),
+          key,
+          pinned,
+        )}
+        {renderRecordActions(row)}
+        {actions}
+      </span>
+      <span className="lg-record-row__cells">
+        {row.columns.map((cell, index) => (
+          <span
+            className={`lg-record-cell${
+              cell.kind === 'field' && fieldColumnAlign(cell.field.schema) === 'right'
+                ? ' lg-record-cell--number'
+                : ''
+            }`}
+            key={recordCellKey(cell, index)}
+          >
+            <span className="lg-record-cell__label">{recordColumnLabel(cell)}</span>
+            {renderRecordCell(cell)}
+          </span>
+        ))}
+      </span>
+    </>
+  );
+
+  const renderAddRow = (list: SheetList): ReactNode => {
+    if (onlyPinned || recordActions === undefined) {
+      return null;
+    }
+    const count = recordRows?.[list.path]?.length ?? 0;
+    return (
+      <div className="lg-record-add" key={`add-${list.path}`}>
+        {count === 0 && <p className="lg-record-empty">{message('record.empty')}</p>}
+        <Button
+          id={addIdFor(list.path)}
+          variant="ghost"
+          size="sm"
+          icon={<PlusIcon />}
+          label={messageWith('record.add', { list: list.label })}
+          disabled={count >= list.capacity}
+          disabledReason={
+            count >= list.capacity
+              ? messageWith('record.atCapacity', { count, capacity: list.capacity })
+              : undefined
+          }
+          onClick={() => runAdd(list)}
+        />
+      </div>
+    );
+  };
+
   const frameClass = (row: SheetRow): string => {
-    const layout = row.kind === 'table' ? 'lg-field-table__row' : 'lg-field-row';
+    const layout =
+      row.kind === 'table'
+        ? 'lg-field-table__row'
+        : row.kind === 'record'
+          ? 'lg-record-row'
+          : 'lg-field-row';
     const withDependents = row.kind === 'normal' && dependentsBeside(row.field).length > 0;
     return `lg-row ${layout}${isDerivedRow(row) ? ' lg-row--derived' : ''}${
       withDependents ? ' lg-field-row--dependents' : ''
@@ -373,7 +636,15 @@ export function SheetForm({
       sectionKey: arranged.sectionKey,
       label: rowLabelText(row),
     });
-    if (row.kind === 'table') {
+    if (row.kind === 'record') {
+      content = renderRecordRow(
+        row,
+        arranged.key,
+        needsRecordHeader(previous, row),
+        arranged.pinned,
+        actions,
+      );
+    } else if (row.kind === 'table') {
       content = renderTableRow(
         row,
         arranged.key,
@@ -456,13 +727,14 @@ export function SheetForm({
       >
         <div className="lg-section__rows" id={rowsId} hidden={collapsed}>
           {rows.map((arrangedRow, index) => renderRow(arrangedRow, rows[index - 1]?.row))}
+          {!collapsed && section.lists.map((list) => renderAddRow(list))}
         </div>
       </SectionFrame>
     );
   };
 
   return (
-    <div className="lg-engine">
+    <div className="lg-engine" ref={rootRef}>
       <RootFrame sectionKeys={view.map((entry) => entry.section.key)}>
         {view.map(renderSection)}
       </RootFrame>

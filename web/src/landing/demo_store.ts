@@ -306,6 +306,12 @@ export function createDemoEditStore(template: TemplateDetail, sheet: Sheet): She
       applyWrites(writes);
     },
 
+    addRecord: () => undefined,
+
+    removeRecord: () => undefined,
+
+    moveRecord: () => undefined,
+
     setDice: (target: DiceTarget, key, expression) => {
       const current = target === 'row' ? state.dice.row : state.dice.section;
       if (sameDiceEntry(current, key, expression)) {

@@ -193,6 +193,8 @@ describe('the parameterized copy resolution', () => {
           levels: '4–9',
           position: 2,
           count: 5,
+          list: 'Items',
+          capacity: 2,
           dice: 'd20',
           rolls: '11',
           kept: '17',
