@@ -17,6 +17,8 @@ func NewFormulaEngine() *FormulaEngine {
 		compileOptions: []expr.Option{
 			expr.Function("floor", floorFunc),
 			expr.Function("max", maxFunc),
+			expr.Function("min", minFunc),
+			expr.Function("lookup", lookupFunc),
 		},
 	}
 }
@@ -93,8 +95,16 @@ func floorFunc(params ...any) (any, error) {
 }
 
 func maxFunc(params ...any) (any, error) {
+	return numericPair("max", math.Max, params)
+}
+
+func minFunc(params ...any) (any, error) {
+	return numericPair("min", math.Min, params)
+}
+
+func numericPair(name string, combine func(float64, float64) float64, params []any) (any, error) {
 	if len(params) != 2 {
-		return nil, fmt.Errorf("%w: max expects exactly 2 arguments", ErrInvalidFloat)
+		return nil, fmt.Errorf("%w: %s expects exactly 2 arguments", ErrInvalidFloat, name)
 	}
 
 	a, err := coerceFloat64(params[0])
@@ -107,5 +117,41 @@ func maxFunc(params ...any) (any, error) {
 		return nil, fmt.Errorf("%w: second argument must be numeric", ErrInvalidFloat)
 	}
 
-	return math.Max(a, b), nil
+	return combine(a, b), nil
+}
+
+func lookupFunc(params ...any) (any, error) {
+	if len(params) < 3 || len(params)%2 == 0 {
+		return nil, fmt.Errorf("%w: lookup expects an input and at least one key/value pair", ErrInvalidLookupArity)
+	}
+
+	x, err := coerceFloat64(params[0])
+	if err != nil {
+		return nil, fmt.Errorf("%w: input must be numeric", ErrInvalidFloat)
+	}
+
+	result := 0.0
+	previousKey := 0.0
+	for i := range (len(params) - 1) / 2 {
+		key, err := coerceFloat64(params[1+2*i])
+		if err != nil {
+			return nil, fmt.Errorf("%w: key %d must be numeric", ErrInvalidFloat, i+1)
+		}
+
+		value, err := coerceFloat64(params[2+2*i])
+		if err != nil {
+			return nil, fmt.Errorf("%w: value %d must be numeric", ErrInvalidFloat, i+1)
+		}
+
+		if i > 0 && key <= previousKey {
+			return nil, fmt.Errorf("%w: key %d is not greater than key %d", ErrInvalidLookupKeyOrder, i+1, i)
+		}
+
+		if i == 0 || key <= x {
+			result = value
+		}
+		previousKey = key
+	}
+
+	return result, nil
 }
