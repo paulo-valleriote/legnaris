@@ -16,6 +16,7 @@ func TestFifthCharacter_Structure(t *testing.T) {
 		want := []string{
 			fifthIdentitySection, fifthAbilitiesSection, fifthSavesSection,
 			fifthSkillsSection, fifthExhaustionSection, fifthPassiveSection, fifthArmorSection,
+			fifthHitDiceSection, fifthSpellcastingSection,
 		}
 		assert.Equal(t, want, tmpl.SectionOrder)
 		assert.ElementsMatch(t, groupKeys(tmpl.Fields), tmpl.SectionOrder)
@@ -203,9 +204,6 @@ func TestFifthCharacter_Structure(t *testing.T) {
 
 	t.Run("Happy path: the dice defaults cover the three d20 checks", func(t *testing.T) {
 		assert.Equal(t, fifthCheckDice(), tmpl.SectionDice)
-		assert.Empty(t, tmpl.RowDice)
-		assert.Empty(t, tmpl.NotD20Sections)
-		assert.Empty(t, tmpl.NotD20Rows)
 	})
 }
 

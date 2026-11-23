@@ -14,19 +14,24 @@ var fifthCharacterTemplate = Template{
 	GameSystemID: GameSystemFifth,
 	NameLeaf:     fifthNameLeaf,
 	Fields: FieldGroup{
-		fifthIdentitySection:   {Children: fifthCharacterIdentityGroup(), Order: fifthCharacterIdentityOrder},
-		fifthAbilitiesSection:  {Children: fifthAbilitiesGroup(), Order: fifthAbilitiesOrder()},
-		fifthSavesSection:      {Children: fifthSavesGroup(), Order: fifthAbilitiesOrder()},
-		fifthSkillsSection:     {Children: fifthSkillsGroup(true), Order: fifthSkillKeys()},
-		fifthExhaustionSection: {Children: fifthExhaustionGroup(), Order: fifthExhaustionOrder},
-		fifthPassiveSection:    {Children: fifthPassiveGroup(), Order: fifthPassiveOrder},
-		fifthArmorSection:      {Children: fifthArmorGroup(false), Order: fifthArmorOrder(false)},
+		fifthIdentitySection:     {Children: fifthCharacterIdentityGroup(), Order: fifthCharacterIdentityOrder},
+		fifthAbilitiesSection:    {Children: fifthAbilitiesGroup(), Order: fifthAbilitiesOrder()},
+		fifthSavesSection:        {Children: fifthSavesGroup(), Order: fifthAbilitiesOrder()},
+		fifthSkillsSection:       {Children: fifthSkillsGroup(true), Order: fifthSkillKeys()},
+		fifthExhaustionSection:   {Children: fifthExhaustionGroup(), Order: fifthExhaustionOrder},
+		fifthPassiveSection:      {Children: fifthPassiveGroup(), Order: fifthPassiveOrder},
+		fifthArmorSection:        {Children: fifthArmorGroup(false), Order: fifthArmorOrder(false)},
+		fifthHitDiceSection:      {Children: fifthHitDiceGroup(), Order: fifthHitDiceOrder()},
+		fifthSpellcastingSection: {Children: fifthSpellcastingGroup(), Order: fifthSpellcastingOrder()},
 	},
 	SectionOrder: []string{
 		fifthIdentitySection, fifthAbilitiesSection, fifthSavesSection,
 		fifthSkillsSection, fifthExhaustionSection, fifthPassiveSection, fifthArmorSection,
+		fifthHitDiceSection, fifthSpellcastingSection,
 	},
-	SectionDice: fifthCheckDice(),
+	SectionDice:    fifthCheckDice(),
+	RowDice:        fifthCharacterRowDice(),
+	NotD20Sections: []string{fifthHitDiceSection},
 }
 
 var fifthCharacterIdentityOrder = []string{
