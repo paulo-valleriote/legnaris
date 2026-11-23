@@ -67,6 +67,19 @@ func TestAssemble(t *testing.T) {
 		assert.InDelta(t, 10.0, data["stats"].(map[string]any)["dexterity"], 1e-9)
 	})
 
+	t.Run("Happy path: a record list seeds empty and never reaches the derivation", func(t *testing.T) {
+		listed := listedFixtureTemplate()
+		listedDAG := fixtureDAG(t, listed)
+
+		data, err := generation.Assemble(listed, listedDAG, plan.KindCharacter, map[string]any{
+			"identity": map[string]any{"name": "Aria"},
+		})
+		require.NoError(t, err)
+		assert.Equal(t, map[string]any{}, data["inventory"].(map[string]any)["items"])
+		assert.Equal(t, "Aria", data["identity"].(map[string]any)["name"])
+		assert.InDelta(t, 0.0, data["modifiers"].(map[string]any)["dexterityMod"], 1e-9)
+	})
+
 	t.Run("Edge: a value filtered by kind is dropped and keeps its template default", func(t *testing.T) {
 		kinded := kindFixtureTemplate()
 		kindedDAG := fixtureDAG(t, kinded)

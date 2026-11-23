@@ -317,9 +317,10 @@ stores no `campaign_id` and publishes no link event; the client links the Sheet 
 
 `fifth_character_v1` and `fifth_stat_block_v1` share every field path below, so a later story
 extends a Template without renaming a shared part. Both are `draft` Templates of the `fifth` Game
-system, carry `identity.name` as their Name leaf, and use the same Section order: `identity`,
-`abilities`, `saves`, `skills`, `exhaustion`, `passive`, `armor`; the character adds `combat`,
-`status` and `coins` after them.
+system, carry `identity.name` as their Name leaf, and use the same static Section order: `identity`,
+`abilities`, `saves`, `skills`, `exhaustion`, `passive`, `armor`. The character adds `combat`,
+`status` and `coins` after `armor` and appends its Record Sections `attacks`, `inventory`,
+`features`, `spells` and `resources` last.
 
 - **Identity** — `identity.name` (text, generatable); `identity.level` (1–20, character only) or
   `identity.challengeRating` (0–30, fractional CRs entered as `0.125`, `0.25`, `0.5`) and the
@@ -363,6 +364,30 @@ system, carry `identity.name` as their Name leaf, and use the same Section order
   the Row dice is `1d20 + exhaustion.penalty` because a death save is a d20 test.
 - **Coins (character)** — `coins.cp`, `.sp`, `.ep`, `.gp` and `.pp` are entered, default 0, and
   stay outside the Inventory weight total.
+- **Attacks (character Records)** — `attacks.list` (capacity 10) with `name`, the exclusive
+  `attackAbility` group `abilityStrength` (the default), `abilityDexterity`, `abilityConstitution`,
+  `abilityIntelligence`, `abilityWisdom` and `abilityCharisma`, the numeric 0/1 `proficient` flag,
+  `misc`, `damage` (text) and `notes`. The derived `toHit` is the chosen ability modifier +
+  `proficient` × PB + `misc`, and `damageBonus` is the chosen ability modifier, so damage adds it
+  while its dice stay text. The list Row default is `1d20 + @.toHit + exhaustion.penalty`, and the
+  Exhaustion penalty never enters the displayed `toHit`.
+- **Inventory (character Records)** — `inventory.items` (capacity 100) with `name`, `quantity`
+  (default 1), `weight`, the numeric 0/1 `attuned` flag and `notes`, plus the derived Record
+  `totalWeight` = quantity × weight. `inventory.totalWeight` sums those Record values and
+  `inventory.attuned` counts the non-zero `attuned` flags; an empty list gives 0, a quantity of 0
+  adds nothing, and attunement is shown, never blocked. Coins stay static leaves outside the list,
+  so they never enter the total.
+- **Features and feats (character Records)** — `features.list` (capacity 50) with `name`, `source`
+  and `text`, all text.
+- **Spells (character Records)** — `spells.list` (capacity 100) with `name`, `level` (0 for a
+  cantrip), the numeric 0/1 `prepared`, `concentration` and `ritual` flags, and `notes`.
+- **Resources (character Records)** — `resources.list` (capacity 20) with `name`, `max`, `used` and
+  the exclusive `resourceRecharge` group `rechargeShort`, `rechargeLong` and `rechargeNone` (the
+  default), so a Reset action can filter the Records of one recharge kind.
+
+The character's Record Sections use the generic list contract below: one Record Row per
+`<list>.<id>`, a flat shape and the per-Record exclusive groups. The Template Section dice are the
+three d20 checks only; `attacks.list` carries its own Row default.
 
 The three d20 Sections declare Section dice, not per-Row defaults: `abilities`
 `1d20 + @.mod + exhaustion.penalty`, `saves` and `skills` `1d20 + @.total + exhaustion.penalty`.
