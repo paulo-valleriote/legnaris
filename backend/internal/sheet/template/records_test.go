@@ -26,7 +26,8 @@ func recordShape() FieldGroup {
 		"derivedTotal": {Schema: &FieldSchema{
 			Type:       fieldTypeNumber,
 			IsEditable: false,
-			Formula:    "quantity * 2",
+			Formula:    "record_quantity * 2",
+			DependsOn:  [][]string{{"quantity"}},
 		}},
 	}
 }
@@ -471,6 +472,58 @@ func TestDAG_ApplyRecordUpdates_LeavesStaticDataAlone(t *testing.T) {
 	}})
 	require.NoError(t, err)
 	assert.Equal(t, "Aria", data["name"])
+}
+
+func TestDAG_DropDerivedRecordValues(t *testing.T) {
+	dag := recordsDAG(t)
+
+	tests := []struct {
+		name string
+		flat map[string]any
+		want map[string]any
+	}{
+		{
+			name: "Happy path: an editable Record field and position are kept",
+			flat: map[string]any{
+				"inventory.items." + validRecordID + ".quantity": 2.0,
+				"inventory.items." + validRecordID + ".position": 1.0,
+			},
+			want: map[string]any{
+				"inventory.items." + validRecordID + ".quantity": 2.0,
+				"inventory.items." + validRecordID + ".position": 1.0,
+			},
+		},
+		{
+			name: "Happy path: a derived Record field is dropped",
+			flat: map[string]any{
+				"inventory.items." + validRecordID + ".derivedTotal": 9.0,
+				"name": "Aria",
+			},
+			want: map[string]any{"name": "Aria"},
+		},
+		{
+			name: "Edge: an unknown Record field is left for the strict split",
+			flat: map[string]any{"inventory.items." + validRecordID + ".ghost": 1.0},
+			want: map[string]any{"inventory.items." + validRecordID + ".ghost": 1.0},
+		},
+		{
+			name: "Edge: a malformed id and the list path are left untouched",
+			flat: map[string]any{
+				"inventory.items.rXYZ.quantity": 2.0,
+				"inventory.items":               nil,
+			},
+			want: map[string]any{
+				"inventory.items.rXYZ.quantity": 2.0,
+				"inventory.items":               nil,
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, dag.DropDerivedRecordValues(tc.flat))
+		})
+	}
 }
 
 func TestValidateRecordID(t *testing.T) {

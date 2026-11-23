@@ -151,6 +151,15 @@ func (e *ListCapacityError) Error() string {
 	)
 }
 
+type InvalidAggregateError struct {
+	Path   string
+	Reason string
+}
+
+func (e *InvalidAggregateError) Error() string {
+	return fmt.Sprintf("invalid aggregate '%s': %s", e.Path, e.Reason)
+}
+
 type RecordIDError struct {
 	ID string
 }
@@ -264,6 +273,10 @@ func ErrListCapacity(path string, capacity, minCapacity, maxCapacity int) error 
 
 func ErrInvalidRecordID(id string) error {
 	return &RecordIDError{ID: id}
+}
+
+func ErrInvalidAggregate(path, reason string) error {
+	return &InvalidAggregateError{Path: path, Reason: reason}
 }
 
 func ErrUnknownRecordField(listPath, field string) error {

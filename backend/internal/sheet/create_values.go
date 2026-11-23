@@ -136,26 +136,17 @@ func (s *ServiceImpl) applyValues(dag *template.DAG, seed map[string]any, values
 	if err != nil {
 		return nil, translateMapErr("create", err)
 	}
+	flat = dag.DropDerivedRecordValues(flat)
 	staticUpdates, recordUpdates, err := dag.SplitRecordUpdates(flat)
 	if err != nil {
 		return nil, translateDAGErr(err)
 	}
 	updates := dropDerived(dag, staticUpdates)
-	merged := maputils.DeepCopy(seed)
-	if err := dag.ApplyRecordUpdates(merged, recordUpdates); err != nil {
-		return nil, translateDAGErr(err)
-	}
-	normalized, cascade, err := dag.NormalizeAndRecalculate(seed, updates)
+	calculation, err := dag.NormalizeAndRecalculateWithRecords(seed, updates, recordUpdates)
 	if err != nil {
 		return nil, translateDAGErr(err)
 	}
-	if err := maputils.ApplyUpdates(merged, normalized); err != nil {
-		return nil, translateMapErr("create", err)
-	}
-	if err := maputils.ApplyUpdates(merged, cascade); err != nil {
-		return nil, translateMapErr("create", err)
-	}
-	return merged, nil
+	return calculation.Merged, nil
 }
 
 func dropDerived(dag *template.DAG, values map[string]any) map[string]any {

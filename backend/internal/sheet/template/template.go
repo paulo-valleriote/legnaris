@@ -67,6 +67,7 @@ type FieldSchema struct {
 	Min              *float64         `bson:"min,omitempty"`
 	Max              *float64         `bson:"max,omitempty"`
 	MaxLength        *int             `bson:"max_length,omitempty"`
+	Aggregate        *AggregateSchema `bson:"aggregate,omitempty"`
 }
 
 func (s *FieldSchema) GeneratableFor(kind plan.SheetKind) bool {

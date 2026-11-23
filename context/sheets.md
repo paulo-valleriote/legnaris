@@ -179,17 +179,19 @@ Sheet kinds the Template accepts (`character`, `npc` or `enemy`); creation and g
 other kind stay 400 `INVALID_REQUEST`, and a Template that declares none omits the key. A node
 carries exactly one of `schema` (leaf), `children` (group) or `list`; a group may carry `label` and
 `columns`; a list carries `{label, columns, capacity, shape}` where `shape` is a flat group of leaf
-schemas using the same schema shape as a leaf. A leaf schema is `{type, label,
-is_editable, default, formula?, depends_on?, exclusive_group?, option_label?, column_label?,
-generatable?, generatable_kinds?, prefer_default?, min?, max?, max_length?, flag?}`. `default` stays
+schemas using the same schema shape as a leaf. A leaf schema is `{type, label, is_editable,
+default, formula?, depends_on?, exclusive_group?, option_label?, column_label?, generatable?,
+generatable_kinds?, prefer_default?, min?, max?, max_length?, flag?, aggregate?}`. `default` stays
 numeric for every type, so a text leaf shows `0`. `flag` marks an editable number leaf as a 0/1
 toggle and is absent otherwise; boot rejects it on a non-number or derived leaf, or with a default
-other than 0 or 1. A list path has at most three segments and its capacity is 1–200; boot rejects a
+other than 0 or 1. `aggregate` is `{list, field, op}` on a derived number leaf: `op` is `sum` or
+`count` (non-zero values), the field is a numeric shape Field (derived or editable), and an empty
+list gives 0. A list path has at most three segments and its capacity is 1–200; boot rejects a
 reserved `position` shape key, an invalid shape key, a group or list inside the shape, a deeper
-path or an out-of-range capacity. `dice` is `{section?, row?, not_d20?}`; it is
-omitted when the Template has no defaults and no marking, and `not_d20` is `{section: [...],
-row: [...]}` naming the Rows and Sections whose dice are not d20 tests (see [dice](dice.md)).
-Sections follow the template's `SectionOrder` and children their declared `Order`;
+path or an out-of-range capacity. `dice` is `{section?, row?, not_d20?}`; it is omitted when the
+Template has no defaults and no marking, and `not_d20` is `{section: [...], row: [...]}` naming the
+Rows and Sections whose dice are not d20 tests (see [dice](dice.md)). Sections follow the template's
+`SectionOrder` and children their declared `Order`;
 unlisted keys are alphabetical. Template IDs are slugs (`^[a-z][a-z0-9_]*$`); a malformed ID is
 400, an unknown one 404.
 
@@ -270,9 +272,33 @@ path is split out before the DAG runs:
 
 Unknown Fields in a shape are 400 `UNKNOWN_FIELD`; a malformed id, a derived or non-editable shape
 Field, a `null` Field value, a non-numeric `position`, a `flag` value other than 0 or 1, text over
-`max_length` and an over-capacity list are 400 `INVALID_REQUEST`. The response is still only the
-derived cascade, so a Record-only save answers `{}`. Record Fields are stored only; formulas inside
-a Record are the next story (LGN-393) and a derived Field in a shape is refused for writes today.
+`max_length`, two non-zero exclusive members in one Record and an over-capacity list are 400
+`INVALID_REQUEST`. The response is the derived cascade: adding, editing or removing a Record
+returns the Record's derived values under its id, and any aggregate they change; a save that changes
+nothing derived answers `{}`.
+
+### Record formulas and aggregates
+
+A derived shape Field is declared like any other derived leaf, but its formula runs once per Record
+and reads its own Record as `record_<field>`; the Sheet is read through the normal static keys, and
+`record` is a reserved top-level key (a top-level field of that name fails boot) that also carries
+the current Record as an object. Every own-Record dependency is a one-segment `depends_on` path (a
+shape field name, or a top-level static field name); every Sheet dependency is its dotted path.
+Boot rejects a missing shape field, a missing static path, an undeclared `record_<field>` read and a
+cycle that crosses a Record and an aggregate, because the Record and aggregate nodes join one
+topological sort. `position` is not a formula input.
+
+An exclusive group in a shape behaves per Record: two non-zero members in one Record are 400, a
+chosen member clears its siblings in that Record, and two Records may choose different members. A
+Record's derived values are recomputed whenever any Record Field, `position` change, removal or any
+Sheet Field it reads changes; the cascade carries them nested as
+`{"inventory": {"items": {"r<id>": {"derivedTotal": 6}}}}`.
+
+A Sheet-level aggregate is a derived number leaf declaring `{list, field, op}`, with `op` `sum` or
+`count` (count counts non-zero values). It reads the Record Field of every Record in the list —
+editable or derived — may feed another formula, and joins the same cascade. The dependency on
+`<list>.<field>` is implicit, an empty or missing list gives 0, and the values are summed as stored
+(non-numeric or missing values count as 0, and `count` ignores zero).
 
 ### Layout
 
@@ -661,17 +687,21 @@ Backend:
 
 - `backend/internal/sheet/template/template.go` — `Template`, `FieldGroup`, `FieldNode`,
   `FieldSchema`, seed values; `dag.go` — DAG build, topological order, cycle detection,
-  exclusive normalization and change detection; `list.go` — `ListSchema`, list boot validation and
-  Record seeding; `records.go` — splitting a PATCH into static and Record updates, Record id
-  validation, applying create/remove/position and checking capacity.
+  exclusive normalization, change detection and the one-lock `CalculateSave`; `list.go` -
+  `ListSchema`, list boot validation and Record seeding; `records.go` — splitting a PATCH into
+  static and Record updates, Record id validation, applying create/remove/position, per-Record
+  exclusive groups and checking capacity; `record_formula.go` — Record formula compilation, the
+  `record_<field>` environment and per-Record evaluation; `aggregate.go` — aggregate declaration,
+  boot validation and `sum`/`count` evaluation.
 - `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry and the
   `fantasy_v1` catalogue; `layout.go` — `SectionRowKeys`, `ValidateLayout`;
   `dice_defaults.go`, `not_d20.go`, `name_leaf.go`, `generation_metadata.go`, `flags.go`, `dto.go` — boot
   validators and JSON shape (a list node is `{label, columns, capacity, shape}`).
 - `backend/internal/sheet/service.go`, `create_values.go` — create, fetch, patch, preview,
   layout, delete, seeding and `CreateWithValues` for generation, which drops derived (non-editable) leaves sent back from the
-  preview and recalculates them, while unknown keys are still refused. `recalculate` splits Record
-  updates out of the delta, applies them to the merged copy and keeps the DAG on static leaves.
+  preview and recalculates them, while unknown keys are still refused. `recalculate` hands the whole
+  flattened delta to `DAG.CalculateSave`, which splits and applies Record updates and derives Record
+  values and aggregates under one read lock.
 - `backend/internal/sheet/repository.go` — reads, CAS PATCH, layout write and plan counters;
   `duplicate.go`, `limits.go`, `migrate.go`, `dto.go`, `events.go` — duplicate rules, limits,
   migration, DTO and events; `sheettest/list_fixture.go` — the test-only list Template (not in
@@ -751,10 +781,10 @@ Web:
 ## Known limits
 
 - No sheet import or export endpoint exists; the server is the only backup.
-- Record lists store editable Fields only: a derived Field in a shape is seeded with its default
-  but is refused for writes, and no formula is evaluated inside a Record until LGN-393. The web
-  client does not draw a list yet; the list is declared in the Template DTO and edited through the
-  normal PATCH delta only.
+- Record lists store editable Fields and their derived Fields: a shape formula is compiled at boot
+  and evaluated per Record, and Sheet aggregates read the list. A derived Field is still refused as
+  a write (the server computes it); the web client does not draw a list yet, so Records are edited
+  through the normal PATCH delta only.
 - Users cannot create or edit templates; the registry is frozen at boot and only `fantasy_v1`
   ships. A template change requires a deploy and, if incompatible, a new ID.
 - No offline open: the IndexedDB sheet copy is written and evicted but never read as a fallback,

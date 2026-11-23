@@ -280,34 +280,17 @@ func (s *ServiceImpl) recalculate(ctx context.Context, ref sheetRef, data map[st
 		return nil, translateMapErr("update", err)
 	}
 
-	staticUpdates, recordUpdates, err := dag.SplitRecordUpdates(updates)
+	calculation, err := dag.CalculateSave(storedSheet.Data, updates)
 	if err != nil {
 		return nil, translateDAGErr(err)
-	}
-
-	mergedData := maputils.DeepCopy(storedSheet.Data)
-	if err := dag.ApplyRecordUpdates(mergedData, recordUpdates); err != nil {
-		return nil, translateDAGErr(err)
-	}
-
-	normalized, cascadingEffects, err := dag.NormalizeAndRecalculate(storedSheet.Data, staticUpdates)
-	if err != nil {
-		return nil, translateDAGErr(err)
-	}
-
-	if err := maputils.ApplyUpdates(mergedData, normalized); err != nil {
-		return nil, translateMapErr("update", err)
-	}
-	if err := maputils.ApplyUpdates(mergedData, cascadingEffects); err != nil {
-		return nil, translateMapErr("update", err)
 	}
 
 	return &preparedSave{
 		templateID: storedSheet.TemplateID,
 		version:    storedSheet.Version,
-		delta:      recordAwareDelta(normalized, recordUpdates),
-		merged:     mergedData,
-		cascade:    cascadingEffects,
+		delta:      recordAwareDelta(calculation.Normalized, calculation.RecordUpdates),
+		merged:     calculation.Merged,
+		cascade:    calculation.Cascade,
 	}, nil
 }
 
@@ -485,20 +468,12 @@ func (s *ServiceImpl) PreviewTemplate(ctx context.Context, cmd PreviewTemplateCo
 		return nil, translateMapErr("update", err)
 	}
 
-	staticUpdates, recordUpdates, err := dag.SplitRecordUpdates(updates)
-	if err != nil {
-		return nil, translateDAGErr(err)
-	}
-	if err := dag.ApplyRecordUpdates(seeded, recordUpdates); err != nil {
-		return nil, translateDAGErr(err)
-	}
-
-	_, cascading, err := dag.NormalizeAndRecalculate(seeded, staticUpdates)
+	calculation, err := dag.CalculateSave(seeded, updates)
 	if err != nil {
 		return nil, translateDAGErr(err)
 	}
 
-	return nestedCascadingEffects(cascading)
+	return nestedCascadingEffects(calculation.Cascade)
 }
 
 func (s *ServiceImpl) SetLayout(ctx context.Context, cmd SetLayoutCommand) (*Layout, error) {

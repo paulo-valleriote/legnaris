@@ -110,6 +110,7 @@ type FieldSchemaDTO struct {
 	Min              *float64         `json:"min,omitempty"`
 	Max              *float64         `json:"max,omitempty"`
 	MaxLength        *int             `json:"max_length,omitempty"`
+	Aggregate        *AggregateSchema `json:"aggregate,omitempty"`
 }
 
 func (t Template) ToDTO() TemplateDTO {
@@ -259,5 +260,6 @@ func (s *FieldSchema) toDTO() *FieldSchemaDTO {
 		Min:              clonePtr(s.Min),
 		Max:              clonePtr(s.Max),
 		MaxLength:        clonePtr(s.MaxLength),
+		Aggregate:        s.Aggregate.Clone(),
 	}
 }

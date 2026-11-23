@@ -160,6 +160,38 @@ func validateRecordField(listPath string, list ListSchema, recordID, field strin
 	return validationNode.checkTextLength(value)
 }
 
+func (d *DAG) DropDerivedRecordValues(flat map[string]any) map[string]any {
+	if d == nil || len(flat) == 0 {
+		return flat
+	}
+
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
+	kept := make(map[string]any, len(flat))
+	for key, value := range flat {
+		if isDerivedRecordValue(d.lists, key) {
+			continue
+		}
+		kept[key] = value
+	}
+	return kept
+}
+
+func isDerivedRecordValue(lists map[string]ListSchema, key string) bool {
+	listPath, list, ok := listByName(lists, key)
+	if !ok {
+		return false
+	}
+	remainder := strings.TrimPrefix(key, listPath+".")
+	segments := strings.Split(remainder, ".")
+	if len(segments) != 2 {
+		return false
+	}
+	node, ok := list.Shape[segments[1]]
+	return ok && node.IsLeaf() && !node.Schema.IsEditable
+}
+
 func (d *DAG) ApplyRecordUpdates(data map[string]any, updates []RecordUpdate) error {
 	if d == nil {
 		return ErrNilDAG
@@ -185,14 +217,20 @@ func (d *DAG) applyRecordUpdatesLocked(data map[string]any, updates []RecordUpda
 		if !ok {
 			return ErrUnknownRecordField(listPath, "")
 		}
-		if err := applyListUpdates(data, listPath, list, byList[listPath]); err != nil {
+		if err := applyListUpdates(d, data, listPath, list, byList[listPath]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func applyListUpdates(data map[string]any, listPath string, list ListSchema, updates []RecordUpdate) error {
+func applyListUpdates(
+	d *DAG,
+	data map[string]any,
+	listPath string,
+	list ListSchema,
+	updates []RecordUpdate,
+) error {
 	path := strings.Split(listPath, ".")
 	listMap := map[string]any{}
 	if current, found := maputils.Get(data, path); found {
@@ -220,28 +258,48 @@ func applyListUpdates(data map[string]any, listPath string, list ListSchema, upd
 		if update.Remove || removed[update.RecordID] {
 			continue
 		}
-		record, exists := listMap[update.RecordID].(map[string]any)
-		if !exists {
-			record = list.SeedRecord(0)
+		var err error
+		nextPosition, err = applyRecordUpdate(d, listPath, list, listMap, update, nextPosition)
+		if err != nil {
+			return err
 		}
-		explicitPosition := false
-		for _, field := range slices.Sorted(maps.Keys(update.Fields)) {
-			record[field] = update.Fields[field]
-			if field == ListPositionField {
-				explicitPosition = true
-			}
-		}
-		if record[ListPositionField] == 0.0 && !explicitPosition && !exists {
-			record[ListPositionField] = nextPosition
-			nextPosition++
-		}
-		listMap[update.RecordID] = record
 	}
 
 	if len(listMap) > list.Capacity {
 		return ErrListCapacityExceeded(listPath, len(listMap), list.Capacity)
 	}
 	return maputils.Set(data, path, listMap)
+}
+
+func applyRecordUpdate(
+	d *DAG,
+	listPath string,
+	list ListSchema,
+	listMap map[string]any,
+	update RecordUpdate,
+	nextPosition float64,
+) (float64, error) {
+	record, exists := listMap[update.RecordID].(map[string]any)
+	if !exists {
+		record = list.SeedRecord(0)
+	}
+	fields, err := d.normalizeRecordExclusiveFields(listPath, update.RecordID, update.Fields)
+	if err != nil {
+		return nextPosition, err
+	}
+	explicitPosition := false
+	for _, field := range slices.Sorted(maps.Keys(fields)) {
+		record[field] = fields[field]
+		if field == ListPositionField {
+			explicitPosition = true
+		}
+	}
+	if record[ListPositionField] == 0.0 && !explicitPosition && !exists {
+		record[ListPositionField] = nextPosition
+		nextPosition++
+	}
+	listMap[update.RecordID] = record
+	return nextPosition, nil
 }
 
 func nextRecordPosition(listMap map[string]any) float64 {
