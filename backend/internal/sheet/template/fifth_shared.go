@@ -26,6 +26,7 @@ const (
 	fifthMiscKey  = "misc"
 
 	fifthTotalColumnLabel = "Total"
+	fifthCountColumnLabel = "Count"
 
 	fifthLevelKey           = "level"
 	fifthChallengeRatingKey = "challengeRating"

@@ -40,7 +40,7 @@ func fifthPrimaryHitDiePool() FieldNode {
 		fmt.Sprintf("max(0, %s - (%s))", fifthIdentityLevelEngineKey(), fifthExtraHitDiceSum()),
 		fifthPrimaryHitDieDependencies()...,
 	)
-	count.Schema.ColumnLabel = "Count"
+	count.Schema.ColumnLabel = fifthCountColumnLabel
 	spent := numField("Primary Hit Dice spent", 0)
 	spent.Schema.ColumnLabel = fifthSpentColumnLabel
 	remaining := calcField(

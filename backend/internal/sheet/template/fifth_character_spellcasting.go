@@ -133,7 +133,7 @@ func fifthPactMagicGroup() FieldNode {
 	usedPath := []string{fifthSpellcastingSection, fifthPactKey, fifthPactUsedKey}
 
 	count := numField("Pact Magic slots", 0)
-	count.Schema.ColumnLabel = "Count"
+	count.Schema.ColumnLabel = fifthCountColumnLabel
 	level := numField("Pact Magic slot level", 0)
 	level.Schema.ColumnLabel = "Level"
 	used := numField("Pact Magic slots used", 0)
