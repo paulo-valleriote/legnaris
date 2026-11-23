@@ -249,6 +249,9 @@ same slug; the change is a new slug. In the DTO, `game_system` is
 `{id, name, compatibility_label, notice: {label, path}}` and is omitted when the Template has none.
 The catalog entry and the create-sheet dialog show the compatibility label as plain text, with no
 attribution link and no notice label; a Template without a Game system renders exactly as before.
+`Registry.ListByGameSystem` returns every Template of a Game system regardless of state; Campaign
+scope resolution filters that list with `Available` so Drafts appear only in development and Retired
+Templates always do.
 
 ### Template lifecycle
 
@@ -868,8 +871,8 @@ Backend:
   boot validation and `sum`/`count` evaluation; `reset_actions.go` — Reset action declaration,
   boot compilation and the one-lock `CalculateReset`; `row_identity.go` — Record Row keys, Section
   membership and the shape-aware fit schema.
-- `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry and the
-  `fantasy_v1` catalogue; `game_system.go` — the code-defined Game system registry, its validation
+- `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry, `ListByGameSystem`
+  and the `fantasy_v1` catalogue; `game_system.go` — the code-defined Game system registry, its validation
   and the DTO resolution; `layout.go` — `SectionRowKeys`, `ValidateLayout`;
   `dice_defaults.go`, `not_d20.go`, `name_leaf.go`, `generation_metadata.go`, `flags.go`, `dto.go` — boot
   validators and JSON shape (a list node is `{label, columns, capacity, shape, dice?, not_d20?}`).
