@@ -13,19 +13,9 @@ const (
 )
 
 func ValidateDiceDefaults(tmpl Template) error {
-	if len(tmpl.SectionDice) == 0 && len(tmpl.RowDice) == 0 {
-		return nil
-	}
-
-	sectionRows := make(map[string][]string)
-	rowSet := make(map[string]bool)
-	for _, section := range SectionRowKeys(tmpl) {
-		sectionRows[section.Section] = section.Rows
-		for _, row := range section.Rows {
-			rowSet[row] = true
-		}
-	}
-	schema := fieldKinds(tmpl.Fields)
+	sectionRows := sectionRowsForFit(tmpl)
+	rowSet := staticRowKeys(tmpl)
+	schema := rowDiceSchema(tmpl)
 
 	for _, key := range sortedKeys(tmpl.SectionDice) {
 		rows, ok := sectionRows[key]
@@ -42,6 +32,17 @@ func ValidateDiceDefaults(tmpl Template) error {
 		}
 		if _, err := dice.ValidateRow(schema, key, tmpl.RowDice[key]); err != nil {
 			return &InvalidDiceError{Scope: diceScopeRow, Key: key, Err: err}
+		}
+	}
+	lists := templateLists(tmpl)
+	for _, listPath := range slices.Sorted(maps.Keys(lists)) {
+		expression := lists[listPath].Dice
+		if expression == "" {
+			continue
+		}
+		row := RecordRowKey(listPath, syntheticRecordID)
+		if _, err := dice.ValidateRow(schema, row, expression); err != nil {
+			return &InvalidDiceError{Scope: diceScopeRow, Key: listPath, Err: err}
 		}
 	}
 	return nil
@@ -90,15 +91,9 @@ func ValidateSheetDice(tmpl Template, sectionDice, rowDice map[string]*string) e
 		return nil
 	}
 
-	sectionRows := make(map[string][]string)
-	rowSet := make(map[string]bool)
-	for _, section := range SectionRowKeys(tmpl) {
-		sectionRows[section.Section] = section.Rows
-		for _, row := range section.Rows {
-			rowSet[row] = true
-		}
-	}
-	schema := fieldKinds(tmpl.Fields)
+	sectionRows := sectionRowsForFit(tmpl)
+	rowSet := staticRowKeys(tmpl)
+	schema := rowDiceSchema(tmpl)
 
 	for _, key := range slices.Sorted(maps.Keys(sectionDice)) {
 		rows, ok := sectionRows[key]
@@ -113,7 +108,9 @@ func ValidateSheetDice(tmpl Template, sectionDice, rowDice map[string]*string) e
 	}
 	for _, key := range slices.Sorted(maps.Keys(rowDice)) {
 		if !rowSet[key] {
-			return &UnknownDiceRowError{Key: key}
+			if _, ok := ParseRecordRowKey(tmpl, key); !ok {
+				return &UnknownDiceRowError{Key: key}
+			}
 		}
 		if expr := rowDice[key]; expr != nil {
 			if _, err := dice.ValidateRow(schema, key, *expr); err != nil {

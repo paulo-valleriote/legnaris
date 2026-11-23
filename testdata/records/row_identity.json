@@ -1,0 +1,251 @@
+{
+  "version": 1,
+  "fields": {
+    "stats.strength": "number",
+    "stats.name": "text",
+    "combat.initiative": "number"
+  },
+  "lists": {
+    "inventory.items": {
+      "section": "inventory",
+      "shape": {
+        "name": "text",
+        "quantity": "number",
+        "active": "bool"
+      }
+    },
+    "inventory.gems": {
+      "section": "inventory",
+      "shape": {
+        "name": "text",
+        "quantity": "number"
+      }
+    },
+    "spells.known": {
+      "section": "spells",
+      "shape": {
+        "name": "text",
+        "level": "number"
+      }
+    }
+  },
+  "rowKeys": [
+    {
+      "name": "Happy path: a static leaf is a row",
+      "key": "stats.strength",
+      "valid": true,
+      "section": "stats"
+    },
+    {
+      "name": "Happy path: a record row is the list path and a well-formed id",
+      "key": "inventory.items.r0123456789abcdef0123456789abcdef",
+      "valid": true,
+      "section": "inventory"
+    },
+    {
+      "name": "Happy path: another list in another section",
+      "key": "spells.known.rffffffffffffffffffffffffffffffff",
+      "valid": true,
+      "section": "spells"
+    },
+    {
+      "name": "Edge: an all-zero record id is well formed",
+      "key": "inventory.gems.r00000000000000000000000000000000",
+      "valid": true,
+      "section": "inventory"
+    },
+    {
+      "name": "Error: a record id one hex character short",
+      "key": "inventory.items.r0123456789abcdef0123456789abcde",
+      "valid": false
+    },
+    {
+      "name": "Error: a record id with uppercase hex",
+      "key": "inventory.items.r0123456789ABCDEF0123456789ABCDEF",
+      "valid": false
+    },
+    {
+      "name": "Error: a record id with a non-hex character",
+      "key": "inventory.items.r0123456789abcdef0123456789abcdeg",
+      "valid": false
+    },
+    {
+      "name": "Error: a record id without the r prefix",
+      "key": "inventory.items.0123456789abcdef0123456789abcdef",
+      "valid": false
+    },
+    {
+      "name": "Error: a record id with hyphens",
+      "key": "inventory.items.r01234567-89ab-cdef-0123-456789abcdef",
+      "valid": false
+    },
+    {
+      "name": "Error: an empty record id",
+      "key": "inventory.items.",
+      "valid": false
+    },
+    {
+      "name": "Error: an unknown list",
+      "key": "unknown.items.r0123456789abcdef0123456789abcdef",
+      "valid": false
+    },
+    {
+      "name": "Error: the list path alone is not a row",
+      "key": "inventory.items",
+      "valid": false
+    },
+    {
+      "name": "Error: a record field path is not a row",
+      "key": "inventory.items.r0123456789abcdef0123456789abcdef.quantity",
+      "valid": false
+    },
+    {
+      "name": "Error: an unknown static path",
+      "key": "stats.charisma",
+      "valid": false
+    },
+    {
+      "name": "Error: the empty key",
+      "key": "",
+      "valid": false
+    }
+  ],
+  "fit": [
+    {
+      "name": "Happy path: @ resolves a numeric shape column inside the record",
+      "row": "inventory.items.r0123456789abcdef0123456789abcdef",
+      "expr": "1d20 + @.quantity",
+      "fits": true
+    },
+    {
+      "name": "Happy path: a record column path resolves without @",
+      "row": "spells.known.rffffffffffffffffffffffffffffffff",
+      "expr": "1d20 + spells.known.rffffffffffffffffffffffffffffffff.level",
+      "fits": true
+    },
+    {
+      "name": "Happy path: a Field-sized die reads a shape column",
+      "row": "inventory.items.r0123456789abcdef0123456789abcdef",
+      "expr": "{@.quantity}d6",
+      "fits": true
+    },
+    {
+      "name": "Happy path: a static row keeps fitting its own Field",
+      "row": "stats.strength",
+      "expr": "1d20 + stats.strength",
+      "fits": true
+    },
+    {
+      "name": "Error: a text shape column is not numeric",
+      "row": "inventory.items.r0123456789abcdef0123456789abcdef",
+      "expr": "1d20 + @.name",
+      "fits": false,
+      "class": "non_numeric_field"
+    },
+    {
+      "name": "Error: a bool shape column is not numeric",
+      "row": "inventory.items.r0123456789abcdef0123456789abcdef",
+      "expr": "1d20 + @.active",
+      "fits": false,
+      "class": "non_numeric_field"
+    },
+    {
+      "name": "Error: an unknown shape column",
+      "row": "inventory.items.r0123456789abcdef0123456789abcdef",
+      "expr": "1d20 + @.missing",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "Error: bare @ is not a shape column",
+      "row": "inventory.items.r0123456789abcdef0123456789abcdef",
+      "expr": "1d20 + @",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "Error: the reserved position is not a shape column",
+      "row": "inventory.items.r0123456789abcdef0123456789abcdef",
+      "expr": "1d20 + @.position",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "Error: a malformed id resolves no shape column",
+      "row": "inventory.items.r0123456789abcdef0123456789abcde",
+      "expr": "1d20 + @.quantity",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "Error: an unknown list resolves no shape column",
+      "row": "unknown.items.r0123456789abcdef0123456789abcdef",
+      "expr": "1d20 + @.quantity",
+      "fits": false,
+      "class": "unknown_field"
+    },
+    {
+      "name": "Error: a text static Field is not numeric",
+      "row": "stats.name",
+      "expr": "1d20 + stats.name",
+      "fits": false,
+      "class": "non_numeric_field"
+    }
+  ],
+  "listDefaults": [
+    {
+      "name": "Happy path: a list default fits a numeric shape column through @",
+      "list": "inventory.items",
+      "expr": "1d20 + @.quantity",
+      "fits": true
+    },
+    {
+      "name": "Happy path: a list default with only dice fits every record",
+      "list": "inventory.gems",
+      "expr": "1d6",
+      "fits": true
+    },
+    {
+      "name": "Error: a list default over a text column does not fit",
+      "list": "inventory.items",
+      "expr": "1d20 + @.name",
+      "fits": false,
+      "class": "non_numeric_field"
+    },
+    {
+      "name": "Error: a list default over an unknown column does not fit",
+      "list": "inventory.items",
+      "expr": "1d20 + @.missing",
+      "fits": false,
+      "class": "unknown_field"
+    }
+  ],
+  "sections": [
+    {
+      "name": "Happy path: a Section default over a list fits a numeric shape column",
+      "section": "inventory",
+      "expr": "1d20 + @.quantity",
+      "fits": true
+    },
+    {
+      "name": "Happy path: a Section default fits another list's column",
+      "section": "spells",
+      "expr": "1d20 + @.level",
+      "fits": true
+    },
+    {
+      "name": "Error: a Section default over text columns fits none of the Rows",
+      "section": "inventory",
+      "expr": "1d20 + @.name",
+      "fits": false,
+      "class": "non_numeric_field"
+    },
+    {
+      "name": "Error: a Section default over an unknown column fits none of the Rows",
+      "section": "inventory",
+      "expr": "1d20 + @.missing",
+      "fits": false,
+      "class": "unknown_field"
+    }
+  ]
+}

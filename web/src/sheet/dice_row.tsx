@@ -53,6 +53,7 @@ export interface DiceContextValue {
   readonly check: DiceCheck;
   readonly rowKeys: ReadonlySet<string>;
   readonly sectionRows: ReadonlyMap<string, readonly string[]>;
+  readonly isRowKey?: (key: string) => boolean;
   readonly notD20: DiceMarking;
   readonly savedValues: () => Record<string, unknown>;
   readonly draftValues: () => Record<string, unknown>;
@@ -300,6 +301,7 @@ function useRowResolution(rowKey: string, sectionKey: string): Resolution {
     defaults: dice.defaults,
     rowKeys: dice.rowKeys,
     sectionRows: dice.sectionRows,
+    isRowKey: dice.isRowKey,
     block,
   });
 }

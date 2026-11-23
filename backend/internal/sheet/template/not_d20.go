@@ -6,13 +6,10 @@ func ValidateNotD20Tests(tmpl Template) error {
 	}
 
 	sections := make(map[string]bool)
-	rows := make(map[string]bool)
-	for _, section := range SectionRowKeys(tmpl) {
-		sections[section.Section] = true
-		for _, row := range section.Rows {
-			rows[row] = true
-		}
+	for section := range sectionRowsForFit(tmpl) {
+		sections[section] = true
 	}
+	rows := staticRowKeys(tmpl)
 
 	for _, key := range tmpl.NotD20Sections {
 		if !sections[key] {

@@ -178,10 +178,11 @@ authenticated, active account and share the per-user rate limit.
 Sheet kinds the Template accepts (`character`, `npc` or `enemy`); creation and generation with any
 other kind stay 400 `INVALID_REQUEST`, and a Template that declares none omits the key. A node
 carries exactly one of `schema` (leaf), `children` (group) or `list`; a group may carry `label` and
-`columns`; a list carries `{label, columns, capacity, shape}` where `shape` is a flat group of leaf
-schemas using the same schema shape as a leaf. A leaf schema is `{type, label, is_editable,
-default, formula?, depends_on?, exclusive_group?, option_label?, column_label?, generatable?,
-generatable_kinds?, prefer_default?, min?, max?, max_length?, flag?, aggregate?}`. `default` stays
+`columns`; a list carries `{label, columns, capacity, shape, dice?, not_d20?}` where `shape` is a
+flat group of leaf schemas using the same schema shape as a leaf. A list's `dice` is the default
+dice of every Record and `not_d20` marks every Record as not a d20 test. A leaf schema is `{type, label,
+is_editable, default, formula?, depends_on?, exclusive_group?, option_label?, column_label?,
+generatable?, generatable_kinds?, prefer_default?, min?, max?, max_length?, flag?, aggregate?}`. `default` stays
 numeric for every type, so a text leaf shows `0`. `flag` marks an editable number leaf as a 0/1
 toggle and is absent otherwise; boot rejects it on a non-number or derived leaf, or with a default
 other than 0 or 1. `aggregate` is `{list, field, op}` on a derived number leaf: `op` is `sum` or
@@ -234,10 +235,12 @@ a non-numeric member is 400, and a member set to zero leaves siblings unchanged.
 replaces the whole block (an empty block clears it); an absent or `null` block leaves it
 untouched. `null` means "no dice", an absent key means "use the template default". The block is
 capped at 64 entries, keys must name a Section or Row, expressions must parse, a Row expression
-must fit its Row and a Section expression at least one Row. Dice-only saves skip the DAG and
-return `{"data": {}}`. A body with neither a top-level non-empty `data` nor a `dice` block is 400.
-Preview reads `data` only and never writes; the Dice grammar and both implementations are in
-[dice](dice.md).
+must fit its Row and a Section expression at least one Row. A Row key may be a Record Row
+`<list>.<well-formed id>`: it is checked against the list shape and id format without reading Sheet
+data, so an id no Record carries any more is kept and does not block the save. Dice-only saves skip
+the DAG and return `{"data": {}}`. A body with neither a top-level non-empty `data` nor a `dice`
+block is 400. Preview reads `data` only and never writes; the Dice grammar and both implementations
+are in [dice](dice.md).
 
 The response is only the changed derived leaves, nested. A PATCH whose values do not change
 returns `{}` and recomputes nothing. Sheets nest at most five levels; deeper input is 400.
@@ -256,6 +259,14 @@ client creates the id as `r` followed by 32 lowercase hex characters (a UUID wit
 not a `Sheet`-style server entity id and is never validated with `idgen`. A new Sheet seeds every
 list as `{}`. Each Record carries the reserved numeric `position`; readers order Records by
 `position` and, on a tie, by id. The server stores the value and never sorts or rewrites the map.
+
+A Record is one Row, keyed `<list>.<id>`; its Fields are `<list>.<id>.<field>`. The Row key and its
+Section (the first list-path segment) are decided from the Template and the id format alone, never
+by reading Sheet data, so a pin or dice override for an id that no longer exists is still a
+well-formed key. The shape decides what `@.<field>` means inside that Row: only a numeric shape
+leaf fits, and `position` is not a Field. A list is one declaration for its Records: `dice` is the
+Row default and `not_d20` the marking for every Record. A Section dice override or default fits
+when it fits at least one static Row or one Record shape of the Section, including an empty list.
 
 `PATCH /sheets/:id` and `POST /sheets/:id/preview` accept the same nested `data`; a key under a list
 path is split out before the DAG runs:
@@ -306,9 +317,12 @@ Body: `{"layout": {"section_order": [...], "pinned": [...]}}`; `{"layout": null}
 reset it to none. The write is a full replacement and idempotent. An order equal to the
 template's is stored as given when sent; the web sends only the lists that deviate and `null`
 when none does. A partial list is valid: missing Sections fall back to template order, stale keys
-are ignored on read, an unknown Section or pin is 400, and a duplicate within one list is 400.
-Pins never reorder Rows across Sections: a pinned Row is drawn at the top of its own Section in
-pin order. `PUT` does not touch `version` or `updated_at`, so it never conflicts with a save.
+are ignored on read, an unknown Section or pin is 400, and a duplicate within one list is 400. A
+pin may be a static Row key or a Record Row `<list>.<well-formed id>`; the Record key is checked
+against the Template shape and id format, so it saves without reading Sheet data and a key left by
+a removed Record does not block a later save. Pins never reorder Rows across Sections: a pinned Row
+is drawn at the top of its own Section in pin order. `PUT` does not touch `version` or
+`updated_at`, so it never conflicts with a save.
 
 ### Row-key grammar (backend and web)
 
@@ -319,11 +333,15 @@ A Row key is derived only from the template:
   exclusive members below it are not Rows
 - editable leaves sharing a non-empty `exclusive_group` in one Section → `<parent path>#<group id>`
   (`config#armorClassAbility`); a one-member group stays a lone leaf
+- one Record of a list → `<list path>.<id>` (`inventory.items.r<32 hex>`); the list path alone and
+  any Field below the Record are not Rows, and a malformed id is no Row
 
 Sections follow `SectionOrder`; children follow their declared `Order`, then alphabetical; a
-Section with no leaf is omitted. The backend definition is `template.SectionRowKeys`; the web
-definition is `buildRows`/`rowKey` in `web/src/engine/field_grouping.ts`. They must change together.
-A pinned key must be one of these Rows.
+Section with no leaf is omitted unless it declares a list. The backend definition is
+`template.SectionRowKeys` for static Rows plus `template.IsRowKey`/`template.ParseRecordRowKey` for
+Record Rows; the web definition is `buildRows`/`rowKey` in `web/src/engine/field_grouping.ts` plus
+`isRowKey`/`parseRecordRowKey` in `web/src/engine/row_identity.ts`. They must change together. A
+pinned key must be one of these Rows.
 
 ### Optimistic locking
 
@@ -687,16 +705,17 @@ Backend:
 
 - `backend/internal/sheet/template/template.go` — `Template`, `FieldGroup`, `FieldNode`,
   `FieldSchema`, seed values; `dag.go` — DAG build, topological order, cycle detection,
-  exclusive normalization, change detection and the one-lock `CalculateSave`; `list.go` -
+  exclusive normalization, change detection and the one-lock `CalculateSave`; `list.go` —
   `ListSchema`, list boot validation and Record seeding; `records.go` — splitting a PATCH into
   static and Record updates, Record id validation, applying create/remove/position, per-Record
   exclusive groups and checking capacity; `record_formula.go` — Record formula compilation, the
   `record_<field>` environment and per-Record evaluation; `aggregate.go` — aggregate declaration,
-  boot validation and `sum`/`count` evaluation.
+  boot validation and `sum`/`count` evaluation; `row_identity.go` — Record Row keys, Section
+  membership and the shape-aware fit schema.
 - `backend/internal/sheet/template/registry.go`, `seeders.go` — boot registry and the
   `fantasy_v1` catalogue; `layout.go` — `SectionRowKeys`, `ValidateLayout`;
   `dice_defaults.go`, `not_d20.go`, `name_leaf.go`, `generation_metadata.go`, `flags.go`, `dto.go` — boot
-  validators and JSON shape (a list node is `{label, columns, capacity, shape}`).
+  validators and JSON shape (a list node is `{label, columns, capacity, shape, dice?, not_d20?}`).
 - `backend/internal/sheet/service.go`, `create_values.go` — create, fetch, patch, preview,
   layout, delete, seeding and `CreateWithValues` for generation, which drops derived (non-editable) leaves sent back from the
   preview and recalculates them, while unknown keys are still refused. `recalculate` hands the whole
@@ -718,9 +737,10 @@ Web:
   first and shows a single kind without a choice, with the limit, Generate link and submit
   following the selected kind; on Free the dialog's `Generate with AI` entry carries a Pro
   badge and opens the upgrade dialog (see [web-client](web-client.md)).
-- `web/src/engine/field_grouping.ts` — schema → Sections and Rows, row keys; `layout.ts`,
-  `arrange_ops.ts` — arrangement resolution, view and staging; a flagged leaf is a toggle, never
-  a number Row.
+- `web/src/engine/field_grouping.ts` — schema → Sections and Rows, static row keys;
+  `row_identity.ts` — list discovery, Record Row keys, shape Fields and Section membership;
+  `layout.ts`, `arrange_ops.ts` — arrangement resolution, view and staging; a flagged leaf is a
+  toggle, never a number Row.
 - `web/src/engine/sheet_form.tsx`, `field_control.tsx`, `exclusive_control.tsx`,
   `sheet_defaults.ts`, `sheet_mark.ts`, `dependents.ts` — stateless rendering core, seed/merge
   and marks.

@@ -84,7 +84,7 @@ Parse is syntax only: a well-formed path that is not a Field is accepted by Pars
 
 ### Fit
 
-The schema maps a dotted path to `number`, `text` or `bool`; every Field a term names must exist and be numeric, including a count or faces reference in braces. `@` resolves to the Row key and `@.<column>` to `<row>.<column>`. A table Row key such as `skills.acrobatics` is not itself a Field, so bare `@` does not fit it while `@.total` can. A Section expression fits when it fits at least one Row; no Rows is `no_rows`, and none fitting carries the class of the first Row's problem.
+The schema maps a dotted path to `number`, `text` or `bool`; every Field a term names must exist and be numeric, including a count or faces reference in braces. `@` resolves to the Row key and `@.<column>` to `<row>.<column>`. A table Row key such as `skills.acrobatics` is not itself a Field, so bare `@` does not fit it while `@.total` can. A Record Row is `<list>.<id>`: bare `@` is not a Field there either, while `@.<field>` resolves through the list's shape to `<list>.<id>.<field>` and only a numeric shape leaf fits (`position` is not a Field). A Section expression fits when it fits at least one Row; a Section holding a list also offers one Record shape, so an expression over `@.<field>` fits even while the list is empty. No Rows is `no_rows`, and none fitting carries the class of the first Row's problem.
 
 ### Evaluation
 
@@ -122,16 +122,16 @@ Go declares `*dice.Error` with a `Class` and `Err*` sentinels; it imports neithe
 - `section` is keyed by Section name, `row` by Row key. `null` is an explicit "no dice"; an absent key means "use the Template".
 - A present block replaces the whole stored block and is idempotent; an empty block clears it and is stored as none; an absent or `null` block leaves the stored block untouched.
 - A body with neither a non-empty `data` nor a block is 400 `INVALID_REQUEST`. A dice-only save skips the DAG and returns an empty cascade.
-- The block is capped at 64 entries across both maps, `null` included; every key must name a Section or Row of the sheet's Template.
+- The block is capped at 64 entries across both maps, `null` included; every key must name a Section or Row of the sheet's Template. A Record Row `<list>.<well-formed id>` is a Row key decided from the Template shape and id format alone, without reading Sheet data: a key left by a removed Record is accepted on a later save and returned untouched on read.
 - Every non-null expression is parsed; a Row override must fit its Row and a Section override at least one of its Rows.
 - A save carrying a block advances `version` and `updated_at`.
 - `GET /sheets/:id` always returns `dice`, an untouched sheet reading as `{"section":{},"row":{}}`. Reads are tolerant: an override whose Row or Field the Template no longer has is returned as stored and must be ignored.
 
 ### Template defaults
 
-`Template.SectionDice` and `Template.RowDice` are code-defined and ship as `dice: {section, row}` on the template detail; the block is omitted when both maps are empty, and an empty side is omitted too. They are never written into a Sheet. Boot validation rejects an unknown Section or Row key, a refused expression, a Row default that does not fit its Row, and a Section default that fits none of its Rows, checking Sections before Rows and keys alphabetically so the error is stable.
+`Template.SectionDice` and `Template.RowDice` are code-defined and ship as `dice: {section, row}` on the template detail; the block is omitted when both maps are empty, and an empty side is omitted too. They are never written into a Sheet. A list declares its default once, as `dice` on the list node, and it applies to every Record as that Record's Row default. Boot validation rejects an unknown Section or Row key, a refused expression, a Row default that does not fit its Row, a list default that fits no Record shape, and a Section default that fits none of its Rows, checking Sections before Rows, then lists and keys alphabetically so the error is stable.
 
-`Template.NotD20Sections` and `Template.NotD20Rows` name the Sections and Rows whose dice are not d20 tests. They ship inside the same `dice` object as `not_d20: {section: [...], row: [...]}`, with an empty side omitted; `dice` itself is emitted when either a default or a marking exists. Boot validation rejects an unknown Section, a Section without Rows, or a Row that is no Row of any Section, checking Sections before Rows. A marking is Template data: it survives a player's expression override and is never written to a Sheet.
+`Template.NotD20Sections` and `Template.NotD20Rows` name the Sections and Rows whose dice are not d20 tests; a list declares `not_d20` on the list node and the marking covers every Record. The Section and Row markings ship inside the same `dice` object as `not_d20: {section: [...], row: [...]}`, with an empty side omitted; the list marking ships on the list node, and top-level `dice` is emitted when a Section or Row default or marking exists. Boot validation rejects an unknown Section, a Section without Rows, or a Row that is no Row of any Section, checking Sections before Rows. A marking is Template data: it survives a player's expression override and is never written to a Sheet.
 
 ### Shared vectors
 
@@ -142,12 +142,12 @@ A grammar change starts in the vectors: add or amend the cases (bump `version` f
 ## Code map
 
 - `backend/internal/dice/` — `parse.go` (limits, terms, canonical form), `fit.go` (`Schema`, fit and Section validation), `evaluate.go` (`Roller`, parts, totals), `errors.go` (classes and `ClassOf`).
-- `backend/internal/sheet/template/dice_defaults.go` — boot validation and `ValidateSheetDice`; `not_d20.go` — the not-a-d20-test declaration validator; `seeders.go` holds the `fantasy_v1` defaults; `dto.go` emits the template block.
+- `backend/internal/sheet/template/dice_defaults.go` — boot validation and `ValidateSheetDice`; `not_d20.go` — the not-a-d20-test declaration validator; `row_identity.go` — Record Row keys, Section membership and the shape-aware fit schema; `seeders.go` holds the `fantasy_v1` defaults; `dto.go` emits the template block and the list's `dice`/`not_d20`.
 - `backend/internal/sheet/service.go` — `validatedDice`, `translateDiceErr` and the one compare-and-swap save; `sheet.go` holds the stored block; `dto.go` always serializes it on `GET`.
 - `backend/internal/app/sheet.go` — the `PATCH /sheets/:id` route.
 - `testdata/dice/vectors.json` — the shared vectors.
-- `web/src/dice/` — `parse.ts`, `fit.ts`, `resolve.ts` (precedence), `roll.ts` (`performRoll`, `dieFromWords`, crypto source, keep modes), `errors.ts`.
-- `web/src/sheet/dice_view.ts` — schema, pruning, error keys, Roll summary and the Template's not-a-d20-test marking; `dice_store.ts` — local check and `setDice`; `sheet_edit.ts` — saved and pending blocks, drafts and the save.
+- `web/src/dice/` — `parse.ts`, `fit.ts`, `resolve.ts` (precedence, including the list default), `roll.ts` (`performRoll`, `dieFromWords`, crypto source, keep modes), `errors.ts`.
+- `web/src/sheet/dice_view.ts` — schema, pruning, error keys, Roll summary and the Template's not-a-d20-test marking; `web/src/engine/row_identity.ts` — list discovery, Record Row keys and shape Fields; `dice_store.ts` — local check and `setDice`; `sheet_edit.ts` — saved and pending blocks, drafts and the save.
 - `web/src/sheet/dice_row.tsx` — Roll/Edit controls, Section button and editor; `roll_mode.tsx` — the Normal/Advantage/Disadvantage choice and its click and context-key mapping; `dice_panel.tsx` — the floating result with its recent-roll history (`dice_history.ts` keeps the last three, newest first, with each entry's mode); `die_icon.tsx`, `dice.css` — shapes.
 - `web/src/api/models/dice.ts`, `web/src/api/client.ts` — wire parsing and body.
 - `web/src/test/dice_*.test.ts`, `web/src/test/sheet_dice_*.test.*` — vector, resolution, Roll, store and screen suites.
