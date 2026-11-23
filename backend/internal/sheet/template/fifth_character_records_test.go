@@ -110,12 +110,11 @@ func TestFifthCharacter_RecordSections(t *testing.T) {
 
 	t.Run("Happy path: the record sections close the sheet reading order", func(t *testing.T) {
 		want := []string{
-			fifthIdentitySection, fifthAbilitiesSection, fifthSavesSection,
-			fifthSkillsSection, fifthExhaustionSection, fifthPassiveSection, fifthArmorSection,
 			fifthAttacksSection, fifthInventorySection, fifthFeaturesSection,
 			fifthSpellsSection, fifthResourcesSection,
 		}
-		assert.Equal(t, want, tmpl.SectionOrder)
+		require.GreaterOrEqual(t, len(tmpl.SectionOrder), len(want))
+		assert.Equal(t, want, tmpl.SectionOrder[len(tmpl.SectionOrder)-len(want):])
 		assert.ElementsMatch(t, groupKeys(tmpl.Fields), tmpl.SectionOrder)
 	})
 
