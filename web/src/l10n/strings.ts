@@ -621,7 +621,7 @@ export const messages = {
   'campaigns.new': 'New campaign',
   'campaigns.nameLabel': 'Campaign name',
   'campaigns.nameRequired': 'Enter a name for the campaign.',
-  'campaigns.templateLabel': 'Campaign template',
+  'campaigns.scopeLabel': 'Game system',
   'campaigns.templatesLoading': 'Loading the campaign templates',
   'campaigns.templatesFailed': 'The campaign templates could not be loaded.',
   'campaigns.create': 'Create campaign',

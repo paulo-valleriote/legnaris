@@ -1,4 +1,11 @@
-import { drift, isPlainObject, requireBoolean, requireNumber, requireString } from '../parse';
+import {
+  drift,
+  isPlainObject,
+  optionalString,
+  requireBoolean,
+  requireNumber,
+  requireString,
+} from '../parse';
 import type { Sheet } from './sheet';
 
 export const CAMPAIGN_ROLES = ['gm', 'player'] as const;
@@ -18,10 +25,18 @@ export interface CampaignMember {
   readonly characterName: string;
 }
 
+export interface CampaignGameSystem {
+  readonly id: string;
+  readonly name: string;
+}
+
 export interface Campaign {
   readonly id: string;
   readonly name: string;
-  readonly templateId: string;
+  readonly scopeName: string;
+  readonly templateIds: readonly string[];
+  readonly templateId: string | undefined;
+  readonly gameSystem: CampaignGameSystem | undefined;
   readonly status: CampaignStatus;
   readonly version: number;
   readonly gmCount: number;
@@ -39,7 +54,10 @@ export interface Campaign {
 export interface CampaignSummary {
   readonly id: string;
   readonly name: string;
-  readonly templateId: string;
+  readonly scopeName: string;
+  readonly templateIds: readonly string[];
+  readonly templateId: string | undefined;
+  readonly gameSystem: CampaignGameSystem | undefined;
   readonly version: number;
   readonly viewerRole: CampaignRole;
   readonly viewerOwner: boolean;
@@ -99,6 +117,60 @@ function optionalText(source: Record<string, unknown>, key: string): string {
   return typeof value === 'string' ? value : '';
 }
 
+function parseGameSystem(source: Record<string, unknown>): CampaignGameSystem | undefined {
+  const value = source['game_system'];
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  const gameSystem = requireObject(value, 'campaign game system');
+  return {
+    id: requireString(gameSystem, 'id'),
+    name: requireString(gameSystem, 'name'),
+  };
+}
+
+function parseTemplateIds(source: Record<string, unknown>): readonly string[] | undefined {
+  const value = source['template_ids'];
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (!Array.isArray(value)) {
+    throw drift('campaign "template_ids" is not a list');
+  }
+
+  const ids: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string') {
+      throw drift('campaign "template_ids" holds a non-string entry');
+    }
+    ids.push(entry);
+  }
+  return ids;
+}
+
+interface CampaignScope {
+  readonly scopeName: string;
+  readonly templateIds: readonly string[];
+  readonly templateId: string | undefined;
+  readonly gameSystem: CampaignGameSystem | undefined;
+}
+
+function parseScope(source: Record<string, unknown>): CampaignScope {
+  const templateId = optionalString(source, 'template_id');
+  const gameSystem = parseGameSystem(source);
+
+  if (templateId === undefined && gameSystem === undefined) {
+    throw drift('campaign payload has neither a game system nor a template id');
+  }
+
+  const scopeName = optionalString(source, 'scope_name') ?? templateId ?? gameSystem?.name ?? '';
+  const templateIds = parseTemplateIds(source) ?? (templateId === undefined ? [] : [templateId]);
+
+  return { scopeName, templateIds, templateId, gameSystem };
+}
+
 function parseMember(payload: unknown): CampaignMember {
   const source = requireObject(payload, 'campaign member');
   return {
@@ -121,7 +193,7 @@ export function parseCampaign(payload: unknown): Campaign {
   return {
     id: requireString(source, 'id'),
     name: requireString(source, 'name'),
-    templateId: requireString(source, 'template_id'),
+    ...parseScope(source),
     status: requireEnum(source, 'status', CAMPAIGN_STATUSES),
     version: requireNumber(source, 'version'),
     gmCount: requireNumber(source, 'gm_count'),
@@ -147,7 +219,7 @@ export function parseCampaignSummaries(payload: unknown): CampaignSummary[] {
     return {
       id: requireString(source, 'id'),
       name: requireString(source, 'name'),
-      templateId: requireString(source, 'template_id'),
+      ...parseScope(source),
       version: requireNumber(source, 'version'),
       viewerRole: requireEnum(source, 'viewer_role', CAMPAIGN_ROLES),
       viewerOwner: requireBoolean(source, 'viewer_owner'),

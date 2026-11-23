@@ -576,9 +576,14 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
         backTo="/campaigns"
         backLabel={message('campaign.back')}
         meta={
-          <span className="lg-campaigns__role">
-            {roleText(campaign.viewerRole, campaign.viewerOwner)}
-          </span>
+          <>
+            <span className="lg-campaign__meta" data-testid="campaign-scope">
+              {campaign.scopeName}
+            </span>
+            <span className="lg-campaigns__role">
+              {roleText(campaign.viewerRole, campaign.viewerOwner)}
+            </span>
+          </>
         }
         actions={
           campaign.viewerRole === 'gm' || canDeleteCampaign(campaign) ? (
