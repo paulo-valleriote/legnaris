@@ -349,3 +349,76 @@ describe('template models', () => {
     expect(() => parseTemplateCatalog(template())).toThrow(DefensiveParseFailure);
   });
 });
+
+describe('template reset actions', () => {
+  const rest = {
+    id: 'rest',
+    label: 'Long rest',
+    assignments: [
+      { target: 'stats.level', expression: 'max(1, level - 1)' },
+      {
+        target: 'inventory.items.quantity',
+        expression: 'record_quantity + 1',
+        filter: 'active',
+      },
+    ],
+  };
+
+  it('Happy path: actions decode in order with their assignments and list filter', () => {
+    const decoded = parseTemplateDetail(template({ actions: [rest] }));
+
+    expect(decoded.actions).toEqual([
+      {
+        id: 'rest',
+        label: 'Long rest',
+        assignments: [
+          { target: 'stats.level', expression: 'max(1, level - 1)' },
+          {
+            target: 'inventory.items.quantity',
+            expression: 'record_quantity + 1',
+            filter: 'active',
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('Edge: a static assignment carries no filter key', () => {
+    const decoded = parseTemplateDetail(
+      template({ actions: [{ id: 'rest', label: 'Rest', assignments: [rest.assignments[0]] }] }),
+    );
+
+    expect(decoded.actions?.[0]?.assignments[0]).not.toHaveProperty('filter');
+  });
+
+  it('Edge: absent actions stay absent and an empty list stays empty', () => {
+    expect(parseTemplateDetail(template()).actions).toBeUndefined();
+    expect(parseTemplateDetail(template({ actions: [] })).actions).toEqual([]);
+  });
+
+  it('Error: malformed actions and assignments are contract drift', () => {
+    const broken: unknown[] = [
+      'rest',
+      {},
+      [7],
+      [{ label: 'Rest', assignments: [] }],
+      [{ id: 'rest', assignments: [] }],
+      [{ id: 'rest', label: 'Rest' }],
+      [{ id: 'rest', label: 'Rest', assignments: {} }],
+      [{ id: 'rest', label: 'Rest', assignments: [7] }],
+      [{ id: 'rest', label: 'Rest', assignments: [{ target: 'stats.level' }] }],
+      [{ id: 'rest', label: 'Rest', assignments: [{ expression: 'level' }] }],
+      [
+        {
+          id: 'rest',
+          label: 'Rest',
+          assignments: [{ target: 'stats.level', expression: 'level', filter: 7 }],
+        },
+      ],
+    ];
+
+    for (const actions of broken) {
+      expect(() => parseTemplateDetail(template({ actions }))).toThrow(DefensiveParseFailure);
+    }
+  });
+});

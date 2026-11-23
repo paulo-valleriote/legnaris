@@ -494,6 +494,14 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   falling back to "Sheet" when the template has no name; a long name wraps. Preview (secondary) and
   Save (primary, the accent fill) are both `md` buttons in the sticky footer; `Arrange` stays a
   small outline button in the heading, so the footer carries the weight.
+- **Reset actions.** An Edit form whose Template declares Reset actions draws one `outline` `md`
+  button per action in one wrapping bar above the Sections, a `role="group"` named "Reset actions"
+  with `--lg-space-12` column gaps; every button keeps the `--lg-size-control` (44 px) target and the
+  shared focus ring. A blocked action stays focusable with its reason as a small muted line under
+  the button, and a running one shows the button's spinner. Success is announced through one
+  visually hidden polite region; a failure is `--lg-color-danger` text beside one ghost retry, muted
+  when it is an offline failure. A Template with no action, a read-only view and Arrange mode draw
+  no bar.
 - **Readout names.** A derived readout in a lone Row is named by that Row's visible label through
   `aria-labelledby`, so the name has one source; a table cell, which has no Row label of its own,
   keeps its `aria-label`.

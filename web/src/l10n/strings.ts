@@ -466,6 +466,13 @@ export const messages = {
   'sheet.leaveMessage': 'Leaving this sheet discards your unsaved changes.',
   'sheet.leaveConfirm': 'Discard and leave',
   'sheet.cancel': 'Keep editing',
+  'sheet.reset.group': 'Reset actions',
+  'sheet.reset.applied': '{label} applied',
+  'sheet.reset.pending': 'Save or discard your changes before using a reset action.',
+  'sheet.reset.busy': 'The sheet is busy. Try again in a moment.',
+  'sheet.reset.inFlight': 'A reset action is in progress.',
+  'sheet.reset.conflict': 'This sheet changed elsewhere. Refresh and try again.',
+  'sheet.reset.retryAfterRefresh': 'Refresh and retry',
 
   'sheet.ownTitle': 'Your character sheet',
   'sheet.ownLoading': 'Loading your sheet',

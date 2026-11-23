@@ -199,3 +199,89 @@ func assertResetError(t *testing.T, rec *httptest.ResponseRecorder, status int, 
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &decoded))
 	assert.Equal(t, code, decoded.Error.Code)
 }
+
+func newCapabilitiesResetRouter(t *testing.T, repo sheet.Repository) http.Handler {
+	t.Helper()
+
+	svc := sheet.NewService(
+		repo,
+		templatemocks.NewMockService(t),
+		sheettest.DAGMap{sheettest.CapabilitiesTemplateID: sheettest.CapabilitiesDAG(t)},
+		testLog,
+		events.NoOp{},
+	)
+
+	e := echo.New()
+	e.HTTPErrorHandler = app.HTTPErrorHandler
+	e.Use(withOwner(errorTestOwnerID))
+	app.NewSheetController(svc).RegisterRoutes(e.Group("/sheets"))
+	return e
+}
+
+func TestResets_CapabilitiesFixture(t *testing.T) {
+	path := "/sheets/" + sheetStubID + "/resets/" + sheettest.CapabilitiesActionRest
+	body := `{"request_id":"` + resetRouteRequestID + `"}`
+
+	t.Run("Happy path: the mirrored Template applies its filtered reset over the endpoint", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(mock.Anything, sheetStubID).
+			Return(&sheet.Sheet{
+				ID:         sheetStubID,
+				TemplateID: sheettest.CapabilitiesTemplateID,
+				OwnerID:    errorTestOwnerID,
+				Version:    4,
+				Data:       sheettest.CapabilitiesSeedData(),
+			}, nil).Once()
+		repo.EXPECT().
+			PartialUpdate(mock.Anything, sheetStubID, int64(4), mock.MatchedBy(func(updates map[string]any) bool {
+				merged, ok := updates["data"].(map[string]any)
+				if !ok {
+					return false
+				}
+				stats, ok := merged["stats"].(map[string]any)
+				return ok && stats["level"] == 2.0 && updates["last_reset_request_id"] == resetRouteRequestID
+			})).
+			Return(int64(5), nil).
+			Once()
+
+		rec := doRequest(t, newCapabilitiesResetRouter(t, repo), http.MethodPost, path, body)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		var decoded response.Success[map[string]any]
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &decoded))
+		stats, ok := decoded.Data["stats"].(map[string]any)
+		require.True(t, ok)
+		level, ok := stats["level"].(float64)
+		require.True(t, ok)
+		assert.InEpsilon(t, 2.0, level, 1e-9)
+		totals, ok := decoded.Data["totals"].(map[string]any)
+		require.True(t, ok)
+		value, ok := totals["inventoryValue"].(float64)
+		require.True(t, ok)
+		assert.InEpsilon(t, 7.0, value, 1e-9)
+		count, ok := totals["inventoryCount"].(float64)
+		require.True(t, ok)
+		assert.InEpsilon(t, 2.0, count, 1e-9)
+	})
+
+	t.Run("Edge: replaying the stored request id answers an empty cascade with no write", func(t *testing.T) {
+		repo := mocks.NewMockRepository(t)
+		repo.EXPECT().FetchByID(mock.Anything, sheetStubID).
+			Return(&sheet.Sheet{
+				ID:                 sheetStubID,
+				TemplateID:         sheettest.CapabilitiesTemplateID,
+				OwnerID:            errorTestOwnerID,
+				Version:            5,
+				LastResetRequestID: resetRouteRequestID,
+				Data:               sheettest.CapabilitiesSeedData(),
+			}, nil).Once()
+
+		rec := doRequest(t, newCapabilitiesResetRouter(t, repo), http.MethodPost, path, body)
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		var decoded response.Success[map[string]any]
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &decoded))
+		assert.Empty(t, decoded.Data)
+		repo.AssertNotCalled(t, "PartialUpdate")
+	})
+}

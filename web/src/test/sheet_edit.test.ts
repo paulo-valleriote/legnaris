@@ -321,3 +321,91 @@ describe('sheet edit store', () => {
     expect(await sheetStore.readDraft(SHEET_ID)).toBeNull();
   });
 });
+
+describe('applyReset', () => {
+  it('Happy path: the cascade lands in the data and the baseline without unsaved values', () => {
+    const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
+
+    store.applyReset({ identity: { level: 5 }, derived: { total: 6 } });
+
+    const state = store.getState();
+    expect(valueAtPath(state.data, 'identity.level')).toBe(5);
+    expect(valueAtPath(state.defaults, 'identity.level')).toBe(5);
+    expect(valueAtPath(state.data, 'derived.total')).toBe(6);
+    expect(valueAtPath(state.defaults, 'derived.total')).toBe(6);
+    expect(isPending(state)).toBe(false);
+    expect(store.getPendingDelta()).toEqual({});
+  });
+
+  it('Edge: an empty cascade keeps every value and the sheet unsaved state unchanged', () => {
+    const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
+    const before = dataOf(store);
+
+    store.applyReset({});
+
+    expect(dataOf(store)).toEqual(before);
+    expect(isPending(store.getState())).toBe(false);
+  });
+
+  it('Edge: a draft typed while the action was in flight stays pending and keeps its value', () => {
+    const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
+    store.setPath('identity.characterName', 'Boromir');
+
+    store.applyReset({ identity: { level: 5 } });
+
+    const state = store.getState();
+    expect(valueAtPath(state.data, 'identity.characterName')).toBe('Boromir');
+    expect(valueAtPath(state.defaults, 'identity.characterName')).toBe('Aragorn');
+    expect(isPending(state)).toBe(true);
+    expect(store.getPendingDelta()).toEqual({ identity: { characterName: 'Boromir' } });
+    expect(valueAtPath(state.defaults, 'identity.level')).toBe(5);
+  });
+
+  it('Edge: a value saved before the action survives a cascade that does not mention it', () => {
+    const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
+    store.setPath('identity.level', 4);
+    store.applyReset({ identity: { level: 2 } });
+
+    expect(valueAtPath(store.getState().defaults, 'identity.characterName')).toBe('Aragorn');
+    expect(valueAtPath(store.getState().defaults, 'identity.level')).toBe(2);
+  });
+});
+
+describe('refresh', () => {
+  it('Happy path: the server copy replaces the values and the baseline', async () => {
+    const fake = createFakeTransport(
+      successOutcome(sheetPayload({ data: { identity: { characterName: 'Faramir', level: 7 } } })),
+    );
+    const { store } = storeWith(fake.transport);
+
+    await store.refresh();
+
+    const state = store.getState();
+    expect(valueAtPath(state.data, 'identity.characterName')).toBe('Faramir');
+    expect(valueAtPath(state.defaults, 'identity.level')).toBe(7);
+    expect(isPending(state)).toBe(false);
+    expect(fake.lastRequest?.method).toBe('GET');
+    expect(fake.lastRequest?.url).toBe(`${BASE_URL}/sheets/${SHEET_ID}`);
+  });
+
+  it('Edge: unsaved work blocks the refresh, so no request discards it', async () => {
+    const fake = createFakeTransport(successOutcome(sheetPayload()));
+    const { store } = storeWith(fake.transport);
+    store.setPath('identity.characterName', 'Boromir');
+
+    await store.refresh();
+
+    expect(fake.attempts).toBe(0);
+    expect(valueAtPath(dataOf(store), 'identity.characterName')).toBe('Boromir');
+  });
+
+  it('Error: a failed fetch leaves every value in place and reports the failure', async () => {
+    const fake = createFakeTransport({ failure: new Error('network') });
+    const { store } = storeWith(fake.transport);
+
+    await expect(store.refresh()).rejects.toMatchObject({ kind: 'offline' });
+
+    expect(valueAtPath(dataOf(store), 'identity.characterName')).toBe('Aragorn');
+    expect(isPending(store.getState())).toBe(false);
+  });
+});

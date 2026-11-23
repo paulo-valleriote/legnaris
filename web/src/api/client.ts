@@ -74,6 +74,7 @@ export interface ApiClient {
     dice?: DiceBlock,
   ): Promise<Record<string, unknown>>;
   previewSheet(id: string, changeSet: Record<string, unknown>): Promise<Record<string, unknown>>;
+  resetSheet(id: string, actionId: string, requestId: string): Promise<Record<string, unknown>>;
   setLayout(id: string, layout: Layout | null): Promise<Layout | null>;
   revokeLlmConsent(): Promise<void>;
   grantLlmConsent(version: string): Promise<void>;
@@ -207,6 +208,13 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
         'POST',
         `/sheets/${encodeURIComponent(id)}/preview`,
         JSON.stringify({ data: changeSet }),
+        decodeChangeSet,
+      ),
+    resetSheet: (id, actionId, requestId) =>
+      caller.call(
+        'POST',
+        `/sheets/${encodeURIComponent(id)}/resets/${encodeURIComponent(actionId)}`,
+        JSON.stringify({ request_id: requestId }),
         decodeChangeSet,
       ),
     setLayout: (id, layout) =>

@@ -151,7 +151,10 @@ sequenceDiagram
 ```
 
 An unknown action is 404 and a malformed request id is 400 before the write; a replay of the last
-applied id never reaches the write.
+applied id never reaches the write. The owner's Edit form draws one button per declared action
+through `web/src/sheet/reset_actions.tsx`: one request id per tap is reused until that tap
+succeeds, so an offline retry or a 409 resends the same id safely, and a 409 first refreshes the
+Sheet. The bar is absent from `fantasy_v1`, from read-only campaign views and from Arrange mode.
 
 ### Arrange → commit layout
 
@@ -448,6 +451,20 @@ ones and drops added ones, and a 409 keeps the whole pending list.
 Without the record seam the same table is drawn with no Add, Move or Remove control. The Campaign GM
 sheet draws the same columns through `ReadOnlyRecordTable` as plain values with no input or action,
 and the generation review reuses the data-mode form.
+
+### Reset actions in the Edit form
+
+The owner's generic Edit form draws one `outline` button per declared action, in Template order, in a
+`role="group"` bar above the Sections. The bar is not drawn when the Template declares no action
+(`fantasy_v1`), in a read-only view or in Arrange mode. Each tap mints one request id
+(`crypto.randomUUID`) and keeps it until that tap succeeds: a retry after a network failure reuses it,
+and a 409 offers `Refresh and retry`, which refetches the Sheet and then resends the same id, so the
+server's replay check makes a retried rest safe. Every button is disabled — still focusable, with the
+reason linked through `aria-describedby` — while the draft has unsaved values, while a save or preview
+is in flight and while a reset is running. On success the returned cascade is merged into the Sheet in
+the query cache; the edit store is reseeded from it, so both its baseline and the local cached Sheet
+take the cascade without marking the Sheet unsaved. One polite live region announces `<label> applied`.
+A failure shows the mapped copy (muted for offline) and one retry control.
 
 ### Play and Edit presentation
 
@@ -828,7 +845,9 @@ Web:
   `sheet_defaults.ts`, `sheet_mark.ts`, `dependents.ts` — stateless rendering core, seed/merge
   and marks; `record_table.tsx` — the read-only Record table of the Campaign GM sheet.
 - `web/src/sheet/sheet_open.ts` — open situation; `sheet_edit.ts` — edit store, delta, marks,
-  Record add/remove/move, throttle and restore; `save_retry.ts` — 409 retry.
+  Record add/remove/move, throttle and restore; `save_retry.ts` — 409 retry;
+  `reset_actions.tsx` — the declared Reset action bar of the Edit form (per-tap request id,
+  refresh-and-retry, cascade merged into the cached Sheet).
 - `web/src/sheet/sheet_screen.tsx` — mounted screen, the Edit-only footer, the Play discard
   shortcut and the guards; `layout_store.ts` — committed/staged layout, commit and backup.
 - `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
@@ -905,7 +924,7 @@ Web:
   there is no pin cap.
 - A Reset action only assigns numeric leaves and list Fields, evaluates no text expression and
   stores only the last applied request id: replaying an older id after a newer rest applies again.
-  The web client does not draw action buttons yet.
+  The Edit form cannot preview a rest and a preset's Play view draws no action bar.
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
 - The landing demo's cascade is local to `web/src/landing/demo_store.ts`; it is an original demo

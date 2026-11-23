@@ -124,6 +124,12 @@ the F2 client and the F4 engine and owns no wire model.
   `useSyncExternalStore` and binds no listener itself.
 - `src/sheet/sheet_screen.tsx` — the mounted screen: header, the F4 form in builder mode,
   the sticky footer and the one guard modal.
+- `src/sheet/reset_actions.tsx` — the bar of declared Reset actions on the Edit form: one button
+  per action, one request id per tap reused until that tap succeeds, disabled with its reason
+  while the draft is unsaved or the store is busy, a 409 offering a refresh and retry, and a
+  success merging the cascade into the query cache so the reseeded baseline and the local cached
+  Sheet take it without marking the Sheet unsaved; one polite live region announces it. A Template
+  with no action, a read-only view and Arrange mode draw no bar.
 - `src/library/sheet_store.ts` — the `SheetStore` port, the versioned envelopes and the
   in-memory double every suite injects; `idb_sheet_store.ts` is the only module importing
   `idb`; `sheet_library.ts` and `draft_backup.ts` hold the cache helpers and the injectable
@@ -170,7 +176,9 @@ the F2 client and the F4 engine and owns no wire model.
 **Delta, never a snapshot.** A save and a preview send only the pending editable delta,
 rebuilt through the engine's `setPathValue`; a save merges the returned cascade and advances
 the baseline, a preview merges it **without** advancing it and marks the changed and
-recalculated rows through the F4 `rowMarkBuilder`/`markLabel` seam.
+recalculated rows through the F4 `rowMarkBuilder`/`markLabel` seam. A Reset action is the one
+server write outside the draft: it is disabled while anything is pending or in flight, and its
+returned cascade is merged into the Sheet in the query cache, from which the store is reseeded.
 
 **Footer status and `revealRow`.** The footer has one status line (`FooterStatus`): `footerStatus(pending, count)` in `preview_summary.ts` merges the unsaved state and the cascade ("Unsaved, 3 recalculated"), derived from the store's `previewMarks`, so it clears whenever the marks clear. Jump (a ghost button) sits on the same line in Edit mode
 and is not drawn in Play, where the pending card owns the actions; the status line stays in both. The footer's polite live region announces only the cascade and the visible phrase is `aria-hidden` while a Preview shows (the Play-only pending card owns the value delta). The derived readout draws no "Calculated" caption: `ReadOnlyValue` keeps it as a visually hidden `aria-describedby` target. `reveal_row.ts` owns

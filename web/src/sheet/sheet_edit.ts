@@ -120,6 +120,8 @@ export interface SheetEditStore {
   addRecord(listPath: string): string | undefined;
   removeRecord(listPath: string, recordID: string): void;
   moveRecord(listPath: string, recordID: string, direction: -1 | 1): number | undefined;
+  applyReset(cascade: Record<string, unknown>): void;
+  refresh(): Promise<void>;
   save(): Promise<void>;
   preview(): Promise<void>;
   restore(): Promise<void>;
@@ -565,6 +567,45 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       });
       applyWrites(writes);
       return to + 1;
+    },
+
+    applyReset: (cascade) => {
+      commit({
+        ...state,
+        data: mergeCascade(state.data, cascade),
+        defaults: mergeCascade(state.defaults, cascade),
+        revision: state.revision + 1,
+        previewedRevision: undefined,
+        previewMarks: undefined,
+        saveError: undefined,
+        saveErrorKind: undefined,
+        previewError: undefined,
+        previewErrorKind: undefined,
+      });
+    },
+
+    refresh: async () => {
+      if (isPending(state) || isBusy(state)) {
+        return;
+      }
+      const fresh = await deps.client.getSheet(seed.sheet.id);
+      const seeded = seedFromSheet(seed.template.fields, fresh.data);
+      const dice = pruneStaleChoices(fresh.dice ?? EMPTY_DICE, diceRules);
+      commit({
+        ...state,
+        defaults: seeded,
+        data: seeded,
+        editedPaths: new Set<string>(),
+        savedDice: dice,
+        dice,
+        revision: state.revision + 1,
+        previewedRevision: undefined,
+        previewMarks: undefined,
+        saveError: undefined,
+        saveErrorKind: undefined,
+        previewError: undefined,
+        previewErrorKind: undefined,
+      });
     },
 
     save: async () => {

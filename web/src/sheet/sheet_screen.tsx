@@ -16,7 +16,7 @@ import { DependentReadout } from '../engine/dependent_readout';
 import { dependentsAreStale } from '../engine/dependents';
 import { SheetFieldControl } from '../engine/field_control';
 import type { SheetExclusiveGroup, SheetField } from '../engine/field_grouping';
-import type { FieldNode } from '../api/models/template';
+import type { FieldNode, ResetAction } from '../api/models/template';
 import { buildSections, fieldDisplayName, lastSegment, rowKey } from '../engine/field_grouping';
 import {
   isRowKey as isTemplateRowKey,
@@ -40,7 +40,7 @@ import {
   updateSheetLayout,
 } from '../catalog/queries';
 import { startDraftCadence } from '../library/draft_backup';
-import { discardDraft, discardLayoutDraft } from '../library/sheet_library';
+import { cacheSheet, discardDraft, discardLayoutDraft } from '../library/sheet_library';
 import { registerLeaveGuard, requestLeave } from '../shell/leave_guard';
 import { useSheetShortcuts } from '../shell/shortcut_registry';
 import type { PendingDiceKeys, PreviewMarks, SheetEditState, SheetEditStore } from './sheet_edit';
@@ -87,6 +87,7 @@ import { presetFor } from './preset/registry';
 import { HelpPanel, HelpToggle } from './sheet_help';
 import type { SheetOpenResult } from './sheet_open';
 import { useSheetOpen } from './sheet_open';
+import { ResetActions, newResetRequestID } from './reset_actions';
 import './sheet.css';
 
 function errorClass(kind: FailureKind | undefined): string {
@@ -816,6 +817,27 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     });
   }, [duplicating, isWorking, runDuplicate]);
 
+  const runReset = useCallback(
+    (action: ResetAction, requestId: string) => client.resetSheet(sheet.id, action.id, requestId),
+    [client, sheet.id],
+  );
+
+  const applyReset = useCallback(
+    (_action: ResetAction, cascade: Record<string, unknown>) => {
+      editStore.applyReset(cascade);
+      const after = editStore.getState();
+      void cacheSheet(storePort, { ...sheet, data: after.defaults, dice: after.savedDice });
+    },
+    [editStore, sheet, storePort],
+  );
+
+  const refreshSheet = useCallback(async () => {
+    await editStore.refresh();
+  }, [editStore]);
+
+  const resetActions = template.actions ?? [];
+  const showResetActions = !playing && !arranging && resetActions.length > 0;
+
   useEffect(() => {
     void editStore.restore();
     return startDraftCadence(storePort, () =>
@@ -945,6 +967,16 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
           />
         )}
       </header>
+      {showResetActions && (
+        <ResetActions
+          actions={resetActions}
+          store={editStore}
+          requestId={newResetRequestID}
+          run={runReset}
+          onApplied={applyReset}
+          refresh={refreshSheet}
+        />
+      )}
       {duplicateError !== undefined ? (
         <div data-testid="sheet-duplicate-error">
           <ErrorState message={duplicateError} />
