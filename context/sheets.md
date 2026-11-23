@@ -352,6 +352,36 @@ The three d20 Sections declare Section dice, not per-Row defaults: `abilities`
 Every expression stays inside the 64-character cap, and the Templates mark no Row or Section as a
 non-d20 test. Both Templates use only SRD terms in labels, keys and names.
 
+`fifth_stat_block_v1` keeps the seven shared Sections as a prefix and appends `experience`,
+`hitPoints`, `initiative`, `speed`, `details`, `traits`, `actions`, `bonusActions`, `reactions`,
+`legendaryActions` and `resources`; `fifth_character_v1` keeps the shared seven.
+
+- **Experience (stat block)** — `experience.xp` is the SRD XP of `identity.challengeRating` by
+  `lookup` over the whole table: CR 0 gives 10, the fractional CRs `0.125`, `0.25` and `0.5`
+  give 25, 50 and 100, and every whole CR 1–30 gives its table value.
+  `experience.zero` (numeric 0/1 flag) makes the XP 0 but is honoured only at CR 0;
+  `experience.inLair` (numeric 0/1 flag) replaces the XP with the XP of CR + 1 only when the CR
+  is a whole number from 1 to 29, so a fractional CR and CR 30 keep the table value.
+- **Hit points (stat block)** — `hitPoints.count` (N, 1–20) and `hitPoints.size` (M, 4–20) are
+  entered, `hitPoints.conBonus` = N × Con modifier is derived and
+  `hitPoints.maximum` = `floor(N × (M + 1) / 2)` + `hitPoints.conBonus`; `hitPoints.current`
+  and `hitPoints.temp` are entered. The `hitPoints.maximum` Row rolls
+  `{hitPoints.count}d{hitPoints.size} + hitPoints.conBonus` and is marked a non-d20 test, so the
+  Roll offers no mode even for d20 dice.
+- **Initiative and speed (stat block)** — `initiative.modifier` is entered and the derived
+  `initiative.score` = 10 + modifier is never imported; its Roll is
+  `1d20 + initiative.modifier + exhaustion.penalty`. `speed.walk|fly|swim|climb|burrow` are
+  entered as printed (walk defaults to 30) and each derived `<speed>Total` = entered − 5 ×
+  `exhaustion.level`, with no floor and no Strength-requirement penalty.
+- **Records (stat block)** — `traits`, `bonusActions`, `reactions` and `legendaryActions` are
+  name-and-text Record lists. `actions` holds a name, an `actionAbility` exclusive group of
+  numeric 0/1 flags (one per ability), the `proficient` flag, `misc`, a derived
+  `toHit` = ability modifier + PB if proficient + misc, damage and notes; its Records roll
+  `1d20 + @.toHit + exhaustion.penalty` as a d20 test. `resources` holds a name, `max`, `used`,
+  the derived `remaining` = max − used and a recharge text, so Legendary Resistance, X/Day and
+  Recharge 5-6 are entered as printed. `details.resistances|immunities|senses|languages` are
+  text. Every Record list holds at most 50 Records.
+
 ### Sheet DTO and endpoints
 
 `SheetDTO` is `{id, template_id, kind, name, data, layout?, dice, campaign_id?, created_at,
