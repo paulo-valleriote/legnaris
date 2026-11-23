@@ -21,12 +21,17 @@ var fifthCharacterTemplate = Template{
 		fifthExhaustionSection: {Children: fifthExhaustionGroup(), Order: fifthExhaustionOrder},
 		fifthPassiveSection:    {Children: fifthPassiveGroup(), Order: fifthPassiveOrder},
 		fifthArmorSection:      {Children: fifthArmorGroup(false), Order: fifthArmorOrder(false)},
+		fifthCombatSection:     {Children: fifthCharacterCombatGroup(), Order: fifthCombatOrder},
+		fifthStatusSection:     {Children: fifthCharacterStatusGroup(), Order: fifthStatusOrder},
+		fifthCoinsSection:      {Children: fifthCharacterCoinsGroup(), Order: fifthCoinsOrder},
 	},
 	SectionOrder: []string{
 		fifthIdentitySection, fifthAbilitiesSection, fifthSavesSection,
 		fifthSkillsSection, fifthExhaustionSection, fifthPassiveSection, fifthArmorSection,
+		fifthCombatSection, fifthStatusSection, fifthCoinsSection,
 	},
 	SectionDice: fifthCheckDice(),
+	RowDice:     fifthCharacterRowDice(),
 }
 
 var fifthCharacterIdentityOrder = []string{

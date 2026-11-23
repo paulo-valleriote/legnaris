@@ -278,15 +278,15 @@ func fifthArmorGroup(includeNatural bool) FieldGroup {
 		fmt.Sprintf("%s * (%s + min(%s, 2))", Path{fifthArmorSection, fifthArmorChoiceMediumKey}.EngineKey(), baseKey, dexterityKey),
 		fmt.Sprintf("%s * %s", Path{fifthArmorSection, fifthArmorChoiceHeavyKey}.EngineKey(), baseKey),
 		fmt.Sprintf("%s * (10 + %s + %s)", Path{fifthArmorSection, fifthArmorChoiceBarbarianKey}.EngineKey(), dexterityKey, constitutionKey),
-		fmt.Sprintf("%s * (10 + %s + %s)", monkKey, dexterityKey, wisdomKey),
+		fmt.Sprintf("%s * (10 + %s + %s * (1 - %s))", monkKey, dexterityKey, wisdomKey, shieldKey),
 	}
 	if includeNatural {
 		terms = append(terms,
 			fmt.Sprintf("%s * (%s + %s)", Path{fifthArmorSection, fifthArmorChoiceNaturalKey}.EngineKey(), baseKey, dexterityKey))
 	}
 
-	formula := fmt.Sprintf("(%s) + %s * 2 * (1 - %s) + %s",
-		strings.Join(terms, " + "), shieldKey, monkKey, miscKey)
+	formula := fmt.Sprintf("(%s) + %s * 2 + %s",
+		strings.Join(terms, " + "), shieldKey, miscKey)
 
 	dependsOn := [][]string{
 		{fifthArmorSection, fifthArmorChoiceNoneKey},
