@@ -1,6 +1,6 @@
 import { refuse, succeed, type DiceResult } from './errors';
 import { resolveFieldPath } from './fit';
-import { termLabel, type Expression, type Term } from './parse';
+import { LIMITS, termLabel, type Expression, type FieldReference, type Term } from './parse';
 import type { Resolution } from './resolve';
 
 export type Roller = (faces: number) => number;
@@ -33,7 +33,9 @@ export function keepForMode(mode: RollMode): DiceKeep | undefined {
 }
 
 export function rollsD20(expression: Expression): boolean {
-  return expression.terms.some((term) => term.kind === 'dice' && term.faces === D20_FACES);
+  return expression.terms.some(
+    (term) => term.kind === 'dice' && term.facesRef === undefined && term.faces === D20_FACES,
+  );
 }
 
 export function keptIndices(
@@ -55,6 +57,7 @@ export function keptIndices(
 export interface RollResult {
   readonly total: number;
   readonly parts: readonly RollPart[];
+  readonly minimum?: number;
 }
 
 type Tree = Readonly<Record<string, unknown>>;
@@ -111,21 +114,63 @@ function readNumber(context: EvaluateContext, path: string): number | undefined 
 
 const withoutNegativeZero = (value: number): number => (value === 0 ? 0 : value);
 
+function readPart(
+  context: EvaluateContext,
+  reference: FieldReference,
+  kind: 'count' | 'faces',
+): DiceResult<number> {
+  const path = resolveFieldPath(reference, context.rowKey);
+  const value = readNumber(context, path);
+  if (value === undefined) {
+    return refuse('no_value', `"${path}" has no number to read`);
+  }
+  if (kind === 'count' && (value < LIMITS.minDice || value > LIMITS.maxDice)) {
+    return refuse(
+      'dice_count',
+      `"${path}" gives ${value} dice: roll between ${LIMITS.minDice} and ${LIMITS.maxDice} dice at a time`,
+    );
+  }
+  if (kind === 'faces' && (value < LIMITS.minFaces || value > LIMITS.maxFaces)) {
+    return refuse(
+      'dice_faces',
+      `"${path}" gives ${value} faces: a die has between ${LIMITS.minFaces} and ${LIMITS.maxFaces} faces`,
+    );
+  }
+  return succeed(value);
+}
+
 function evaluateTerm(term: Term, context: EvaluateContext): DiceResult<RollPart> {
   const { sign } = term;
   switch (term.kind) {
     case 'dice': {
-      const keep = term.faces === D20_FACES ? context.keep : undefined;
-      const throws = term.count + (keep === undefined ? 0 : 1);
-      const rolls = Array.from({ length: throws }, () => context.roller(term.faces));
+      let count = term.count;
+      if (term.countRef !== undefined) {
+        const resolved = readPart(context, term.countRef, 'count');
+        if (!resolved.ok) {
+          return resolved;
+        }
+        count = resolved.value;
+      }
+      let faces = term.faces;
+      if (term.facesRef !== undefined) {
+        const resolved = readPart(context, term.facesRef, 'faces');
+        if (!resolved.ok) {
+          return resolved;
+        }
+        faces = resolved.value;
+      }
+      const keep = term.facesRef === undefined && faces === D20_FACES ? context.keep : undefined;
+      const throws = count + (keep === undefined ? 0 : 1);
+      const label = `${count}d${faces}`;
+      const rolls = Array.from({ length: throws }, () => context.roller(faces));
       if (keep === undefined) {
         const value = rolls.reduce((sum, roll) => sum + roll, 0);
-        return succeed({ sign, label: termLabel(term), value, rolls });
+        return succeed({ sign, label, value, rolls });
       }
-      const kept = keptIndices(rolls, term.count, keep);
+      const kept = keptIndices(rolls, count, keep);
       const value = kept.reduce((sum, index) => sum + rolls[index], 0);
       const discarded = rolls.map((_, index) => index).filter((index) => !kept.includes(index));
-      return succeed({ sign, label: termLabel(term), value, rolls, discarded });
+      return succeed({ sign, label, value, rolls, discarded });
     }
     case 'number':
       return succeed({ sign, label: termLabel(term), value: term.value });
@@ -156,6 +201,10 @@ export function evaluateExpression(
       return refuse('overflow', 'the total is too large to compute');
     }
     parts.push(part.value);
+  }
+  const minimum = expression.minimum;
+  if (minimum !== undefined && total < minimum) {
+    return succeed({ total: minimum, parts, minimum });
   }
   return succeed({ total: withoutNegativeZero(total), parts });
 }

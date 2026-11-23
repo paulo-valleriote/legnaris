@@ -1,5 +1,5 @@
 import type { DiceError, DiceErrorClass } from '../dice/errors';
-import type { Expression } from '../dice/parse';
+import { referenceLabel, type Expression } from '../dice/parse';
 import {
   schemaFromKinds,
   validateRow,
@@ -154,6 +154,27 @@ export function templateDiceDefaults(dice: TemplateDiceDefaults | undefined): Re
   return { sectionDice: dice?.section, rowDice: dice?.row };
 }
 
+export interface DiceMarking {
+  readonly section: ReadonlySet<string>;
+  readonly row: ReadonlySet<string>;
+}
+
+const EMPTY_MARKING: DiceMarking = { section: new Set(), row: new Set() };
+
+export function templateDiceMarking(dice: TemplateDiceDefaults | undefined): DiceMarking {
+  if (dice?.notD20 === undefined) {
+    return EMPTY_MARKING;
+  }
+  return {
+    section: new Set(dice.notD20.section),
+    row: new Set(dice.notD20.row),
+  };
+}
+
+export function isNotD20Test(marking: DiceMarking, rowKey: string, sectionKey: string): boolean {
+  return marking.row.has(rowKey) || marking.section.has(sectionKey);
+}
+
 const SUMMARY_MAX_DICE = 2;
 
 export function diceSummary(expression: Expression): string | undefined {
@@ -163,8 +184,15 @@ export function diceSummary(expression: Expression): string | undefined {
   }
   const named = dice.slice(0, SUMMARY_MAX_DICE).map((term, index) => {
     const sign = term.sign === -1 ? '-' : index === 0 ? '' : '+';
-    const count = term.count === 1 ? '' : String(term.count);
-    return `${sign}${count}d${term.faces}`;
+    const count =
+      term.countRef !== undefined
+        ? `{${referenceLabel(term.countRef)}}`
+        : term.count === 1
+          ? ''
+          : String(term.count);
+    const faces =
+      term.facesRef !== undefined ? `{${referenceLabel(term.facesRef)}}` : String(term.faces);
+    return `${sign}${count}d${faces}`;
   });
   return dice.length > SUMMARY_MAX_DICE ? `${named.join('')}+…` : named.join('');
 }

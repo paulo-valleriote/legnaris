@@ -6,9 +6,11 @@ import {
   checkSectionExpression,
   diceSchemaFromFields,
   diceSectionRows,
+  isNotD20Test,
   pruneStaleChoices,
   diceErrorMessageKey,
   diceSummary,
+  templateDiceMarking,
 } from '../sheet/dice_view';
 import { parseDice, type Expression } from '../dice/parse';
 import { messages } from '../l10n/strings';
@@ -84,6 +86,63 @@ describe('checkExpression', () => {
     expect(checkExpression('1d20+attrs.name', schema, 'attrs.init')?.class).toBe(
       'non_numeric_field',
     );
+  });
+});
+
+describe('not a d20 test markings', () => {
+  it('Edge: a template without a marking marks nothing', () => {
+    expect(isNotD20Test(templateDiceMarking(undefined), 'attrs.init', 'attrs')).toBe(false);
+    expect(isNotD20Test(templateDiceMarking({ section: {}, row: {} }), 'attrs.init', 'attrs')).toBe(
+      false,
+    );
+    expect(
+      isNotD20Test(
+        templateDiceMarking({ section: { attrs: '1d20' }, row: {} }),
+        'attrs.init',
+        'attrs',
+      ),
+    ).toBe(false);
+  });
+
+  it('Happy path: a marked Row is not a d20 test', () => {
+    const marking = templateDiceMarking({
+      section: {},
+      row: {},
+      notD20: { section: [], row: ['attrs.init'] },
+    });
+
+    expect(isNotD20Test(marking, 'attrs.init', 'attrs')).toBe(true);
+  });
+
+  it('Happy path: a marked Section covers its Rows', () => {
+    const marking = templateDiceMarking({
+      section: {},
+      row: {},
+      notD20: { section: ['attrs'], row: [] },
+    });
+
+    expect(isNotD20Test(marking, 'attrs.init', 'attrs')).toBe(true);
+  });
+
+  it('Edge: a Row marking and a Section marking both count', () => {
+    const marking = templateDiceMarking({
+      section: {},
+      row: {},
+      notD20: { section: ['attrs'], row: ['attrs.init'] },
+    });
+
+    expect(isNotD20Test(marking, 'attrs.init', 'attrs')).toBe(true);
+  });
+
+  it('Edge: a neighbour stays a d20 test', () => {
+    const marking = templateDiceMarking({
+      section: {},
+      row: {},
+      notD20: { section: [], row: ['attrs.init'] },
+    });
+
+    expect(isNotD20Test(marking, 'attrs.dex', 'attrs')).toBe(false);
+    expect(isNotD20Test(marking, 'other.init', 'other')).toBe(false);
   });
 });
 
@@ -236,6 +295,16 @@ describe('diceSummary', () => {
       name: 'Happy path: two dice terms are both named',
       expression: '2d6+1d8+attrs.dex',
       want: '2d6+d8',
+    },
+    {
+      name: 'Edge: Field-sized count and faces keep their references',
+      expression: '{stats.count}d8+1d{stats.size}',
+      want: '{stats.count}d8+d{stats.size}',
+    },
+    {
+      name: 'Edge: a minimum is not part of the dice summary',
+      expression: '1d20 min 2',
+      want: 'd20',
     },
   ];
   for (const tc of tests) {

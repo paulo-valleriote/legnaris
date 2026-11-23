@@ -44,6 +44,8 @@ describe('rollsD20', () => {
     ['1d100 + 1d12', false],
     ['@', false],
     ['3', false],
+    ['1d{stats.dexterity}', false],
+    ['{stats.dexterity}d20', true],
   ])('Edge: %s is a d20 expression: %s', (expr, expected) => {
     expect(rollsD20(expression(expr))).toBe(expected);
   });
@@ -205,6 +207,38 @@ describe('rolling a d20 with a keep mode', () => {
       rolls: [5, 17],
       discarded: [0],
     });
+  });
+
+  it('Edge: a Field-sized face never takes a keep mode, even when it is 20', () => {
+    const words = wordsFor([4]);
+    const result = rollExpression(expression('1d{stats.dexterity}'), {
+      rowKey: 'x',
+      values: { stats: { dexterity: 20 } },
+      words,
+      keep: 'highest',
+    });
+
+    expect(result.ok && result.value).toEqual({
+      total: 4,
+      parts: [{ sign: 1, label: '1d20', value: 4, rolls: [4] }],
+    });
+    expect(words.calls()).toBe(1);
+  });
+
+  it('Edge: a Field-sized count with literal d20 faces still takes a keep mode', () => {
+    const words = wordsFor([5, 17]);
+    const result = rollExpression(expression('{stats.count}d20'), {
+      rowKey: 'x',
+      values: { stats: { count: 1 } },
+      words,
+      keep: 'highest',
+    });
+
+    expect(result.ok && result.value).toEqual({
+      total: 17,
+      parts: [{ sign: 1, label: '1d20', value: 17, rolls: [5, 17], discarded: [0] }],
+    });
+    expect(words.calls()).toBe(2);
   });
 
   it('Edge: the default source rolls two dice under a keep mode', () => {

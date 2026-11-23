@@ -10,6 +10,8 @@ func cloneTemplate(tmpl Template) Template {
 	tmpl.SectionOrder = slices.Clone(tmpl.SectionOrder)
 	tmpl.SectionDice = maps.Clone(tmpl.SectionDice)
 	tmpl.RowDice = maps.Clone(tmpl.RowDice)
+	tmpl.NotD20Sections = slices.Clone(tmpl.NotD20Sections)
+	tmpl.NotD20Rows = slices.Clone(tmpl.NotD20Rows)
 	return tmpl
 }
 

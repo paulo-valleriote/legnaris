@@ -196,6 +196,7 @@ describe('the parameterized copy resolution', () => {
           dice: 'd20',
           rolls: '11',
           kept: '17',
+          minimum: 10,
           max: 6,
           name: 'Aragorn',
           total: 17,
