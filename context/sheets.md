@@ -11,19 +11,21 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
 
 ## Why
 
-- **Planned (LGN-382): class-agnostic fifth-edition Templates with a separate stat block
-  Template over a class-aware character Template or one Template for all three Sheet kinds
-  because** SRD 5.2.1 carries only twelve classes with one subclass each and the engine has
-  no choice field, and a creature's proficiency bonus comes from its challenge rating while
-  a Template derives a value the same way for every kind it accepts. `fifth_character_v1`
-  "5E Character" (`character`) keeps class, subclass, species and background as text, the
-  player enters what they grant, and everything the rules derive from the Sheet is derived;
-  `fifth_stat_block_v1` "5E Stat Block" (`npc`, `enemy`) derives the proficiency bonus and
-  XP from the challenge rating. Cost: the player types class-granted values; both Templates need
-  only their own release card to enter the catalog, because the engine capabilities they rely on are
-  live: dice sized by Fields with a minimum total, Record lists with derived Record formulas, Reset
-  actions, `min`, `max`, `lookup`, numeric flags and the d20-test marking of the Roll modes
-  (LGN-390).
+- **Class-agnostic fifth-edition Templates (LGN-382), shipped as a foundation in LGN-406, with a
+  separate stat block Template over one class-aware character Template because** SRD 5.2.1
+  carries only twelve classes with one subclass each and the engine has no choice field, and a
+  creature's proficiency bonus comes from its challenge rating while a Template derives a value
+  the same way for every kind it accepts. `fifth_character_v1` "5E Character" (`character`) keeps
+  class, subclass, species and background as text, the player enters what they grant, and
+  everything the rules derive from the Sheet is derived; `fifth_stat_block_v1` "5E Stat Block"
+  (`npc`, `enemy`) derives the proficiency bonus and later the XP from the challenge rating. Both
+  ship as `draft` Templates of the `fifth` Game system, so only a development deployment lists
+  and creates them. Cost: the player types class-granted values; the remaining epic sections
+  (combat and hit points, speed and initiative, hit dice and spellcasting, Records, rests, and the
+  stat block XP, hit points and actions) arrive in later release cards, and the engine
+  capabilities they need are already live: dice sized by Fields with a minimum total, Record
+  lists with derived Record formulas, Reset actions, `min`, `max`, `lookup`, numeric flags and
+  the d20-test marking of the Roll modes (LGN-390).
 - **Planned (LGN-383): composable presets with one config per Template over a bespoke preset
   per Template or Template-declared presentation roles because** a new Template should cost
   one config instead of about 35 files, while layout stays in the web rather than in the API
@@ -310,6 +312,45 @@ refusal. For an Active Template the field is ignored and not
 even validated, and it never bypasses the Draft gate, the accepted kinds or the plan limit. Creation
 stores no `campaign_id` and publishes no link event; the client links the Sheet afterwards. See
 [campaigns](campaigns.md) for the Campaign side.
+
+### Fifth-edition Templates
+
+`fifth_character_v1` and `fifth_stat_block_v1` share every field path below, so a later story
+extends a Template without renaming a shared part. Both are `draft` Templates of the `fifth` Game
+system, carry `identity.name` as their Name leaf, and use the same Section order: `identity`,
+`abilities`, `saves`, `skills`, `exhaustion`, `passive`, `armor`.
+
+- **Identity** — `identity.name` (text, generatable); `identity.level` (1–20, character only) or
+  `identity.challengeRating` (0–30, fractional CRs entered as `0.125`, `0.25`, `0.5`) and the
+  derived `identity.proficiencyBonus`. The character bonus is `2 + floor((level - 1) / 4)`; the
+  stat block bonus is `2 + floor((max(CR, 1) - 1) / 4)`, so CR 0 and every fractional CR give +2.
+  `identity.jackOfAllTrades` is a numeric 0/1 flag on the character only.
+- **Abilities** — `abilities.<ability>.score` is entered (default 10) and
+  `abilities.<ability>.mod` is `floor((score - 10) / 2)`.
+- **Saves** — `saves.<ability>.prof` (numeric 0/1 flag), `.misc` (entered) and `.total`
+  = modifier + prof × proficiency bonus + misc.
+- **Skills** — all 18 SRD skills as `skills.<skill>.rank` (entered 0/1/2, never under `config`),
+  `.misc` and `.total` = modifier + rank × proficiency bonus + misc. On the character,
+  `identity.jackOfAllTrades` adds `floor(PB / 2)` to a rank-0 skill only; expertise (rank 2)
+  doubles the bonus and never stacks with the half bonus. The stat block has no such flag.
+- **Exhaustion** — `exhaustion.level` (entered 0–6) and the derived `exhaustion.penalty`
+  = `-2 × level`. The penalty appears only inside the dice expression of the ability checks,
+  saves and skills (`1d20 + @.mod` / `@.total + exhaustion.penalty`); no displayed total and no
+  Passive Perception includes it.
+- **Passive Perception** — `passive.perception` = 10 + `skills.perception.total` + the exclusive
+  choice `perceptionChoice` (`choiceNone` is the default, `choiceAdvantage` +5,
+  `choiceDisadvantage` −5). The choice never sets a Roll mode and the Section declares no dice.
+- **Armor class** — the exclusive `armorChoice` group with `choiceNone` as the default,
+  `choiceLight`, `choiceMedium`, `choiceHeavy`, `choiceBarbarian`, `choiceMonk` and, on the stat
+  block, `choiceNatural`; plus `armor.base`, the numeric 0/1 `armor.shield` flag and `armor.misc`.
+  `armor.armorClass` is the chosen base: none 10 + Dex, light base + Dex, medium base + min(Dex, 2)
+  (a negative Dex still applies), heavy base, Barbarian 10 + Dex + Con, Monk 10 + Dex + Wis,
+  natural base + Dex; then +2 for the Shield (ignored by Monk) and + misc.
+
+The three d20 Sections declare Section dice, not per-Row defaults: `abilities`
+`1d20 + @.mod + exhaustion.penalty`, `saves` and `skills` `1d20 + @.total + exhaustion.penalty`.
+Every expression stays inside the 64-character cap, and the Templates mark no Row or Section as a
+non-d20 test. Both Templates use only SRD terms in labels, keys and names.
 
 ### Sheet DTO and endpoints
 
@@ -1008,9 +1049,10 @@ Web:
   and evaluated per Record, and Sheet aggregates read the list. A derived Field is still refused as
   a write (the server computes it). The web client draws a list in the generic Edit form and in a
   Template without a preset; the frozen `fantasy_v1` preset draws no list.
-- Users cannot create or edit templates; the registry is frozen at boot and only `fantasy_v1`
-  ships. A template change requires a deploy and, if incompatible, a new ID. Only the `fifth` Game
-  system ships, and a Template bound to one keeps it for the life of its slug.
+- Users cannot create or edit templates; the registry is frozen at boot and only `fantasy_v1` is
+  active while the two fifth-edition Templates stay `draft`. A template change requires a deploy
+  and, if incompatible, a new ID. Only the `fifth` Game system ships, and a Template bound to one
+  keeps it for the life of its slug.
 - No offline open: the IndexedDB sheet copy is written and evicted but never read as a fallback,
   so a failed `GET /sheets/:id` fails the screen. A draft can be restored only after a successful
   open.

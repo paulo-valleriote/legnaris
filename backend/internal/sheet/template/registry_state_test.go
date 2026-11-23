@@ -154,8 +154,14 @@ func TestBuildRegistry_RejectsInvalidTemplateState(t *testing.T) {
 }
 
 func TestFantasyV1_IsActive(t *testing.T) {
-	require.Len(t, DefaultTemplates(), 1)
-	assert.Equal(t, StateActive, DefaultTemplates()[0].State)
+	var fantasy Template
+	for _, tmpl := range DefaultTemplates() {
+		if tmpl.ID == "fantasy_v1" {
+			fantasy = tmpl
+		}
+	}
+	require.Equal(t, "fantasy_v1", fantasy.ID)
+	assert.Equal(t, StateActive, fantasy.State)
 }
 
 func TestTemplate_StatePredicates(t *testing.T) {

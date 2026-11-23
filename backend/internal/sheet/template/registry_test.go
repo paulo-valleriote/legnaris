@@ -54,7 +54,7 @@ func TestCloneFieldNode_DeepCopiesTableMetadata(t *testing.T) {
 }
 
 func TestRegistry_ListReturnsDeepCopies(t *testing.T) {
-	registry, err := BuildRegistry(engine.NewFormulaEngine())
+	registry, err := BuildRegistry(engine.NewFormulaEngine(), WithDraftsAllowed(true))
 	require.NoError(t, err)
 
 	list := registry.List()
