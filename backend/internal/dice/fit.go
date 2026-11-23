@@ -23,19 +23,36 @@ func (m MapSchema) FieldKind(path string) (FieldKind, bool) {
 
 func (e Expression) FitsRow(schema Schema, rowKey string) error {
 	for _, term := range e.terms {
-		if term.Kind != KindField {
-			continue
-		}
-		if err := checkField(schema, term, rowKey); err != nil {
-			return err
+		switch term.Kind {
+		case KindField:
+			if err := checkField(schema, term.fieldPath(rowKey, false), term.fieldPath(rowKey, true)); err != nil {
+				return err
+			}
+		case KindDice:
+			if term.CountRef != nil {
+				err := checkReference(schema, term.CountRef, rowKey)
+				if err != nil {
+					return err
+				}
+			}
+			if term.FacesRef != nil {
+				err := checkReference(schema, term.FacesRef, rowKey)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil
 }
 
-func checkField(schema Schema, term Term, rowKey string) error {
-	path := term.fieldPath(rowKey, false)
-	label := term.fieldPath(rowKey, true)
+func checkReference(schema Schema, ref *Reference, rowKey string) error {
+	path := ref.fieldPath(rowKey, false)
+	label := "{" + ref.fieldPath(rowKey, true) + "}"
+	return checkField(schema, path, label)
+}
+
+func checkField(schema Schema, path, label string) error {
 	var kind FieldKind
 	ok := schema != nil
 	if ok {

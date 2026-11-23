@@ -33,6 +33,23 @@ func TestParse_Vectors(t *testing.T) {
 	}
 }
 
+func TestParse_CanonicalFormsRoundTrip(t *testing.T) {
+	for _, vec := range loadVectors(t).Valid {
+		t.Run("Happy path: "+vec.Name, func(t *testing.T) {
+			first, err := dice.Parse(vec.Expr)
+			require.NoError(t, err)
+			canonical, err := dice.Parse(first.String())
+			require.NoError(t, err)
+			assert.Equal(t, first.Terms(), canonical.Terms())
+			assert.Equal(t, first.String(), canonical.String())
+			firstMinimum, firstHasMinimum := first.Minimum()
+			canonicalMinimum, canonicalHasMinimum := canonical.Minimum()
+			assert.Equal(t, firstHasMinimum, canonicalHasMinimum)
+			assert.Equal(t, firstMinimum, canonicalMinimum)
+		})
+	}
+}
+
 func TestParse_LimitsMatchVectors(t *testing.T) {
 	limits := loadVectors(t).Limits
 	assert.Equal(t, dice.MaxLength, limits.MaxLength)

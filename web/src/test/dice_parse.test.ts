@@ -35,6 +35,46 @@ describe('parseDice terms', () => {
     ]);
   });
 
+  it('Happy path: count and faces may each be a Field reference', () => {
+    const parsed = parseDice('{stats.count}d8 + 1d{stats.size} + {@.bonus}d6');
+    expect(parsed.ok && parsed.value.terms).toEqual([
+      {
+        kind: 'dice',
+        sign: 1,
+        count: 0,
+        faces: 8,
+        countRef: { relative: false, path: 'stats.count' },
+      },
+      {
+        kind: 'dice',
+        sign: 1,
+        count: 1,
+        faces: 0,
+        facesRef: { relative: false, path: 'stats.size' },
+      },
+      {
+        kind: 'dice',
+        sign: 1,
+        count: 0,
+        faces: 6,
+        countRef: { relative: true, column: 'bonus' },
+      },
+    ]);
+  });
+
+  it('Happy path: the minimum is part of the parsed expression', () => {
+    const parsed = parseDice('1d20 + 2 min 5');
+    expect(parsed.ok && parsed.value.minimum).toBe(5);
+    expect(parsed.ok && canonicalForm(parsed.value)).toBe('1d20 + 2 min 5');
+  });
+
+  it('Edge: a parser-built expression without a minimum carries no key', () => {
+    const parsed = parseDice('1d20');
+    expect(parsed.ok && parsed.value).toEqual({
+      terms: [{ kind: 'dice', sign: 1, count: 1, faces: 20 }],
+    });
+  });
+
   it('Edge: a bare @ is the Row itself and carries no column', () => {
     const parsed = parseDice('@');
     expect(parsed.ok && parsed.value.terms).toEqual([

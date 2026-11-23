@@ -164,6 +164,14 @@ func TestErrorMapping_PatchDice(t *testing.T) {
 			wantStatus: http.StatusOK,
 			wantBody:   `{"data":{}}`,
 		},
+		{
+			name: "Happy path: a player override with Field-sized dice and a minimum is stored", method: http.MethodPatch, path: path,
+			body:   `{"dice":{"row":{"stats.strength":"1d{stats.dexterity} + @ min 1"}}}`,
+			stored: layoutRouteSheet(errorTestOwnerID), wantFetch: true, wantUpdate: true,
+			wantStored: &sheet.Dice{Row: map[string]*string{"stats.strength": diceText("1d{stats.dexterity} + @ min 1")}},
+			wantStatus: http.StatusOK,
+			wantBody:   `{"data":{}}`,
+		},
 	}
 
 	for _, tc := range tests {
