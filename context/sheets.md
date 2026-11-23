@@ -268,7 +268,8 @@ the variable hides Drafts, while `scripts/dev.sh` exports `development`.
 | --- | --- | --- | --- | --- |
 | `GET /templates` | listed | listed | omitted | omitted |
 | `GET /templates/:id`, `POST /templates/:id/preview` | yes | yes | 404 | yes |
-| `POST /sheets`, `POST /generations` | yes | yes | 400 | 400 |
+| `POST /sheets` | yes | yes | 400 | 400, or 201 with an active Campaign that includes it |
+| `POST /generations` | yes | yes | 400 | 400 |
 | Accept a succeeded generation job | yes | yes | 400 | yes |
 | Duplicate an existing NPC or enemy | yes | yes | 400 | yes |
 | Read, edit, roll, layout or link an existing Sheet | yes | yes | yes | yes |
@@ -277,8 +278,17 @@ A refused creation or generation is 400 `INVALID_REQUEST` before any plan slot, 
 reservation. Duplicating a Retired Template is allowed because it follows the existing-Sheet rule.
 The Draft 404 is public only: `Registry.FetchByID` and `Registry.DAG` return every state, so an
 existing Sheet's recalculation, rolls, Dice validation, layout and Reset actions never depend on
-the environment. Campaign creation and the Retired exception inside a Campaign are not part of this
-lifecycle yet.
+the environment.
+
+`POST /sheets` accepts an optional `campaign_id`, and that field is the only way to create a Sheet
+from a Retired Template: it must name an active Campaign the caller belongs to whose `template_ids`
+includes the Template. Every campaign failure (malformed id, unknown, foreign or non-member,
+deleting, out of scope) is the same 400 `INVALID_REQUEST` with
+`campaign does not allow creating a sheet from this template`, so a foreign Campaign is
+indistinguishable from one that does not exist. For an Active Template the field is ignored and not
+even validated, and it never bypasses the Draft gate, the accepted kinds or the plan limit. Creation
+stores no `campaign_id` and publishes no link event; the client links the Sheet afterwards. See
+[campaigns](campaigns.md) for the Campaign side.
 
 ### Sheet DTO and endpoints
 
@@ -289,7 +299,7 @@ never exposed.
 
 | Method and path | Body | Success |
 | --- | --- | --- |
-| `POST /sheets` | `{template_id, kind, sheet_name}` | 201 sheet |
+| `POST /sheets` | `{template_id, kind, sheet_name, campaign_id?}` | 201 sheet |
 | `GET /sheets/owned?kind=character` | — | 200 array, oldest first |
 | `GET /sheets/:id` | — | 200 sheet |
 | `PATCH /sheets/:id` | `{data?, dice?}` | 200 cascade |
@@ -1005,5 +1015,5 @@ Web:
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are
   read through the campaign routes and rendered read-only there; see [campaigns](campaigns.md).
 - Template state is code with no admin surface, so moving a Template between `draft`, `active` and
-  `retired` is a deploy. Campaign creation and the Retired exception inside a Campaign are not
-  implemented yet.
+  `retired` is a deploy. A Retired Template's Sheet is creatable only from inside an active Campaign
+  that includes it, and that request stores no link.

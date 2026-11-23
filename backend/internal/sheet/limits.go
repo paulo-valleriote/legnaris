@@ -26,6 +26,10 @@ type LinkCleaner interface {
 	PublishSheetUnlinked(kind plan.SheetKind, removed []RemovedLink)
 }
 
+type CampaignScope interface {
+	AllowsTemplate(ctx context.Context, userID, campaignID, templateID string) (bool, error)
+}
+
 type ServiceOption func(*ServiceImpl)
 
 func WithPlanLimits(plans PlanSource, tx TransactionRunner) ServiceOption {
@@ -41,6 +45,10 @@ func WithLinkCleaner(cleaner LinkCleaner) ServiceOption {
 
 func WithDraftTemplates(allowed bool) ServiceOption {
 	return func(s *ServiceImpl) { s.draftsAllowed = allowed }
+}
+
+func WithCampaignScope(scope CampaignScope) ServiceOption {
+	return func(s *ServiceImpl) { s.campaignScope = scope }
 }
 
 type LimitStatus struct {
@@ -62,6 +70,7 @@ const (
 	MsgKindInvalid          = "sheet kind must be one of character, npc, enemy"
 	MsgTemplateKindRefused  = "template does not accept this sheet kind"
 	MsgTemplateStateRefused = "template is not available in this environment"
+	MsgCampaignScopeRefused = "campaign does not allow creating a sheet from this template"
 	MsgLimitsNotConfigured  = "sheet limits are not configured"
 )
 

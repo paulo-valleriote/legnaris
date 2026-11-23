@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"slices"
 
 	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/sheet/template"
@@ -16,6 +17,29 @@ type campaignTemplateCatalog interface {
 type campaignScopeResolver struct {
 	catalog campaignTemplateCatalog
 	systems template.GameSystems
+}
+
+type campaignScopeGate struct {
+	service campaign.Service
+}
+
+func newCampaignScopeGate() *campaignScopeGate {
+	return &campaignScopeGate{}
+}
+
+func (g *campaignScopeGate) bind(service campaign.Service) {
+	g.service = service
+}
+
+func (g *campaignScopeGate) AllowsTemplate(ctx context.Context, userID, campaignID, templateID string) (bool, error) {
+	if g.service == nil {
+		return false, nil
+	}
+	view, err := g.service.Fetch(ctx, campaignID, userID)
+	if err != nil || view.Status != campaign.StatusActive {
+		return false, nil
+	}
+	return slices.Contains(view.TemplateIDs, templateID), nil
 }
 
 func newCampaignScopeResolver(catalog campaignTemplateCatalog) campaignScopeResolver {

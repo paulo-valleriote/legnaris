@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A Campaign is a shared table for one game system: it fixes a Game system or a Template that has none, groups one Owner, up to two other Game Masters and up to ten Players, and lets a Player link one character Sheet while GMs read every linked character and share NPC and Enemy Sheets with the table. The area also owns the invite code and optional password, the asynchronous deletion of a Campaign, and the account-deletion settlement that passes ownership on.
+A Campaign is a shared table for one game system: it fixes a Game system or a Template that has none, groups one Owner, up to two other Game Masters and up to ten Players, and lets a Player link one character Sheet while GMs read every linked character and share NPC and Enemy Sheets with the table. A member can also create a Sheet from a Retired Template the Campaign includes. The area also owns the invite code and optional password, the asynchronous deletion of a Campaign, and the account-deletion settlement that passes ownership on.
 
 ## Why
 
@@ -149,6 +149,7 @@ All routes are under `/campaigns` behind authentication, an active account and t
 | `DELETE /campaigns/:id/password` | GM | `200` Campaign view; members stay |
 
 - **Scope:** `POST /campaigns` takes exactly one of `game_system` or `template_id`; both or neither, an unknown id, a Retired Template, a Draft outside development, the `template_id` of a Template that has a Game system, and a Game system with no creatable Template are 400 `INVALID_REQUEST`. The stored scope is resolved through a port implemented over the Template registry: `template_ids` is the Game system's Templates (Drafts only in development, Retired included) or the stored Template alone, and a stored unknown Template still reads with `scope_name` equal to its id and `template_ids` `[that id]`. For a known Template `scope_name` is the Template name; for a Game system it is the Game system name. There is no backfill and no migration.
+- **Retired Template creation inside a Campaign:** a member may call `POST /sheets` with `campaign_id` to create a Sheet from a Retired Template the Campaign includes. The Campaign must be active and its `template_ids` must contain the Template; a malformed id, an unknown, foreign or non-member Campaign, a deleting Campaign and a Template outside the scope all return one 400 `INVALID_REQUEST` that reveals nothing about the Campaign. For an Active Template the field is ignored. The Sheet is created unlinked and the client links it afterwards; the check enters the Sheet service through a `CampaignScope` port implemented over `Service.Fetch` in the app layer.
 - **Roles:** `gm` and `player`, mutually exclusive; exactly one GM carries `owner`. The Owner controls deletion, promotion, demotion and removal of GMs, and can remove any non-owner member. A GM can remove Players. The Owner cannot leave, be demoted, be removed or be promoted. Everyone else can leave. A GM has no character in a Campaign they run; a Player has at most one character per Campaign.
 - **Caps:** at most 3 GMs (Owner included) and 10 Players per Campaign, independent of Plan. A Plan limits owned Campaigns only: Free 1, Paid 5. Participation and links are not capped by Plan. `GET /plan` exposes `owned_campaigns {used, limit}` from the `campaign_owner_counts` collection.
 - **Invite:** the code is 24 URL-safe characters from 18 random bytes, unique and sparse-indexed, and never expires. The optional password is stored as an argon2id hash; when set, the join needs code and password. An unknown, rotated or inactive code and a wrong password all return `INVALID_INVITE`, and a failed lookup still runs a dummy password check to keep timing flat.
@@ -175,7 +176,7 @@ All routes are under `/campaigns` behind authentication, an active account and t
 - `backend/internal/campaign/orphans.go` — daily reconciliation of character links and NPC links.
 - `backend/internal/campaign/limits.go`, `ownership_counter.go` — owned-Campaign Plan limit and the `campaign_owner_counts` counter.
 - `backend/internal/campaign/events.go`, `etag.go` — event types and the `sheet_version.layout_version.role` tag.
-- `backend/internal/app/campaign.go`, `campaign_scope.go`, `router.go`, `bootstrap.go` — HTTP routes, handlers, scope resolution over the Template registry and wiring; `backend/internal/accountdeletion/queue.go` — the `users_deleting` consumer that calls the settler.
+- `backend/internal/app/campaign.go`, `campaign_scope.go`, `router.go`, `bootstrap.go` — HTTP routes, handlers, scope resolution over the Template registry, the `CampaignScope` gate over `Service.Fetch` and wiring; `backend/internal/accountdeletion/queue.go` — the `users_deleting` consumer that calls the settler.
 - `backend/cmd/relay/main.go` — registers `campaigns_deleting`, `campaigns_orphan_links` and `users_deleting`; `backend/shared/db/indexes.go` — Campaign and link indexes; `backend/shared/apperr/err.go` — error-to-status mapping.
 - `backend/internal/sheet/repository.go` — conditional character link and batch unlink; `backend/internal/sheet/service.go` — Sheet writes remain owner-only.
 - `web/src/campaign/campaigns_screen.tsx` — list, create dialog, owned limit and ordering (Owner, GM, Player).
@@ -199,3 +200,4 @@ MongoDB through the shared replica-set transactor (Campaign settlement and every
 - GMs cannot edit a Player's Sheet, and layout, Pins and dice choices stay with the owner. There is no per-Field reveal for NPCs and Enemies, only whole-Sheet reveal.
 - There is no public Campaign directory, no email or push invitation, and no real-time update; the GM view can be up to a minute behind.
 - The Campaign scope is fixed at creation; changing game system means creating a new Campaign and relinking Sheets.
+- A Retired Template is creatable only through an active Campaign that includes it; the creation request stores no link, so a client that stops before linking leaves an unlinked Sheet.
