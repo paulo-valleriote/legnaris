@@ -719,6 +719,9 @@ func TestFifth_LeafContracts(t *testing.T) {
 				assert.Contains(t, []string{fieldTypeNumber, fieldTypeText}, schema.Type, "leaf %s has an unsupported type", key)
 
 				switch {
+				case schema.Aggregate != nil:
+					assert.False(t, schema.IsEditable, "aggregate leaf %s must not be editable", key)
+					assert.Empty(t, schema.Formula, "aggregate leaf %s declares its value through the list", key)
 				case schema.Formula != "":
 					assert.False(t, schema.IsEditable, "derived leaf %s must not be editable", key)
 					assert.NotEmpty(t, schema.DependsOn, "derived leaf %s declares no dependencies", key)
