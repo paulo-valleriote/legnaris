@@ -318,9 +318,9 @@ stores no `campaign_id` and publishes no link event; the client links the Sheet 
 `fifth_character_v1` and `fifth_stat_block_v1` share every field path below, so a later story
 extends a Template without renaming a shared part. Both are `draft` Templates of the `fifth` Game
 system, carry `identity.name` as their Name leaf, and use the same static Section order: `identity`,
-`abilities`, `saves`, `skills`, `exhaustion`, `passive`, `armor`. The character adds `hitDice` and
-`spellcasting` after `armor`, then its Record Sections `attacks`, `inventory`, `features`, `spells`
-and `resources`.
+`abilities`, `saves`, `skills`, `exhaustion`, `passive`, `armor`. The character adds `hitDice`,
+`spellcasting`, `combat`, `status` and `coins` after `armor`, then its Record Sections `attacks`,
+`inventory`, `features`, `spells` and `resources`.
 
 - **Identity** — `identity.name` (text, generatable); `identity.level` (1–20, character only) or
   `identity.challengeRating` (0–30, fractional CRs entered as `0.125`, `0.25`, `0.5`) and the
@@ -347,7 +347,8 @@ and `resources`.
   block, `choiceNatural`; plus `armor.base`, the numeric 0/1 `armor.shield` flag and `armor.misc`.
   `armor.armorClass` is the chosen base: none 10 + Dex, light base + Dex, medium base + min(Dex, 2)
   (a negative Dex still applies), heavy base, Barbarian 10 + Dex + Con, Monk 10 + Dex + Wis,
-  natural base + Dex; then +2 for the Shield (ignored by Monk) and + misc.
+  natural base + Dex. The Shield adds +2 to every choice, except that a Monk with a Shield drops
+  the Wisdom and uses 10 + Dex + 2; `armor.misc` stacks on top.
 - **Hit Dice** — character only. `hitDice.primary.size` enters the class Hit Die size (4–12,
   default 8), `hitDice.primary.count` = `max(0, level − the extra counts)`, and each pool enters a
   `spent` behind a derived `remaining` = `max(0, count − spent)`: `hitDice.primary.spent`, and
@@ -366,6 +367,21 @@ and `resources`.
   `spellcasting.pact` with an entered `count`, `level` and `used` behind
   `remaining` = `max(0, count − used)`. Every spent and used entry stays an editable number leaf so
   a later rest action can zero it.
+- **Combat (character)** — `combat.initiative.alert` (numeric 0/1 flag), `.misc` and `.total`
+  = Dex mod + Alert × PB + misc; its Row dice is `1d20 + @.total + exhaustion.penalty`, and Jack
+  of All Trades never applies. `combat.speed.base` and `.total` = base − 5 × Exhaustion − 10 when
+  `armor.choiceHeavy` is chosen and the Strength score is below
+  `combat.armorStrengthRequirement` (default 0 means no requirement, and a requirement left on
+  other armor is ignored); there is no floor. `combat.hp.base`, `.perLevel`, `.misc`, `.current`
+  and `.temp` are entered and `.max` = base + Con mod × level + per-level × level + misc.
+  `combat.carryingCapacity` = Strength × 15.
+- **Status (character)** — `status.xp` is entered independently of `identity.level`;
+  `status.heroicInspiration` is a numeric 0/1 flag; `status.conditions.<condition>` has one
+  numeric 0/1 flag for every SRD condition except Exhaustion, each label carrying its rule text;
+  `status.deathSaves.successes` and `.failures` are entered 0–3 with the rule text on the Row, and
+  the Row dice is `1d20 + exhaustion.penalty` because a death save is a d20 test.
+- **Coins (character)** — `coins.cp`, `.sp`, `.ep`, `.gp` and `.pp` are entered, default 0, and
+  stay outside the Inventory weight total.
 - **Attacks (character Records)** — `attacks.list` (capacity 10) with `name`, the exclusive
   `attackAbility` group `abilityStrength` (the default), `abilityDexterity`, `abilityConstitution`,
   `abilityIntelligence`, `abilityWisdom` and `abilityCharisma`, the numeric 0/1 `proficient` flag,
@@ -393,9 +409,10 @@ three d20 checks only; `attacks.list` carries its own Row default.
 
 The three d20 Sections declare Section dice, not per-Row defaults: `abilities`
 `1d20 + @.mod + exhaustion.penalty`, `saves` and `skills` `1d20 + @.total + exhaustion.penalty`.
-Every expression stays inside the 64-character cap. Only the character's `hitDice` Section and
-the stat block's `hitPoints.maximum` Row are marked as non-d20 tests. Both Templates use only SRD
-terms in labels, keys and names.
+The character's initiative and death save Rows declare Row dice: `1d20 + @.total +
+exhaustion.penalty` and `1d20 + exhaustion.penalty`. Every expression stays inside the
+64-character cap. Only the character's `hitDice` Section and the stat block's `hitPoints.maximum`
+Row are marked as non-d20 tests. Both Templates use only SRD terms in labels, keys and names.
 
 `fifth_stat_block_v1` keeps the seven shared Sections as a prefix and appends `experience`,
 `hitPoints`, `initiative`, `speed`, `details`, `traits`, `actions`, `bonusActions`, `reactions`,

@@ -583,18 +583,18 @@ func TestFifthArmorClass(t *testing.T) {
 			updates: map[string]any{
 				"armor.choiceMonk":          float64(1),
 				"abilities.dexterity.score": float64(16),
-				"abilities.wisdom.score":    float64(14),
+				"abilities.wisdom.score":    float64(18),
 			},
-			want: 15,
+			want: 17,
 		},
 		{
-			name:       "Edge: Monk ignores the shield",
+			name:       "Happy path: Monk with a shield drops wisdom and adds the shield",
 			templateID: fifthCharacterID,
 			updates: map[string]any{
 				"armor.choiceMonk":          float64(1),
 				"armor.shield":              float64(1),
 				"abilities.dexterity.score": float64(16),
-				"abilities.wisdom.score":    float64(14),
+				"abilities.wisdom.score":    float64(18),
 			},
 			want: 15,
 		},
