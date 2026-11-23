@@ -19,6 +19,7 @@ packages:
       PlanSource: {}
       TransactionRunner: {}
       LinkCleaner: {}
+      CampaignScope: {}
   legnaris/backend/internal/campaign:
     config:
       dir: backend/internal/campaign/mocks

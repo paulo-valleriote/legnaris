@@ -161,10 +161,12 @@ func NewModules(
 
 	sheetRepository := sheet.NewRepository(mdb, log)
 	linkStore := campaign.NewLinkStore(mdb)
+	scopeGate := newCampaignScopeGate()
 	sheetService := sheet.NewService(sheetRepository, templateService, registry, log, publisher,
 		sheet.WithPlanLimits(user.NewPlanSource(userRepository), db.NewTransactor(database.Client, nil)),
 		sheet.WithLinkCleaner(campaign.NewSheetLinkCleaner(linkStore, publisher)),
 		sheet.WithDraftTemplates(template.DraftsAllowed(cfg.Variables.AppEnv)),
+		sheet.WithCampaignScope(scopeGate),
 	)
 	sheetController := NewSheetController(sheetService)
 
@@ -296,6 +298,7 @@ func NewModules(
 		campaign.WithJoinLimiter(campaignJoinLimiter),
 		campaign.WithScopeResolver(newCampaignScopeResolver(registry)),
 	)
+	scopeGate.bind(campaignService)
 	campaignController := NewCampaignController(campaignService)
 
 	return &Modules{
