@@ -22,6 +22,7 @@ type DAG struct {
 	adjacencyList    map[string][]string
 	topologicalOrder []string
 	exclusiveGroups  map[string][]string
+	lists            map[string]ListSchema
 	formulaEngine    *engine.FormulaEngine
 }
 
@@ -107,12 +108,20 @@ func BuildDAG(templateID string, fields FieldGroup, eng *engine.FormulaEngine) (
 		return nil, err
 	}
 
+	lists, err := collectLists(fields, Path{})
+	if err != nil {
+		return nil, err
+	}
+
 	leafSchemas, leafPaths := collectLeaves(fields)
 	if len(leafSchemas) == 0 {
-		return newDAG(templateID, eng), nil
+		dag := newDAG(templateID, eng)
+		dag.lists = lists
+		return dag, nil
 	}
 
 	dag := newDAG(templateID, eng)
+	dag.lists = lists
 	compilationEnv := buildCompilationEnv(leafPaths)
 
 	if err := dag.buildAdjacencyList(leafSchemas, leafPaths); err != nil {
@@ -140,6 +149,7 @@ func newDAG(templateID string, eng *engine.FormulaEngine) *DAG {
 		nodes:           make(map[string]*Node),
 		adjacencyList:   make(map[string][]string),
 		exclusiveGroups: make(map[string][]string),
+		lists:           make(map[string]ListSchema),
 		formulaEngine:   eng,
 	}
 }
