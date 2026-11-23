@@ -46,6 +46,7 @@ export interface CreateSheetInput {
   readonly templateId: string;
   readonly kind: SheetKind;
   readonly sheetName: string;
+  readonly campaignId?: string;
 }
 
 export interface JoinCampaignInput {
@@ -187,6 +188,7 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
           template_id: input.templateId,
           kind: input.kind,
           sheet_name: input.sheetName,
+          ...(input.campaignId === undefined ? {} : { campaign_id: input.campaignId }),
         }),
         parseSheet,
       ),

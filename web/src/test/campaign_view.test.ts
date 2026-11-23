@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type { TemplateSummary } from '../api/models/template';
 import {
+  allowedKindsFor,
   atOwnedLimit,
   campaignScopeOptions,
   createCampaignInput,
+  creatableKinds,
   eligibleNpcSheetIds,
   eligibleSheetIds,
+  hasLinkedCharacter,
   isDeleting,
   isSelf,
   memberActions,
@@ -257,5 +260,35 @@ describe('memberUsername', () => {
 
   it('Edge: a Campaign with no members resolves to nothing', () => {
     expect(memberUsername({ members: [] }, 'u-1')).toBeUndefined();
+  });
+});
+
+describe('campaign create kinds (LGN-403)', () => {
+  it.each([
+    ['player', ['character']],
+    ['gm', ['npc', 'enemy']],
+  ] as const)('Happy path: a %s creates only its own kinds', (role, expected) => {
+    expect(creatableKinds(role)).toEqual(expected);
+  });
+
+  it('Edge: a Template with no kind the role may create offers none', () => {
+    expect(allowedKindsFor(['npc', 'enemy'], 'player')).toEqual([]);
+    expect(allowedKindsFor(['character'], 'gm')).toEqual([]);
+    expect(allowedKindsFor([], 'player')).toEqual([]);
+  });
+
+  it('Happy path: the Template order survives the role filter', () => {
+    expect(allowedKindsFor(['character', 'npc', 'enemy'], 'gm')).toEqual(['npc', 'enemy']);
+    expect(allowedKindsFor(['enemy', 'character', 'npc'], 'player')).toEqual(['character']);
+  });
+
+  it('Edge: no owned sheet is linked to the Campaign', () => {
+    expect(hasLinkedCharacter([], 'c1')).toBe(false);
+    expect(hasLinkedCharacter([{ campaignId: undefined }], 'c1')).toBe(false);
+    expect(hasLinkedCharacter([{ campaignId: 'c2' }], 'c1')).toBe(false);
+  });
+
+  it('Happy path: an owned sheet linked to this Campaign counts as the character', () => {
+    expect(hasLinkedCharacter([{ campaignId: undefined }, { campaignId: 'c1' }], 'c1')).toBe(true);
   });
 });

@@ -355,3 +355,53 @@ describe('sheet-name field and validation', () => {
     );
   });
 });
+
+describe('creation surface campaign isolation (LGN-403)', () => {
+  it('Happy path: the catalog surface still offers generation and sends no campaign id', async () => {
+    const fake = createFakeTransport(
+      successOutcome(CATALOG),
+      detailEnvelope('Dungeons & Dragons 5e'),
+      successOutcome(
+        {
+          id: '0190c5a0-0000-7000-8000-00000000d001',
+          template_id: 'dnd5e',
+          kind: 'character',
+          name: 'Aragorn',
+          data: {},
+          created_at: '2026-11-17T10:00:00Z',
+          updated_at: '2026-11-17T10:00:00Z',
+        },
+        201,
+      ),
+      detailEnvelope('Dungeons & Dragons 5e'),
+    );
+    const user = userEvent.setup();
+    renderApp('/', {
+      client: clientWith(withPlanUsage(fake.transport, successOutcome(PAID_PLAN_USAGE))),
+    });
+
+    await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
+    await screen.findByTestId('detail-name');
+    expect(screen.getByRole('link', { name: message('generate.entry') })).toHaveAttribute(
+      'href',
+      '/generate/dnd5e?kind=character',
+    );
+
+    await user.type(screen.getByLabelText(message('sheet.nameLabel')), 'Aragorn');
+    await user.click(screen.getByRole('button', { name: message('sheet.create') }));
+
+    await waitFor(() => {
+      const posts = fake.requests.filter(
+        (request) => request.method === 'POST' && request.url.endsWith('/sheets'),
+      );
+      expect(posts).toHaveLength(1);
+      const body = JSON.parse(posts[0]?.body ?? '') as Record<string, unknown>;
+      expect(body).toEqual({
+        template_id: 'dnd5e',
+        kind: 'character',
+        sheet_name: 'Aragorn',
+      });
+      expect(body).not.toHaveProperty('campaign_id');
+    });
+  });
+});

@@ -917,7 +917,12 @@ Web:
   following the selected kind; a Template with a Game system shows its compatibility label as plain
   text in the catalog entry and the dialog, with no attribution link. On Free the dialog's
   `Generate with AI` entry carries a Pro badge and opens the upgrade dialog (see
-  [web-client](web-client.md)). `template_name.tsx` is the one Template name with its Game system
+  [web-client](web-client.md)). The same dialog serves the Campaign screen through optional
+  `campaignId`, `allowedKinds`, `replaceWarning` and `onCreated`: it filters the Template kinds to
+  the role's, hides the generation entry, sends `campaign_id`, keeps the created Sheet when the
+  caller's link fails and lets the caller link and navigate; `useTemplateDetails` reads every
+  Campaign scope entry through the detail route, so a Retired Template still offers a button.
+  `template_name.tsx` is the one Template name with its Game system
   notice as a same-origin link, used on the owner Sheet, the campaign read-only views and the
   generation review; a Template without a notice draws the name alone.
 - `web/src/engine/field_grouping.ts` — schema → Sections and Rows (static Rows and one `record`

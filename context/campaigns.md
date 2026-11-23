@@ -2,7 +2,7 @@
 
 ## Purpose
 
-A Campaign is a shared table for one game system: it fixes a Game system or a Template that has none, groups one Owner, up to two other Game Masters and up to ten Players, and lets a Player link one character Sheet while GMs read every linked character and share NPC and Enemy Sheets with the table. A member can also create a Sheet from a Retired Template the Campaign includes. The area also owns the invite code and optional password, the asynchronous deletion of a Campaign, and the account-deletion settlement that passes ownership on.
+A Campaign is a shared table for one game system: it fixes a Game system or a Template that has none, groups one Owner, up to two other Game Masters and up to ten Players, and lets a Player link one character Sheet while GMs read every linked character and share NPC and Enemy Sheets with the table. A member can also create a Sheet from a Retired Template the Campaign includes, and the Campaign screen offers a Player a new character and a GM a new NPC or Enemy from each Template in scope that accepts the kind, linking the created Sheet afterwards. The area also owns the invite code and optional password, the asynchronous deletion of a Campaign, and the account-deletion settlement that passes ownership on.
 
 ## Why
 
@@ -13,6 +13,7 @@ A Campaign is a shared table for one game system: it fixes a Game system or a Te
 - **An `owner` flag on a GM over a third role** because every Owner is also a GM and the role matrix stays two-valued; cost is two fields to interpret on every member.
 - **Characters linked by `campaign_id` on the Sheet over a link collection** because a character belongs to at most one Campaign and a conditional update on that field makes two concurrent links impossible; cost is a second, different mechanism for NPCs and Enemies.
 - **NPC and Enemy links as separate documents over an array on the Sheet** because reveal is state of one Campaign's view, not of the Sheet; cost is a link collection, per-link reveal and orphan reconciliation.
+- **Create-then-link on the Campaign screen over one combined call** because `POST /sheets` deliberately stores no link and the link routes already own the role and kind rules; the screen reads each `template_ids` entry through `GET /templates/:id` — so a Retired Template still offers its button — and a Player sees only Templates that accept `character` while a GM sees only those that accept `npc` or `enemy`. The dialog offers no generation entry because a generated Sheet would not link, and a failed link keeps the created Sheet and retries the link alone. Cost is two requests in sequence and one Template read per scope entry.
 - **Asynchronous deletion through a `deleting` state over a synchronous cascade** because unlinking an unbounded number of Sheets in one request would time out and a crash halfway would leave dangling links; cost is a Campaign that still exists while invisible, a sweeper queue and a dead-letter state.
 - **A deterministic successor over any willing GM** because a retried account deletion must choose the same person; cost is that the longest-standing GM receives ownership even if a newer GM is more active.
 - **A version bump on every Campaign-scoped write, including link changes, over last-write-wins** because concurrent joins, role changes, links and deletion must serialize and every event carries a monotonic aggregate version; cost is a `CONFLICT` for the loser.
@@ -43,6 +44,40 @@ sequenceDiagram
   P->>A: PUT /campaigns/{id}/character {sheet_id}
   A->>C: unlink the player's old character, compare-and-set the new Sheet, bump version
   A-->>P: 200 Campaign view with the character name in the member list
+```
+
+### Create and link from the Campaign screen
+
+The Campaign screen reads every Template detail named by `template_ids` and offers `New character sheet` to a Player and `New NPC/enemy` to a GM, one button per Template whose `kinds` include a kind the role may create; a role with no such Template gets no button. The dialog carries `campaign_id` on `POST /sheets`, then links the created Sheet with the character route or the NPC route. A failed link leaves the Sheet created and offers a retry of the link alone.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor M as Player or GM
+  participant W as Campaign screen
+  participant A as API
+  participant C as Campaign
+  M->>W: New character sheet / New NPC-enemy for a scope Template
+  W->>A: GET /templates/{id} (name, kinds)
+  A-->>W: Template detail, even when Retired
+  M->>W: name and kind, Create
+  W->>A: POST /sheets {template_id, kind, sheet_name, campaign_id}
+  A-->>W: 201 created Sheet, unlinked
+  alt character
+    W->>A: PUT /campaigns/{id}/character {sheet_id}
+    A->>C: replace the Player's link, version + 1
+  else NPC or Enemy
+    W->>A: PUT /campaigns/{id}/npcs {sheet_id}
+    A->>C: upsert the hidden link
+  end
+  alt the link fails
+    A-->>W: mapped error
+    W->>W: keep the Sheet, show the copy and Retry link
+    M->>W: Retry link
+    W->>A: the same link request only, never a second POST /sheets
+  else the link succeeds
+    W->>W: invalidate the campaign queries and open /sheets/{id}
+  end
 ```
 
 ### Reveal an NPC or Enemy
@@ -150,6 +185,7 @@ All routes are under `/campaigns` behind authentication, an active account and t
 
 - **Scope:** `POST /campaigns` takes exactly one of `game_system` or `template_id`; both or neither, an unknown id, a Retired Template, a Draft outside development, the `template_id` of a Template that has a Game system, and a Game system with no creatable Template are 400 `INVALID_REQUEST`. The stored scope is resolved through a port implemented over the Template registry: `template_ids` is the Game system's Templates (Drafts only in development, Retired included) or the stored Template alone, and a stored unknown Template still reads with `scope_name` equal to its id and `template_ids` `[that id]`. For a known Template `scope_name` is the Template name; for a Game system it is the Game system name. There is no backfill and no migration.
 - **Retired Template creation inside a Campaign:** a member may call `POST /sheets` with `campaign_id` to create a Sheet from a Retired Template the Campaign includes. The Campaign must be active and its `template_ids` must contain the Template; a malformed id, an unknown, foreign or non-member Campaign, a deleting Campaign and a Template outside the scope all return one 400 `INVALID_REQUEST` that reveals nothing about the Campaign. For an Active Template the field is ignored. The Sheet is created unlinked and the client links it afterwards; the check enters the Sheet service through a `CampaignScope` port implemented over `Service.Fetch` in the app layer.
+- **Campaign creation surface:** the detail screen offers `New character sheet` to a Player and `New NPC/enemy` to a GM, one button per Template in `template_ids` whose `kinds` include `character` (Player) or `npc`/`enemy` (GM), named from `GET /templates/:id`; a Retired Template included in the scope still offers its button although `GET /templates` omits it. The one dialog carries `campaign_id` on `POST /sheets`, filters the Template kinds to the role's and offers no generation entry, since a generated Sheet would not link. It links the created Sheet through the existing `PUT /campaigns/:id/character` or `PUT /campaigns/:id/npcs` route, invalidates the campaign, character-sheet or NPC-link queries and then opens the owner Sheet. A failed link keeps the created Sheet, states it in the dialog and offers a retry that repeats only the link; a Player with a linked character sees the replace warning before Create, and Create sends at most one request.
 - **Roles:** `gm` and `player`, mutually exclusive; exactly one GM carries `owner`. The Owner controls deletion, promotion, demotion and removal of GMs, and can remove any non-owner member. A GM can remove Players. The Owner cannot leave, be demoted, be removed or be promoted. Everyone else can leave. A GM has no character in a Campaign they run; a Player has at most one character per Campaign.
 - **Caps:** at most 3 GMs (Owner included) and 10 Players per Campaign, independent of Plan. A Plan limits owned Campaigns only: Free 1, Paid 5. Participation and links are not capped by Plan. `GET /plan` exposes `owned_campaigns {used, limit}` from the `campaign_owner_counts` collection.
 - **Invite:** the code is 24 URL-safe characters from 18 random bytes, unique and sparse-indexed, and never expires. The optional password is stored as an argon2id hash; when set, the join needs code and password. An unknown, rotated or inactive code and a wrong password all return `INVALID_INVITE`, and a failed lookup still runs a dummy password check to keep timing flat.
@@ -180,7 +216,8 @@ All routes are under `/campaigns` behind authentication, an active account and t
 - `backend/cmd/relay/main.go` — registers `campaigns_deleting`, `campaigns_orphan_links` and `users_deleting`; `backend/shared/db/indexes.go` — Campaign and link indexes; `backend/shared/apperr/err.go` — error-to-status mapping.
 - `backend/internal/sheet/repository.go` — conditional character link and batch unlink; `backend/internal/sheet/service.go` — Sheet writes remain owner-only.
 - `web/src/campaign/campaigns_screen.tsx` — list, create dialog and its scope picker, owned limit and ordering (Owner, GM, Player).
-- `web/src/campaign/campaign_screen.tsx`, `campaign_view.ts`, `campaign_queries.ts` — detail, the scope option and sheet-eligibility helpers, role-aware actions, character and NPC sections, polling keys.
+- `web/src/campaign/campaign_screen.tsx`, `campaign_view.ts`, `campaign_queries.ts` — detail, the scope option and sheet-eligibility helpers, role-aware actions, character and NPC sections, the per-Template create buttons (`allowedKindsFor`, `hasLinkedCharacter`) and their create-and-link flow, polling keys.
+- `web/src/catalog/create_sheet_dialog.tsx` — the creation surface shared with the catalog: optional `campaignId`, `allowedKinds`, `replaceWarning` and `onCreated` switch it to the Campaign create-and-link flow, drop the generation entry and keep the created Sheet when the link fails.
 - `web/src/campaign/campaign_settings.tsx`, `invite_panel.tsx` — password, delete and invite rotation panels.
 - `web/src/campaign/gm_sheet_screen.tsx` — read-only GM and NPC Sheet views with the caption, the shared read-only Record table, manual refresh and the Template name with its notice link (`web/src/catalog/template_name.tsx`).
 - `web/src/join/join_screen.tsx`, `web/src/app/router.tsx`, `web/src/app/routes.ts` — `/join/:code` and the Campaign routes.
@@ -200,4 +237,4 @@ MongoDB through the shared replica-set transactor (Campaign settlement and every
 - GMs cannot edit a Player's Sheet, and layout, Pins and dice choices stay with the owner. There is no per-Field reveal for NPCs and Enemies, only whole-Sheet reveal.
 - There is no public Campaign directory, no email or push invitation, and no real-time update; the GM view can be up to a minute behind.
 - The Campaign scope is fixed at creation; changing game system means creating a new Campaign and relinking Sheets.
-- A Retired Template is creatable only through an active Campaign that includes it; the creation request stores no link, so a client that stops before linking leaves an unlinked Sheet.
+- A Retired Template is creatable only through an active Campaign that includes it; the creation request stores no link, so a client that stops before linking leaves an unlinked Sheet. The Campaign screen retries a failed link in the dialog, but closing it leaves the Sheet unlinked for a later link from the character form.
