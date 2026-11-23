@@ -374,12 +374,12 @@ three d20 checks only; `attacks.list` carries its own Row default.
 
 The three d20 Sections declare Section dice, not per-Row defaults: `abilities`
 `1d20 + @.mod + exhaustion.penalty`, `saves` and `skills` `1d20 + @.total + exhaustion.penalty`.
-Every expression stays inside the 64-character cap, and the Templates mark no Row or Section as a
-non-d20 test. Both Templates use only SRD terms in labels, keys and names.
+Every expression stays inside the 64-character cap, and neither Template marks any of these check
+Rows or Sections as a non-d20 test. Both Templates use only SRD terms in labels, keys and names.
 
 `fifth_stat_block_v1` keeps the seven shared Sections as a prefix and appends `experience`,
 `hitPoints`, `initiative`, `speed`, `details`, `traits`, `actions`, `bonusActions`, `reactions`,
-`legendaryActions` and `resources`; `fifth_character_v1` keeps the shared seven.
+`legendaryActions` and `resources`; `fifth_character_v1` appends its own Record Sections above.
 
 - **Experience (stat block)** — `experience.xp` is the SRD XP of `identity.challengeRating` by
   `lookup` over the whole table: CR 0 gives 10, the fractional CRs `0.125`, `0.25` and `0.5`
