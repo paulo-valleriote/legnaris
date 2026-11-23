@@ -23,7 +23,6 @@ import {
   listInfos,
   orderedRecordIDs,
   recordsByList,
-  recordsSignature,
 } from '../engine/row_identity';
 import type { SheetMark } from '../engine/sheet_mark';
 import { markLabel, SheetForm } from '../engine/sheet_form';
@@ -622,13 +621,11 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     view.store.markExplainerSeen();
   }, [view.store]);
   const hasRecordLists = useMemo(() => listInfos(template.fields).length > 0, [template]);
-  const recordSignature = useSyncExternalStore(editStore.subscribe, () =>
-    recordsSignature(template.fields, editStore.getState().data),
+  const editData = useSyncExternalStore(editStore.subscribe, () => editStore.getState().data);
+  const recordRows = useMemo(
+    () => recordsByList(template.fields, editData),
+    [template.fields, editData],
   );
-  const recordRows = useMemo(() => {
-    void recordSignature;
-    return recordsByList(template.fields, editStore.getState().data);
-  }, [editStore, template.fields, recordSignature]);
   const [recordNotice, setRecordNotice] = useState('');
   const recordActions = useMemo<RecordListActions>(
     () => ({

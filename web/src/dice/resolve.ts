@@ -1,3 +1,4 @@
+import { recordRowID } from '../engine/row_identity';
 import type { DiceError } from './errors';
 import { validateRow, type DiceSchema } from './fit';
 import type { Expression } from './parse';
@@ -48,8 +49,6 @@ function ownEntry<T>(record: Readonly<Record<string, T>> | undefined, key: strin
   return record !== undefined && Object.hasOwn(record, key) ? record[key] : undefined;
 }
 
-const RECORD_ID = /^r[0-9a-f]{32}$/;
-
 function listDefault(
   listDice: Readonly<Record<string, string>> | undefined,
   rowKey: string,
@@ -58,8 +57,7 @@ function listDefault(
     return undefined;
   }
   for (const [listPath, expression] of Object.entries(listDice)) {
-    const prefix = `${listPath}.`;
-    if (rowKey.startsWith(prefix) && RECORD_ID.test(rowKey.slice(prefix.length))) {
+    if (recordRowID(listPath, rowKey) !== undefined) {
       return expression;
     }
   }

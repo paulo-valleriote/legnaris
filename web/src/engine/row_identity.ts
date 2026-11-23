@@ -68,17 +68,35 @@ export function listInfos(fields: Readonly<Record<string, FieldNode>>): readonly
   return collectLists(fields);
 }
 
+export const RECORD_POSITION_FIELD = 'position';
+
+export function isRecordPositionPath(
+  fields: Readonly<Record<string, FieldNode>>,
+  path: string,
+): boolean {
+  const suffix = `.${RECORD_POSITION_FIELD}`;
+  if (!path.endsWith(suffix)) {
+    return false;
+  }
+  return parseRecordRowKey(fields, path.slice(0, -suffix.length)) !== undefined;
+}
+
+export function recordRowID(listPath: string, key: string): string | undefined {
+  const prefix = `${listPath}.`;
+  if (!key.startsWith(prefix)) {
+    return undefined;
+  }
+  const recordID = key.slice(prefix.length);
+  return RECORD_ID_PATTERN.test(recordID) ? recordID : undefined;
+}
+
 export function parseRecordRowKey(
   fields: Readonly<Record<string, FieldNode>>,
   key: string,
 ): RecordRow | undefined {
   for (const list of collectLists(fields)) {
-    const prefix = `${list.path}.`;
-    if (!key.startsWith(prefix)) {
-      continue;
-    }
-    const recordID = key.slice(prefix.length);
-    if (RECORD_ID_PATTERN.test(recordID)) {
+    const recordID = recordRowID(list.path, key);
+    if (recordID !== undefined) {
       return { listPath: list.path, recordID, section: list.section };
     }
   }
@@ -165,21 +183,6 @@ export function recordsByList(
     rows[list.path] = orderedRecords(list.path, data).map((entry) => entry.id);
   }
   return rows;
-}
-
-export function recordsSignature(
-  fields: Readonly<Record<string, FieldNode>>,
-  data: Readonly<Record<string, unknown>>,
-): string {
-  return collectLists(fields)
-    .map(
-      (list) =>
-        `${list.path}=${orderedRecords(list.path, data)
-          .map((entry) => entry.id)
-          .join(',')}`,
-    )
-    .sort()
-    .join(';');
 }
 
 export function listInfoAtPath(

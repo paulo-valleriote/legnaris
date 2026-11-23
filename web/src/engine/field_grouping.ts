@@ -97,7 +97,7 @@ export function buildSections(
   const sections: SheetSection[] = [];
   for (const [key, node] of Object.entries(fields)) {
     const leaves = flatten(key, node);
-    const lists = collectLists(key, node);
+    const lists = listAt(key, node);
     if (leaves.length === 0 && lists.length === 0) {
       continue;
     }
@@ -286,10 +286,6 @@ function listAt(prefix: string, node: FieldNode): SheetList[] {
     return [];
   }
   return Object.entries(node.children).flatMap(([key, child]) => listAt(`${prefix}.${key}`, child));
-}
-
-function collectLists(prefix: string, node: FieldNode): SheetList[] {
-  return listAt(prefix, node);
 }
 
 function flatten(prefix: string, node: FieldNode): SheetField[] {

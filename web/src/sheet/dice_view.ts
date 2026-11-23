@@ -18,8 +18,8 @@ import type { FieldNode } from '../api/models/template';
 import { buildSections, rowKey } from '../engine/field_grouping';
 import {
   listInfos,
-  RECORD_ID_PATTERN,
   recordFieldSchema,
+  recordRowID,
   recordRowKey,
   SYNTHETIC_RECORD_ID,
 } from '../engine/row_identity';
@@ -226,8 +226,7 @@ export function templateDiceMarking(
 
 function isMarkedListRow(marking: DiceMarking, rowKey: string): boolean {
   for (const listPath of marking.lists) {
-    const prefix = `${listPath}.`;
-    if (rowKey.startsWith(prefix) && RECORD_ID_PATTERN.test(rowKey.slice(prefix.length))) {
+    if (recordRowID(listPath, rowKey) !== undefined) {
       return true;
     }
   }

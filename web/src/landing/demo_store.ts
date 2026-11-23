@@ -306,12 +306,6 @@ export function createDemoEditStore(template: TemplateDetail, sheet: Sheet): She
       applyWrites(writes);
     },
 
-    addRecord: () => undefined,
-
-    removeRecord: () => undefined,
-
-    moveRecord: () => undefined,
-
     applyReset: (cascade) => {
       const data = mergeCascade(state.data, cascade);
       applyDerived(data);

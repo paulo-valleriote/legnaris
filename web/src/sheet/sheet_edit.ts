@@ -11,6 +11,7 @@ import type { FieldNode, FieldSchema, TemplateDetail } from '../api/models/templ
 import { hasEntries, isPlainObject } from '../api/parse';
 import { buildSections } from '../engine/field_grouping';
 import {
+  isRecordPositionPath,
   isRowKey as isTemplateRowKey,
   listInfoAtPath,
   newRecordID,
@@ -117,9 +118,9 @@ export interface SheetEditStore {
   setPath(path: string, value: unknown): void;
   setExclusive(selected: string | null, siblings: readonly string[]): void;
   setDice(target: DiceTarget, key: string, expression: string | null | undefined): void;
-  addRecord(listPath: string): string | undefined;
-  removeRecord(listPath: string, recordID: string): void;
-  moveRecord(listPath: string, recordID: string, direction: -1 | 1): number | undefined;
+  addRecord?(listPath: string): string | undefined;
+  removeRecord?(listPath: string, recordID: string): void;
+  moveRecord?(listPath: string, recordID: string, direction: -1 | 1): number | undefined;
   applyReset(cascade: Record<string, unknown>): void;
   refresh(): Promise<void>;
   save(): Promise<void>;
@@ -128,6 +129,9 @@ export interface SheetEditStore {
   discard(): void;
   dispose(): void;
 }
+
+export type RecordEditStore = SheetEditStore &
+  Required<Pick<SheetEditStore, 'addRecord' | 'removeRecord' | 'moveRecord'>>;
 
 export type DiceTarget = 'row' | 'section';
 
@@ -295,7 +299,7 @@ function defaultSchedule(callback: () => void, delayMs: number): () => void {
   return () => clearTimeout(timer);
 }
 
-export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): SheetEditStore {
+export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): RecordEditStore {
   const editable = editableLeafPaths(seed.template.fields);
   const isWritablePath = (path: string): boolean => {
     if (editable.has(path)) {
@@ -307,12 +311,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     if (parseRecordRowKey(seed.template.fields, path) !== undefined) {
       return true;
     }
-    const dot = path.lastIndexOf('.');
-    return (
-      dot > 0 &&
-      path.slice(dot + 1) === 'position' &&
-      parseRecordRowKey(seed.template.fields, path.slice(0, dot)) !== undefined
-    );
+    return isRecordPositionPath(seed.template.fields, path);
   };
   const sectionRows = diceSectionRows(seed.template.fields);
   const diceRules: PruneContext = {
