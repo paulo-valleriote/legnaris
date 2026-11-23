@@ -26,6 +26,7 @@ const TEMPLATE_DETAIL = {
   id: 'fantasy_v1',
   name: 'Fantasy RPG',
   default: true,
+  kinds: ['character', 'npc', 'enemy'],
   fields: {},
 };
 

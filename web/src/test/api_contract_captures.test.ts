@@ -170,6 +170,7 @@ describe('pinned contract captures', () => {
 
     expect(fantasy).toBeDefined();
     expect(fantasy?.default).toBe(true);
+    expect(fantasy?.kinds).toEqual(['character', 'npc', 'enemy']);
     expect(Object.keys(fantasy?.fields ?? {})).toEqual([
       'identity',
       'stats',
@@ -191,6 +192,7 @@ describe('pinned contract captures', () => {
 
     expect(decoded.id).toBe('fantasy_v1');
     expect(decoded.default).toBe(true);
+    expect(decoded.kinds).toEqual(['character', 'npc', 'enemy']);
     expect(nodes.every((node) => node.kind === 'group')).toBe(true);
 
     const derived = nodes

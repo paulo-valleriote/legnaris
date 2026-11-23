@@ -19,7 +19,15 @@ import { SHEET_ID, TEMPLATE_ID, sheetPayload, templateDetailPayload } from './sh
 
 const BASE_URL = 'http://api.test';
 
-const CATALOG = [{ id: TEMPLATE_ID, name: 'Fantasy', default: true, fields: {} }];
+const CATALOG = [
+  {
+    id: TEMPLATE_ID,
+    name: 'Fantasy',
+    default: true,
+    kinds: ['character', 'npc', 'enemy'],
+    fields: {},
+  },
+];
 
 const ENTRY_NAME = /Fantasy/;
 

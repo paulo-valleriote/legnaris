@@ -10,12 +10,13 @@ import (
 )
 
 type TemplateDTO struct {
-	ID           string        `json:"id"`
-	Name         string        `json:"name"`
-	Fields       FieldGroupDTO `json:"fields"`
-	Default      bool          `json:"default"`
-	SectionOrder []string      `json:"-"`
-	Dice         *DiceDTO      `json:"dice,omitempty"`
+	ID           string           `json:"id"`
+	Name         string           `json:"name"`
+	Kinds        []plan.SheetKind `json:"kinds,omitempty"`
+	Fields       FieldGroupDTO    `json:"fields"`
+	Default      bool             `json:"default"`
+	SectionOrder []string         `json:"-"`
+	Dice         *DiceDTO         `json:"dice,omitempty"`
 }
 
 type DiceDTO struct {
@@ -81,6 +82,7 @@ func (t Template) ToDTO() TemplateDTO {
 		Dice:         diceToDTO(t),
 		ID:           t.ID,
 		Name:         t.Name,
+		Kinds:        slices.Clone(t.Kinds),
 		Fields:       t.Fields.toDTO(),
 		Default:      t.Default,
 		SectionOrder: slices.Clone(t.SectionOrder),
@@ -111,17 +113,18 @@ func notD20ToDTO(t Template) *NotD20DTO {
 
 func (d TemplateDTO) MarshalJSON() ([]byte, error) {
 	type payload struct {
-		ID      string          `json:"id"`
-		Name    string          `json:"name"`
-		Fields  json.RawMessage `json:"fields"`
-		Default bool            `json:"default"`
-		Dice    *DiceDTO        `json:"dice,omitempty"`
+		ID      string           `json:"id"`
+		Name    string           `json:"name"`
+		Kinds   []plan.SheetKind `json:"kinds,omitempty"`
+		Fields  json.RawMessage  `json:"fields"`
+		Default bool             `json:"default"`
+		Dice    *DiceDTO         `json:"dice,omitempty"`
 	}
 	fields, err := marshalFieldGroup(d.Fields, d.SectionOrder)
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(payload{ID: d.ID, Name: d.Name, Fields: fields, Default: d.Default, Dice: d.Dice})
+	return json.Marshal(payload{ID: d.ID, Name: d.Name, Kinds: d.Kinds, Fields: fields, Default: d.Default, Dice: d.Dice})
 }
 
 func marshalFieldGroup(group FieldGroupDTO, order []string) (json.RawMessage, error) {

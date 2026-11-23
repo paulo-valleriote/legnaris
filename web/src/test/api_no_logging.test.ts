@@ -37,6 +37,7 @@ const templatePayload = {
   id: 'fantasy_v1',
   name: 'Fantasy RPG',
   default: true,
+  kinds: ['character', 'npc', 'enemy'],
   fields: {
     stats: {
       children: {

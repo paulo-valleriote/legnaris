@@ -37,6 +37,7 @@ function template(overrides: Record<string, unknown> = {}) {
     id: 'fantasy_v1',
     name: 'Fantasy RPG',
     default: true,
+    kinds: ['character', 'npc', 'enemy'],
     fields: {
       identity: {
         children: {
@@ -59,6 +60,42 @@ describe('template models', () => {
     expect(decoded.name).toBe('Fantasy RPG');
     expect(decoded.default).toBe(true);
     expect(Object.keys(decoded.fields)).toEqual(['identity', 'stats']);
+  });
+
+  it('Happy path: decodes the accepted kinds in their declared order', () => {
+    const decoded = parseTemplateDetail(template({ kinds: ['npc', 'enemy', 'character'] }));
+
+    expect(decoded.kinds).toEqual(['npc', 'enemy', 'character']);
+  });
+
+  it('Edge: a single-kind template exposes exactly that kind', () => {
+    const decoded = parseTemplateDetail(template({ kinds: ['enemy'] }));
+
+    expect(decoded.kinds).toEqual(['enemy']);
+  });
+
+  it('Edge: a template without character offers the remaining kinds only', () => {
+    const decoded = parseTemplateDetail(template({ kinds: ['npc', 'enemy'] }));
+
+    expect(decoded.kinds).toEqual(['npc', 'enemy']);
+    expect(decoded.kinds).not.toContain('character');
+  });
+
+  it('Error: missing, non-list, empty, duplicate or unknown kinds are contract drift', () => {
+    const broken: unknown[] = [
+      undefined,
+      null,
+      'character',
+      [],
+      ['character', 'character'],
+      ['character', 'dragon'],
+      ['character', 7],
+      [7],
+    ];
+
+    for (const kinds of broken) {
+      expect(() => parseTemplateDetail(template({ kinds }))).toThrow(DefensiveParseFailure);
+    }
   });
 
   it('Happy path: preserves the payload order of the top-level fields', () => {

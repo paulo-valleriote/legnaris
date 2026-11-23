@@ -13,6 +13,7 @@ export function arrangeTemplatePayload(labels: Partial<Record<'alpha' | 'one', s
     id: TEMPLATE_ID,
     name: 'Fantasy',
     default: true,
+    kinds: ['character', 'npc', 'enemy'],
     fields: {
       alpha: {
         label: labels.alpha ?? 'Alpha',

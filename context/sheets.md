@@ -168,16 +168,18 @@ non-numeric arguments (`ErrInvalidFloat`) are typed engine errors; the engine ne
 `GET /templates` returns an array and `GET /templates/:id` one object; both require an
 authenticated, active account and share the per-user rate limit.
 
-`TemplateDTO` is `{id, name, default, fields, dice?}`. A node carries either `schema` (leaf) or
-`children` (group); a group may carry `label` and `columns`; a leaf schema is `{type, label,
-is_editable, default, formula?, depends_on?, exclusive_group?, option_label?, column_label?,
-generatable?, generatable_kinds?, prefer_default?, min?, max?, max_length?, flag?}`. `default` stays
-numeric for every type, so a text leaf shows `0`. `flag` marks an editable number leaf as a 0/1
-toggle and is absent otherwise; boot rejects it on a non-number or derived leaf, or with a default
-other than 0 or 1. `dice` is `{section?, row?, not_d20?}`; it is
-omitted when the Template has no defaults and no marking, and `not_d20` is `{section: [...],
-row: [...]}` naming the Rows and Sections whose dice are not d20 tests (see [dice](dice.md)).
-Sections follow the template's `SectionOrder` and children their declared `Order`;
+`TemplateDTO` is `{id, name, kinds, default, fields, dice?}`. `kinds` is the ordered list of
+Sheet kinds the Template accepts (`character`, `npc` or `enemy`); creation and generation with any
+other kind stay 400 `INVALID_REQUEST`, and a Template that declares none omits the key. A node
+carries either `schema` (leaf) or `children` (group); a group may carry `label` and `columns`; a
+leaf schema is `{type, label, is_editable, default, formula?, depends_on?, exclusive_group?,
+option_label?, column_label?, generatable?, generatable_kinds?, prefer_default?, min?, max?,
+max_length?, flag?}`. `default` stays numeric for every type, so a text leaf shows `0`. `flag`
+marks an editable number leaf as a 0/1 toggle and is absent otherwise; boot rejects it on a
+non-number or derived leaf, or with a default other than 0 or 1. `dice` is `{section?, row?,
+not_d20?}`; it is omitted when the Template has no defaults and no marking, and `not_d20` is
+`{section: [...], row: [...]}` naming the Rows and Sections whose dice are not d20 tests (see
+[dice](dice.md)). Sections follow the template's `SectionOrder` and children their declared `Order`;
 unlisted keys are alphabetical. Template IDs are slugs (`^[a-z][a-z0-9_]*$`); a malformed ID is
 400, an unknown one 404.
 
@@ -634,7 +636,9 @@ Backend:
 Web:
 
 - `web/src/catalog/catalog_screen.tsx`, `create_sheet_dialog.tsx`, `queries.ts` — catalog,
-  creation surface and query keys; on Free the dialog's `Generate with AI` entry carries a Pro
+  creation surface and query keys; the surface offers only the Template's `kinds`, preselects the
+  first and shows a single kind without a choice, with the limit, Generate link and submit
+  following the selected kind; on Free the dialog's `Generate with AI` entry carries a Pro
   badge and opens the upgrade dialog (see [web-client](web-client.md)).
 - `web/src/engine/field_grouping.ts` — schema → Sections and Rows, row keys; `layout.ts`,
   `arrange_ops.ts` — arrangement resolution, view and staging; a flagged leaf is a toggle, never

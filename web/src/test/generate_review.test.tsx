@@ -218,7 +218,15 @@ describe('resume from the catalog (LGN-196)', () => {
 
   it('Edge: the catalog notice opens the waiting generation through its template', async () => {
     const fake = routed({
-      'GET /templates': ok([{ id: TEMPLATE_ID, name: 'Fantasy', default: true, fields: {} }]),
+      'GET /templates': ok([
+        {
+          id: TEMPLATE_ID,
+          name: 'Fantasy',
+          default: true,
+          kinds: ['character', 'npc', 'enemy'],
+          fields: {},
+        },
+      ]),
       [`GET /templates/${TEMPLATE_ID}`]: ok(templateDetailPayload()),
       'GET /me/plan': ok(planWith({ active_generation_id: GENERATION_ID })),
       [`GET /generations/${GENERATION_ID}`]: ok(SUCCEEDED),
@@ -238,7 +246,15 @@ describe('resume from the catalog (LGN-196)', () => {
 
   it('Happy path: the catalog notice names its kind and resumes an enemy generation (LGN-187)', async () => {
     const fake = routed({
-      'GET /templates': ok([{ id: TEMPLATE_ID, name: 'Fantasy', default: true, fields: {} }]),
+      'GET /templates': ok([
+        {
+          id: TEMPLATE_ID,
+          name: 'Fantasy',
+          default: true,
+          kinds: ['character', 'npc', 'enemy'],
+          fields: {},
+        },
+      ]),
       [`GET /templates/${TEMPLATE_ID}`]: ok(templateDetailPayload()),
       'GET /me/plan': ok(planWith({ active_generation_id: GENERATION_ID })),
       [`GET /generations/${GENERATION_ID}`]: ok({ ...SUCCEEDED, kind: 'enemy' }),
