@@ -11,19 +11,21 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
 
 ## Why
 
-- **Planned (LGN-382): class-agnostic fifth-edition Templates with a separate stat block
-  Template over a class-aware character Template or one Template for all three Sheet kinds
-  because** SRD 5.2.1 carries only twelve classes with one subclass each and the engine has
-  no choice field, and a creature's proficiency bonus comes from its challenge rating while
-  a Template derives a value the same way for every kind it accepts. `fifth_character_v1`
-  "5E Character" (`character`) keeps class, subclass, species and background as text, the
-  player enters what they grant, and everything the rules derive from the Sheet is derived;
-  `fifth_stat_block_v1` "5E Stat Block" (`npc`, `enemy`) derives the proficiency bonus and
-  XP from the challenge rating. Cost: the player types class-granted values; both Templates need
-  only their own release card to enter the catalog, because the engine capabilities they rely on are
-  live: dice sized by Fields with a minimum total, Record lists with derived Record formulas, Reset
-  actions, `min`, `max`, `lookup`, numeric flags and the d20-test marking of the Roll modes
-  (LGN-390).
+- **Class-agnostic fifth-edition Templates (LGN-382), shipped complete, with a
+  separate stat block Template over one class-aware character Template because** SRD 5.2.1
+  carries only twelve classes with one subclass each and the engine has no choice field, and a
+  creature's proficiency bonus comes from its challenge rating while a Template derives a value
+  the same way for every kind it accepts. `fifth_character_v1` "5E Character" (`character`) keeps
+  class, subclass, species and background as text, the player enters what they grant, and
+  everything the rules derive from the Sheet is derived; `fifth_stat_block_v1` "5E Stat Block"
+  (`npc`, `enemy`) derives the proficiency bonus and the XP from the challenge rating. Both
+  ship as `draft` Templates of the `fifth` Game system, so only a development deployment lists
+  and creates them until the LGN-386 release cutover, and both are played and edited through
+  the generic Section/Row form with no preset. Cost: the player types class-granted values, and
+  the generic form is the whole presentation; the engine
+  capabilities they rely on are live: dice sized by Fields with a minimum total, Record
+  lists with derived Record formulas, Reset actions, `min`, `max`, `lookup`, numeric flags and
+  the d20-test marking of the Roll modes (LGN-390).
 - **Planned (LGN-383): composable presets with one config per Template over a bespoke preset
   per Template or Template-declared presentation roles because** a new Template should cost
   one config instead of about 35 files, while layout stays in the web rather than in the API
@@ -310,6 +312,162 @@ refusal. For an Active Template the field is ignored and not
 even validated, and it never bypasses the Draft gate, the accepted kinds or the plan limit. Creation
 stores no `campaign_id` and publishes no link event; the client links the Sheet afterwards. See
 [campaigns](campaigns.md) for the Campaign side.
+
+### Fifth-edition Templates
+
+`fifth_character_v1` and `fifth_stat_block_v1` share every field path below, so a later story
+extends a Template without renaming a shared part. Both are `draft` Templates of the `fifth` Game
+system, carry `identity.name` as their Name leaf, and use the same static Section order: `identity`,
+`abilities`, `saves`, `skills`, `exhaustion`, `passive`, `armor`. The character adds `hitDice`,
+`spellcasting`, `combat`, `status` and `coins` after `armor`, then its Record Sections `attacks`,
+`inventory`, `features`, `spells` and `resources`.
+
+- **Identity** — `identity.name` (text, generatable); `identity.class`, `identity.subclass`,
+  `identity.species` and `identity.background` (editable text, capped at 60 like the name, not
+  generatable, character only); `identity.level` (1–20, character only) or
+  `identity.challengeRating` (0–30, fractional CRs entered as `0.125`, `0.25`, `0.5`) and the
+  derived `identity.proficiencyBonus`. The character bonus is `2 + floor((level - 1) / 4)`; the
+  stat block bonus is `2 + floor((max(CR, 1) - 1) / 4)`, so CR 0 and every fractional CR give +2.
+  `identity.jackOfAllTrades` is a numeric 0/1 flag on the character only.
+- **Abilities** — `abilities.<ability>.score` is entered (default 10) and
+  `abilities.<ability>.mod` is `floor((score - 10) / 2)`.
+- **Saves** — `saves.<ability>.prof` (numeric 0/1 flag), `.misc` (entered) and `.total`
+  = modifier + prof × proficiency bonus + misc.
+- **Skills** — all 18 SRD skills as `skills.<skill>.rank` (entered 0/1/2, never under `config`),
+  `.misc` and `.total` = modifier + rank × proficiency bonus + misc. On the character,
+  `identity.jackOfAllTrades` adds `floor(PB / 2)` to a rank-0 skill only; expertise (rank 2)
+  doubles the bonus and never stacks with the half bonus. The stat block has no such flag.
+- **Exhaustion** — `exhaustion.level` (entered 0–6) and the derived `exhaustion.penalty`
+  = `-2 × level`. The penalty appears only inside the dice expression of the ability checks,
+  saves and skills (`1d20 + @.mod` / `@.total + exhaustion.penalty`); no displayed total and no
+  Passive Perception includes it.
+- **Passive Perception** — `passive.perception` = 10 + `skills.perception.total` + the exclusive
+  choice `perceptionChoice` (`choiceNone` is the default, `choiceAdvantage` +5,
+  `choiceDisadvantage` −5). The choice never sets a Roll mode and the Section declares no dice.
+- **Armor class** — the exclusive `armorChoice` group with `choiceNone` as the default,
+  `choiceLight`, `choiceMedium`, `choiceHeavy`, `choiceBarbarian`, `choiceMonk` and, on the stat
+  block, `choiceNatural`; plus `armor.base`, the numeric 0/1 `armor.shield` flag and `armor.misc`.
+  `armor.armorClass` is the chosen base: none 10 + Dex, light base + Dex, medium base + min(Dex, 2)
+  (a negative Dex still applies), heavy base, Barbarian 10 + Dex + Con, Monk 10 + Dex + Wis,
+  natural base + Dex. The Shield adds +2 to every choice, except that a Monk with a Shield drops
+  the Wisdom and uses 10 + Dex + 2; `armor.misc` stacks on top.
+- **Hit Dice** — character only. `hitDice.primary.size` enters the class Hit Die size (4–12,
+  default 8), `hitDice.primary.count` = `max(0, level − the extra counts)`, and each pool enters a
+  `spent` behind a derived `remaining` = `max(0, count − spent)`: `hitDice.primary.spent`, and
+  `hitDice.d6|d8|d10|d12.spent` for the multiclass `extra` counts (default 0, never generatable).
+  Every pool rolls one die plus the Constitution modifier with ` min 1`:
+  `1d{hitDice.primary.size} + abilities.constitution.mod min 1` for the primary pool (it reads the
+  entered size) and `1d6|d8|d10|d12 + abilities.constitution.mod min 1` for an extra pool. The
+  `hitDice` Section is marked as not a d20 test, so no Hit Die Row offers a Roll mode.
+- **Spellcasting** — character only. The six `spellcasting.ability<Ability>` leaves are the
+  exclusive `spellcastingAbility` group of numeric 0/1 flags; `spellcasting.abilityMod` selects the
+  chosen ability's modifier, `spellcasting.attack` = ability modifier + PB and
+  `spellcasting.saveDC` = 8 + ability modifier + PB. The spell attack Row rolls
+  `1d20 + @ + exhaustion.penalty` and stays a d20 test; the save DC never includes Exhaustion.
+  `spellcasting.preparedLimit` enters the prepared-spell limit. Levels 1–9 are `spellcasting.slotN`
+  with an entered `total` and `spent` behind `remaining` = `max(0, total − spent)`; Pact Magic is
+  `spellcasting.pact` with an entered `count`, `level` and `used` behind
+  `remaining` = `max(0, count − used)`. Every spent and used entry stays an editable number leaf so
+  a later rest action can zero it.
+- **Combat (character)** — `combat.initiative.alert` (numeric 0/1 flag), `.misc` and `.total`
+  = Dex mod + Alert × PB + misc; its Row dice is `1d20 + @.total + exhaustion.penalty`, and Jack
+  of All Trades never applies. `combat.speed.base` and `.total` = base − 5 × Exhaustion − 10 when
+  `armor.choiceHeavy` is chosen and the Strength score is below
+  `combat.armorStrengthRequirement` (default 0 means no requirement, and a requirement left on
+  other armor is ignored); there is no floor. `combat.hp.base`, `.perLevel`, `.misc`, `.current`
+  and `.temp` are entered and `.max` = base + Con mod × level + per-level × level + misc.
+  `combat.carryingCapacity` = Strength × 15.
+- **Status (character)** — `status.xp` is entered independently of `identity.level`;
+  `status.heroicInspiration` is a numeric 0/1 flag; `status.conditions.<condition>` has one
+  numeric 0/1 flag for every SRD condition except Exhaustion, each label carrying its rule text;
+  `status.deathSaves.successes` and `.failures` are entered 0–3 with the rule text on the Row, and
+  the Row dice is `1d20 + exhaustion.penalty` because a death save is a d20 test.
+- **Coins (character)** — `coins.cp`, `.sp`, `.ep`, `.gp` and `.pp` are entered, default 0, and
+  stay outside the Inventory weight total.
+- **Attacks (character Records)** — `attacks.list` (capacity 10) with `name`, the exclusive
+  `attackAbility` group `abilityStrength` (the default), `abilityDexterity`, `abilityConstitution`,
+  `abilityIntelligence`, `abilityWisdom` and `abilityCharisma`, the numeric 0/1 `proficient` flag,
+  `misc`, `damage` (text) and `notes`. The derived `toHit` is the chosen ability modifier +
+  `proficient` × PB + `misc`, and `damageBonus` is the chosen ability modifier, so damage adds it
+  while its dice stay text. The list Row default is `1d20 + @.toHit + exhaustion.penalty`, and the
+  Exhaustion penalty never enters the displayed `toHit`.
+- **Inventory (character Records)** — `inventory.items` (capacity 100) with `name`, `quantity`
+  (default 1), `weight`, the numeric 0/1 `attuned` flag and `notes`, plus the derived Record
+  `lineWeight` = quantity × weight. `inventory.totalWeight` sums those Record values and
+  `inventory.attuned` counts the non-zero `attuned` flags; an empty list gives 0, a quantity of 0
+  adds nothing, and attunement is shown, never blocked. Coins stay static leaves outside the list,
+  so they never enter the total.
+- **Features and feats (character Records)** — `features.list` (capacity 50) with `name`, `source`
+  and `text`, all text.
+- **Spells (character Records)** — `spells.list` (capacity 100) with `name`, `level` (0 for a
+  cantrip), the numeric 0/1 `prepared`, `concentration` and `ritual` flags, and `notes`.
+- **Resources (character Records)** — `resources.list` (capacity 20) with `name`, `max`, `used` and
+  the exclusive `resourceRecharge` group `rechargeShort`, `rechargeLong` and `rechargeNone` (the
+  default). The rests zero `used` by recharge kind: the long rest sets it to
+  `record_used * record_rechargeNone` and the short rest to
+  `record_used * (1 - record_rechargeShort)`.
+- **Rests (character)** — two Reset actions. `long_rest` sets `combat.hp.current` to
+  `combat.hp.max`, zeroes `spent` in `hitDice.primary` and each `hitDice.d6|d8|d10|d12` pool, in
+  every `spellcasting.slot1..slot9` and in `spellcasting.pact.used`, zeroes both
+  `status.deathSaves` counters and `used` on every `resources.list` Record whose recharge is short
+  or long, and lowers `exhaustion.level` by one with a floor of 0. `short_rest` zeroes
+  `spellcasting.pact.used` and `used` on short-recharge Resources only. The list assignments read
+  their own Record: `record_used * record_rechargeNone` for the long rest and
+  `record_used * (1 - record_rechargeShort)` for the short rest. Every expression reads the stored
+  Sheet before the action, and spending a Hit Point Die stays a Roll where the player enters the
+  HP gained and the die spent.
+
+The character's Record Sections use the generic list contract below: one Record Row per
+`<list>.<id>`, a flat shape and the per-Record exclusive groups. The Template Section dice are the
+three d20 checks only; `attacks.list` carries its own Row default.
+
+The three d20 Sections declare Section dice, not per-Row defaults: `abilities`
+`1d20 + @.mod + exhaustion.penalty`, `saves` and `skills` `1d20 + @.total + exhaustion.penalty`.
+The character's initiative and death save Rows declare Row dice: `1d20 + @.total +
+exhaustion.penalty` and `1d20 + exhaustion.penalty`. Every expression stays inside the
+64-character cap. Only the character's `hitDice` Section and the stat block's `hitPoints.maximum`
+Row are marked as non-d20 tests. Both Templates use only SRD terms in labels, keys and names.
+
+`fifth_stat_block_v1` keeps the seven shared Sections as a prefix and appends `experience`,
+`hitPoints`, `initiative`, `speed`, `details`, `traits`, `actions`, `bonusActions`, `reactions`,
+`legendaryActions` and `resources`; `fifth_character_v1` appends its own Record Sections above.
+
+- **Experience (stat block)** — `experience.xp` is the SRD XP of `identity.challengeRating` by
+  `lookup` over the whole table: CR 0 gives 10, the fractional CRs `0.125`, `0.25` and `0.5`
+  give 25, 50 and 100, and every whole CR 1–30 gives its table value.
+  `experience.zero` (numeric 0/1 flag) makes the XP 0 but is honoured only at CR 0;
+  `experience.inLair` (numeric 0/1 flag) replaces the XP with the XP of CR + 1 only when the CR
+  is a whole number from 1 to 29, so a fractional CR and CR 30 keep the table value.
+- **Hit points (stat block)** — `hitPoints.count` (N, 1–20) and `hitPoints.size` (M, 4–20) are
+  entered, `hitPoints.conBonus` = N × Con modifier is derived and
+  `hitPoints.maximum` = `floor(N × (M + 1) / 2)` + `hitPoints.conBonus`; `hitPoints.current`
+  and `hitPoints.temp` are entered. The `hitPoints.maximum` Row rolls
+  `{hitPoints.count}d{hitPoints.size} + hitPoints.conBonus` and is marked a non-d20 test, so the
+  Roll offers no mode even for d20 dice.
+- **Initiative and speed (stat block)** — `initiative.modifier` is entered and the derived
+  `initiative.score` = 10 + modifier is never imported; its Roll is
+  `1d20 + initiative.modifier + exhaustion.penalty`. `speed.walk|fly|swim|climb|burrow` are
+  entered as printed (walk defaults to 30) and each derived `<speed>Total` is
+  `entered > 0 ? entered − 5 × exhaustion.level : 0`, so a printed speed has no floor while an
+  unprinted 0 stays 0; the Strength-requirement penalty is character only.
+- **Records (stat block)** — `traits`, `bonusActions`, `reactions` and `legendaryActions` are
+  name-and-text Record lists. `actions` holds a name, an `actionAbility` exclusive group of
+  numeric choices (one per ability), the `proficient` flag, `misc`, a derived
+  `toHit` = ability modifier + PB if proficient + misc, damage and notes; its Records roll
+  `1d20 + @.toHit + exhaustion.penalty` as a d20 test. `resources` holds a name, `max`, `used`,
+  the derived `remaining` = max − used and a recharge text, so Legendary Resistance, X/Day and
+  Recharge 5-6 are entered as printed. `details.resistances|immunities|senses|languages` are
+  text. Every Record list holds at most 50 Records.
+
+Both Templates are usable end to end through the generic form: every Section draws with its
+title, a `flag` leaf draws as a toggle, a skill rank draws as a number entry, each Record list
+draws as its table, the character's Edit form draws the Reset action bar with `Long rest` and
+`Short rest`, and the Rows marked not a d20 test (the character's whole `hitDice` Section and
+the stat block's `hitPoints.maximum` Row) offer no Roll mode. Their wire contract is pinned by
+`testdata/templates/fifth_character_v1.json` and `fifth_stat_block_v1.json`, full
+`GET /templates/:id` bodies that a Go test compares to the registry's DTO and the web suite
+decodes with `parseTemplateDetail`; a DTO change moves the goldens deliberately. Their ids,
+names, labels, option and column labels and action labels stay SRD-only.
 
 ### Sheet DTO and endpoints
 
@@ -1008,9 +1166,14 @@ Web:
   and evaluated per Record, and Sheet aggregates read the list. A derived Field is still refused as
   a write (the server computes it). The web client draws a list in the generic Edit form and in a
   Template without a preset; the frozen `fantasy_v1` preset draws no list.
-- Users cannot create or edit templates; the registry is frozen at boot and only `fantasy_v1`
-  ships. A template change requires a deploy and, if incompatible, a new ID. Only the `fifth` Game
-  system ships, and a Template bound to one keeps it for the life of its slug.
+- Users cannot create or edit templates; the registry is frozen at boot and only `fantasy_v1` is
+  active while the two fifth-edition Templates stay `draft` until the LGN-386 release cutover, so
+  a deployment outside development neither lists nor creates them. Until LGN-383 neither Template
+  has a Play preset, so a Sheet of either keeps the generic Edit form and its footer with no
+  Play/Edit toggle; until LGN-384 generation reads only their generatable leaves, with no
+  Template-specific AI generation config. A template change requires a deploy
+  and, if incompatible, a new ID. Only the `fifth` Game system ships, and a Template bound to one
+  keeps it for the life of its slug.
 - No offline open: the IndexedDB sheet copy is written and evicted but never read as a fallback,
   so a failed `GET /sheets/:id` fails the screen. A draft can be restored only after a successful
   open.
@@ -1021,6 +1184,9 @@ Web:
   the client.
 - The relative epsilon and `float64` formulas make the engine unsuitable for exact currency or
   experience arithmetic; values above 2^53 lose precision.
+- The ranges on 5E entries — `status.deathSaves.successes|failures` 0..3, a skill `rank` 0..2,
+  `exhaustion.level` 0..6 and `identity.level` 1..20 — are generation metadata only and are not
+  enforced on PATCH: an entered value outside its range is stored as entered.
 - A layout is seeded at open, so a template refresh that changes Sections within the same session
   does not reseed it. Row order inside a Section is template-defined; only pins lift a Row, and
   there is no pin cap.

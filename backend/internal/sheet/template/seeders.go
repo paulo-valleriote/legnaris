@@ -78,6 +78,8 @@ var skills = []struct{ key, label, ability string }{
 
 var defaultTemplates = []Template{
 	fantasyV1Template,
+	fifthCharacterTemplate,
+	fifthStatBlockTemplate,
 }
 
 var fantasyV1Template = Template{
