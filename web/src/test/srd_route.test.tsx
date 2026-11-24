@@ -43,12 +43,15 @@ describe('srd route (LGN-420)', () => {
     expect(screen.queryByText(/trademark/i)).not.toBeInTheDocument();
   });
 
-  it('Edge: the landing links to no srd page', async () => {
-    await visit('/');
-
-    expect(screen.getByTestId('landing')).toBeInTheDocument();
-    expect(screen.getAllByRole('link').map((link) => link.getAttribute('href'))).not.toContain(
-      SRD_PATH,
-    );
+  it('Edge: no public page links to the srd page', async () => {
+    for (const path of ['/', '/demo', '/privacy']) {
+      const view = await visit(path);
+      await screen.findByRole('heading', { level: 1 });
+      const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href') ?? '');
+      for (const href of hrefs) {
+        expect(new URL(href, 'http://legnaris.test').pathname).not.toBe(SRD_PATH);
+      }
+      view.unmount();
+    }
   });
 });

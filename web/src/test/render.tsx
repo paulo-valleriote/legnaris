@@ -1,6 +1,6 @@
 import { render } from '@testing-library/react';
 import { QueryClient } from '@tanstack/react-query';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import type { AdsConfig } from '../ads/ads_config';
 import type { AuthApi } from '../api/auth_api';
 import type { ApiClient } from '../api/client';
@@ -66,6 +66,11 @@ function initialEntry(path: string, state: unknown) {
     : { pathname: path.slice(0, queryAt), search: path.slice(queryAt), state };
 }
 
+function LocationProbe() {
+  const location = useLocation();
+  return <div data-testid="location-pathname">{location.pathname}</div>;
+}
+
 export function renderApp(path = '/', options: RenderAppOptions = {}) {
   const queryClient =
     options.queryClient ??
@@ -79,6 +84,7 @@ export function renderApp(path = '/', options: RenderAppOptions = {}) {
 
   const result = render(
     <MemoryRouter initialEntries={[initialEntry(path, options.routeState)]}>
+      <LocationProbe />
       <AppProviders
         apiBaseUrl={options.apiBaseUrl ?? TEST_BASE_URL}
         client={options.client ?? defaultClient()}

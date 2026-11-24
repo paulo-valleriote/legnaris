@@ -5,18 +5,23 @@ import { gzipSync } from 'node:zlib';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { valueAtPath } from '../api/models/sheet';
+import type { FieldNode, TemplateDetail } from '../api/models/template';
+import { parseTemplateDetail } from '../api/models/template';
 import { message } from '../l10n/strings';
 import { presetFromConfig } from '../sheet/preset/compose/adapter';
 import { configPathErrors } from '../sheet/preset/compose/config_paths';
 import { fifthCharacterConfig } from '../sheet/preset/compose/configs/fifth_character';
 import { DEMO_TEMPLATE } from '../landing/demo_character';
+import { createDemoEditStore } from '../landing/demo_store';
 import {
-  FIFTH_DEMO_NOTE,
   FIFTH_DEMO_SHEET,
   FIFTH_DEMO_TEMPLATE,
   FIFTH_DEMO_TEMPLATE_ID,
 } from '../landing/fifth_demo_character';
 import FifthDemoSheet from '../landing/fifth_demo_sheet';
+import { templateDerivation } from '../landing/template_derivation';
+import goldenCharacter from '../../../testdata/templates/fifth_character_v1.json';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const srcRoot = path.resolve(here, '..');
@@ -53,6 +58,43 @@ async function tabToRoll(
   throw new Error(`no keyboard stop named ${name}`);
 }
 
+function templateSurface(template: TemplateDetail): Record<string, unknown> {
+  const surface: Record<string, unknown> = {
+    id: template.id,
+    name: template.name,
+    kinds: template.kinds,
+    gameSystem: template.gameSystem,
+    dice: template.dice,
+    actions: template.actions,
+  };
+  const walk = (nodes: Readonly<Record<string, FieldNode>>, prefix: string): void => {
+    for (const [key, node] of Object.entries(nodes)) {
+      const path = prefix === '' ? key : `${prefix}.${key}`;
+      if (node.kind === 'leaf') {
+        surface[path] = node.schema;
+        continue;
+      }
+      if (node.kind === 'group') {
+        surface[`${path}:group`] = { label: node.label, columns: node.columns };
+        walk(node.children, path);
+        continue;
+      }
+      surface[`${path}:list`] = {
+        label: node.list.label,
+        columns: node.list.columns,
+        capacity: node.list.capacity,
+        dice: node.list.dice,
+        notD20: node.list.notD20,
+      };
+      for (const [field, leaf] of Object.entries(node.list.shape)) {
+        surface[`${path}.${field}`] = leaf.schema;
+      }
+    }
+  };
+  walk(template.fields, '');
+  return surface;
+}
+
 describe('the prepared 5E Character demo', () => {
   const fetchSpy = vi.fn(() => Promise.reject(new Error('the demo must stay offline')));
 
@@ -81,8 +123,36 @@ describe('the prepared 5E Character demo', () => {
     expect(screen.getByText('Life Domain')).toBeInTheDocument();
     expect(screen.getByText('Human')).toBeInTheDocument();
     expect(screen.getByText('Acolyte')).toBeInTheDocument();
-    expect(screen.getByTestId('landing-fifth-demo-note')).toHaveTextContent(FIFTH_DEMO_NOTE);
-    expect(screen.getByTestId('landing-fifth-demo-note').textContent).toBe(FIFTH_DEMO_NOTE);
+    expect(screen.getByTestId('landing-fifth-demo-note')).toHaveTextContent(
+      message('landing.fifthDemoNote'),
+    );
+    expect(screen.getByTestId('landing-fifth-demo-note').textContent).toBe(
+      message('landing.fifthDemoNote'),
+    );
+  });
+
+  it('Happy path: the local 5E template matches the golden DTO for paths, labels, formulas and dice', () => {
+    const golden = parseTemplateDetail(goldenCharacter.data);
+
+    expect(templateSurface(FIFTH_DEMO_TEMPLATE)).toEqual(templateSurface(golden));
+  });
+
+  it('Happy path: the template formulas recompute the score, its modifier and every dependent value', () => {
+    const store = createDemoEditStore(
+      FIFTH_DEMO_TEMPLATE,
+      FIFTH_DEMO_SHEET,
+      templateDerivation(FIFTH_DEMO_TEMPLATE),
+    );
+    const read = (path: string) => valueAtPath(store.getState().data, path);
+
+    store.setPath('abilities.wisdom.score', 18);
+
+    expect(read('abilities.wisdom.score')).toBe(18);
+    expect(read('abilities.wisdom.mod')).toBe(4);
+    expect(read('saves.wisdom.total')).toBe(6);
+    expect(read('spellcasting.saveDC')).toBe(14);
+    expect(read('passive.perception')).toBe(14);
+    expect(store.getState().editedPaths).toEqual(new Set(['abilities.wisdom.score']));
   });
 
   it('Happy path: every bound preset path exists in the local template copy', () => {
@@ -131,7 +201,7 @@ describe('the prepared 5E Character demo', () => {
     expect(importers).toEqual([]);
   });
 
-  it('Edge: the demo stays inside the LGN-345 script budget and ships no extra asset', () => {
+  it('Edge: the demo stays inside the LGN-345 source-size ceiling and ships no extra asset', () => {
     const sources = [demoModule, demoDataModule].map((file) => readFileSync(file, 'utf8'));
     const gzipped = gzipSync(sources.join('\n'));
 
@@ -153,7 +223,9 @@ describe('the prepared 5E Character demo', () => {
   });
 
   it('Happy path: the note is the exact prepared-demo sentence', () => {
-    expect(FIFTH_DEMO_NOTE).toBe('An invented character on the 5E Character template.');
+    expect(message('landing.fifthDemoNote')).toBe(
+      'An invented character on the 5E Character template.',
+    );
     const rendered = render(<FifthDemoSheet />);
     const note = within(rendered.container).getByTestId('landing-fifth-demo-note');
     expect(note.textContent).toBe('An invented character on the 5E Character template.');

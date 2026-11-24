@@ -213,6 +213,7 @@ export const messages = {
   'privacy.title': 'Privacy policy',
   'privacy.close': 'Close the privacy policy',
   'privacy.back': 'Back to Legnaris',
+  'legal.backHome': 'Back to Legnaris',
   'srd.title': 'SRD 5.2.1 attribution',
   'srd.attribution':
     'This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.',
@@ -551,6 +552,7 @@ export const messages = {
     'Replace the printed sheet and the PDF: enter a value once and every modifier, total and derived number recalculates in place while you play. No pencil, no erased boxes, no formulas to redo.',
   'landing.tryDemo': 'Try the live sheet',
   'landing.demoSheetLabel': 'Live character sheet demo',
+  'landing.fifthDemoNote': 'An invented character on the 5E Character template.',
   'landing.demoLoading': 'Loading the live sheet…',
   'landing.demoCtaText': 'That is the sheet doing the math. Start your own and keep playing.',
   'landing.demoCtaAction': 'Start my sheet',
