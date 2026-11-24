@@ -43,7 +43,8 @@ func TestMongoStore_ClaimQueued(t *testing.T) {
 		s, mdb := newStore(t)
 		require.NoError(t, s.Insert(context.Background(), queuedDoc(jobA, userID, jobStart)))
 
-		doc, claimed, err := s.ClaimQueued(context.Background(), jobA, jobStart, generation.LeaseDuration)
+		lease := time.Hour
+		doc, claimed, err := s.ClaimQueued(context.Background(), jobA, jobStart, lease)
 		require.NoError(t, err)
 		require.True(t, claimed)
 		assert.Equal(t, generation.StatusRunning, doc.Status)
@@ -51,7 +52,7 @@ func TestMongoStore_ClaimQueued(t *testing.T) {
 
 		raw := readRaw(t, mdb, jobA)
 		assert.Equal(t, "running", raw["status"])
-		assert.Equal(t, jobStart.Add(generation.LeaseDuration).UTC(), raw["lease_until"].(bson.DateTime).Time().UTC())
+		assert.Equal(t, jobStart.Add(lease).UTC(), raw["lease_until"].(bson.DateTime).Time().UTC())
 	})
 
 	tests := []struct {
@@ -85,7 +86,7 @@ func TestMongoStore_ClaimQueued(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s, mdb := newStore(t)
 			tc.setup(t, s, mdb)
-			_, claimed, err := s.ClaimQueued(context.Background(), tc.id, jobStart, generation.LeaseDuration)
+			_, claimed, err := s.ClaimQueued(context.Background(), tc.id, jobStart, time.Hour)
 			require.NoError(t, err)
 			assert.False(t, claimed)
 		})

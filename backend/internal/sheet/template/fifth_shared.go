@@ -54,6 +54,8 @@ const (
 	fifthArmorChoiceMonkKey      = "choiceMonk"
 	fifthArmorChoiceNaturalKey   = "choiceNatural"
 	fifthArmorChoiceGroup        = "armorChoice"
+
+	fifthRecordTextMaxLength = 300
 )
 
 var fifthSkills = []struct{ key, label, ability string }{
@@ -129,7 +131,7 @@ func fifthSaveGroup(ability string) FieldGroup {
 	miscKey := Path{fifthSavesSection, ability, fifthMiscKey}.EngineKey()
 	proficiencyKey := Path{fifthIdentitySection, fieldNameProficiencyBonus}.EngineKey()
 
-	prof := numField(upperFirst(ability)+" save proficiency", 0)
+	prof := generatableNumber(numField(upperFirst(ability)+" save proficiency", 0), 0, 1)
 	prof.Schema.Flag = true
 	prof.Schema.ColumnLabel = "Proficient"
 
@@ -346,6 +348,11 @@ func fifthAbilityFlagKey(ability string) string {
 func fifthRecordFlag(label string) FieldNode {
 	node := numField(label, 0)
 	node.Schema.Flag = true
+	return node
+}
+
+func stateField(node FieldNode) FieldNode {
+	node.Schema.NotGeneratable = true
 	return node
 }
 

@@ -33,6 +33,8 @@ const (
 
 	fifthStatBlockActionAbilityGroup  = "actionAbility"
 	fifthStatBlockRecordCapacity      = 50
+	fifthStatBlockRecordMaxRecords    = 6
+	fifthStatBlockResourcesMaxRecords = 4
 	fifthStatBlockDetailTextMaxLength = 400
 
 	fifthStatBlockColumnName = "Name"
@@ -54,9 +56,7 @@ func fifthStatBlockDetailsGroup() FieldGroup {
 }
 
 func fifthStatBlockText(label string, maxLength int) FieldNode {
-	node := textField(label)
-	node.Schema.MaxLength = &maxLength
-	return node
+	return textFieldWithLimit(label, maxLength)
 }
 
 func fifthStatBlockTraitsList() *ListSchema {
@@ -78,13 +78,14 @@ func fifthStatBlockLegendaryActionsList() *ListSchema {
 func fifthStatBlockTextRecordList(label string) *ListSchema {
 	name := fifthStatBlockText("Name", 60)
 	name.Schema.ColumnLabel = fifthStatBlockColumnName
-	text := fifthStatBlockText("Text", 500)
+	text := fifthStatBlockText("Text", fifthRecordTextMaxLength)
 	text.Schema.ColumnLabel = "Text"
 
 	return &ListSchema{
-		Label:    label,
-		Columns:  []string{fifthStatBlockRecordNameKey, fifthStatBlockRecordTextKey},
-		Capacity: fifthStatBlockRecordCapacity,
+		Label:      label,
+		Columns:    []string{fifthStatBlockRecordNameKey, fifthStatBlockRecordTextKey},
+		Capacity:   fifthStatBlockRecordCapacity,
+		MaxRecords: fifthStatBlockRecordMaxRecords,
 		Shape: FieldGroup{
 			fifthStatBlockRecordNameKey: name,
 			fifthStatBlockRecordTextKey: text,
@@ -94,10 +95,11 @@ func fifthStatBlockTextRecordList(label string) *ListSchema {
 
 func fifthStatBlockActionsList() *ListSchema {
 	return &ListSchema{
-		Label:    "Actions",
-		Columns:  []string{fifthStatBlockRecordNameKey, fifthStatBlockRecordToHitKey, fifthStatBlockRecordDamageKey, fifthStatBlockRecordNotesKey},
-		Capacity: fifthStatBlockRecordCapacity,
-		Shape:    fifthStatBlockActionsShape(),
+		Label:      "Actions",
+		Columns:    []string{fifthStatBlockRecordNameKey, fifthStatBlockRecordToHitKey, fifthStatBlockRecordDamageKey, fifthStatBlockRecordNotesKey},
+		Capacity:   fifthStatBlockRecordCapacity,
+		MaxRecords: fifthStatBlockRecordMaxRecords,
+		Shape:      fifthStatBlockActionsShape(),
 		Dice: fmt.Sprintf(
 			"1d20 + @.%s + %s",
 			fifthStatBlockRecordToHitKey,
@@ -183,7 +185,7 @@ func fifthStatBlockResourcesList() *ListSchema {
 	maximum := numField("Maximum uses", 0)
 	maximum.Schema.ColumnLabel = "Max"
 
-	used := numField("Used uses", 0)
+	used := stateField(numField("Used uses", 0))
 	used.Schema.ColumnLabel = "Used"
 
 	remaining := calcField(
@@ -198,9 +200,10 @@ func fifthStatBlockResourcesList() *ListSchema {
 	recharge.Schema.ColumnLabel = "Recharge"
 
 	return &ListSchema{
-		Label:    "Resources",
-		Columns:  []string{fifthStatBlockRecordNameKey, fifthStatBlockRecordMaxKey, fifthStatBlockRecordUsedKey, fifthStatBlockRecordRemainingKey, fifthStatBlockRecordRechargeKey},
-		Capacity: fifthStatBlockRecordCapacity,
+		Label:      "Resources",
+		Columns:    []string{fifthStatBlockRecordNameKey, fifthStatBlockRecordMaxKey, fifthStatBlockRecordUsedKey, fifthStatBlockRecordRemainingKey, fifthStatBlockRecordRechargeKey},
+		Capacity:   fifthStatBlockRecordCapacity,
+		MaxRecords: fifthStatBlockResourcesMaxRecords,
 		Shape: FieldGroup{
 			fifthStatBlockRecordNameKey:      name,
 			fifthStatBlockRecordMaxKey:       maximum,

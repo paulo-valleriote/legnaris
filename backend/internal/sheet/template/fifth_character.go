@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"slices"
 
 	"legnaris/backend/internal/plan"
 )
@@ -11,15 +12,31 @@ const (
 	fifthSubclassKey   = "subclass"
 	fifthSpeciesKey    = "species"
 	fifthBackgroundKey = "background"
+
+	fifthSubclassMinLevel = 3
+
+	fifthSaveProficiencyCount = 2
 )
 
+var fifthCharacterPromptGuidance = map[plan.SheetKind]string{
+	plan.KindCharacter: `The subject is a player character with one class and its SRD subclass.
+Choose the class, subclass, species and background from the SRD when the concept fits them.
+An out-of-SRD concept uses the closest SRD option instead.
+A multiclass concept becomes its dominant class.
+Name the character with an original name.
+A character with no stated level is level 1 with 0 experience points.
+Set the hit point base to the Hit Die size and the hit points per level to half the die size plus one.
+Write feature text as a short paraphrase of at most about 300 runes.`,
+}
+
 var fifthCharacterTemplate = Template{
-	ID:           fifthCharacterID,
-	Name:         "5E Character",
-	State:        StateDraft,
-	Kinds:        []plan.SheetKind{plan.KindCharacter},
-	GameSystemID: GameSystemFifth,
-	NameLeaf:     fifthNameLeaf,
+	ID:                   fifthCharacterID,
+	Name:                 "5E Character",
+	State:                StateDraft,
+	Kinds:                []plan.SheetKind{plan.KindCharacter},
+	GameSystemID:         GameSystemFifth,
+	PromptGuidanceByKind: fifthCharacterPromptGuidance,
+	NameLeaf:             fifthNameLeaf,
 	Fields: FieldGroup{
 		fifthIdentitySection:     {Children: fifthCharacterIdentityGroup(), Order: fifthCharacterIdentityOrder},
 		fifthAbilitiesSection:    {Children: fifthAbilitiesGroup(), Order: fifthAbilitiesOrder()},
@@ -50,7 +67,25 @@ var fifthCharacterTemplate = Template{
 	SectionDice:    fifthCheckDice(),
 	RowDice:        fifthCharacterRowDice(),
 	NotD20Sections: []string{fifthHitDiceSection},
-	Actions:        fifthCharacterRestActions(),
+	ClassSubclass: &ClassSubclassRule{
+		Class:         []string{fifthIdentitySection, fifthClassKey},
+		Subclass:      []string{fifthIdentitySection, fifthSubclassKey},
+		Level:         []string{fifthIdentitySection, fifthLevelKey},
+		SubclassLevel: fifthSubclassMinLevel,
+	},
+	SaveProficiencies: &SaveProficiencyRule{
+		Paths:    fifthSaveProficiencyPaths(),
+		Required: fifthSaveProficiencyCount,
+	},
+	Actions: fifthCharacterRestActions(),
+}
+
+func fifthSaveProficiencyPaths() [][]string {
+	paths := make([][]string, 0, len(abilities))
+	for _, ability := range abilities {
+		paths = append(paths, []string{fifthSavesSection, ability.key, fifthProfKey})
+	}
+	return paths
 }
 
 var fifthCharacterIdentityOrder = []string{
@@ -75,15 +110,14 @@ func fifthCharacterIdentityGroup() FieldGroup {
 		[]string{fifthIdentitySection, fifthLevelKey},
 	)
 
-	maxLength := 60
-	class := textField("Class")
-	class.Schema.MaxLength = &maxLength
-	subclass := textField("Subclass")
-	subclass.Schema.MaxLength = &maxLength
-	species := textField("Species")
-	species.Schema.MaxLength = &maxLength
-	background := textField("Background")
-	background.Schema.MaxLength = &maxLength
+	class := generatableText(textField("Class"), 60)
+	class.Schema.GenerationEnum = slices.Clone(fifthEditionSystemNames.Classes)
+	subclass := generatableText(textField("Subclass"), 60)
+	subclass.Schema.GenerationEnum = append(slices.Clone(fifthEditionSystemNames.Subclasses), "")
+	species := generatableText(textField("Species"), 60)
+	species.Schema.GenerationEnum = slices.Clone(fifthEditionSystemNames.Species)
+	background := generatableText(textField("Background"), 60)
+	background.Schema.GenerationEnum = slices.Clone(fifthEditionSystemNames.Backgrounds)
 
 	return FieldGroup{
 		fieldNameName:             generatableText(textField("Name"), 60),

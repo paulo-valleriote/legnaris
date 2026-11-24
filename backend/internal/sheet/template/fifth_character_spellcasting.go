@@ -100,7 +100,7 @@ func fifthSpellSlotGroup(level int, key string) FieldNode {
 	totalPath := []string{fifthSpellcastingSection, key, fieldNameTotal}
 	spentPath := []string{fifthSpellcastingSection, key, fifthSpellSlotSpentKey}
 
-	total := numField(fmt.Sprintf("Level %d spell slots", level), 0)
+	total := generatableNumberMin(numField(fmt.Sprintf("Level %d spell slots", level), 0), 0)
 	total.Schema.ColumnLabel = fifthTotalColumnLabel
 	spent := numField(fmt.Sprintf("Level %d spell slots spent", level), 0)
 	spent.Schema.ColumnLabel = fifthSpentColumnLabel
@@ -128,7 +128,7 @@ func fifthPactMagicGroup() FieldNode {
 	countPath := []string{fifthSpellcastingSection, fifthPactKey, fifthPactCountKey}
 	usedPath := []string{fifthSpellcastingSection, fifthPactKey, fifthPactUsedKey}
 
-	count := numField("Pact Magic slots", 0)
+	count := generatableNumberMin(numField("Pact Magic slots", 0), 0)
 	count.Schema.ColumnLabel = fifthCountColumnLabel
 	level := numField("Pact Magic slot level", 0)
 	level.Schema.ColumnLabel = "Level"

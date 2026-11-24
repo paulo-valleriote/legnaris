@@ -84,7 +84,7 @@ func TestFifthCharacterRestActions_CalculateReset(t *testing.T) {
 			name:     "Happy path: a long rest restores hit points, every die pool, every slot, Pact Magic, Exhaustion, death saves and both recharging resource kinds",
 			actionID: fifthLongRestActionID,
 			want: map[string]float64{
-				"combat.hp.current":                          55,
+				"combat.hp.current":                          49,
 				"hitDice.primary.spent":                      0,
 				"hitDice.d6.spent":                           0,
 				"hitDice.d8.spent":                           0,
@@ -138,7 +138,7 @@ func TestFifthCharacterRestActions_CalculateReset(t *testing.T) {
 			want: map[string]float64{
 				"exhaustion.level":   0,
 				"exhaustion.penalty": 0,
-				"combat.hp.current":  55,
+				"combat.hp.current":  49,
 			},
 		},
 		{

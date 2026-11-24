@@ -268,6 +268,122 @@ func TestValidateGenerationMetadata(t *testing.T) {
 			}}}),
 			wantErr: ErrRangeOnNonNumber,
 		},
+		{
+			name: "Happy path: a generatable text leaf with a generation enum is valid",
+			tmpl: genTemplate(FieldGroup{"class": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true, GenerationEnum: []string{"Fighter", "Wizard"},
+			})}),
+		},
+		{
+			name: "Edge: an empty generation enum is no metadata",
+			tmpl: genTemplate(FieldGroup{"class": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true, GenerationEnum: []string{},
+			})}),
+		},
+		{
+			name: "Error: a generation enum on a non-generatable leaf is rejected",
+			tmpl: genTemplate(FieldGroup{"class": genLeaf(FieldSchema{
+				Type: fieldTypeText, GenerationEnum: []string{"Fighter"},
+			})}),
+			wantErr: ErrGenerationEnumOnNonGeneratable,
+		},
+		{
+			name: "Error: a generation enum on a number leaf is rejected",
+			tmpl: genTemplate(FieldGroup{"level": genLeaf(FieldSchema{
+				Generatable: true, GenerationEnum: []string{"one"},
+			})}),
+			wantErr: ErrGenerationEnumOnNonText,
+		},
+		{
+			name: "Error: a duplicate generation enum value is rejected",
+			tmpl: genTemplate(FieldGroup{"class": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true, GenerationEnum: []string{"Fighter", "Fighter"},
+			})}),
+			wantErr: ErrGenerationEnumDuplicate,
+		},
+		{
+			name: "Happy path: a generatable number leaf restricted to a value set is valid",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Generatable: true, Min: f64(6), Max: f64(12), GenerationValues: []float64{6, 8, 10, 12},
+			})}),
+		},
+		{
+			name: "Edge: a value set without bounds is valid",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Generatable: true, GenerationValues: []float64{6, 8, 10, 12},
+			})}),
+		},
+		{
+			name: "Edge: an empty value set is no metadata",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Generatable: true, GenerationValues: []float64{},
+			})}),
+		},
+		{
+			name: "Error: a value set on a non-generatable leaf is rejected",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				GenerationValues: []float64{6},
+			})}),
+			wantErr: ErrGenerationValuesOnNonGeneratable,
+		},
+		{
+			name: "Error: a value set on a text leaf is rejected",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true, GenerationValues: []float64{6},
+			})}),
+			wantErr: ErrGenerationValuesOnNonNumber,
+		},
+		{
+			name: "Error: a duplicate value is rejected",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Generatable: true, GenerationValues: []float64{6, 6},
+			})}),
+			wantErr: ErrGenerationValuesDuplicate,
+		},
+		{
+			name: "Error: a value below the minimum is rejected",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Generatable: true, Min: f64(6), GenerationValues: []float64{4},
+			})}),
+			wantErr: ErrGenerationValuesOutOfBounds,
+		},
+		{
+			name: "Error: a value above the maximum is rejected",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Generatable: true, Max: f64(12), GenerationValues: []float64{20},
+			})}),
+			wantErr: ErrGenerationValuesOutOfBounds,
+		},
+		{
+			name: "Happy path: an editable state leaf marked not generatable is valid",
+			tmpl: genTemplate(FieldGroup{"used": genLeaf(FieldSchema{NotGeneratable: true})}),
+		},
+		{
+			name:    "Error: a state leaf that is also generatable is rejected",
+			tmpl:    genTemplate(FieldGroup{"used": genLeaf(FieldSchema{Generatable: true, NotGeneratable: true})}),
+			wantErr: ErrNotGeneratableOnGeneratable,
+		},
+		{
+			name: "Error: a state leaf with a kind restriction is rejected",
+			tmpl: genTemplate(FieldGroup{"used": genLeaf(FieldSchema{
+				NotGeneratable: true, GeneratableKinds: []plan.SheetKind{plan.KindCharacter},
+			})}),
+			wantErr: ErrNotGeneratableOnGeneratable,
+		},
+		{
+			name: "Error: a derived leaf marked not generatable is rejected",
+			tmpl: genTemplate(FieldGroup{"total": {Schema: &FieldSchema{
+				Type: fieldTypeNumber, Formula: "1", NotGeneratable: true,
+			}}}),
+			wantErr: ErrNotGeneratableNotEditable,
+		},
+		{
+			name: "Error: a state leaf that is not editable is rejected",
+			tmpl: genTemplate(FieldGroup{"used": {Schema: &FieldSchema{
+				Type: fieldTypeNumber, NotGeneratable: true,
+			}}}),
+			wantErr: ErrNotGeneratableNotEditable,
+		},
 	}
 
 	for _, tc := range tests {
@@ -278,6 +394,116 @@ func TestValidateGenerationMetadata(t *testing.T) {
 				return
 			}
 			require.ErrorIs(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestValidateGenerationMetadata_ClassSubclass(t *testing.T) {
+	names, ok := DefaultGameSystems().AllowedNames(GameSystemFifth)
+	require.True(t, ok)
+	require.NotEmpty(t, names.Classes)
+	require.Len(t, names.Subclasses, len(names.Classes))
+
+	valid := func() Template {
+		return Template{
+			ID: "gen_test", State: StateActive, GameSystemID: GameSystemFifth,
+			ClassSubclass: &ClassSubclassRule{
+				Class: []string{"identity", "class"}, Subclass: []string{"identity", "subclass"},
+				Level: []string{"identity", "level"}, SubclassLevel: 3,
+			},
+			Fields: FieldGroup{"identity": {Children: FieldGroup{
+				"class": genLeaf(FieldSchema{
+					Type: fieldTypeText, Generatable: true, GenerationEnum: append([]string{}, names.Classes...),
+				}),
+				"subclass": genLeaf(FieldSchema{
+					Type: fieldTypeText, Generatable: true,
+					GenerationEnum: append(append([]string{}, names.Subclasses...), ""),
+				}),
+				"level": genLeaf(FieldSchema{Generatable: true, Min: f64(1), Max: f64(20)}),
+			}}},
+		}
+	}
+
+	t.Run("Happy path: the full game-system enums and the minimum level are valid", func(t *testing.T) {
+		require.NoError(t, ValidateGenerationMetadata(valid()))
+	})
+
+	tests := []struct {
+		name   string
+		mutate func(*Template)
+	}{
+		{name: "Error: the class path must resolve", mutate: func(tmpl *Template) {
+			tmpl.ClassSubclass.Class = []string{"identity", "missing"}
+		}},
+		{name: "Error: the subclass path must resolve to a leaf", mutate: func(tmpl *Template) {
+			tmpl.ClassSubclass.Subclass = []string{"identity"}
+		}},
+		{name: "Error: the level path must be a number", mutate: func(tmpl *Template) {
+			tmpl.Fields["identity"].Children["level"] = genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true, GenerationEnum: []string{"1"},
+			})
+		}},
+		{name: "Error: the class must be generatable", mutate: func(tmpl *Template) {
+			tmpl.Fields["identity"].Children["class"].Schema.Generatable = false
+		}},
+		{name: "Error: the class needs a generation enum", mutate: func(tmpl *Template) {
+			tmpl.Fields["identity"].Children["class"].Schema.GenerationEnum = nil
+		}},
+		{name: "Error: the class enum must match the game system classes", mutate: func(tmpl *Template) {
+			tmpl.Fields["identity"].Children["class"].Schema.GenerationEnum = names.Classes[:len(names.Classes)-1]
+		}},
+		{name: "Error: a reordered class enum must match the game system order", mutate: func(tmpl *Template) {
+			enum := append([]string{}, names.Classes...)
+			enum[0], enum[1] = enum[1], enum[0]
+			tmpl.Fields["identity"].Children["class"].Schema.GenerationEnum = enum
+		}},
+		{name: "Error: the subclass enum must match the game system subclasses", mutate: func(tmpl *Template) {
+			enum := append(append([]string{}, names.Subclasses...), "")
+			enum[0] = enum[1]
+			tmpl.Fields["identity"].Children["subclass"].Schema.GenerationEnum = enum
+		}},
+		{name: "Error: the subclass enum needs the empty option", mutate: func(tmpl *Template) {
+			tmpl.Fields["identity"].Children["subclass"].Schema.GenerationEnum = append([]string{}, names.Subclasses...)
+		}},
+		{name: "Error: a class and subclass rule needs a game system", mutate: func(tmpl *Template) {
+			tmpl.GameSystemID = ""
+		}},
+		{name: "Error: a class and subclass rule needs a known game system", mutate: func(tmpl *Template) {
+			tmpl.GameSystemID = "unknown"
+		}},
+		{name: "Error: the minimum subclass level must be positive", mutate: func(tmpl *Template) {
+			tmpl.ClassSubclass.SubclassLevel = 0
+		}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpl := valid()
+			tc.mutate(&tmpl)
+			require.ErrorIs(t, ValidateGenerationMetadata(tmpl), ErrClassSubclassInvalid)
+		})
+	}
+}
+
+func TestValidateGenerationMetadata_SaveProficiencyDuplicates(t *testing.T) {
+	tests := []struct {
+		name  string
+		paths [][]string
+	}{
+		{
+			name:  "Error: a duplicate path is refused",
+			paths: saveProficiencyPaths("strength", "strength", "wisdom"),
+		},
+		{
+			name:  "Edge: a path repeated three times is refused",
+			paths: saveProficiencyPaths("strength", "strength", "strength"),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpl := saveProficiencyTemplate(tc.paths, 2)
+			require.ErrorIs(t, ValidateGenerationMetadata(tmpl), ErrSaveProficiencyInvalid)
 		})
 	}
 }

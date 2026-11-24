@@ -6,7 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"legnaris/backend/internal/generation"
+	generationmocks "legnaris/backend/internal/generation/mocks"
 	llmfactory "legnaris/backend/internal/llm/factory"
+	llmmocks "legnaris/backend/internal/llm/mocks"
 	"legnaris/backend/internal/llm/openrouter"
 	"legnaris/backend/shared/env"
 
@@ -120,6 +123,58 @@ func TestBuildGeneration(t *testing.T) {
 			}
 			assert.Nil(t, runner)
 			assert.Nil(t, cleanup)
+		})
+	}
+}
+
+func TestBuildGenerationWorker_WiresTheConfiguredLLMTimeout(t *testing.T) {
+	tests := []struct {
+		name    string
+		timeout time.Duration
+	}{
+		{name: "Happy path: the default LLM timeout derives the claim lease", timeout: env.DefaultLLMTimeout},
+		{name: "Happy path: a configured LLM timeout derives the claim lease", timeout: 300 * time.Second},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := generationEnv()
+			cfg.Variables.LLMTimeout = tc.timeout
+
+			jobs := generationmocks.NewMockJobStore(t)
+			jobs.EXPECT().
+				ClaimQueued(mock.Anything, "job", mock.Anything, generation.LeaseDurationFor(tc.timeout)).
+				Return(generation.Document{}, false, nil).
+				Once()
+
+			worker, err := buildGenerationWorker(cfg, jobs,
+				generationmocks.NewMockCatalog(t), llmmocks.NewMockClient(t),
+				generationmocks.NewMockQuota(t), generationmocks.NewMockTransactor(t))
+			require.NoError(t, err)
+
+			require.NoError(t, worker.Process(context.Background(), "job"))
+		})
+	}
+}
+
+func TestBuildGenerationWorker_RefusesANonPositiveLLMTimeout(t *testing.T) {
+	tests := []struct {
+		name    string
+		timeout time.Duration
+	}{
+		{name: "Edge: a zero LLM timeout", timeout: 0},
+		{name: "Edge: a negative LLM timeout", timeout: -time.Second},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := generationEnv()
+			cfg.Variables.LLMTimeout = tc.timeout
+
+			worker, err := buildGenerationWorker(cfg,
+				generationmocks.NewMockJobStore(t), generationmocks.NewMockCatalog(t),
+				llmmocks.NewMockClient(t), generationmocks.NewMockQuota(t),
+				generationmocks.NewMockTransactor(t))
+			require.Error(t, err)
+			assert.Nil(t, worker)
 		})
 	}
 }

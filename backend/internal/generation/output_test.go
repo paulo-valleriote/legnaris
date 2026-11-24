@@ -329,7 +329,7 @@ func TestSystemPromptAndUserPrompt(t *testing.T) {
 		prompt, err := generation.SystemPrompt(fixtureTemplate(), plan.KindCharacter)
 		require.NoError(t, err)
 		assert.Contains(t, prompt, "When a field says to keep a value unless the concept states otherwise")
-		assert.Contains(t, prompt, "veteran, experienced or powerful never change it")
+		assert.NotContains(t, prompt, "veteran, experienced or powerful never change it")
 	})
 
 	t.Run("Edge: the system prompt is deterministic", func(t *testing.T) {

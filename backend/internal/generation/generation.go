@@ -35,13 +35,24 @@ const (
 )
 
 const (
-	LeaseDuration    = 90 * time.Second
 	MaxSchemaRetries = 2
 	TransportRetries = 1
 	TransportBackoff = 500 * time.Millisecond
-	MaxOutputTokens  = 6000
+	MaxOutputTokens  = 8000
 	ReapInterval     = 10 * time.Second
+
+	leaseMargin = 20 * time.Second
 )
+
+func LeaseDurationFor(llmTimeout time.Duration) time.Duration {
+	return jobBudgetFor(llmTimeout) + settleTimeout + leaseMargin
+}
+
+func jobBudgetFor(llmTimeout time.Duration) time.Duration {
+	attempts := time.Duration(1+MaxSchemaRetries) * time.Duration(1+TransportRetries)
+	backoffs := time.Duration(1+MaxSchemaRetries) * TransportBackoff
+	return attempts*llmTimeout + backoffs
+}
 
 type Reservation struct {
 	Kind   string `bson:"kind"`

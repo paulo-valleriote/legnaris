@@ -30,19 +30,28 @@ type level struct {
 	leaves    map[string]*template.FieldSchema
 	groups    map[string]template.FieldGroup
 	exclusive map[string][]string
+	lists     map[string]*template.ListSchema
 }
 
-func levelOf(group template.FieldGroup, kind plan.SheetKind) level {
-	lv := level{
+func newLevel() level {
+	return level{
 		leaves:    map[string]*template.FieldSchema{},
 		groups:    map[string]template.FieldGroup{},
 		exclusive: map[string][]string{},
+		lists:     map[string]*template.ListSchema{},
 	}
+}
+
+func levelOf(group template.FieldGroup, kind plan.SheetKind) level {
+	lv := newLevel()
 	for _, name := range slices.Sorted(maps.Keys(group)) {
 		node := group[name]
 		switch {
 		case node.IsLeaf():
 			schema := node.Schema
+			if schema.NotGeneratable {
+				continue
+			}
 			if schema.ExclusiveGroup != "" {
 				if schema.GeneratableFor(kind) {
 					lv.exclusive[schema.ExclusiveGroup] = append(lv.exclusive[schema.ExclusiveGroup], name)
@@ -56,13 +65,36 @@ func levelOf(group template.FieldGroup, kind plan.SheetKind) level {
 			if levelOf(node.Children, kind).hasGenerated() {
 				lv.groups[name] = node.Children
 			}
+		case node.IsList():
+			if node.List != nil && node.List.MaxRecords > 0 && shapeLevel(node.List.Shape, kind).hasGenerated() {
+				lv.lists[name] = node.List
+			}
 		}
 	}
 	return lv
 }
 
+func shapeLevel(shape template.FieldGroup, kind plan.SheetKind) level {
+	lv := newLevel()
+	for _, name := range slices.Sorted(maps.Keys(shape)) {
+		node := shape[name]
+		if !node.IsLeaf() || node.Schema == nil || !node.Schema.IsEditable || node.Schema.Formula != "" || node.Schema.NotGeneratable {
+			continue
+		}
+		if len(node.Schema.GeneratableKinds) > 0 && !node.Schema.GeneratableFor(kind) {
+			continue
+		}
+		if node.Schema.ExclusiveGroup != "" {
+			lv.exclusive[node.Schema.ExclusiveGroup] = append(lv.exclusive[node.Schema.ExclusiveGroup], name)
+			continue
+		}
+		lv.leaves[name] = node.Schema
+	}
+	return lv
+}
+
 func (lv level) hasGenerated() bool {
-	return len(lv.leaves) > 0 || len(lv.exclusive) > 0 || len(lv.groups) > 0
+	return len(lv.leaves) > 0 || len(lv.exclusive) > 0 || len(lv.groups) > 0 || len(lv.lists) > 0
 }
 
 func OutputSchema(tmpl *template.Template, kind plan.SheetKind) (json.RawMessage, error) {
@@ -84,7 +116,10 @@ func OutputSchema(tmpl *template.Template, kind plan.SheetKind) (json.RawMessage
 }
 
 func objectSchema(group template.FieldGroup, kind plan.SheetKind) (map[string]any, error) {
-	lv := levelOf(group, kind)
+	return schemaFromLevel(levelOf(group, kind), kind)
+}
+
+func schemaFromLevel(lv level, kind plan.SheetKind) (map[string]any, error) {
 	props := map[string]any{}
 	for _, name := range slices.Sorted(maps.Keys(lv.leaves)) {
 		prop, err := leafSchema(lv.leaves[name])
@@ -100,6 +135,20 @@ func objectSchema(group template.FieldGroup, kind plan.SheetKind) (map[string]an
 		}
 		if child != nil {
 			props[name] = child
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(lv.lists)) {
+		items, err := recordSchema(lv.lists[name].Shape, kind)
+		if err != nil {
+			return nil, fmt.Errorf("list %q: %w", name, err)
+		}
+		if items == nil {
+			continue
+		}
+		props[name] = map[string]any{
+			schemaType: "array",
+			"maxItems": lv.lists[name].MaxRecords,
+			"items":    items,
 		}
 	}
 	for _, group := range slices.Sorted(maps.Keys(lv.exclusive)) {
@@ -119,6 +168,14 @@ func objectSchema(group template.FieldGroup, kind plan.SheetKind) (map[string]an
 	}, nil
 }
 
+func recordSchema(shape template.FieldGroup, kind plan.SheetKind) (map[string]any, error) {
+	lv := shapeLevel(shape, kind)
+	if !lv.hasGenerated() {
+		return nil, nil
+	}
+	return schemaFromLevel(lv, "")
+}
+
 func leafSchema(schema *template.FieldSchema) (map[string]any, error) {
 	switch schema.Type {
 	case fieldTypeNumber:
@@ -129,11 +186,20 @@ func leafSchema(schema *template.FieldSchema) (map[string]any, error) {
 		if schema.Max != nil {
 			prop["maximum"] = *schema.Max
 		}
+		if schema.Flag {
+			prop["enum"] = []any{0, 1}
+		}
+		if len(schema.GenerationValues) > 0 {
+			prop["enum"] = schema.GenerationValues
+		}
 		return prop, nil
 	case fieldTypeText:
 		prop := map[string]any{schemaType: "string"}
 		if schema.MaxLength != nil {
 			prop["maxLength"] = *schema.MaxLength
+		}
+		if len(schema.GenerationEnum) > 0 {
+			prop["enum"] = schema.GenerationEnum
 		}
 		return prop, nil
 	case fieldTypeBool:

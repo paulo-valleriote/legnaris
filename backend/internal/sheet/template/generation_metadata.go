@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"legnaris/backend/internal/plan"
 )
@@ -27,10 +28,171 @@ var (
 	ErrMaxLengthInvalid = errors.New("max length must be greater than zero")
 
 	ErrMaxLengthOnNonText = errors.New("max length is only allowed on text leaves")
+
+	ErrMaxRecordsInvalid = errors.New("max records must be between one and capacity")
+
+	ErrGenerationEnumOnNonGeneratable = errors.New("generation enum is only allowed on generatable leaves")
+
+	ErrGenerationEnumOnNonText = errors.New("generation enum is only allowed on text leaves")
+
+	ErrGenerationEnumDuplicate = errors.New("generation enum values must be unique")
+
+	ErrGenerationValuesOnNonGeneratable = errors.New("generation values are only allowed on generatable leaves")
+
+	ErrGenerationValuesOnNonNumber = errors.New("generation values are only allowed on number leaves")
+
+	ErrGenerationValuesDuplicate = errors.New("generation values must be unique")
+
+	ErrGenerationValuesOutOfBounds = errors.New("generation value is outside the declared bounds")
+
+	ErrNotGeneratableOnGeneratable = errors.New("not generatable is not allowed on a generatable leaf")
+
+	ErrNotGeneratableNotEditable = errors.New("not generatable is only allowed on an editable leaf")
+
+	ErrClassSubclassInvalid = errors.New("class and subclass rule is invalid")
+
+	ErrSaveProficiencyInvalid = errors.New("save proficiency rule is invalid")
 )
 
+type ClassSubclassRule struct {
+	Class         []string `bson:"class"`
+	Subclass      []string `bson:"subclass"`
+	Level         []string `bson:"level"`
+	SubclassLevel int      `bson:"subclass_level"`
+}
+
+type SaveProficiencyRule struct {
+	Paths    [][]string `bson:"paths"`
+	Required int        `bson:"required"`
+}
+
 func ValidateGenerationMetadata(tmpl Template) error {
+	if err := validateClassSubclass(tmpl); err != nil {
+		return err
+	}
+	if err := validateSaveProficiencies(tmpl); err != nil {
+		return err
+	}
 	return validateGenerationGroup(tmpl.Fields, Path{})
+}
+
+func validateClassSubclass(tmpl Template) error {
+	rule := tmpl.ClassSubclass
+	if rule == nil {
+		return nil
+	}
+	class := generatedLeafAt(tmpl.Fields, rule.Class)
+	subclass := generatedLeafAt(tmpl.Fields, rule.Subclass)
+	level := generatedLeafAt(tmpl.Fields, rule.Level)
+	if err := validateClassSubclassLeaves(class, subclass, level); err != nil {
+		return err
+	}
+	if err := validateClassSubclassEnums(tmpl.GameSystemID, class, subclass); err != nil {
+		return err
+	}
+	if rule.SubclassLevel < 1 {
+		return fmt.Errorf("%w: subclass level must be positive", ErrClassSubclassInvalid)
+	}
+	return nil
+}
+
+func validateClassSubclassLeaves(class, subclass, level *FieldSchema) error {
+	if class == nil || subclass == nil || level == nil {
+		return fmt.Errorf("%w: paths must resolve to leaves", ErrClassSubclassInvalid)
+	}
+	if class.Type != fieldTypeText || subclass.Type != fieldTypeText || level.Type != fieldTypeNumber {
+		return fmt.Errorf("%w: class and subclass must be text and level must be a number", ErrClassSubclassInvalid)
+	}
+	if !class.Generatable || !subclass.Generatable || !level.Generatable {
+		return fmt.Errorf("%w: class, subclass and level must be generatable", ErrClassSubclassInvalid)
+	}
+	if len(class.GenerationEnum) == 0 || len(subclass.GenerationEnum) == 0 {
+		return fmt.Errorf("%w: class and subclass need a generation enum", ErrClassSubclassInvalid)
+	}
+	return nil
+}
+
+func validateClassSubclassEnums(gameSystemID string, class, subclass *FieldSchema) error {
+	names, ok := defaultGameSystems.AllowedNames(gameSystemID)
+	if !ok {
+		return fmt.Errorf("%w: game system %q has no allowed names", ErrClassSubclassInvalid, gameSystemID)
+	}
+	if len(names.Classes) != len(names.Subclasses) {
+		return fmt.Errorf("%w: game system classes and subclasses must have the same length", ErrClassSubclassInvalid)
+	}
+	if !slices.Equal(class.GenerationEnum, names.Classes) {
+		return fmt.Errorf("%w: class enum must match the game system classes in order", ErrClassSubclassInvalid)
+	}
+	subclasses, hasEmpty := trimEmptyOption(subclass.GenerationEnum)
+	if !hasEmpty || !slices.Equal(subclasses, names.Subclasses) {
+		return fmt.Errorf("%w: subclass enum must match the game system subclasses plus the empty option", ErrClassSubclassInvalid)
+	}
+	if len(class.GenerationEnum) != len(subclasses) {
+		return fmt.Errorf("%w: class and subclass enums must have the same length", ErrClassSubclassInvalid)
+	}
+	return nil
+}
+
+func trimEmptyOption(values []string) ([]string, bool) {
+	trimmed := slices.Clone(values)
+	if len(trimmed) == 0 || trimmed[len(trimmed)-1] != "" {
+		return trimmed, false
+	}
+	return trimmed[:len(trimmed)-1], true
+}
+
+func validateSaveProficiencies(tmpl Template) error {
+	rule := tmpl.SaveProficiencies
+	if rule == nil {
+		return nil
+	}
+	if rule.Required < 1 || rule.Required > len(rule.Paths) {
+		return fmt.Errorf("%w: required %d of %d paths", ErrSaveProficiencyInvalid, rule.Required, len(rule.Paths))
+	}
+	seen := make(map[string]bool, len(rule.Paths))
+	for _, path := range rule.Paths {
+		key := strings.Join(path, ".")
+		if seen[key] {
+			return fmt.Errorf("%w: duplicate path %q", ErrSaveProficiencyInvalid, key)
+		}
+		seen[key] = true
+		leaf := generatedLeafAt(tmpl.Fields, path)
+		if leaf == nil || leaf.Type != fieldTypeNumber || !leaf.Flag || !leaf.Generatable {
+			return fmt.Errorf("%w: %q must resolve to a generatable flagged number", ErrSaveProficiencyInvalid, key)
+		}
+	}
+	return nil
+}
+
+func generatedLeafAt(group FieldGroup, path []string) *FieldSchema {
+	if len(path) == 0 {
+		return nil
+	}
+	current := group
+	for index, name := range path {
+		node, ok := current[name]
+		if !ok {
+			return nil
+		}
+		if index == len(path)-1 {
+			if !node.IsLeaf() {
+				return nil
+			}
+			return node.Schema
+		}
+		if node.IsList() {
+			if node.List == nil {
+				return nil
+			}
+			current = node.List.Shape
+			continue
+		}
+		if !node.IsGroup() {
+			return nil
+		}
+		current = node.Children
+	}
+	return nil
 }
 
 func validateGenerationGroup(group FieldGroup, prefix Path) error {
@@ -45,6 +207,9 @@ func validateGenerationGroup(group FieldGroup, prefix Path) error {
 		}
 		if node.IsList() {
 			if node.List != nil {
+				if err := validateMaxRecords(node.List); err != nil {
+					return fmt.Errorf("list %q: %w", current.String(), err)
+				}
 				if err := validateGenerationGroup(node.List.Shape, current); err != nil {
 					return err
 				}
@@ -64,7 +229,16 @@ func validateLeafGeneration(schema *FieldSchema) error {
 	if schema.Generatable && !schema.IsEditable {
 		return ErrGeneratableNotEditable
 	}
+	if err := validateNotGeneratable(schema); err != nil {
+		return err
+	}
 	if err := validateGeneratableKinds(schema); err != nil {
+		return err
+	}
+	if err := validateGenerationEnum(schema); err != nil {
+		return err
+	}
+	if err := validateGenerationValues(schema); err != nil {
 		return err
 	}
 	if err := validatePreferDefault(schema); err != nil {
@@ -74,6 +248,19 @@ func validateLeafGeneration(schema *FieldSchema) error {
 		return err
 	}
 	return validateMaxLength(schema)
+}
+
+func validateNotGeneratable(schema *FieldSchema) error {
+	if !schema.NotGeneratable {
+		return nil
+	}
+	if schema.Generatable || len(schema.GeneratableKinds) > 0 {
+		return ErrNotGeneratableOnGeneratable
+	}
+	if !schema.IsEditable {
+		return ErrNotGeneratableNotEditable
+	}
+	return nil
 }
 
 func validateGeneratableKinds(schema *FieldSchema) error {
@@ -86,6 +273,52 @@ func validateGeneratableKinds(schema *FieldSchema) error {
 	for _, kind := range schema.GeneratableKinds {
 		if _, ok := plan.ParseSheetKind(string(kind)); !ok {
 			return fmt.Errorf("%w: %q", ErrGeneratableKindInvalid, kind)
+		}
+	}
+	return nil
+}
+
+func validateGenerationEnum(schema *FieldSchema) error {
+	if len(schema.GenerationEnum) == 0 {
+		return nil
+	}
+	if !schema.Generatable {
+		return ErrGenerationEnumOnNonGeneratable
+	}
+	if schema.Type != fieldTypeText {
+		return ErrGenerationEnumOnNonText
+	}
+	seen := make(map[string]bool, len(schema.GenerationEnum))
+	for _, value := range schema.GenerationEnum {
+		if seen[value] {
+			return fmt.Errorf("%w: %q", ErrGenerationEnumDuplicate, value)
+		}
+		seen[value] = true
+	}
+	return nil
+}
+
+func validateGenerationValues(schema *FieldSchema) error {
+	if len(schema.GenerationValues) == 0 {
+		return nil
+	}
+	if !schema.Generatable {
+		return ErrGenerationValuesOnNonGeneratable
+	}
+	if schema.Type != fieldTypeNumber {
+		return ErrGenerationValuesOnNonNumber
+	}
+	seen := make(map[float64]bool, len(schema.GenerationValues))
+	for _, value := range schema.GenerationValues {
+		if seen[value] {
+			return fmt.Errorf("%w: %g", ErrGenerationValuesDuplicate, value)
+		}
+		seen[value] = true
+		if schema.Min != nil && value < *schema.Min {
+			return fmt.Errorf("%w: %g", ErrGenerationValuesOutOfBounds, value)
+		}
+		if schema.Max != nil && value > *schema.Max {
+			return fmt.Errorf("%w: %g", ErrGenerationValuesOutOfBounds, value)
 		}
 	}
 	return nil
@@ -129,6 +362,16 @@ func validateMaxLength(schema *FieldSchema) error {
 	}
 	if *schema.MaxLength <= 0 {
 		return ErrMaxLengthInvalid
+	}
+	return nil
+}
+
+func validateMaxRecords(list *ListSchema) error {
+	if list.MaxRecords == 0 {
+		return nil
+	}
+	if list.MaxRecords < 0 || list.MaxRecords > list.Capacity {
+		return fmt.Errorf("%w: %d (capacity %d)", ErrMaxRecordsInvalid, list.MaxRecords, list.Capacity)
 	}
 	return nil
 }

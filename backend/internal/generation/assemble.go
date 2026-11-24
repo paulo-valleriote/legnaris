@@ -34,17 +34,11 @@ func Assemble(tmpl *template.Template, dag *template.DAG, kind plan.SheetKind, v
 	if err != nil {
 		return nil, assembleFailure("flatten values", err)
 	}
-	normalized, cascade, err := dag.NormalizeAndRecalculate(seeded, updates)
+	result, err := dag.CalculateSave(seeded, updates)
 	if err != nil {
 		return nil, assembleGeneratedError(err)
 	}
-	if err := maputils.ApplyUpdates(seeded, normalized); err != nil {
-		return nil, assembleFailure("apply normalized values", err)
-	}
-	if err := maputils.ApplyUpdates(seeded, cascade); err != nil {
-		return nil, assembleFailure("apply cascade", err)
-	}
-	return seeded, nil
+	return result.Merged, nil
 }
 
 func assembleFailure(stage string, err error) error {
@@ -89,7 +83,35 @@ func filterGenerated(group template.FieldGroup, kind plan.SheetKind, values map[
 			}
 		}
 	}
+	for name := range lv.lists {
+		items, ok := values[name].([]any)
+		if !ok {
+			continue
+		}
+		out[name] = generatedRecords(items)
+	}
 	return out
+}
+
+func generatedRecords(items []any) map[string]any {
+	records := make(map[string]any, len(items))
+	for index, item := range items {
+		fields, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		record := make(map[string]any, len(fields)+1)
+		for name, value := range fields {
+			record[name] = value
+		}
+		record[template.ListPositionField] = float64(index)
+		records[generatedRecordID(index)] = record
+	}
+	return records
+}
+
+func generatedRecordID(index int) string {
+	return fmt.Sprintf("r%032x", index)
 }
 
 func seedNested(group template.FieldGroup, includeLists bool) map[string]any {

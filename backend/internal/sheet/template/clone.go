@@ -12,8 +12,31 @@ func cloneTemplate(tmpl Template) Template {
 	tmpl.RowDice = maps.Clone(tmpl.RowDice)
 	tmpl.NotD20Sections = slices.Clone(tmpl.NotD20Sections)
 	tmpl.NotD20Rows = slices.Clone(tmpl.NotD20Rows)
+	tmpl.PromptGuidanceByKind = maps.Clone(tmpl.PromptGuidanceByKind)
+	tmpl.ClassSubclass = cloneClassSubclassRule(tmpl.ClassSubclass)
+	tmpl.SaveProficiencies = cloneSaveProficiencyRule(tmpl.SaveProficiencies)
 	tmpl.Actions = cloneResetActions(tmpl.Actions)
 	return tmpl
+}
+
+func cloneSaveProficiencyRule(rule *SaveProficiencyRule) *SaveProficiencyRule {
+	if rule == nil {
+		return nil
+	}
+	cloned := *rule
+	cloned.Paths = cloneDependsOn(rule.Paths)
+	return &cloned
+}
+
+func cloneClassSubclassRule(rule *ClassSubclassRule) *ClassSubclassRule {
+	if rule == nil {
+		return nil
+	}
+	cloned := *rule
+	cloned.Class = slices.Clone(rule.Class)
+	cloned.Subclass = slices.Clone(rule.Subclass)
+	cloned.Level = slices.Clone(rule.Level)
+	return &cloned
 }
 
 func cloneFieldGroup(group FieldGroup) FieldGroup {
@@ -33,6 +56,8 @@ func cloneFieldNode(node FieldNode) FieldNode {
 		schema := *node.Schema
 		schema.DependsOn = cloneDependsOn(node.Schema.DependsOn)
 		schema.GeneratableKinds = slices.Clone(node.Schema.GeneratableKinds)
+		schema.GenerationEnum = slices.Clone(node.Schema.GenerationEnum)
+		schema.GenerationValues = slices.Clone(node.Schema.GenerationValues)
 		schema.Min = clonePtr(node.Schema.Min)
 		schema.Max = clonePtr(node.Schema.Max)
 		schema.MaxLength = clonePtr(node.Schema.MaxLength)

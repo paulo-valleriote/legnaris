@@ -6,13 +6,31 @@ import (
 	"legnaris/backend/internal/plan"
 )
 
+var fifthStatBlockPromptGuidance = map[plan.SheetKind]string{
+	plan.KindNPC: `The subject is a non-player character that the game master controls.
+Take the stat block from an SRD non-player character when the concept fits one.
+An out-of-SRD concept uses the closest SRD option instead.
+A monster outside the SRD becomes an original creature.
+Name a creature with an SRD name or an original name.
+Set the challenge rating from the concept.
+Write trait and action text as a short paraphrase of at most about 300 runes.`,
+	plan.KindEnemy: `The subject is an enemy that the game master controls.
+Take the stat block from an SRD monster when the concept fits one.
+An out-of-SRD concept uses the closest SRD option instead.
+A monster outside the SRD becomes an original creature.
+Name a creature with an SRD name or an original name.
+Set the challenge rating from the concept.
+Write trait and action text as a short paraphrase of at most about 300 runes.`,
+}
+
 var fifthStatBlockTemplate = Template{
-	ID:           fifthStatBlockID,
-	Name:         "5E Stat Block",
-	State:        StateDraft,
-	Kinds:        []plan.SheetKind{plan.KindNPC, plan.KindEnemy},
-	GameSystemID: GameSystemFifth,
-	NameLeaf:     fifthNameLeaf,
+	ID:                   fifthStatBlockID,
+	Name:                 "5E Stat Block",
+	State:                StateDraft,
+	Kinds:                []plan.SheetKind{plan.KindNPC, plan.KindEnemy},
+	GameSystemID:         GameSystemFifth,
+	PromptGuidanceByKind: fifthStatBlockPromptGuidance,
+	NameLeaf:             fifthNameLeaf,
 	Fields: FieldGroup{
 		fifthIdentitySection:                  {Children: fifthStatBlockIdentityGroup(), Order: fifthStatBlockIdentityOrder},
 		fifthAbilitiesSection:                 {Children: fifthAbilitiesGroup(), Order: fifthAbilitiesOrder()},
@@ -50,7 +68,7 @@ var fifthStatBlockIdentityOrder = []string{
 }
 
 func fifthStatBlockIdentityGroup() FieldGroup {
-	challengeRating := preferDefault(generatableNumber(numField("Challenge rating", 0), 0, 30))
+	challengeRating := generatableNumber(numField("Challenge rating", 0), 0, 30)
 	proficiency := calcField(
 		"Proficiency bonus",
 		fmt.Sprintf("2 + floor((max(%s, 1) - 1) / 4)", Path{fifthIdentitySection, fifthChallengeRatingKey}.EngineKey()),

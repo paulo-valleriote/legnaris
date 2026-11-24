@@ -33,6 +33,7 @@
               "label": "Class",
               "is_editable": true,
               "default": 0,
+              "generatable": true,
               "max_length": 60
             }
           },
@@ -42,6 +43,7 @@
               "label": "Subclass",
               "is_editable": true,
               "default": 0,
+              "generatable": true,
               "max_length": 60
             }
           },
@@ -51,6 +53,7 @@
               "label": "Species",
               "is_editable": true,
               "default": 0,
+              "generatable": true,
               "max_length": 60
             }
           },
@@ -60,6 +63,7 @@
               "label": "Background",
               "is_editable": true,
               "default": 0,
+              "generatable": true,
               "max_length": 60
             }
           },
@@ -338,7 +342,10 @@
                   "is_editable": true,
                   "default": 0,
                   "column_label": "Proficient",
-                  "flag": true
+                  "generatable": true,
+                  "flag": true,
+                  "min": 0,
+                  "max": 1
                 }
               },
               "misc": {
@@ -400,7 +407,10 @@
                   "is_editable": true,
                   "default": 0,
                   "column_label": "Proficient",
-                  "flag": true
+                  "generatable": true,
+                  "flag": true,
+                  "min": 0,
+                  "max": 1
                 }
               },
               "misc": {
@@ -462,7 +472,10 @@
                   "is_editable": true,
                   "default": 0,
                   "column_label": "Proficient",
-                  "flag": true
+                  "generatable": true,
+                  "flag": true,
+                  "min": 0,
+                  "max": 1
                 }
               },
               "misc": {
@@ -524,7 +537,10 @@
                   "is_editable": true,
                   "default": 0,
                   "column_label": "Proficient",
-                  "flag": true
+                  "generatable": true,
+                  "flag": true,
+                  "min": 0,
+                  "max": 1
                 }
               },
               "misc": {
@@ -586,7 +602,10 @@
                   "is_editable": true,
                   "default": 0,
                   "column_label": "Proficient",
-                  "flag": true
+                  "generatable": true,
+                  "flag": true,
+                  "min": 0,
+                  "max": 1
                 }
               },
               "misc": {
@@ -648,7 +667,10 @@
                   "is_editable": true,
                   "default": 0,
                   "column_label": "Proficient",
-                  "flag": true
+                  "generatable": true,
+                  "flag": true,
+                  "min": 0,
+                  "max": 1
                 }
               },
               "misc": {
@@ -2188,7 +2210,7 @@
                   "default": 8,
                   "column_label": "Size",
                   "generatable": true,
-                  "min": 4,
+                  "min": 6,
                   "max": 12
                 }
               },
@@ -2651,7 +2673,9 @@
                   "label": "Level 1 spell slots",
                   "is_editable": true,
                   "default": 0,
-                  "column_label": "Total"
+                  "column_label": "Total",
+                  "generatable": true,
+                  "min": 0
                 }
               },
               "spent": {
@@ -2701,7 +2725,9 @@
                   "label": "Level 2 spell slots",
                   "is_editable": true,
                   "default": 0,
-                  "column_label": "Total"
+                  "column_label": "Total",
+                  "generatable": true,
+                  "min": 0
                 }
               },
               "spent": {
@@ -2751,7 +2777,9 @@
                   "label": "Level 3 spell slots",
                   "is_editable": true,
                   "default": 0,
-                  "column_label": "Total"
+                  "column_label": "Total",
+                  "generatable": true,
+                  "min": 0
                 }
               },
               "spent": {
@@ -2801,7 +2829,9 @@
                   "label": "Level 4 spell slots",
                   "is_editable": true,
                   "default": 0,
-                  "column_label": "Total"
+                  "column_label": "Total",
+                  "generatable": true,
+                  "min": 0
                 }
               },
               "spent": {
@@ -2851,7 +2881,9 @@
                   "label": "Level 5 spell slots",
                   "is_editable": true,
                   "default": 0,
-                  "column_label": "Total"
+                  "column_label": "Total",
+                  "generatable": true,
+                  "min": 0
                 }
               },
               "spent": {
@@ -2901,7 +2933,9 @@
                   "label": "Level 6 spell slots",
                   "is_editable": true,
                   "default": 0,
-                  "column_label": "Total"
+                  "column_label": "Total",
+                  "generatable": true,
+                  "min": 0
                 }
               },
               "spent": {
@@ -2951,7 +2985,9 @@
                   "label": "Level 7 spell slots",
                   "is_editable": true,
                   "default": 0,
-                  "column_label": "Total"
+                  "column_label": "Total",
+                  "generatable": true,
+                  "min": 0
                 }
               },
               "spent": {
@@ -3001,7 +3037,9 @@
                   "label": "Level 8 spell slots",
                   "is_editable": true,
                   "default": 0,
-                  "column_label": "Total"
+                  "column_label": "Total",
+                  "generatable": true,
+                  "min": 0
                 }
               },
               "spent": {
@@ -3051,7 +3089,9 @@
                   "label": "Level 9 spell slots",
                   "is_editable": true,
                   "default": 0,
-                  "column_label": "Total"
+                  "column_label": "Total",
+                  "generatable": true,
+                  "min": 0
                 }
               },
               "spent": {
@@ -3101,7 +3141,9 @@
                   "label": "Pact Magic slots",
                   "is_editable": true,
                   "default": 0,
-                  "column_label": "Count"
+                  "column_label": "Count",
+                  "generatable": true,
+                  "min": 0
                 }
               },
               "level": {
@@ -3288,8 +3330,11 @@
                   "type": "number",
                   "label": "Hit point base",
                   "is_editable": true,
-                  "default": 0,
-                  "column_label": "Base"
+                  "default": 1,
+                  "column_label": "Base",
+                  "generatable": true,
+                  "min": 1,
+                  "max": 20
                 }
               },
               "perLevel": {
@@ -3298,7 +3343,10 @@
                   "label": "Hit points per level",
                   "is_editable": true,
                   "default": 0,
-                  "column_label": "Per level"
+                  "column_label": "Per level",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 20
                 }
               },
               "misc": {
@@ -3314,7 +3362,7 @@
                 "schema": {
                   "type": "number",
                   "label": "Hit point maximum",
-                  "formula": "combat_hp_base + abilities_constitution_mod * identity_level + combat_hp_perLevel * identity_level + combat_hp_misc",
+                  "formula": "max(1, combat_hp_base + abilities_constitution_mod * identity_level + combat_hp_perLevel * (identity_level - 1) + combat_hp_misc)",
                   "depends_on": [
                     [
                       "combat",
@@ -3400,7 +3448,11 @@
               "label": "Experience points",
               "is_editable": true,
               "default": 0,
-              "column_label": "XP"
+              "column_label": "XP",
+              "generatable": true,
+              "prefer_default": true,
+              "min": 0,
+              "max": 355000
             }
           },
           "heroicInspiration": {
@@ -4006,7 +4058,8 @@
                     "type": "text",
                     "label": "Text",
                     "is_editable": true,
-                    "default": 0
+                    "default": 0,
+                    "max_length": 300
                   }
                 }
               }

@@ -21,6 +21,7 @@ import (
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/platform/breaker"
 	"legnaris/backend/internal/sheet/template"
+	"legnaris/backend/shared/env"
 	"legnaris/backend/shared/logger"
 
 	"github.com/stretchr/testify/assert"
@@ -44,6 +45,11 @@ type workerFixture struct {
 	tx      *mocks.MockTransactor
 	breaker *breaker.Breaker
 	worker  *generation.Worker
+	timeout time.Duration
+}
+
+func (f workerFixture) lease() time.Duration {
+	return generation.LeaseDurationFor(f.timeout)
 }
 
 func newWorkerFixture(t *testing.T, threshold int) workerFixture {
@@ -55,17 +61,19 @@ func newWorkerFixture(t *testing.T, threshold int) workerFixture {
 		quota:   mocks.NewMockQuota(t),
 		tx:      mocks.NewMockTransactor(t),
 		breaker: breaker.New(threshold, time.Hour, time.Now),
+		timeout: env.DefaultLLMTimeout,
 	}
 	fixedNow := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
 	worker, err := generation.NewWorker(generation.WorkerDeps{
-		Jobs:    f.jobs,
-		Catalog: f.catalog,
-		Client:  f.client,
-		Breaker: f.breaker,
-		Quota:   f.quota,
-		Tx:      f.tx,
-		Now:     func() time.Time { return fixedNow },
-		Logger:  logger.NewLogger(slog.LevelDebug),
+		Jobs:       f.jobs,
+		Catalog:    f.catalog,
+		Client:     f.client,
+		Breaker:    f.breaker,
+		Quota:      f.quota,
+		Tx:         f.tx,
+		LLMTimeout: f.timeout,
+		Now:        func() time.Time { return fixedNow },
+		Logger:     logger.NewLogger(slog.LevelDebug),
 	})
 	require.NoError(t, err)
 	f.worker = worker
@@ -89,7 +97,7 @@ func (f workerFixture) expectClaimKind(kind string, reservation generation.Reser
 		ID: jobID, UserID: userID, TemplateID: fixtureID, Kind: kind,
 		Concept: secretConcept, Status: generation.StatusRunning, Quota: reservation,
 	}
-	f.jobs.EXPECT().ClaimQueued(mock.Anything, jobID, mock.Anything, generation.LeaseDuration).
+	f.jobs.EXPECT().ClaimQueued(mock.Anything, jobID, mock.Anything, f.lease()).
 		Return(doc, true, nil).Once()
 }
 
@@ -229,7 +237,7 @@ func TestWorkerProcess_Happy(t *testing.T) {
 func TestWorkerProcess_Edge(t *testing.T) {
 	t.Run("Edge: a duplicate delivery is a no-op that calls nothing", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
-		f.jobs.EXPECT().ClaimQueued(mock.Anything, jobID, mock.Anything, generation.LeaseDuration).
+		f.jobs.EXPECT().ClaimQueued(mock.Anything, jobID, mock.Anything, f.lease()).
 			Return(generation.Document{}, false, nil).Once()
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
@@ -237,7 +245,7 @@ func TestWorkerProcess_Edge(t *testing.T) {
 
 	t.Run("Error: a claim that fails returns the error so the message stays unacknowledged", func(t *testing.T) {
 		f := newWorkerFixture(t, 5)
-		f.jobs.EXPECT().ClaimQueued(mock.Anything, jobID, mock.Anything, generation.LeaseDuration).
+		f.jobs.EXPECT().ClaimQueued(mock.Anything, jobID, mock.Anything, f.lease()).
 			Return(generation.Document{}, false, errors.New("mongo down")).Once()
 
 		require.Error(t, f.worker.Process(context.Background(), jobID))
@@ -296,6 +304,30 @@ func TestWorkerProcess_SchemaRetries(t *testing.T) {
 		f.client.EXPECT().Generate(mock.Anything, mock.MatchedBy(func(req llm.Request) bool {
 			return strings.Contains(req.Prompt, "rejected") && strings.Contains(req.Prompt, "identity.title: is required")
 		})).Return(llm.Response{Output: json.RawMessage(validOutput)}, nil).Once()
+		f.completeWith(true)
+
+		require.NoError(t, f.worker.Process(context.Background(), jobID))
+	})
+
+	t.Run("Happy path: a wrong-class subclass is retried with the pair problem and then succeeds", func(t *testing.T) {
+		f := newWorkerFixture(t, 5)
+		tmpl := identityFixtureTemplate()
+		dag := fixtureDAG(t, tmpl)
+		f.catalog.EXPECT().FetchByID(fixtureID).Return(tmpl, true).Once()
+		f.catalog.EXPECT().DAG(fixtureID).Return(dag, true).Once()
+		f.expectClaim(dailyReservation)
+
+		wrongRaw, err := json.Marshal(identityOutput(5, "Fighter", "Life Domain", "Human", "Soldier"))
+		require.NoError(t, err)
+		rightRaw, err := json.Marshal(identityOutput(5, "Fighter", "Champion", "Human", "Soldier"))
+		require.NoError(t, err)
+
+		f.generateResponse(llm.Response{Output: wrongRaw}, nil)
+		f.client.EXPECT().Generate(mock.Anything, mock.MatchedBy(func(req llm.Request) bool {
+			return strings.Contains(req.Prompt, "rejected") &&
+				strings.Contains(req.Prompt, "identity.subclass") &&
+				strings.Contains(req.Prompt, "Champion")
+		})).Return(llm.Response{Output: rightRaw}, nil).Once()
 		f.completeWith(true)
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
@@ -488,7 +520,7 @@ func TestWorkerProcess_Transport(t *testing.T) {
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 
 		secondID := "0190a1b2-0000-7000-8000-0000000000a2"
-		f.jobs.EXPECT().ClaimQueued(mock.Anything, secondID, mock.Anything, generation.LeaseDuration).
+		f.jobs.EXPECT().ClaimQueued(mock.Anything, secondID, mock.Anything, f.lease()).
 			Return(generation.Document{ID: secondID, UserID: userID, TemplateID: fixtureID,
 				Concept: secretConcept, Quota: dailyReservation}, true, nil).Once()
 		f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
@@ -719,7 +751,7 @@ func TestNewWorker(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		return generation.WorkerDeps{
 			Jobs: f.jobs, Catalog: f.catalog, Client: f.client, Breaker: f.breaker,
-			Quota: f.quota, Tx: f.tx, Logger: logger.NewLogger(slog.LevelInfo),
+			Quota: f.quota, Tx: f.tx, LLMTimeout: f.timeout, Logger: logger.NewLogger(slog.LevelInfo),
 		}
 	}
 	tests := []struct {
@@ -733,6 +765,8 @@ func TestNewWorker(t *testing.T) {
 		{name: "Error: a nil quota is refused", mutate: func(d *generation.WorkerDeps) { d.Quota = nil }},
 		{name: "Error: a nil transactor is refused", mutate: func(d *generation.WorkerDeps) { d.Tx = nil }},
 		{name: "Error: a nil logger is refused", mutate: func(d *generation.WorkerDeps) { d.Logger = nil }},
+		{name: "Error: a zero LLM timeout is refused", mutate: func(d *generation.WorkerDeps) { d.LLMTimeout = 0 }},
+		{name: "Error: a negative LLM timeout is refused", mutate: func(d *generation.WorkerDeps) { d.LLMTimeout = -time.Second }},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

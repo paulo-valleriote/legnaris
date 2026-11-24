@@ -125,7 +125,7 @@ func TestService_Reset_FifthCharacterReplay(t *testing.T) {
 	)
 	first, err := svc.Reset(ctx, resetCommand(fifthResetActionID, resetRequestID))
 	require.NoError(t, err)
-	assert.InDelta(t, 55.0, fifthResetValue(t, first, "combat.hp.current"), 1e-9)
+	assert.InDelta(t, 49.0, fifthResetValue(t, first, "combat.hp.current"), 1e-9)
 	assert.InDelta(t, 2.0, fifthResetValue(t, first, "exhaustion.level"), 1e-9)
 	require.NotNil(t, stored)
 
@@ -143,7 +143,7 @@ func TestService_Reset_FifthCharacterReplay(t *testing.T) {
 	require.NoError(t, err)
 	repo.AssertNumberOfCalls(t, "PartialUpdate", 1)
 
-	assert.InDelta(t, 55.0, fifthResetValue(t, replay, "combat.hp.current"), 1e-9)
+	assert.InDelta(t, 49.0, fifthResetValue(t, replay, "combat.hp.current"), 1e-9)
 	assert.InDelta(t, 0.0, fifthResetValue(t, replay, "hitDice.primary.spent"), 1e-9)
 	assert.InDelta(t, 0.0, fifthResetValue(t, replay, "spellcasting.slot1.spent"), 1e-9)
 	assert.InDelta(t, 0.0, fifthResetValue(t, replay, "spellcasting.pact.used"), 1e-9)

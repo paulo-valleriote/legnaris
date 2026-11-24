@@ -26,8 +26,9 @@ func TestFifthHitDice_Structure(t *testing.T) {
 		assert.InDelta(t, 8.0, size.Default, 1e-9)
 		require.NotNil(t, size.Min)
 		require.NotNil(t, size.Max)
-		assert.InDelta(t, 4.0, *size.Min, 1e-9)
+		assert.InDelta(t, 6.0, *size.Min, 1e-9)
 		assert.InDelta(t, 12.0, *size.Max, 1e-9)
+		assert.Equal(t, []float64{6, 8, 10, 12}, size.GenerationValues)
 
 		count := node.Children[fifthHitDieCountKey].Schema
 		require.NotNil(t, count)
