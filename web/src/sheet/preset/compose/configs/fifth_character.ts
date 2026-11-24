@@ -256,12 +256,12 @@ export const fifthCharacterConfig: PresetConfig = {
   templateId: 'fifth_character_v1',
   header: { name: 'identity.name', subtitle: 'identity.class' },
   pieces,
-  resetActions: ['long_rest', 'short_rest'],
   layout: [
     { sections: ['identity', 'vitals', 'hitPoints'] },
     {
       columns: [
-        ['abilities', 'saves', 'skills'],
+        ['abilities'],
+        ['saves', 'skills'],
         [
           'conditions',
           'deathSavesSuccesses',

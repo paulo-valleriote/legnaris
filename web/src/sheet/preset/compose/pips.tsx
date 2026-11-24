@@ -32,29 +32,35 @@ function PipsBody({ countPath, max }: PipsBodyProps) {
   const count = pipCount(value, limit);
   const indexes = Array.from({ length: limit }, (_, index) => index + 1);
 
+  if (limit === 0) {
+    return null;
+  }
+
   return (
     <div className="lg-compose-pips">
       <span className="lg-compose-pips__label">{label}</span>
-      {limit === 0 ? null : (
-        <div
-          className="lg-compose-pips__row"
-          role="group"
-          aria-label={messageWith('preset.pips.group', { label, count, max: limit })}
-        >
-          {indexes.map((index) => (
-            <button
-              key={index}
-              type="button"
-              className="lg-compose-pip"
-              aria-pressed={index <= count}
-              aria-label={messageWith('preset.pips.set', { label, count: index })}
-              onClick={() => commit(index <= count ? index - 1 : index)}
-            >
-              <span className="lg-compose-pip__mark" aria-hidden="true" />
-            </button>
-          ))}
-        </div>
-      )}
+      <div
+        className="lg-compose-pips__row"
+        role="group"
+        aria-label={messageWith('preset.pips.group', { label, count, max: limit })}
+      >
+        {indexes.map((index) => (
+          <button
+            key={index}
+            type="button"
+            className="lg-compose-pip"
+            aria-pressed={index <= count}
+            aria-label={
+              index <= count
+                ? messageWith('preset.pips.clear', { label, count: index - 1 })
+                : messageWith('preset.pips.set', { label, count: index })
+            }
+            onClick={() => commit(index <= count ? index - 1 : index)}
+          >
+            <span className="lg-compose-pip__mark" aria-hidden="true" />
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

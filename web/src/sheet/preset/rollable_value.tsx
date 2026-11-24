@@ -70,19 +70,18 @@ export function RollableValue({
     );
   }
 
-  const rollOnce = (mode: RollMode) => {
+  const rollOnce = (mode: RollMode, consume: boolean) => {
     roll(mode);
-    consumeRollMode();
+    if (consume) {
+      consumeRollMode();
+    }
   };
 
   const rollWith = (mode: RollMode) => {
     cancelPress();
     setChoosing(false);
-    rollOnce(mode);
+    rollOnce(mode, false);
   };
-
-  const clickMode = (event: { readonly shiftKey: boolean; readonly altKey: boolean }) =>
-    event.shiftKey || event.altKey ? rollModeFromClick(event) : rollMode;
 
   const startPress = () => {
     longPressed.current = false;
@@ -119,7 +118,7 @@ export function RollableValue({
                 if (offersMode) {
                   openChoice();
                 } else {
-                  rollOnce(rollMode);
+                  rollOnce('normal', false);
                 }
               }
             : undefined
@@ -132,7 +131,7 @@ export function RollableValue({
                   if (offersMode) {
                     openChoice();
                   } else {
-                    rollOnce(rollMode);
+                    rollOnce('normal', false);
                   }
                 }
               }
@@ -143,7 +142,13 @@ export function RollableValue({
             longPressed.current = false;
             return;
           }
-          rollOnce(offersMode ? clickMode(event) : 'normal');
+          if (!offersMode) {
+            rollOnce('normal', false);
+          } else if (event.shiftKey || event.altKey) {
+            rollOnce(rollModeFromClick(event), false);
+          } else {
+            rollOnce(rollMode, true);
+          }
         }}
       >
         {content}

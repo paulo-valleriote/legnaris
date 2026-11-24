@@ -2,11 +2,22 @@ import { buildSections, rowKey } from '../../../engine/field_grouping';
 import type { TemplateDetail } from '../../../api/models/template';
 import type { PresetConfig, PresetPiece } from './types';
 
-function knownPaths(template: TemplateDetail): ReadonlySet<string> {
+interface KnownTemplate {
+  readonly paths: ReadonlySet<string>;
+  readonly rows: ReadonlySet<string>;
+  readonly sections: ReadonlySet<string>;
+}
+
+function knownTemplate(template: TemplateDetail): KnownTemplate {
   const paths = new Set<string>();
+  const rows = new Set<string>();
+  const sections = new Set<string>();
   for (const section of buildSections(template.fields)) {
+    sections.add(section.key);
     for (const row of section.rows) {
-      paths.add(rowKey(row));
+      const key = rowKey(row);
+      rows.add(key);
+      paths.add(key);
     }
     for (const leaf of section.leaves) {
       paths.add(leaf.path);
@@ -27,7 +38,7 @@ function knownPaths(template: TemplateDetail): ReadonlySet<string> {
   for (const action of template.actions ?? []) {
     paths.add(action.id);
   }
-  return paths;
+  return { paths, rows, sections };
 }
 
 function columnPaths(piece: Extract<PresetPiece, { kind: 'recordTable' }>): readonly string[] {
@@ -91,12 +102,53 @@ function piecePaths(piece: PresetPiece): readonly string[] {
   }
 }
 
+function pieceSections(piece: PresetPiece): readonly string[] {
+  switch (piece.kind) {
+    case 'abilityGrid':
+    case 'saveList':
+    case 'skillList':
+      return [piece.section];
+    default:
+      return [];
+  }
+}
+
+function pieceRows(piece: PresetPiece): readonly string[] {
+  switch (piece.kind) {
+    case 'statPills':
+      return piece.pills.flatMap((pill) => (pill.row === undefined ? [] : [pill.row]));
+    case 'abilityGrid':
+      return piece.abilities.flatMap((ability) => (ability.row === undefined ? [] : [ability.row]));
+    case 'saveList':
+      return piece.saves.flatMap((save) => (save.row === undefined ? [] : [save.row]));
+    case 'skillList':
+      return piece.skills.flatMap((skill) => (skill.row === undefined ? [] : [skill.row]));
+    default:
+      return [];
+  }
+}
+
+function layoutKeys(config: PresetConfig): readonly string[] {
+  const keys: string[] = [];
+  for (const blocks of [config.layout ?? [], config.narrowLayout ?? []]) {
+    for (const block of blocks) {
+      if ('columns' in block) {
+        for (const column of block.columns) {
+          keys.push(...column);
+        }
+      } else {
+        keys.push(...block.sections);
+      }
+    }
+  }
+  return keys;
+}
+
 function boundPaths(config: PresetConfig): readonly string[] {
   return [
     config.header.name,
     ...(config.header.subtitle === undefined ? [] : [config.header.subtitle]),
     ...config.pieces.flatMap(piecePaths),
-    ...(config.resetActions ?? []),
   ];
 }
 
@@ -104,11 +156,34 @@ export function configPathErrors(
   config: PresetConfig,
   template: TemplateDetail,
 ): readonly string[] {
-  const known = knownPaths(template);
+  const known = knownTemplate(template);
   const errors: string[] = [];
+  const report = (value: string) => {
+    if (!errors.includes(value)) {
+      errors.push(value);
+    }
+  };
   for (const path of boundPaths(config)) {
-    if (!known.has(path) && !errors.includes(path)) {
-      errors.push(path);
+    if (!known.paths.has(path)) {
+      report(path);
+    }
+  }
+  for (const piece of config.pieces) {
+    for (const section of pieceSections(piece)) {
+      if (!known.sections.has(section)) {
+        report(section);
+      }
+    }
+    for (const row of pieceRows(piece)) {
+      if (!known.rows.has(row)) {
+        report(row);
+      }
+    }
+  }
+  const pieceKeys = new Set(config.pieces.map((piece) => piece.key));
+  for (const key of layoutKeys(config)) {
+    if (!pieceKeys.has(key)) {
+      report(key);
     }
   }
   return errors;

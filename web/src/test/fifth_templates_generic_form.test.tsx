@@ -139,6 +139,52 @@ describe('the real 5E Character DTO', () => {
     expect(within(inventoryRow).getByRole('checkbox', { name: 'Attuned' })).toBeChecked();
   });
 
+  it('Happy path: Edit keeps the generic form with its Sections, Reset bar, flags and rank', async () => {
+    const user = userEvent.setup();
+    openSheet(
+      CHARACTER_SHEET_ID,
+      'fifth_character_v1',
+      characterGolden,
+      characterData(),
+      'character',
+    );
+    await user.click(await screen.findByRole('button', { name: message('sheet.mode.edit') }));
+    await screen.findByTestId('sheet-name');
+
+    for (const heading of [
+      'Identity',
+      'Abilities',
+      'Saves',
+      'Skills',
+      'Exhaustion',
+      'Passive',
+      'Armor',
+      'Hit dice',
+      'Spellcasting',
+      'Combat',
+      'Status',
+      'Coins',
+      'Attacks',
+      'Inventory',
+      'Features',
+      'Spells',
+      'Resources',
+    ]) {
+      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
+    }
+
+    const bar = screen.getByRole('group', { name: message('sheet.reset.group') });
+    expect(
+      within(bar)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Long rest', 'Short rest']);
+    expect(screen.getByRole('checkbox', { name: 'Jack of All Trades' })).toBeInTheDocument();
+    expect(within(row('skills.arcana')).getByRole('textbox', { name: 'Arcana rank' })).toHaveValue(
+      '0',
+    );
+  });
+
   it('Happy path: the Reset action bar draws Long rest and Short rest', async () => {
     openSheet(
       CHARACTER_SHEET_ID,

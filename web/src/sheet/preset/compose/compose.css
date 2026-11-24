@@ -538,6 +538,15 @@
   min-inline-size: 0;
 }
 
+.lg-compose-record__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--lg-space-8) var(--lg-space-16);
+  padding-block-end: var(--lg-space-4);
+  border-block-end: var(--lg-size-hairline) solid var(--lg-color-border);
+}
+
 .lg-compose-record__cell {
   display: flex;
   flex: 1 1 8rem;
@@ -552,11 +561,22 @@
 }
 
 .lg-compose-record__label {
+  display: none;
   font-size: var(--lg-type-12);
   font-weight: var(--lg-font-weight-medium);
   letter-spacing: var(--lg-tracking-wide);
   text-transform: uppercase;
   color: var(--lg-color-text-muted);
+}
+
+@media (max-width: 40rem) {
+  .lg-compose-record__header {
+    display: none;
+  }
+
+  .lg-compose-record__label {
+    display: block;
+  }
 }
 
 .lg-compose-record__empty {

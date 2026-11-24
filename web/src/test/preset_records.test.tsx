@@ -1,6 +1,6 @@
 import { act } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ResetAction } from '../api/models/template';
 import { parseTemplateDetail } from '../api/models/template';
@@ -13,7 +13,15 @@ import { ResetBar } from '../sheet/preset/compose/reset_bar';
 import { RollModeBar } from '../sheet/preset/compose/roll_mode_bar';
 import { StatPills } from '../sheet/preset/compose/stat_pills';
 import type { PresetConfig } from '../sheet/preset/compose/types';
-import { presetConfig, presetSheet, presetTemplateDetail, renderPreset } from './preset_fixtures';
+import { DiceProvider } from '../sheet/dice_row';
+import { PresetProvider } from '../sheet/preset/preset_context';
+import {
+  createPresetRuntime,
+  presetConfig,
+  presetSheet,
+  presetTemplateDetail,
+  renderPreset,
+} from './preset_fixtures';
 
 const RECORD_A = 'r0123456789abcdef0123456789abcdef';
 const RECORD_B = 'r0123456789abcdef0123456789abcdee';
@@ -67,6 +75,65 @@ function noDiceTemplate() {
   });
 }
 
+function markedRowTemplate() {
+  return parseTemplateDetail({
+    id: 'compose_v1',
+    name: 'Marked Row',
+    default: false,
+    kinds: ['character'],
+    fields: {
+      vitals: {
+        label: 'Vitals',
+        children: {
+          armor: {
+            schema: { type: 'number', label: 'Armor Class', is_editable: true, default: 10 },
+          },
+        },
+      },
+    },
+    dice: { row: { 'vitals.armor': '1d20+4' }, not_d20: { row: ['vitals.armor'] } },
+  });
+}
+
+function exclusiveTemplate() {
+  return parseTemplateDetail({
+    id: 'compose_v1',
+    name: 'Exclusive Record',
+    default: false,
+    kinds: ['character'],
+    fields: {
+      inventory: {
+        list: {
+          label: 'Inventory',
+          capacity: 4,
+          columns: ['name'],
+          shape: {
+            name: { schema: { type: 'text', label: 'Item Name', is_editable: true, default: 0 } },
+            equipped: {
+              schema: {
+                type: 'number',
+                label: 'Equipped',
+                is_editable: true,
+                default: 0,
+                exclusive_group: 'slot',
+              },
+            },
+            stowed: {
+              schema: {
+                type: 'number',
+                label: 'Stowed',
+                is_editable: true,
+                default: 0,
+                exclusive_group: 'slot',
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
 function resetBar(actions: readonly string[]) {
   return { kind: 'resetBar' as const, key: 'resets', actions };
 }
@@ -101,6 +168,80 @@ describe('the record table piece', () => {
     expect(within(row).getByText('Uses')).toBeInTheDocument();
     expect(within(row).getByRole('textbox', { name: 'Item Name' })).toHaveValue('Sword');
     expect(within(row).getByRole('textbox', { name: 'Uses' })).toHaveValue('2');
+  });
+
+  it('Happy path: one column header covers every Record in the run', () => {
+    renderPreset(<RecordTable piece={recordTable(['name', 'uses'])} />, {
+      sheet: recordSheet({
+        [RECORD_A]: { name: 'Sword', uses: 2, position: 1 },
+        [RECORD_B]: { name: 'Rope', uses: 1, position: 2 },
+      }),
+    });
+
+    const headers = document.querySelectorAll('.lg-compose-record__header');
+    expect(headers).toHaveLength(1);
+    expect(within(headers[0] as HTMLElement).getByText('Item Name')).toBeInTheDocument();
+    expect(screen.getAllByTestId('compose-record-row')).toHaveLength(2);
+  });
+
+  it('Happy path: the table subscribes to each cell path rather than the whole sheet', () => {
+    const runtime = createPresetRuntime(
+      presetTemplateDetail(),
+      recordSheet({ [RECORD_A]: { name: 'Sword', uses: 2, position: 1 } }),
+    );
+    const spy = vi.spyOn(runtime.store, 'subscribePath');
+
+    render(
+      <PresetProvider {...runtime.preset}>
+        <DiceProvider value={runtime.dice}>
+          <RecordTable piece={recordTable(['name', 'uses'])} />
+        </DiceProvider>
+      </PresetProvider>,
+    );
+
+    expect(spy).toHaveBeenCalledWith(`inventory.${RECORD_A}.name`, expect.any(Function));
+    expect(spy).toHaveBeenCalledWith(`inventory.${RECORD_A}.uses`, expect.any(Function));
+  });
+
+  it('Edge: a store without removeRecord draws no Remove control', () => {
+    const runtime = createPresetRuntime(
+      presetTemplateDetail(),
+      recordSheet({ [RECORD_A]: { name: 'Sword', uses: 2, position: 1 } }),
+    );
+
+    render(
+      <PresetProvider {...runtime.preset} store={{ ...runtime.store, removeRecord: undefined }}>
+        <DiceProvider value={runtime.dice}>
+          <RecordTable piece={recordTable()} />
+        </DiceProvider>
+      </PresetProvider>,
+    );
+
+    expect(
+      screen.queryByRole('button', {
+        name: messageWith('record.remove', { label: 'Inventory 1' }),
+      }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: addName() })).toBeInTheDocument();
+  });
+
+  it('Happy path: an exclusive Record column selects one option through the store', async () => {
+    const user = userEvent.setup();
+    const { store } = renderPreset(<RecordTable piece={recordTable(['name', 'slot'])} />, {
+      template: exclusiveTemplate(),
+      sheet: recordSheet({
+        [RECORD_A]: { name: 'Sword', equipped: 1, stowed: 0, position: 1 },
+      }),
+    });
+
+    const select = screen.getByRole('combobox', { name: 'Slot' });
+    expect(select).toHaveValue(`inventory.${RECORD_A}.equipped`);
+
+    await user.selectOptions(select, `inventory.${RECORD_A}.stowed`);
+
+    expect(store.getPendingDelta()).toEqual({
+      inventory: { [RECORD_A]: { equipped: 0, stowed: 1 } },
+    });
   });
 
   it('Edge: an empty list draws the shared empty copy and keeps Add enabled', () => {
@@ -182,7 +323,6 @@ describe('the record table piece', () => {
   it('Happy path: a valid record table binds the list and its chosen columns', () => {
     const config: PresetConfig = presetConfig({
       pieces: [recordTable(['name', 'uses'])],
-      resetActions: [],
     });
 
     expect(configPathErrors(config, presetTemplateDetail())).toEqual([]);
@@ -342,6 +482,37 @@ describe('the roll mode bar piece', () => {
     expect(store.getPendingDelta()).toEqual({});
   });
 
+  it('Edge: a not_d20 Row keeps the chosen Advantage and rolls normal from the menu and keyboard', async () => {
+    const user = userEvent.setup();
+    renderPreset(
+      <>
+        <RollModeBar piece={rollModeBar()} />
+        <StatPills
+          piece={{ kind: 'statPills', key: 'vitals', pills: [{ path: 'vitals.armor' }] }}
+        />
+      </>,
+      { template: markedRowTemplate() },
+    );
+
+    const advantage = screen.getByRole('button', { name: message('dice.mode.advantage') });
+    await user.click(advantage);
+
+    const roll = screen.getByRole('button', { name: /Armor Class/ });
+    expect(roll).not.toHaveAttribute('aria-haspopup', 'dialog');
+    fireEvent.contextMenu(roll);
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.querySelector('.lg-dice-panel')?.textContent ?? '').not.toContain(
+      message('dice.mode.advantage'),
+    );
+
+    roll.focus();
+    await user.keyboard('{Shift>}{F10}{/Shift}');
+
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(advantage).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('Edge: the bar stores nothing on the Sheet', async () => {
     const user = userEvent.setup();
     const { store } = renderPreset(<RollModeBar piece={rollModeBar()} />);
@@ -357,7 +528,6 @@ describe('the config adapter with the new pieces', () => {
     const preset = presetFromConfig(
       presetConfig({
         pieces: [rollModeBar(), recordTable(), resetBar(['rest'])],
-        resetActions: [],
       }),
     );
 

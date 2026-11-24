@@ -136,7 +136,6 @@ export interface PresetConfig {
   readonly templateId: string;
   readonly header: PresetIdentityHeader;
   readonly pieces: readonly PresetPiece[];
-  readonly resetActions?: readonly string[];
   readonly layout?: readonly PresetLayoutBlock[];
   readonly narrowLayout?: readonly PresetLayoutBlock[];
   readonly sectionNav?: PresetSectionNav;

@@ -14,6 +14,15 @@ import {
 } from './fantasy_fixtures';
 import { renderPreset } from './preset_fixtures';
 import { parseTemplateDetail } from '../api/models/template';
+import {
+  CAMPAIGN_ID,
+  MEMBER_ID,
+  SHEET_ID,
+  campaignView,
+  clientFor,
+  ok,
+  scripted,
+} from './campaign_helpers';
 
 function fantasyTemplate() {
   return parseTemplateDetail(fantasyTemplatePayload());
@@ -112,6 +121,39 @@ describe('the frozen fantasy preset', () => {
     await user.click(screen.getByRole('button', { name: message('sheet.pending.discard') }));
 
     expect(screen.queryByTestId('sheet-pending-card')).not.toBeInTheDocument();
+  });
+
+  it('Happy path: a campaign GM still reads a linked fantasy Sheet', async () => {
+    const script = scripted([
+      {
+        method: 'GET',
+        path: `/campaigns/${CAMPAIGN_ID}`,
+        respond: () => ok(campaignView()),
+      },
+      {
+        method: 'GET',
+        path: `/campaigns/${CAMPAIGN_ID}/sheets`,
+        respond: () =>
+          ok([
+            {
+              id: SHEET_ID,
+              name: 'Brenna',
+              template_id: FANTASY_TEMPLATE_ID,
+              owner_id: MEMBER_ID,
+              updated_at: '2026-11-17T10:00:00Z',
+            },
+          ]),
+      },
+    ]);
+    const client = clientFor(script.transport);
+
+    const campaign = await client.getCampaign(CAMPAIGN_ID);
+    const sheets = await client.listCampaignSheets(CAMPAIGN_ID);
+
+    expect(campaign.templateId).toBe(FANTASY_TEMPLATE_ID);
+    expect(sheets).toEqual([
+      expect.objectContaining({ id: SHEET_ID, templateId: FANTASY_TEMPLATE_ID }),
+    ]);
   });
 
   it('Edge: an unregistered Template id still has no preset beside the frozen fantasy one', () => {

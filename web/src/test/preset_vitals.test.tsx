@@ -12,6 +12,7 @@ import {
   parseHitPointsValue,
 } from '../sheet/preset/compose/hit_points';
 import { HitPointsTrack } from '../sheet/preset/compose/hit_points_track';
+import { Pips } from '../sheet/preset/compose/pips';
 import { presetFromConfig } from '../sheet/preset/compose/adapter';
 import type {
   PresetConditionsPiece,
@@ -141,6 +142,30 @@ describe('the hit point track piece', () => {
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 20 } });
   });
 
+  it('Edge: a heal never lowers the current when the maximum is zero', async () => {
+    const user = userEvent.setup();
+    const { store } = renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+      sheet: vitalsSheet({ hit: 10, hitMax: 0 }),
+    });
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
+
+    expect(store.getPendingDelta()).toEqual({});
+  });
+
+  it('Edge: a heal never lowers a current above the maximum', async () => {
+    const user = userEvent.setup();
+    const { store } = renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+      sheet: vitalsSheet({ hit: 40, hitMax: 30 }),
+    });
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
+
+    expect(store.getPendingDelta()).toEqual({});
+  });
+
   it('Edge: a heal at the maximum commits nothing', async () => {
     const user = userEvent.setup();
     const { store } = renderPreset(<HitPointsTrack piece={hitPoints()} />, {
@@ -238,6 +263,29 @@ describe('the hit point track piece', () => {
     });
 
     expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('0');
+  });
+});
+
+describe('the pips piece', () => {
+  it('Edge: a zero maximum draws no label and no pips', () => {
+    renderPreset(<Pips piece={{ kind: 'pips', key: 'empty', count: 'charges.used', max: 0 }} />);
+
+    expect(screen.queryByText('Charges Used')).not.toBeInTheDocument();
+    expect(document.querySelector('.lg-compose-pips')).toBeNull();
+  });
+
+  it('Happy path: a filled pip offers to clear and an empty one to set', async () => {
+    const user = userEvent.setup();
+    const { store } = renderPreset(
+      <Pips piece={{ kind: 'pips', key: 'charges', count: 'charges.used', max: 4 }} />,
+    );
+
+    expect(screen.getByRole('button', { name: 'Clear Charges Used to 0' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Set Charges Used to 2' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Clear Charges Used to 0' }));
+
+    expect(store.getPendingDelta()).toEqual({ charges: { used: 0 } });
   });
 });
 

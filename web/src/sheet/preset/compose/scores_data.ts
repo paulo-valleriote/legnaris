@@ -1,3 +1,19 @@
+function lastSegment(path: string): string {
+  const index = path.lastIndexOf('.');
+  return index < 0 ? path : path.slice(index + 1);
+}
+
+export function rowDisplayName(label: string, path: string): string {
+  const trimmed = label.trim();
+  const words = trimmed.split(/\s+/);
+  if (words.length < 2) {
+    return trimmed;
+  }
+  const suffix = lastSegment(path).toLowerCase();
+  const last = words[words.length - 1].toLowerCase();
+  return last === suffix ? words.slice(0, -1).join(' ') : trimmed;
+}
+
 export function formatSigned(value: number): string {
   if (!Number.isFinite(value)) {
     return '';

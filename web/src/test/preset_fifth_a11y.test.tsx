@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
-import { describe, expect, it } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { parseSheet } from '../api/models/sheet';
+import { parseSheet, valueAtPath } from '../api/models/sheet';
+import { message, messageWith } from '../l10n/strings';
 import type { TemplateDetail } from '../api/models/template';
 import { parseTemplateDetail } from '../api/models/template';
 import { presetFromConfig } from '../sheet/preset/compose/adapter';
@@ -50,6 +51,8 @@ const SKILLS = [
   'stealth',
   'survival',
 ] as const;
+
+const RECORD_ID = 'r0123456789abcdef0123456789abcdef';
 
 const CONDITIONS = [
   'blinded',
@@ -106,6 +109,7 @@ function characterSheet() {
       },
       exhaustion: { level: 0, penalty: 0 },
       hitDice: { primary: { spent: 0, count: 3 } },
+      inventory: { items: { [RECORD_ID]: { name: 'Rope', quantity: 1, position: 0 } } },
     },
     created_at: '2026-10-01T21:38:54.635Z',
     updated_at: '2026-10-02T09:00:00.000Z',
@@ -131,6 +135,8 @@ function statBlockSheet() {
         senses: 'Darkvision 60 ft.',
         languages: 'None',
       },
+      traits: { [RECORD_ID]: { name: 'Amorphous', text: 'Squeezes through gaps.', position: 0 } },
+      actions: { [RECORD_ID]: { name: 'Pseudopod', damage: '1d6', position: 0 } },
     },
     created_at: '2026-10-01T21:38:54.635Z',
     updated_at: '2026-10-02T09:00:00.000Z',
@@ -153,6 +159,7 @@ function interactiveElements(root: HTMLElement): HTMLElement[] {
   ).filter(
     (element) =>
       !element.hasAttribute('disabled') &&
+      element.getAttribute('tabindex') !== '-1' &&
       element.closest('[aria-hidden="true"]') === null &&
       element.closest('[inert]') === null,
   );
@@ -177,12 +184,20 @@ async function tabThrough(root: HTMLElement): Promise<HTMLElement[]> {
   const user = userEvent.setup();
   const expected = interactiveElements(root);
   const reached: HTMLElement[] = [];
-  for (let index = 0; index < expected.length + 4; index += 1) {
+  const cap = expected.length * 3 + 20;
+  for (let index = 0; index < cap; index += 1) {
     await user.tab();
     const active = document.activeElement;
-    if (active instanceof HTMLElement && root.contains(active)) {
-      reached.push(active);
+    if (!(active instanceof HTMLElement) || !root.contains(active)) {
+      if (reached.length > 0) {
+        break;
+      }
+      continue;
     }
+    if (reached.length > 0 && active === reached[0]) {
+      break;
+    }
+    reached.push(active);
   }
   return reached;
 }
@@ -200,6 +215,9 @@ const configs = [
     template: characterTemplate,
     sheet: characterSheet,
     hasConditionChip: true,
+    hasResetBar: true,
+    recordList: 'Items',
+    hpPath: 'combat.hp.current',
   },
   {
     name: 'the fifth-edition stat block config',
@@ -207,81 +225,168 @@ const configs = [
     template: statBlockTemplate,
     sheet: statBlockSheet,
     hasConditionChip: false,
+    hasResetBar: false,
+    recordList: 'Actions',
+    hpPath: 'hitPoints.current',
   },
 ] as const;
 
-describe.each(configs)('$name accessibility', ({ config, template, sheet, hasConditionChip }) => {
-  it('Happy path: every interactive element in Play has an accessible name', () => {
-    const { container } = renderConfig(config, template(), sheet());
-
-    const interactive = interactiveElements(container);
-    expect(interactive.length).toBeGreaterThan(0);
-    for (const element of interactive) {
-      expect(element).toHaveAccessibleName();
-    }
-  });
-
-  it('Happy path: every interactive element in Play is reachable by Tab', async () => {
-    const { container } = renderConfig(config, template(), sheet());
-
-    const expected = interactiveElements(container);
-    const reached = await tabThrough(container);
-
-    expect(new Set(reached)).toEqual(new Set(expected));
-  });
-
-  it('Happy path: a pip toggles with Enter and Space', async () => {
-    const { container } = renderConfig(config, template(), sheet());
-    const pip = container.querySelector<HTMLButtonElement>('button.lg-compose-pip');
-
-    expect(pip).not.toBeNull();
-    expect(pip).toHaveAttribute('aria-pressed', 'false');
-    await press(pip as HTMLElement, 'Enter');
-    expect(pip).toHaveAttribute('aria-pressed', 'true');
-    await press(pip as HTMLElement, ' ');
-    expect(pip).toHaveAttribute('aria-pressed', 'false');
-  });
-
-  it('Happy path: a save proficiency toggle works with Enter and Space', async () => {
-    const { container } = renderConfig(config, template(), sheet());
-    const flag = container.querySelector<HTMLButtonElement>('button.lg-compose-flag');
-
-    expect(flag).not.toBeNull();
-    expect(flag).toHaveAttribute('aria-pressed', 'false');
-    await press(flag as HTMLElement, 'Enter');
-    expect(flag).toHaveAttribute('aria-pressed', 'true');
-    await press(flag as HTMLElement, ' ');
-    expect(flag).toHaveAttribute('aria-pressed', 'false');
-  });
-
-  it('Happy path: a skill rank cycles with Enter and Space', async () => {
-    const { container } = renderConfig(config, template(), sheet());
-    const rank = container.querySelector<HTMLButtonElement>('button.lg-compose-rank');
-
-    expect(rank).not.toBeNull();
-    const before = rank?.getAttribute('aria-label');
-    await press(rank as HTMLElement, 'Enter');
-    expect(rank?.getAttribute('aria-label')).not.toBe(before);
-    const afterEnter = rank?.getAttribute('aria-label');
-    await press(rank as HTMLElement, ' ');
-    expect(rank?.getAttribute('aria-label')).not.toBe(afterEnter);
-  });
-
-  it.runIf(hasConditionChip)(
-    'Happy path: a condition chip toggles with Enter and Space',
-    async () => {
+describe.each(configs)(
+  '$name accessibility',
+  ({ config, template, sheet, hasConditionChip, hasResetBar, recordList, hpPath }) => {
+    it('Happy path: every interactive element in Play has an accessible name', () => {
       const { container } = renderConfig(config, template(), sheet());
-      const chip = container.querySelector<HTMLButtonElement>('button.lg-compose-condition');
 
-      expect(chip).not.toBeNull();
-      expect(chip).toHaveAttribute('aria-pressed', 'false');
-      await press(chip as HTMLElement, ' ');
-      expect(chip).toHaveAttribute('aria-pressed', 'true');
-      await press(chip as HTMLElement, 'Enter');
-      expect(chip).toHaveAttribute('aria-pressed', 'false');
-    },
-  );
-});
+      const interactive = interactiveElements(container);
+      expect(interactive.length).toBeGreaterThan(0);
+      for (const element of interactive) {
+        expect(element).toHaveAccessibleName();
+      }
+    });
+
+    it('Happy path: every interactive element in Play is reachable by Tab', async () => {
+      const { container } = renderConfig(config, template(), sheet());
+
+      const expected = interactiveElements(container);
+      const reached = await tabThrough(container);
+
+      expect(new Set(reached)).toEqual(new Set(expected));
+    });
+
+    it('Happy path: a pip toggles with Enter and Space', async () => {
+      const { container } = renderConfig(config, template(), sheet());
+      const pip = container.querySelector<HTMLButtonElement>('button.lg-compose-pip');
+
+      expect(pip).not.toBeNull();
+      expect(pip).toHaveAttribute('aria-pressed', 'false');
+      await press(pip as HTMLElement, 'Enter');
+      expect(pip).toHaveAttribute('aria-pressed', 'true');
+      await press(pip as HTMLElement, ' ');
+      expect(pip).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('Happy path: a save proficiency toggle works with Enter and Space', async () => {
+      const { container } = renderConfig(config, template(), sheet());
+      const flag = container.querySelector<HTMLButtonElement>('button.lg-compose-flag');
+
+      expect(flag).not.toBeNull();
+      expect(flag).toHaveAttribute('aria-pressed', 'false');
+      await press(flag as HTMLElement, 'Enter');
+      expect(flag).toHaveAttribute('aria-pressed', 'true');
+      await press(flag as HTMLElement, ' ');
+      expect(flag).toHaveAttribute('aria-pressed', 'false');
+    });
+
+    it('Happy path: a skill rank cycles with Enter and Space', async () => {
+      const { container } = renderConfig(config, template(), sheet());
+      const rank = container.querySelector<HTMLButtonElement>('button.lg-compose-rank');
+
+      expect(rank).not.toBeNull();
+      const before = rank?.getAttribute('aria-label');
+      await press(rank as HTMLElement, 'Enter');
+      expect(rank?.getAttribute('aria-label')).not.toBe(before);
+      const afterEnter = rank?.getAttribute('aria-label');
+      await press(rank as HTMLElement, ' ');
+      expect(rank?.getAttribute('aria-label')).not.toBe(afterEnter);
+    });
+
+    it('Happy path: the Roll mode buttons toggle with Enter and Space', async () => {
+      const { container } = renderConfig(config, template(), sheet());
+
+      const advantage = within(container).getByRole('button', {
+        name: message('dice.mode.advantage'),
+      });
+      await press(advantage, 'Enter');
+      expect(advantage).toHaveAttribute('aria-pressed', 'true');
+
+      const normal = within(container).getByRole('button', { name: message('dice.mode.normal') });
+      await press(normal, ' ');
+      expect(normal).toHaveAttribute('aria-pressed', 'true');
+    });
+
+    it('Happy path: HP Damage and Heal work with Enter and Space', async () => {
+      const user = userEvent.setup();
+      const { container, store } = renderConfig(config, template(), sheet());
+      const amount = within(container).getByRole('textbox', { name: message('sheet.play.amount') });
+      const before = valueAtPath(store.getState().data, hpPath) as number;
+
+      await user.type(amount, '5');
+      await press(
+        within(container).getByRole('button', { name: message('sheet.play.damage') }),
+        'Enter',
+      );
+      expect(valueAtPath(store.getState().data, hpPath)).toBe(before - 5);
+
+      await user.type(amount, '5');
+      await press(within(container).getByRole('button', { name: message('sheet.play.heal') }), ' ');
+      expect(valueAtPath(store.getState().data, hpPath)).toBe(before);
+    });
+
+    it('Happy path: the Record Add and Remove work with Enter and Space', async () => {
+      const { container } = renderConfig(config, template(), sheet());
+      const rows = () => container.querySelectorAll('[data-testid="compose-record-row"]').length;
+      const before = rows();
+
+      await press(
+        within(container).getByRole('button', {
+          name: messageWith('record.add', { list: recordList }),
+        }),
+        'Enter',
+      );
+      expect(rows()).toBe(before + 1);
+
+      await press(
+        within(container).getAllByRole('button', {
+          name: `Remove ${recordList} 1`,
+        })[0] as HTMLElement,
+        ' ',
+      );
+      expect(rows()).toBe(before);
+    });
+
+    it.runIf(hasResetBar)('Happy path: the Reset bar runs from Enter and Space', async () => {
+      const run = vi.fn(async () => ({}));
+      const preset = presetFromConfig(config);
+      const { container } = renderPreset(
+        <>
+          <preset.Header />
+          <PresetPlayView preset={preset} />
+        </>,
+        {
+          template: template(),
+          sheet: sheet(),
+          reset: {
+            run,
+            onApplied: vi.fn(),
+            refresh: vi.fn(async () => undefined),
+          },
+        },
+      );
+
+      const longRest = within(container).getByRole('button', { name: 'Long rest' });
+      await press(longRest, 'Enter');
+      expect(run).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(longRest).not.toHaveAttribute('aria-disabled', 'true'));
+      await press(within(container).getByRole('button', { name: 'Long rest' }), ' ');
+      expect(run).toHaveBeenCalledTimes(2);
+    });
+
+    it.runIf(hasConditionChip)(
+      'Happy path: a condition chip toggles with Enter and Space',
+      async () => {
+        const { container } = renderConfig(config, template(), sheet());
+        const chip = container.querySelector<HTMLButtonElement>('button.lg-compose-condition');
+
+        expect(chip).not.toBeNull();
+        expect(chip).toHaveAttribute('aria-pressed', 'false');
+        await press(chip as HTMLElement, ' ');
+        expect(chip).toHaveAttribute('aria-pressed', 'true');
+        await press(chip as HTMLElement, 'Enter');
+        expect(chip).toHaveAttribute('aria-pressed', 'false');
+      },
+    );
+  },
+);
 
 function reducedMotionBlock(): string {
   const match = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/.exec(COMPOSE_CSS);

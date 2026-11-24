@@ -12,6 +12,7 @@ import {
   nextRank,
   parseScore,
   rankValue,
+  rowDisplayName,
 } from '../sheet/preset/compose/scores_data';
 import { SkillList } from '../sheet/preset/compose/skill_list';
 import type {
@@ -21,14 +22,26 @@ import type {
   PresetSkillListPiece,
 } from '../sheet/preset/compose/types';
 import { PresetPlayView } from '../sheet/preset/play_view';
-import { presetConfig, presetSheet, presetTemplateDetail, renderPreset } from './preset_fixtures';
+import {
+  presetConfig,
+  presetRowDiceSheet,
+  presetRowDiceTemplateDetail,
+  presetSheet,
+  presetTemplateDetail,
+  renderPreset,
+} from './preset_fixtures';
 
 const MINUS = '\u2212';
 
 function abilityGrid(
-  abilities: readonly { readonly score: string; readonly modifier: string }[],
+  abilities: readonly {
+    readonly score: string;
+    readonly modifier: string;
+    readonly row?: string;
+  }[],
+  section = 'abilities',
 ): PresetAbilityGridPiece {
-  return { kind: 'abilityGrid', key: 'abilities', section: 'abilities', abilities };
+  return { kind: 'abilityGrid', key: 'abilities', section, abilities };
 }
 
 function saveList(
@@ -99,6 +112,21 @@ describe('the score helpers', () => {
     expect(nextRank(0, 0)).toBe(0);
     expect(nextRank(9, 3)).toBe(0);
   });
+});
+
+describe('the score helpers', () => {
+  it.each([
+    { label: 'Acrobatics rank', path: 'skills.acrobatics.rank', expected: 'Acrobatics' },
+    { label: 'Strength save total', path: 'saves.strength.total', expected: 'Strength save' },
+    { label: 'Strength', path: 'abilities.strength.score', expected: 'Strength' },
+    { label: 'Athletics Total', path: 'skills.athleticsTotal', expected: 'Athletics Total' },
+    { label: '  Perception total  ', path: 'skills.perception.total', expected: 'Perception' },
+  ])(
+    'Edge: the display name of "$label" bound to $path is "$expected"',
+    ({ label, path, expected }) => {
+      expect(rowDisplayName(label, path)).toBe(expected);
+    },
+  );
 });
 
 describe('the ability grid piece', () => {
@@ -176,6 +204,48 @@ describe('the ability grid piece', () => {
     await user.click(screen.getByRole('button', { name: /close/i }));
     screen.getByRole('button', { name: /Might Modifier/ }).focus();
     await user.keyboard('{Enter}');
+
+    expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
+  });
+
+  it('Edge: a Section expression with @ refuses the roll when no row is bound', () => {
+    renderPreset(
+      <AbilityGrid
+        piece={abilityGrid(
+          [{ score: 'combat.strike.bonus', modifier: 'combat.strike.bonus' }],
+          'combat',
+        )}
+      />,
+      { template: presetRowDiceTemplateDetail(), sheet: presetRowDiceSheet() },
+    );
+
+    const row = screen.getByTestId('compose-ability-combat.strike.bonus');
+    expect(within(row).queryByRole('button', { name: /^Roll/ })).not.toBeInTheDocument();
+  });
+
+  it('Happy path: the same Section expression rolls from its bound row', async () => {
+    const user = userEvent.setup();
+    renderPreset(
+      <AbilityGrid
+        piece={abilityGrid(
+          [
+            {
+              score: 'combat.strike.bonus',
+              modifier: 'combat.strike.bonus',
+              row: 'combat.strike',
+            },
+          ],
+          'combat',
+        )}
+      />,
+      { template: presetRowDiceTemplateDetail(), sheet: presetRowDiceSheet() },
+    );
+
+    await user.click(
+      within(screen.getByTestId('compose-ability-combat.strike.bonus')).getByRole('button', {
+        name: /^Roll/,
+      }),
+    );
 
     expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
   });

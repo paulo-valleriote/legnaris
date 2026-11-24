@@ -204,6 +204,36 @@ export function presetTemplateDetail(): TemplateDetail {
   });
 }
 
+export function presetRowDiceTemplateDetail(): TemplateDetail {
+  return parseTemplateDetail({
+    id: 'compose_rows_v1',
+    name: 'Compose Rows',
+    default: false,
+    kinds: ['character'],
+    fields: {
+      combat: {
+        label: 'Combat',
+        children: {
+          strike: {
+            label: 'Strike',
+            columns: ['bonus'],
+            children: {
+              bonus: {
+                schema: { type: 'number', label: 'Strike bonus', is_editable: false, default: 0 },
+              },
+            },
+          },
+        },
+      },
+    },
+    dice: { section: { combat: '1d20 + @.bonus' } },
+  });
+}
+
+export function presetRowDiceSheet(): Sheet {
+  return presetSheet({ data: { combat: { strike: { bonus: 3 } } } });
+}
+
 export function presetSheet(overrides: Record<string, unknown> = {}): Sheet {
   return parseSheet({
     id: PRESET_SHEET_ID,

@@ -47,15 +47,20 @@ function LayoutBlock({
   components,
   wrap,
   navAfter,
+  columnsClassName,
 }: {
   readonly block: PresetLayoutBlock;
   readonly components: ReadonlyMap<string, ComponentType>;
   readonly wrap: boolean;
   readonly navAfter?: string;
+  readonly columnsClassName?: string;
 }) {
   if ('columns' in block) {
+    const className = ['lg-preset__columns', columnsClassName]
+      .filter((entry): entry is string => entry !== undefined)
+      .join(' ');
     return (
-      <div className="lg-preset__columns">
+      <div className={className}>
         {block.columns.map((column, position) => (
           <div className="lg-preset__column" key={`column-${position}`}>
             <SectionList keys={column} components={components} wrap={wrap} navAfter={navAfter} />
@@ -95,6 +100,7 @@ export function PresetPlayView({ preset }: { readonly preset: SheetPreset }) {
               components={components}
               wrap={narrow}
               navAfter={navAfter}
+              columnsClassName={preset.columnsClassName}
             />
           ))}
         </div>

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { message } from '../l10n/strings';
 import { parseSheet } from '../api/models/sheet';
 import { parseTemplateDetail } from '../api/models/template';
 import { presetFromConfig } from '../sheet/preset/compose/adapter';
@@ -144,6 +145,7 @@ describe('the 5E Stat Block preset config', () => {
     expect(screen.getByRole('group', { name: 'Legendary actions' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Resources' })).toBeInTheDocument();
     expect(screen.getByTestId('compose-roll-mode')).toBeInTheDocument();
+    expect(document.querySelector('.lg-preset__columns--compose')).not.toBeNull();
   });
 
   it('Edge: the hit point maximum roll offers no Roll mode', () => {
@@ -158,6 +160,63 @@ describe('the 5E Stat Block preset config', () => {
       'aria-haspopup',
       'dialog',
     );
+  });
+
+  it('Edge: a non-d20 roll keeps the chosen Roll mode', async () => {
+    const user = userEvent.setup();
+    play();
+
+    const advantage = screen.getByRole('button', { name: message('dice.mode.advantage') });
+    await user.click(advantage);
+    expect(advantage).toHaveAttribute('aria-pressed', 'true');
+
+    await user.click(
+      within(screen.getByTestId('compose-hit-points')).getByRole('button', {
+        name: /^Roll Hit points/,
+      }),
+    );
+
+    expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
+    expect(advantage).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('Happy path: an ability modifier rolls from its bound Row', async () => {
+    const user = userEvent.setup();
+    play();
+
+    await user.click(
+      within(screen.getByTestId('compose-ability-abilities.dexterity.score')).getByRole('button', {
+        name: /^Roll Dexterity modifier/,
+      }),
+    );
+
+    expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
+  });
+
+  it('Happy path: a save total rolls from its bound Row', async () => {
+    const user = userEvent.setup();
+    play();
+
+    await user.click(
+      within(screen.getByTestId('compose-save-saves.dexterity.total')).getByRole('button', {
+        name: /^Roll Dexterity save/,
+      }),
+    );
+
+    expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
+  });
+
+  it('Happy path: a skill total rolls from its bound Row', async () => {
+    const user = userEvent.setup();
+    play();
+
+    await user.click(
+      within(screen.getByTestId('compose-skill-skills.perception.rank')).getByRole('button', {
+        name: /^Roll Perception/,
+      }),
+    );
+
+    expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
   });
 
   it('Happy path: an action Record rolls its to-hit', async () => {

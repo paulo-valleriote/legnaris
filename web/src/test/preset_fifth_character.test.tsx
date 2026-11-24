@@ -4,13 +4,14 @@ import userEvent from '@testing-library/user-event';
 import type { ResetAction } from '../api/models/template';
 import { parseTemplateDetail } from '../api/models/template';
 import type { Sheet } from '../api/models/sheet';
-import { parseSheet } from '../api/models/sheet';
+import { parseSheet, valueAtPath } from '../api/models/sheet';
 import { message } from '../l10n/strings';
 import { presetFromConfig } from '../sheet/preset/compose/adapter';
 import { configPathErrors } from '../sheet/preset/compose/config_paths';
 import { fifthCharacterConfig } from '../sheet/preset/compose/configs/fifth_character';
 import { PresetPlayView } from '../sheet/preset/play_view';
 import { PRESET_CONFIGS } from '../sheet/preset/registry';
+import { numberValue } from '../sheet/preset/values';
 import { renderPreset } from './preset_fixtures';
 import goldenCharacter from '../../../testdata/templates/fifth_character_v1.json';
 
@@ -127,12 +128,20 @@ describe('the 5E Character preset config', () => {
     renderPlay();
 
     const pieces = fifthCharacterConfig.pieces;
+    const data = fifthSheet().data;
+    const limitOf = (max: string | number) =>
+      typeof max === 'number' ? max : (numberValue(valueAtPath(data, max)) ?? 0);
     const pipsCount =
-      pieces.filter((piece) => piece.kind === 'pips').length +
-      pieces.filter((piece) => piece.kind === 'conditions' && piece.exhaustion !== undefined)
-        .length;
+      pieces.filter((piece) => piece.kind === 'pips' && limitOf(piece.max) > 0).length +
+      pieces.filter(
+        (piece) =>
+          piece.kind === 'conditions' &&
+          piece.exhaustion !== undefined &&
+          limitOf(piece.exhaustion.max) > 0,
+      ).length;
 
     expect(document.querySelectorAll('.lg-compose-pips')).toHaveLength(pipsCount);
+    expect(screen.queryByText('Level 9 spell slots spent')).not.toBeInTheDocument();
     expect(document.querySelectorAll('[data-testid="compose-record-table"]')).toHaveLength(
       pieces.filter((piece) => piece.kind === 'recordTable').length,
     );
@@ -147,6 +156,7 @@ describe('the 5E Character preset config', () => {
     expect(screen.queryAllByTestId('compose-record-row')).toHaveLength(0);
     expect(screen.getByRole('group', { name: message('sheet.reset.group') })).toBeInTheDocument();
     expect(screen.getByTestId('compose-roll-mode')).toBeInTheDocument();
+    expect(document.querySelector('.lg-preset__columns--compose')).not.toBeNull();
   });
 
   it('Happy path: the wide and narrow layouts place every section exactly once', () => {
@@ -167,7 +177,7 @@ describe('the 5E Character preset config', () => {
     const user = userEvent.setup();
     renderPlay();
 
-    await user.click(screen.getByRole('button', { name: /Arcana total/ }));
+    await user.click(screen.getByRole('button', { name: /^Roll Arcana/ }));
 
     const panel = document.querySelector('.lg-dice-panel');
     expect(panel).not.toBeNull();
@@ -181,7 +191,7 @@ describe('the 5E Character preset config', () => {
     await user.click(screen.getByRole('button', { name: /^Roll Strength modifier/ }));
     await user.click(
       within(screen.getByTestId('compose-save-saves.dexterity.total')).getByRole('button', {
-        name: /^Roll Dexterity save total/,
+        name: /^Roll Dexterity save/,
       }),
     );
     await user.click(screen.getByRole('button', { name: /^Roll Initiative/ }));

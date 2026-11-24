@@ -441,9 +441,9 @@ pips (level of 6 with the derived penalty); pips draw death save successes and f
 the primary Hit Die and the four extra pools from their `spent` leaves, and the nine spell levels
 and Pact Magic from `spent`/`total` and `used`/`count`; Record tables draw attacks, inventory,
 features, spells and resources; the Reset bar binds `long_rest` and `short_rest`; and the Roll mode
-bar drives the next roll. The wide layout keeps identity, vitals and hit points above three columns
-(scores, status and rest pips, spell slots) with the Record tables below; the narrow layout
-flattens the same Sections in reading order. A test decodes the golden with `parseTemplateDetail`
+bar drives the next roll. The wide layout keeps identity, vitals and hit points above four columns
+(abilities; saves and skills; status and rest pips; spell slots) with the Record tables below;
+the narrow layout flattens the same Sections in reading order. A test decodes the golden with `parseTemplateDetail`
 and asserts `configPathErrors` is empty.
 
 `fifth_stat_block_v1` keeps the seven shared Sections as a prefix and appends `experience`,
@@ -740,15 +740,18 @@ kind-selected stat block and ordered section slots, so later gameplay surfaces a
 preset rather than branches in the screen.
 The composable library (`preset/compose/`) is the generic half of that registry. One data-only
 `PresetConfig` per Template carries its `templateId`, an identity `header` binding (the name Field
-path and an optional subtitle Field path), an ordered `pieces` list, optional `resetActions` ids
-and the same `layout` / `narrowLayout` / `sectionNav` blocks as a `SheetPreset`. A piece carries a
+path and an optional subtitle Field path), an ordered `pieces` list and the same `layout` /
+`narrowLayout` / `sectionNav` blocks as a `SheetPreset`; `presetFromConfig` marks its column blocks
+with `columnsClassName`, so Play lays the compose configs out with
+`repeat(auto-fit, minmax(20rem, 1fr))` rather than the fantasy preset's 200 px ability track. A piece carries a
 stable `key`, a `kind` and its Field-path bindings, and holds no React, no strings and no
 per-Template code. The eleven kinds are:
 
 - `statPills` — one labelled pill per bound leaf, passed through `RollableValue` (a Row without
   dice stays plain text); an optional `row` names the Row whose dice the pill reads.
 - `pips` — the `count` leaf filled out of a `max` leaf path or a fixed number; each pip is a
-  pressed toggle that commits through `usePresetCommit`.
+  pressed toggle that commits through `usePresetCommit` and is named for what it does (a filled
+  pip offers to clear to its own index minus one), and a zero maximum draws nothing.
 - `abilityGrid` — one cell per bound `score`/`modifier` pair, the signed modifier rolled and the
   score edited through `InlineEdit`.
 - `saveList` — one row per bound `proficiency`/`total` pair, its flag a pressed toggle that
@@ -758,24 +761,31 @@ per-Template code. The eleven kinds are:
   the signed total rolls.
 - `hitPoints` — the bound `current`, `max` and optional `temp` leaves, a meter and one amount
   entry; Damage lets the temp leaf absorb first and floors the current at zero, Heal clamps to the
-  maximum, and a derived maximum stays read-only.
+  maximum and never lowers a current already at or above it (a zero maximum heals nothing), and a
+  derived maximum stays read-only.
 - `conditions` — numeric flags as toggle chips that commit `0`/`1` (the part before the first
   colon stays the chip, the rest is its accessible description) plus an optional exhaustion track
   (`level`, a fixed or bound `max`, an optional derived `penalty`) that reuses the pips.
 - `recordTable` — a bound Record list's chosen `columns` as editable `SheetFieldControl` cells
-  plus Add and Remove through the edit store's list operations, a `RollableValue` on the Record Row
-  when the list declares Row default dice, and the shared empty and at-capacity copy.
+  plus Add and Remove through the edit store's list operations (each guarded by the store method
+  it needs), one shared column header per run of Records with the per-cell labels returning only
+  on a phone, a `RollableValue` on the Record Row when the list declares Row default dice, and
+  the shared empty and at-capacity copy. Every cell subscribes to its own path.
 - `resetBar` — `ResetActions` for its bound action ids over the provider's reset binding (the same
   run, apply and refresh callbacks as the Edit screen, so there is no new request path).
-- `rollMode` — a provider-held Normal / Advantage / Disadvantage choice that the next
-  `RollableValue` roll consumes, then returns to Normal; it writes nothing to the Sheet.
+- `rollMode` — a provider-held Normal / Advantage / Disadvantage choice that the next d20
+  `RollableValue` roll applies and consumes, then returns to Normal; a non-d20 roll, an explicit
+  Shift/Alt click, a dialog choice or a `not_d20` Row leaves it alone. It writes nothing to the
+  Sheet.
 - `textFields` — bound text leaves with their original label, an inline text edit that commits
   through `usePresetCommit`, and the shared inline add copy when the value is blank.
 
 `presetFromConfig(config)` turns a config into the existing `SheetPreset` shape, so
 `PresetPlayView` draws it unchanged: the header becomes `Header`, each piece becomes one `sections`
 entry in its listed order, and the optional blocks pass through. A piece component reads values
-only through `usePresetValue` / `usePresetLabel` / `usePresetCommit` (`preset_context.tsx`).
+only through `usePresetValue` / `usePresetLabel` / `usePresetCommit` (`preset_context.tsx`); the
+Record table additionally reads its list membership from the store's ordered Records, while every
+cell still subscribes to its own path.
 Missing values draw the shared empty copy and offer no roll. The score pieces keep their rolls on
 `RollableValue`, bind the Section whose dice they read (`section`) instead of deriving it from the
 row, and take an optional `row` for a Section expression that reads its Row's columns (`@.mod`,
@@ -786,9 +796,11 @@ formatting, integer score parse, proficiency toggle and clamped rank helpers, an
 `registry.ts` keeps `PRESET_CONFIGS` beside the frozen `fantasyPreset` and resolves a Template id
 through `presetFor`; the registry holds `fifthCharacterConfig` and `fifthStatBlockConfig`, the
 fantasy preset wins its id, and a Template with no registered config still opens the generic form.
-`configPathErrors(config, template)` is pure: it collects every header, piece and Reset action
-binding and reports the paths absent from the Template's `buildSections(template.fields)` leaves,
-Row keys, Record list paths and their column names, and Reset action ids.
+`configPathErrors(config, template)` is pure: it collects every header and piece binding and
+reports the paths absent from the Template's `buildSections(template.fields)` leaves, Record list
+paths and their column names, a score piece's `section` that names no Template Section, a `row`
+that is not a real Row key (a leaf path is refused), a `layout` / `narrowLayout` key that names
+no piece, and a Reset bar action id.
 `web/src/test/preset_fixtures.tsx` builds the Template-agnostic Template, Sheet, edit store, Dice
 context and `PresetProvider` wrapper every piece test reuses, and the piece suites name no 5E or
 fantasy id; `preset_config_paths.test.ts` covers the path validation, the piece suites cover each

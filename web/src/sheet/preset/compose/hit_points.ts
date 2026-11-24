@@ -67,8 +67,12 @@ export function applyHeal(
   if (!isAmount(amount)) {
     return undefined;
   }
+  const ceiling =
+    hitPoints.max <= 0 || hitPoints.current >= hitPoints.max
+      ? hitPoints.current
+      : Math.min(hitPoints.max, hitPoints.current + amount);
   return {
-    current: Math.min(hitPoints.max, hitPoints.current + amount),
+    current: ceiling,
     temp: hitPoints.temp,
   };
 }

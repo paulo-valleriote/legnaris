@@ -54,6 +54,22 @@
   }
 }
 
+.lg-preset__columns.lg-preset__columns--compose {
+  grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+}
+
+@media (max-width: 68.75rem) {
+  .lg-preset__columns.lg-preset__columns--compose .lg-preset__column:nth-child(3) {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 40rem) {
+  .lg-preset__columns.lg-preset__columns--compose {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .lg-preset-hero {
   display: flex;
   flex-wrap: wrap;

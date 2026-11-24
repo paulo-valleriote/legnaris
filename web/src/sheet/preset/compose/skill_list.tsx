@@ -2,7 +2,7 @@ import { message, messageWith } from '../../../l10n/strings';
 import { usePresetCommit, usePresetLabel, usePresetValue } from '../preset_context';
 import { RollableValue } from '../rollable_value';
 import { numberValue } from '../values';
-import { formatSigned, nextRank, rankLimit, rankValue } from './scores_data';
+import { formatSigned, nextRank, rankLimit, rankValue, rowDisplayName } from './scores_data';
 import type { PresetSkill, PresetSkillListPiece } from './types';
 import './compose.css';
 
@@ -19,6 +19,8 @@ function SkillRow({
   const total = numberValue(usePresetValue(skill.total));
   const rankLabel = usePresetLabel(skill.rank);
   const totalLabel = usePresetLabel(skill.total);
+  const name = rowDisplayName(rankLabel, skill.rank);
+  const rollLabel = rowDisplayName(totalLabel, skill.total);
   const commitRank = usePresetCommit(skill.rank);
   const limit = rankLimit(max);
   const current = rankValue(rank, limit);
@@ -31,7 +33,7 @@ function SkillRow({
           type="button"
           className="lg-compose-rank"
           aria-label={messageWith('preset.skill.rank', {
-            label: rankLabel,
+            label: name,
             count: current,
             max: limit,
           })}
@@ -50,7 +52,7 @@ function SkillRow({
         </button>
       )}
       <span className="lg-compose-skill__name" aria-hidden="true">
-        {rankLabel}
+        {name}
       </span>
       {skill.ability === undefined ? null : (
         <span className="lg-compose-skill__ability">{skill.ability}</span>
@@ -59,7 +61,7 @@ function SkillRow({
         className="lg-compose-skill__total"
         rowKey={skill.row ?? skill.total}
         sectionKey={section}
-        label={totalLabel}
+        label={rollLabel}
         text={total === undefined ? message('sheet.play.noValue') : formatSigned(total)}
         allowRoll={total !== undefined}
       />

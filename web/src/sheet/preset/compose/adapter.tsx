@@ -135,5 +135,6 @@ export function presetFromConfig(config: PresetConfig): SheetPreset {
     ...(config.layout === undefined ? {} : { layout: config.layout }),
     ...(config.narrowLayout === undefined ? {} : { narrowLayout: config.narrowLayout }),
     ...(config.sectionNav === undefined ? {} : { sectionNav: config.sectionNav }),
+    columnsClassName: 'lg-preset__columns--compose',
   };
 }

@@ -61,6 +61,7 @@ export const fifthStatBlockConfig: PresetConfig = {
       abilities: abilities.map((ability) => ({
         score: `abilities.${ability}.score`,
         modifier: `abilities.${ability}.mod`,
+        row: `abilities.${ability}`,
       })),
     },
     {
@@ -70,6 +71,7 @@ export const fifthStatBlockConfig: PresetConfig = {
       saves: abilities.map((ability) => ({
         proficiency: `saves.${ability}.prof`,
         total: `saves.${ability}.total`,
+        row: `saves.${ability}`,
       })),
     },
     {
@@ -80,6 +82,7 @@ export const fifthStatBlockConfig: PresetConfig = {
       skills: skills.map((skill) => ({
         rank: `skills.${skill.name}.rank`,
         total: `skills.${skill.name}.total`,
+        row: `skills.${skill.name}`,
         ability: skill.ability,
       })),
     },

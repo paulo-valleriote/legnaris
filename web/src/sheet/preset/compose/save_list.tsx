@@ -2,14 +2,14 @@ import { message, messageWith } from '../../../l10n/strings';
 import { usePresetCommit, usePresetLabel, usePresetValue } from '../preset_context';
 import { RollableValue } from '../rollable_value';
 import { numberValue } from '../values';
-import { formatSigned, isProficient, nextProficiency } from './scores_data';
+import { formatSigned, isProficient, nextProficiency, rowDisplayName } from './scores_data';
 import type { PresetSave, PresetSaveListPiece } from './types';
 import './compose.css';
 
 function SaveRow({ save, section }: { readonly save: PresetSave; readonly section: string }) {
   const total = numberValue(usePresetValue(save.total));
   const proficiency = usePresetValue(save.proficiency);
-  const label = usePresetLabel(save.total);
+  const label = rowDisplayName(usePresetLabel(save.total), save.total);
   const commitProficiency = usePresetCommit(save.proficiency);
 
   return (
