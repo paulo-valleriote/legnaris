@@ -64,11 +64,11 @@ describe('the frozen fantasy preset', () => {
     expect(preset?.Vitals).toBe(fantasyPreset.Vitals);
   });
 
-  it('Happy path: the landing demo still imports the frozen fantasy preset', () => {
-    const source = readFileSync(path.resolve(process.cwd(), 'src/landing/demo_sheet.tsx'), 'utf8');
+  it('Happy path: the demo route keeps the frozen fantasy preset out of the 5E demo', () => {
+    const source = readFileSync(path.resolve(process.cwd(), 'src/landing/demo_screen.tsx'), 'utf8');
 
-    expect(source).toContain("import { fantasyPreset } from '../sheet/preset/fantasy';");
-    expect(source).toContain('<PresetPlayView preset={fantasyPreset} />');
+    expect(source).toContain("lazy(() => import('./fifth_demo_sheet'))");
+    expect(source).not.toContain('fantasyPreset');
   });
 
   it('Happy path: a fantasy Sheet fixture still renders every Play surface', () => {

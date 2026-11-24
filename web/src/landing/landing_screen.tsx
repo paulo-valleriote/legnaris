@@ -42,7 +42,7 @@ const HERO_SRCSET = ['/images/hero-lava-1280.webp 1280w', '/images/hero-lava-192
   ', ',
 );
 
-const FANTASY_SIGN_UP_PATH = signUpCtaPath('fantasy');
+const FIFTH_SIGN_UP_PATH = signUpCtaPath('fifth');
 
 function MomentsLoading() {
   return (
@@ -121,7 +121,7 @@ export function LandingScreen() {
               </Link>
               <Link
                 className="lg-landing__cta lg-landing__cta--outline"
-                to={FANTASY_SIGN_UP_PATH}
+                to={FIFTH_SIGN_UP_PATH}
                 onClick={onCtaClick}
               >
                 {message('landing.create')}
@@ -206,7 +206,7 @@ export function LandingScreen() {
       >
         <Link
           className="lg-landing__cta lg-landing__cta--primary"
-          to={FANTASY_SIGN_UP_PATH}
+          to={FIFTH_SIGN_UP_PATH}
           onClick={onCtaClick}
         >
           {message('landing.create')}
@@ -224,7 +224,7 @@ export function LandingScreen() {
           <div className="lg-landing__actions">
             <Link
               className="lg-landing__cta lg-landing__cta--primary"
-              to={FANTASY_SIGN_UP_PATH}
+              to={FIFTH_SIGN_UP_PATH}
               onClick={onCtaClick}
             >
               {message('landing.create')}

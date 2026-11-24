@@ -16,9 +16,9 @@ import {
 } from '../sheet/dice_view';
 import type { PresetContextValue } from '../sheet/preset/preset_context';
 import { PresetProvider } from '../sheet/preset/preset_context';
-import { DEMO_SHEET, DEMO_TEMPLATE } from './demo_character';
 import type { DemoDerivation } from './demo_store';
-import { createDemoEditStore } from './demo_store';
+import { createDemoEditStore, NO_DERIVATION } from './demo_store';
+import { MOMENT_SHEET, MOMENT_TEMPLATE } from './moment_demo';
 
 type DemoPresetValue = Pick<PresetContextValue, 'store' | 'template' | 'sheet' | 'dice'>;
 
@@ -28,9 +28,9 @@ interface DemoRuntime {
 }
 
 export function createDemoRuntime(
-  template: TemplateDetail = DEMO_TEMPLATE,
-  sheet: Sheet = DEMO_SHEET,
-  derive?: DemoDerivation,
+  template: TemplateDetail = MOMENT_TEMPLATE,
+  sheet: Sheet = MOMENT_SHEET,
+  derive: DemoDerivation = NO_DERIVATION,
 ): DemoRuntime {
   const store = createDemoEditStore(template, sheet, derive);
   const sections = buildSections(template.fields);
@@ -62,9 +62,9 @@ export function createDemoRuntime(
 export function DemoProvider({
   children,
   onInteract,
-  template = DEMO_TEMPLATE,
-  sheet = DEMO_SHEET,
-  derive,
+  template = MOMENT_TEMPLATE,
+  sheet = MOMENT_SHEET,
+  derive = NO_DERIVATION,
 }: {
   readonly children: ReactNode;
   readonly onInteract?: () => void;

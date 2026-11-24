@@ -415,7 +415,7 @@ describe('campaigns list and create (LGN-218)', () => {
     );
   });
 
-  it('Happy path: two Templates of one Game system offer one Game system option and create with it', async () => {
+  it('Happy path: the Game system picker offers only 5E and creates with it', async () => {
     const gameSystem = {
       id: 'fifth',
       name: '5E',
@@ -455,7 +455,12 @@ describe('campaigns list and create (LGN-218)', () => {
     const dialog = await screen.findByRole('dialog', { name: message('campaigns.create') });
 
     expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
-    expect(within(dialog).getByTestId('campaigns-template')).toHaveTextContent('5E');
+    expect(within(dialog).getByText(message('campaigns.scopeLabel'))).toHaveTextContent(
+      'Game system',
+    );
+    expect(within(dialog).getByTestId('campaigns-template')).toHaveTextContent(/^5E$/);
+    expect(within(dialog).queryByText('5E Character')).not.toBeInTheDocument();
+    expect(within(dialog).queryByText('5E Stat Block')).not.toBeInTheDocument();
     await user.type(within(dialog).getByLabelText(message('campaigns.nameLabel')), 'Ember Coast');
     await user.click(within(dialog).getByRole('button', { name: message('campaigns.create') }));
 

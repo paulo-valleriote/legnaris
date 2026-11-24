@@ -9,10 +9,8 @@ import { valueAtPath } from '../api/models/sheet';
 import type { FieldNode, TemplateDetail } from '../api/models/template';
 import { parseTemplateDetail } from '../api/models/template';
 import { message } from '../l10n/strings';
-import { presetFromConfig } from '../sheet/preset/compose/adapter';
 import { configPathErrors } from '../sheet/preset/compose/config_paths';
 import { fifthCharacterConfig } from '../sheet/preset/compose/configs/fifth_character';
-import { DEMO_TEMPLATE } from '../landing/demo_character';
 import { createDemoEditStore } from '../landing/demo_store';
 import {
   FIFTH_DEMO_SHEET,
@@ -193,12 +191,14 @@ describe('the prepared 5E Character demo', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('Edge: no production module imports the demo, so it stays out of the initial bundle', () => {
-    const importers = productionSources().filter((file) =>
-      readFileSync(file, 'utf8').includes('fifth_demo_sheet'),
-    );
+  it('Edge: only the lazily loaded demo route imports the prepared demo', () => {
+    const importers = productionSources()
+      .filter((file) => readFileSync(file, 'utf8').includes('fifth_demo_sheet'))
+      .map((file) => path.basename(file));
+    const router = readFileSync(path.resolve(srcRoot, 'app/router.tsx'), 'utf8');
 
-    expect(importers).toEqual([]);
+    expect(importers).toEqual(['demo_screen.tsx']);
+    expect(router).toContain("lazy(() => import('../landing/demo_screen'))");
   });
 
   it('Edge: the demo stays inside the LGN-345 source-size ceiling and ships no extra asset', () => {
@@ -213,15 +213,6 @@ describe('the prepared 5E Character demo', () => {
     }
   });
 
-  it('Edge: the fantasy demo keeps demo_v1 and its lazy sheet chunk', async () => {
-    const demo = readFileSync(path.resolve(here, '../landing/demo_screen.tsx'), 'utf8');
-
-    expect(DEMO_TEMPLATE.id).toBe('demo_v1');
-    expect(demo).toContain("lazy(() => import('./demo_sheet'))");
-    expect(demo).not.toContain('fifth_demo');
-    expect(presetFromConfig(fifthCharacterConfig).templateId).toBe(FIFTH_DEMO_TEMPLATE_ID);
-  });
-
   it('Happy path: the note is the exact prepared-demo sentence', () => {
     expect(message('landing.fifthDemoNote')).toBe(
       'An invented character on the 5E Character template.',
@@ -229,13 +220,5 @@ describe('the prepared 5E Character demo', () => {
     const rendered = render(<FifthDemoSheet />);
     const note = within(rendered.container).getByTestId('landing-fifth-demo-note');
     expect(note.textContent).toBe('An invented character on the 5E Character template.');
-  });
-
-  it('Edge: the fantasy demo still renders its own character', async () => {
-    const { default: DemoScreen } = await import('../landing/demo_sheet');
-    render(<DemoScreen />);
-
-    expect(screen.getByRole('heading', { level: 2, name: 'Rowan Vale' })).toBeInTheDocument();
-    expect(screen.getAllByText(message('sheet.play.damage')).length).toBeGreaterThan(0);
   });
 });

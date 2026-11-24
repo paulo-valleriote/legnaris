@@ -11,12 +11,13 @@ const fifthCharacterPreset = presetFromConfig(fifthCharacterConfig);
 
 const fifthCharacterDerivation = templateDerivation(FIFTH_DEMO_TEMPLATE);
 
-export default function FifthDemoSheet() {
+export default function FifthDemoSheet({ onInteract }: { readonly onInteract?: () => void }) {
   return (
     <DemoProvider
       template={FIFTH_DEMO_TEMPLATE}
       sheet={FIFTH_DEMO_SHEET}
       derive={fifthCharacterDerivation}
+      onInteract={onInteract}
     >
       <div className="lg-demo-sheet" data-testid="landing-fifth-demo-sheet">
         <fifthCharacterPreset.Header level={2} />

@@ -1,40 +1,20 @@
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import DemoSheet from '../landing/demo_sheet';
-
-const here = path.dirname(fileURLToPath(import.meta.url));
-import type { FieldNode } from '../api/models/template';
+import FifthDemoSheet from '../landing/fifth_demo_sheet';
 import { message } from '../l10n/strings';
-import { DEMO_TEMPLATE } from '../landing/demo_character';
 import { rollName } from './dice_names';
 
-function leafDefault(fields: Record<string, FieldNode>, path: readonly string[]): unknown {
-  let node: FieldNode | undefined = fields[path[0]];
-  for (const segment of path.slice(1)) {
-    if (node === undefined || node.kind !== 'group') {
-      return undefined;
-    }
-    node = node.children[segment];
-  }
-  return node?.kind === 'leaf' ? node.schema.defaultValue : undefined;
+const WISDOM_SCORE = 'abilities.wisdom.score';
+
+function wisdomCell() {
+  return screen.getByTestId(`compose-ability-${WISDOM_SCORE}`);
 }
 
-function medallion(ability: string) {
-  return screen.getByTestId(`sheet-ability-${ability}`);
-}
-
-async function editAttribute(
-  user: ReturnType<typeof userEvent.setup>,
-  ability: string,
-  text: string,
-) {
-  const card = medallion(ability);
-  await user.click(within(card).getByRole('button', { name: 'Might' }));
-  const input = within(card).getByRole('textbox', { name: 'Might' });
+async function editWisdom(user: ReturnType<typeof userEvent.setup>, text: string) {
+  const cell = wisdomCell();
+  await user.click(within(cell).getByRole('button', { name: 'Wisdom' }));
+  const input = within(cell).getByRole('textbox', { name: 'Wisdom' });
   await user.clear(input);
   await user.type(input, `${text}{Enter}`);
 }
@@ -44,10 +24,11 @@ async function changeHitPoints(
   amount: string,
   action: 'damage' | 'heal',
 ) {
-  const card = screen.getByTestId('sheet-hp-card');
+  const card = screen.getByTestId('compose-hit-points');
   const input = within(card).getByLabelText(message('sheet.play.amount'));
   await user.clear(input);
   await user.type(input, amount);
+  await waitFor(() => expect(input).toHaveValue(amount));
   await user.click(
     within(card).getByRole('button', {
       name: message(action === 'damage' ? 'sheet.play.damage' : 'sheet.play.heal'),
@@ -55,7 +36,7 @@ async function changeHitPoints(
   );
 }
 
-describe('the landing demo sheet', () => {
+describe('the landing 5E demo sheet', () => {
   const fetchSpy = vi.fn(() => Promise.reject(new Error('the demo must stay offline')));
 
   beforeEach(() => {
@@ -67,41 +48,18 @@ describe('the landing demo sheet', () => {
     fetchSpy.mockClear();
   });
 
-  it('Happy path: it draws the real Fantasy Play components over the sample character', () => {
-    render(<DemoSheet />);
-
-    expect(screen.getByTestId('sheet-play')).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-play-hero')).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-combat-strip')).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-ability-strength')).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-play-saves')).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-play-skills')).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-attacks')).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-spells')).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-table-rules')).toBeInTheDocument();
-    expect(within(medallion('strength')).getByText('Might')).toBeInTheDocument();
-    expect(screen.queryByText('Strength')).not.toBeInTheDocument();
-  });
-
-  it('Happy path: the demo attack cards draw their notes subtitle', () => {
-    render(<DemoSheet />);
-
-    expect(screen.getByTestId('sheet-attack-notes-1')).toHaveTextContent('Reach 5 ft');
-    expect(screen.queryByTestId('sheet-attack-notes-2')).not.toBeInTheDocument();
-  });
-
-  it('Happy path: editing an attribute recalculates the modifier in place', async () => {
+  it('Happy path: editing Wisdom recalculates the modifier in place', async () => {
     const user = userEvent.setup();
-    render(<DemoSheet />);
+    render(<FifthDemoSheet />);
 
     expect(
-      within(medallion('strength')).getByRole('button', { name: rollName('Might modifier') }),
+      within(wisdomCell()).getByRole('button', { name: rollName('Wisdom modifier') }),
     ).toHaveTextContent('+3');
 
-    await editAttribute(user, 'strength', '18');
+    await editWisdom(user, '18');
 
     expect(
-      within(medallion('strength')).getByRole('button', { name: rollName('Might modifier') }),
+      within(wisdomCell()).getByRole('button', { name: rollName('Wisdom modifier') }),
     ).toHaveTextContent('+4');
     expect(screen.getByTestId('sheet-pending-card')).toBeInTheDocument();
     expect(fetchSpy).not.toHaveBeenCalled();
@@ -109,66 +67,71 @@ describe('the landing demo sheet', () => {
 
   it('Happy path: the pending card commits the demo locally', async () => {
     const user = userEvent.setup();
-    render(<DemoSheet />);
+    render(<FifthDemoSheet />);
 
-    await editAttribute(user, 'strength', '18');
+    await editWisdom(user, '18');
     const card = screen.getByTestId('sheet-pending-card');
     await user.click(within(card).getByRole('button', { name: message('sheet.pending.save') }));
 
     await waitFor(() => expect(screen.queryByTestId('sheet-pending-card')).toBeNull());
     expect(
-      within(medallion('strength')).getByRole('button', { name: rollName('Might modifier') }),
+      within(wisdomCell()).getByRole('button', { name: rollName('Wisdom modifier') }),
     ).toHaveTextContent('+4');
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('Happy path: damage and healing work on the local hit points', async () => {
     const user = userEvent.setup();
-    render(<DemoSheet />);
+    render(<FifthDemoSheet />);
 
     await changeHitPoints(user, '5', 'damage');
-    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent(/19\s*\/\s*30/);
+    expect(
+      within(screen.getByTestId('compose-hit-points')).getByRole('button', {
+        name: 'Current hit points',
+      }),
+    ).toHaveTextContent('24');
+
+    await changeHitPoints(user, '5', 'damage');
+    expect(
+      within(screen.getByTestId('compose-hit-points')).getByRole('button', {
+        name: 'Current hit points',
+      }),
+    ).toHaveTextContent('19');
 
     await changeHitPoints(user, '5', 'heal');
-    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent(/24\s*\/\s*30/);
+    expect(
+      within(screen.getByTestId('compose-hit-points')).getByRole('button', {
+        name: 'Current hit points',
+      }),
+    ).toHaveTextContent('24');
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('Happy path: rolling a die opens the shared dice panel', async () => {
     const user = userEvent.setup();
-    render(<DemoSheet />);
+    render(<FifthDemoSheet />);
 
-    await user.click(screen.getByRole('button', { name: rollName('Might modifier') }));
+    await user.click(
+      within(wisdomCell()).getByRole('button', { name: rollName('Wisdom modifier') }),
+    );
 
     expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('Happy path: the sample text leaves default to an empty string', () => {
-    expect(leafDefault(DEMO_TEMPLATE.fields, ['identity', 'characterName'])).toBe('');
-    expect(leafDefault(DEMO_TEMPLATE.fields, ['attacks', 'attack1', 'name'])).toBe('');
-  });
-
-  it('Edge: the demo is a separate module with a default export', async () => {
-    const module = await import('../landing/demo_sheet');
-    const demo = readFileSync(path.resolve(here, '../landing/demo_screen.tsx'), 'utf8');
-
-    expect(module.default).toBeTypeOf('function');
-    expect(demo).not.toContain("from './demo_sheet'");
-    expect(demo).toContain("lazy(() => import('./demo_sheet'))");
-  });
-
   it('Happy path: an edit and a roll each report the first demo interaction', async () => {
     const onInteract = vi.fn();
     const user = userEvent.setup();
-    render(<DemoSheet onInteract={onInteract} />);
+    render(<FifthDemoSheet onInteract={onInteract} />);
 
     expect(onInteract).not.toHaveBeenCalled();
 
-    await editAttribute(user, 'strength', '18');
+    await editWisdom(user, '18');
     expect(onInteract).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getByRole('button', { name: rollName('Might modifier') }));
+    await user.click(
+      within(wisdomCell()).getByRole('button', { name: rollName('Wisdom modifier') }),
+    );
     expect(onInteract).toHaveBeenCalledTimes(2);
   });
 
@@ -176,36 +139,27 @@ describe('the landing demo sheet', () => {
     const first = vi.fn();
     const latest = vi.fn();
     const user = userEvent.setup();
-    const view = render(<DemoSheet onInteract={first} />);
+    const view = render(<FifthDemoSheet onInteract={first} />);
 
-    view.rerender(<DemoSheet onInteract={latest} />);
+    view.rerender(<FifthDemoSheet onInteract={latest} />);
 
-    await editAttribute(user, 'strength', '18');
+    await editWisdom(user, '18');
 
     expect(latest).toHaveBeenCalled();
     expect(first).not.toHaveBeenCalled();
   });
 
-  it('Edge: the demo runs without an interaction callback', async () => {
-    const user = userEvent.setup();
-    render(<DemoSheet />);
-
-    await changeHitPoints(user, '5', 'damage');
-
-    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent(/19\s*\/\s*30/);
-  });
-
   it('Edge: every mount starts from the sample character again', async () => {
     const user = userEvent.setup();
-    const first = render(<DemoSheet />);
+    const first = render(<FifthDemoSheet />);
 
-    await editAttribute(user, 'strength', '18');
+    await editWisdom(user, '18');
     first.unmount();
 
-    render(<DemoSheet />);
+    render(<FifthDemoSheet />);
 
     expect(
-      within(medallion('strength')).getByRole('button', { name: rollName('Might modifier') }),
+      within(wisdomCell()).getByRole('button', { name: rollName('Wisdom modifier') }),
     ).toHaveTextContent('+3');
     expect(screen.queryByTestId('sheet-pending-card')).toBeNull();
   });

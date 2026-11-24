@@ -2,14 +2,15 @@ import { SIGN_UP_PATH } from '../app/routes';
 
 export const START_PARAM = 'start';
 
-export const FANTASY_TEMPLATE_ID = 'fantasy_v1';
+export const FIFTH_TEMPLATE_ID = 'fifth_character_v1';
 
-const START_INTENTS = ['fantasy'] as const;
+const START_INTENTS = ['fifth', 'fantasy'] as const;
 
 export type StartIntent = (typeof START_INTENTS)[number];
 
 const START_TEMPLATES: Readonly<Record<StartIntent, string>> = {
-  fantasy: FANTASY_TEMPLATE_ID,
+  fifth: FIFTH_TEMPLATE_ID,
+  fantasy: FIFTH_TEMPLATE_ID,
 };
 
 export function signUpCtaPath(intent: StartIntent): string {

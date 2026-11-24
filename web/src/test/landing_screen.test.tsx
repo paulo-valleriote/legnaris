@@ -13,7 +13,7 @@ async function visit(path: string) {
   return view;
 }
 
-const FANTASY_SIGN_UP_PATH = signUpCtaPath('fantasy');
+const FIFTH_SIGN_UP_PATH = signUpCtaPath('fifth');
 
 describe('landing screen', () => {
   it('Happy path: a visitor on the root sees the landing, not the sign-in form or the catalog', async () => {
@@ -33,7 +33,7 @@ describe('landing screen', () => {
     const hero = screen.getByRole('banner');
     expect(within(hero).getByRole('link', { name: message('landing.create') })).toHaveAttribute(
       'href',
-      '/sign-up?start=fantasy',
+      '/sign-up?start=fifth',
     );
     expect(within(hero).getByRole('link', { name: message('auth.submitLogin') })).toHaveAttribute(
       'href',
@@ -57,7 +57,7 @@ describe('landing screen', () => {
       within(hero)
         .getAllByRole('link')
         .map((link) => link.getAttribute('href')),
-    ).toEqual(['/', '/sign-in', DEMO_PATH, '/sign-up?start=fantasy']);
+    ).toEqual(['/', '/sign-in', DEMO_PATH, '/sign-up?start=fifth']);
   });
 
   it('Edge: the footer carries only the closing call to action and the legal line, no second photograph', async () => {
@@ -203,7 +203,7 @@ describe('landing conversion', () => {
     expect(screen.getByText(message('landing.heroLead'))).toBeVisible();
     expect(
       within(screen.getByRole('banner')).getByRole('link', { name: message('landing.create') }),
-    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    ).toHaveAttribute('href', FIFTH_SIGN_UP_PATH);
     expect(
       within(screen.getByRole('banner')).getByRole('link', { name: message('landing.tryDemo') }),
     ).toHaveAttribute('href', DEMO_PATH);
@@ -223,26 +223,26 @@ describe('landing conversion', () => {
     const sticky = screen.getByTestId('landing-sticky-cta');
     expect(within(sticky).getByRole('link', { name: message('landing.create') })).toHaveAttribute(
       'href',
-      FANTASY_SIGN_UP_PATH,
+      FIFTH_SIGN_UP_PATH,
     );
   });
 
-  it('Edge: every conversion CTA on the page carries the Fantasy start intent', async () => {
+  it('Edge: every conversion CTA on the page carries the fifth start intent', async () => {
     await visit('/');
 
     expect(
       within(screen.getByRole('banner')).getByRole('link', { name: message('landing.create') }),
-    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    ).toHaveAttribute('href', FIFTH_SIGN_UP_PATH);
     expect(
       within(screen.getByRole('contentinfo')).getByRole('link', {
         name: message('landing.create'),
       }),
-    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    ).toHaveAttribute('href', FIFTH_SIGN_UP_PATH);
     expect(
       within(screen.getByTestId('landing-sticky-cta')).getByRole('link', {
         name: message('landing.create'),
       }),
-    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    ).toHaveAttribute('href', FIFTH_SIGN_UP_PATH);
   });
 });
 

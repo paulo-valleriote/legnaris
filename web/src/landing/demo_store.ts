@@ -3,28 +3,6 @@ import { valueAtPath } from '../api/models/sheet';
 import type { TemplateDetail } from '../api/models/template';
 import { isPlainObject } from '../api/parse';
 import { setPathValue, seedFromSheet, mergeCascade } from '../engine/sheet_defaults';
-import {
-  ABILITY_KEYS,
-  abilityModifierPath,
-  abilityScorePath,
-  type AbilityKey,
-} from '../sheet/preset/fantasy/abilities_data';
-import {
-  ARMOR_ABILITIES,
-  ARMOR_CLASS_PATH,
-  BASE_ARMOR_PATH,
-} from '../sheet/preset/fantasy/armor_class';
-import {
-  skillAbility,
-  skillBonusPath,
-  skillProficiencyPath,
-  skillTotalPath,
-  SKILL_KEYS,
-  saveProficiencyPath,
-  saveTotalPath,
-  type SkillKey,
-} from '../sheet/preset/fantasy/saves_skills_data';
-import { SPELL_ATTACK_PATH, SPELL_SAVE_DC_PATH } from '../sheet/preset/fantasy/spells_data';
 import type { DiceTarget, SheetEditState, SheetEditStore } from '../sheet/sheet_edit';
 import {
   canPreview,
@@ -33,16 +11,8 @@ import {
   editableLeafPaths,
   isDicePending,
 } from '../sheet/sheet_edit';
-import { spellUsesConfigPath } from './demo_character';
 
 const EMPTY_DICE = { section: {}, row: {} };
-
-const DEFAULT_MODIFIER_BASE = 10;
-const DEFAULT_MODIFIER_STEP = 2;
-const DEFAULT_PASSIVE_BASE = 10;
-const DEFAULT_SAVE_BASE = 8;
-const DEFAULT_ATTRIBUTE = 10;
-const DEFAULT_DEFENSE = 10;
 
 function readPath(data: Record<string, unknown>, path: string): unknown {
   try {
@@ -50,11 +20,6 @@ function readPath(data: Record<string, unknown>, path: string): unknown {
   } catch {
     return undefined;
   }
-}
-
-function numberAt(data: Record<string, unknown>, path: string, fallback: number): number {
-  const value = readPath(data, path);
-  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
 function cloneTree(value: unknown): unknown {
@@ -71,70 +36,9 @@ function cloneTree(value: unknown): unknown {
   return value;
 }
 
-function modifiersFrom(data: Record<string, unknown>): Record<AbilityKey, number> {
-  const base = numberAt(data, 'rules.modifierBase', DEFAULT_MODIFIER_BASE);
-  const rawStep = numberAt(data, 'rules.modifierStep', DEFAULT_MODIFIER_STEP);
-  const step = rawStep === 0 ? DEFAULT_MODIFIER_STEP : rawStep;
-  const modifiers = {} as Record<AbilityKey, number>;
-  for (const ability of ABILITY_KEYS) {
-    const score = numberAt(data, abilityScorePath(ability), DEFAULT_ATTRIBUTE);
-    modifiers[ability] = Math.floor((score - base) / step);
-  }
-  return modifiers;
-}
-
-function skillTotal(
-  data: Record<string, unknown>,
-  skill: SkillKey,
-  modifiers: Readonly<Record<AbilityKey, number>>,
-  proficiency: number,
-): number {
-  const bonus = numberAt(data, skillBonusPath(skill), 0);
-  const proficient = Math.floor(proficiency * numberAt(data, skillProficiencyPath(skill), 0));
-  return modifiers[skillAbility(skill)] + bonus + proficient;
-}
-
 export type DemoDerivation = (data: Record<string, unknown>) => ReadonlyMap<string, number>;
 
 export const NO_DERIVATION: DemoDerivation = () => new Map();
-
-export function deriveDemoValues(data: Record<string, unknown>): Map<string, number> {
-  const derived = new Map<string, number>();
-  const modifiers = modifiersFrom(data);
-  const proficiency = numberAt(data, 'identity.proficiencyBonus', 0);
-
-  for (const ability of ABILITY_KEYS) {
-    derived.set(abilityModifierPath(ability), modifiers[ability]);
-    const proficient = Math.floor(proficiency * numberAt(data, saveProficiencyPath(ability), 0));
-    derived.set(saveTotalPath(ability), modifiers[ability] + proficient);
-  }
-
-  for (const skill of SKILL_KEYS) {
-    derived.set(skillTotalPath(skill), skillTotal(data, skill, modifiers, proficiency));
-  }
-
-  const defense = numberAt(data, BASE_ARMOR_PATH, DEFAULT_DEFENSE);
-  const dexArmor = modifiers.dexterity * numberAt(data, ARMOR_ABILITIES.dex.configPath, 0);
-  const conArmor = modifiers.constitution * numberAt(data, ARMOR_ABILITIES.con.configPath, 0);
-  derived.set(ARMOR_CLASS_PATH, defense + dexArmor + conArmor);
-
-  const passiveBase = numberAt(data, 'rules.passiveBase', DEFAULT_PASSIVE_BASE);
-  const perception = skillTotal(data, 'perception', modifiers, proficiency);
-  derived.set('derived.passiveAwareness', passiveBase + perception);
-
-  const casting = ABILITY_KEYS.reduce(
-    (sum, ability) => sum + modifiers[ability] * numberAt(data, spellUsesConfigPath(ability), 0),
-    0,
-  );
-  const attackBonus = proficiency + casting;
-  derived.set(SPELL_ATTACK_PATH, attackBonus);
-  derived.set(
-    SPELL_SAVE_DC_PATH,
-    numberAt(data, 'rules.spellSaveBase', DEFAULT_SAVE_BASE) + attackBonus,
-  );
-
-  return derived;
-}
 
 function applyDerived(data: Record<string, unknown>, derive: DemoDerivation): void {
   for (const [path, value] of derive(data)) {
@@ -154,7 +58,7 @@ function withDerived(
 export function createDemoEditStore(
   template: TemplateDetail,
   sheet: Sheet,
-  derive: DemoDerivation = deriveDemoValues,
+  derive: DemoDerivation = NO_DERIVATION,
 ): SheetEditStore {
   const editable = editableLeafPaths(template.fields);
   const seeded = withDerived(seedFromSheet(template.fields, sheet.data), derive);

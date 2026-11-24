@@ -43,8 +43,8 @@ describe('srd route (LGN-420)', () => {
     expect(screen.queryByText(/trademark/i)).not.toBeInTheDocument();
   });
 
-  it('Edge: no public page links to the srd page', async () => {
-    for (const path of ['/', '/demo', '/privacy']) {
+  it('Edge: only the demo footer links to the srd page', async () => {
+    for (const path of ['/', '/privacy']) {
       const view = await visit(path);
       await screen.findByRole('heading', { level: 1 });
       const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href') ?? '');
@@ -53,5 +53,11 @@ describe('srd route (LGN-420)', () => {
       }
       view.unmount();
     }
+
+    const demo = await visit('/demo');
+    await screen.findByRole('heading', { level: 1 });
+    const footer = screen.getByRole('contentinfo');
+    expect(footer.querySelector(`a[href="${SRD_PATH}"]`)).not.toBeNull();
+    demo.unmount();
   });
 });

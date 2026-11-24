@@ -1,7 +1,7 @@
 import { lazy, Suspense, useCallback, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApiBaseUrl } from '../app/providers';
-import { LANDING_PATH } from '../app/routes';
+import { LANDING_PATH, SRD_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
 import { BrandMark } from '../shell/brand_mark';
 import { reportCtaClick } from './funnel_beacon';
@@ -10,9 +10,9 @@ import { useStageThemeColor } from './use_stage_theme_color';
 import './landing.css';
 import './demo_page.css';
 
-const DemoSheet = lazy(() => import('./demo_sheet'));
+const FifthDemoSheet = lazy(() => import('./fifth_demo_sheet'));
 
-const FANTASY_SIGN_UP_PATH = signUpCtaPath('fantasy');
+const FIFTH_SIGN_UP_PATH = signUpCtaPath('fifth');
 
 function DemoLoading() {
   return (
@@ -48,16 +48,20 @@ export default function DemoScreen() {
       </header>
 
       <main className="lg-demo__main">
-        <section className="lg-demo__sheet" aria-label={message('landing.demoSheetLabel')}>
+        <section
+          className="lg-demo__sheet"
+          aria-label={message('landing.demoSheetLabel')}
+          data-testid="landing-demo-sheet"
+        >
           <Suspense fallback={<DemoLoading />}>
-            <DemoSheet onInteract={reportInteraction} />
+            <FifthDemoSheet onInteract={reportInteraction} />
           </Suspense>
           {interacted && (
             <div className="lg-landing__demo-cta" data-testid="landing-demo-cta">
               <p className="lg-landing__demo-cta-text">{message('landing.demoCtaText')}</p>
               <Link
                 className="lg-landing__cta lg-landing__cta--primary"
-                to={FANTASY_SIGN_UP_PATH}
+                to={FIFTH_SIGN_UP_PATH}
                 onClick={onCtaClick}
               >
                 {message('landing.demoCtaAction')}
@@ -74,12 +78,18 @@ export default function DemoScreen() {
       >
         <Link
           className="lg-landing__cta lg-landing__cta--primary"
-          to={FANTASY_SIGN_UP_PATH}
+          to={FIFTH_SIGN_UP_PATH}
           onClick={onCtaClick}
         >
           {message('landing.create')}
         </Link>
       </div>
+
+      <footer className="lg-demo__footer" aria-label={message('landing.footerLabel')}>
+        <Link className="lg-demo__footer-link" to={SRD_PATH}>
+          {message('srd.title')}
+        </Link>
+      </footer>
     </div>
   );
 }
