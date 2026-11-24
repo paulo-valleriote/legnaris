@@ -38,4 +38,5 @@ export interface SheetPreset {
   readonly layout?: readonly PresetLayoutBlock[];
   readonly narrowLayout?: readonly PresetLayoutBlock[];
   readonly sectionNav?: PresetSectionNav;
+  readonly columnsClassName?: string;
 }

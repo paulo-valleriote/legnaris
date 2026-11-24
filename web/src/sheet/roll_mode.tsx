@@ -5,9 +5,9 @@ import { message, messageWith, type MessageKey } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
 
-const MODE_ORDER: readonly RollMode[] = ['normal', 'advantage', 'disadvantage'];
+export const MODE_ORDER: readonly RollMode[] = ['normal', 'advantage', 'disadvantage'];
 
-const MODE_KEYS: Record<RollMode, MessageKey> = {
+export const MODE_KEYS: Record<RollMode, MessageKey> = {
   normal: 'dice.mode.normal',
   advantage: 'dice.mode.advantage',
   disadvantage: 'dice.mode.disadvantage',

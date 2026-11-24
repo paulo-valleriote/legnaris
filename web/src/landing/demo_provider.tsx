@@ -17,7 +17,7 @@ import { PresetProvider } from '../sheet/preset/preset_context';
 import { DEMO_SHEET, DEMO_TEMPLATE } from './demo_character';
 import { createDemoEditStore } from './demo_store';
 
-type DemoPresetValue = Omit<PresetContextValue, 'fields'>;
+type DemoPresetValue = Pick<PresetContextValue, 'store' | 'template' | 'sheet' | 'dice'>;
 
 interface DemoRuntime {
   readonly preset: DemoPresetValue;

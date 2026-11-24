@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { TemplateDetail } from '../api/models/template';
 import { parseTemplateDetail } from '../api/models/template';
 import { createApiClient } from '../api/client';
@@ -91,11 +92,18 @@ function statBlockData(): Record<string, unknown> {
   };
 }
 
+async function openStatBlockEdit(data: Record<string, unknown> = statBlockData()) {
+  const user = userEvent.setup();
+  openSheet(STAT_BLOCK_SHEET_ID, 'fifth_stat_block_v1', statBlockGolden, data, 'npc');
+  await user.click(await screen.findByRole('button', { name: message('sheet.mode.edit') }));
+  await screen.findByTestId('sheet-name');
+}
+
 afterEach(() => {
   cleanup();
 });
 
-describe('the real 5E Character DTO through the generic form', () => {
+describe('the real 5E Character DTO', () => {
   it('Happy path: the golden DTO decodes as a draft fifth-system character Template', () => {
     const template = goldenTemplate(characterGolden);
 
@@ -108,7 +116,7 @@ describe('the real 5E Character DTO through the generic form', () => {
     expect(Object.keys(template.fields)).toContain('inventory');
   });
 
-  it('Happy path: every Section, toggle, rank and Record list draws', async () => {
+  it('Happy path: the character opens in Play and draws its pieces', async () => {
     openSheet(
       CHARACTER_SHEET_ID,
       'fifth_character_v1',
@@ -116,6 +124,31 @@ describe('the real 5E Character DTO through the generic form', () => {
       characterData(),
       'character',
     );
+    await screen.findByTestId('sheet-play');
+
+    expect(screen.getByTestId('sheet-name')).toHaveTextContent('Brenna');
+    expect(screen.getByTestId('compose-hit-points')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-ability-grid')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-save-list')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-skill-list')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-conditions')).toBeInTheDocument();
+
+    expect(recordRows()).toHaveLength(0);
+    const inventoryRow = screen.getByTestId('compose-record-row');
+    expect(within(inventoryRow).getByRole('textbox', { name: 'Name' })).toHaveValue('Rope');
+    expect(within(inventoryRow).getByRole('checkbox', { name: 'Attuned' })).toBeChecked();
+  });
+
+  it('Happy path: Edit keeps the generic form with its Sections, Reset bar, flags and rank', async () => {
+    const user = userEvent.setup();
+    openSheet(
+      CHARACTER_SHEET_ID,
+      'fifth_character_v1',
+      characterGolden,
+      characterData(),
+      'character',
+    );
+    await user.click(await screen.findByRole('button', { name: message('sheet.mode.edit') }));
     await screen.findByTestId('sheet-name');
 
     for (const heading of [
@@ -140,19 +173,16 @@ describe('the real 5E Character DTO through the generic form', () => {
       expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
     }
 
+    const bar = screen.getByRole('group', { name: message('sheet.reset.group') });
+    expect(
+      within(bar)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual(['Long rest', 'Short rest']);
     expect(screen.getByRole('checkbox', { name: 'Jack of All Trades' })).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: 'Heroic Inspiration' })).toBeInTheDocument();
-
-    const rank = within(row('skills.acrobatics')).getByRole('textbox', {
-      name: 'Acrobatics rank',
-    });
-    expect(rank).toHaveAttribute('inputmode', 'decimal');
-    expect(rank).toHaveValue('0');
-
-    expect(recordRows()).toHaveLength(1);
-    const inventoryRow = recordRows()[0] as HTMLElement;
-    expect(within(inventoryRow).getByRole('textbox', { name: 'Name' })).toHaveValue('Rope');
-    expect(within(inventoryRow).getByRole('checkbox', { name: 'Attuned' })).toBeChecked();
+    expect(within(row('skills.arcana')).getByRole('textbox', { name: 'Arcana rank' })).toHaveValue(
+      '0',
+    );
   });
 
   it('Happy path: the Reset action bar draws Long rest and Short rest', async () => {
@@ -163,7 +193,7 @@ describe('the real 5E Character DTO through the generic form', () => {
       characterData(),
       'character',
     );
-    await screen.findByTestId('sheet-name');
+    await screen.findByTestId('sheet-play');
 
     const bar = screen.getByRole('group', { name: message('sheet.reset.group') });
     expect(
@@ -173,7 +203,7 @@ describe('the real 5E Character DTO through the generic form', () => {
     ).toEqual(['Long rest', 'Short rest']);
   });
 
-  it('Happy path: a d20 Row offers a Roll mode and a marked Hit Die Row offers none', async () => {
+  it('Happy path: a d20 score offers a Roll mode and the Hit Die pips offer no roll', async () => {
     openSheet(
       CHARACTER_SHEET_ID,
       'fifth_character_v1',
@@ -181,14 +211,13 @@ describe('the real 5E Character DTO through the generic form', () => {
       characterData(),
       'character',
     );
-    await screen.findByTestId('sheet-name');
+    await screen.findByTestId('sheet-play');
 
-    expect(
-      within(row('abilities.dexterity')).getByRole('button', { name: /^Roll Dexterity/ }),
-    ).toHaveAttribute('aria-haspopup', 'dialog');
-    expect(
-      within(row('hitDice.primary')).getByRole('button', { name: /^Roll Primary Hit Dice/ }),
-    ).not.toHaveAttribute('aria-haspopup', 'dialog');
+    expect(screen.getByRole('button', { name: /^Roll Dexterity modifier/ })).toHaveAttribute(
+      'aria-haspopup',
+      'dialog',
+    );
+    expect(screen.queryByRole('button', { name: /^Roll Primary Hit Dice/ })).toBeNull();
   });
 });
 
@@ -206,8 +235,7 @@ describe('the real 5E Stat Block DTO through the generic form', () => {
   });
 
   it('Happy path: every Section, toggle, rank and Record list draws', async () => {
-    openSheet(STAT_BLOCK_SHEET_ID, 'fifth_stat_block_v1', statBlockGolden, statBlockData(), 'npc');
-    await screen.findByTestId('sheet-name');
+    await openStatBlockEdit();
 
     for (const heading of [
       'Identity',
@@ -247,15 +275,13 @@ describe('the real 5E Stat Block DTO through the generic form', () => {
   });
 
   it('Edge: the stat block declares no Reset action, so no bar draws', async () => {
-    openSheet(STAT_BLOCK_SHEET_ID, 'fifth_stat_block_v1', statBlockGolden, statBlockData(), 'npc');
-    await screen.findByTestId('sheet-name');
+    await openStatBlockEdit();
 
     expect(screen.queryByRole('group', { name: message('sheet.reset.group') })).toBeNull();
   });
 
   it('Happy path: a d20 creature-Row offers a Roll mode while the Hit points Row offers none even for a d20 die', async () => {
-    openSheet(STAT_BLOCK_SHEET_ID, 'fifth_stat_block_v1', statBlockGolden, statBlockData(), 'npc');
-    await screen.findByTestId('sheet-name');
+    await openStatBlockEdit();
 
     const initiative = within(row('initiative.score')).getByRole('button', {
       name: /^Roll Initiative score/,
