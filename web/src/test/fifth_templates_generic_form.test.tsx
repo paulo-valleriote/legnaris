@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { cleanup, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { TemplateDetail } from '../api/models/template';
 import { parseTemplateDetail } from '../api/models/template';
 import { createApiClient } from '../api/client';
@@ -89,6 +90,13 @@ function statBlockData(): Record<string, unknown> {
       [RECORD_ID]: { name: 'Amorphous', text: 'It can move through a space as narrow as 1 inch.' },
     },
   };
+}
+
+async function openStatBlockEdit(data: Record<string, unknown> = statBlockData()) {
+  const user = userEvent.setup();
+  openSheet(STAT_BLOCK_SHEET_ID, 'fifth_stat_block_v1', statBlockGolden, data, 'npc');
+  await user.click(await screen.findByRole('button', { name: message('sheet.mode.edit') }));
+  await screen.findByTestId('sheet-name');
 }
 
 afterEach(() => {
@@ -206,8 +214,7 @@ describe('the real 5E Stat Block DTO through the generic form', () => {
   });
 
   it('Happy path: every Section, toggle, rank and Record list draws', async () => {
-    openSheet(STAT_BLOCK_SHEET_ID, 'fifth_stat_block_v1', statBlockGolden, statBlockData(), 'npc');
-    await screen.findByTestId('sheet-name');
+    await openStatBlockEdit();
 
     for (const heading of [
       'Identity',
@@ -247,15 +254,13 @@ describe('the real 5E Stat Block DTO through the generic form', () => {
   });
 
   it('Edge: the stat block declares no Reset action, so no bar draws', async () => {
-    openSheet(STAT_BLOCK_SHEET_ID, 'fifth_stat_block_v1', statBlockGolden, statBlockData(), 'npc');
-    await screen.findByTestId('sheet-name');
+    await openStatBlockEdit();
 
     expect(screen.queryByRole('group', { name: message('sheet.reset.group') })).toBeNull();
   });
 
   it('Happy path: a d20 creature-Row offers a Roll mode while the Hit points Row offers none even for a d20 die', async () => {
-    openSheet(STAT_BLOCK_SHEET_ID, 'fifth_stat_block_v1', statBlockGolden, statBlockData(), 'npc');
-    await screen.findByTestId('sheet-name');
+    await openStatBlockEdit();
 
     const initiative = within(row('initiative.score')).getByRole('button', {
       name: /^Roll Initiative score/,

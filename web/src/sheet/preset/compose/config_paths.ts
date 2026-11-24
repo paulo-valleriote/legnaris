@@ -69,6 +69,8 @@ function piecePaths(piece: PresetPiece): readonly string[] {
       return piece.actions;
     case 'rollMode':
       return [];
+    case 'textFields':
+      return piece.fields.map((field) => field.path);
   }
 }
 

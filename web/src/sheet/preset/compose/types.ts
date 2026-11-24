@@ -103,6 +103,16 @@ export interface PresetRollModePiece {
   readonly key: string;
 }
 
+export interface PresetTextField {
+  readonly path: string;
+}
+
+export interface PresetTextFieldsPiece {
+  readonly kind: 'textFields';
+  readonly key: string;
+  readonly fields: readonly PresetTextField[];
+}
+
 export type PresetPiece =
   | PresetStatPillsPiece
   | PresetPipsPiece
@@ -113,7 +123,8 @@ export type PresetPiece =
   | PresetConditionsPiece
   | PresetRecordTablePiece
   | PresetResetBarPiece
-  | PresetRollModePiece;
+  | PresetRollModePiece
+  | PresetTextFieldsPiece;
 
 export type PresetPieceKind = PresetPiece['kind'];
 
