@@ -42,7 +42,7 @@ func TestIntegration_FantasyV1Regression(t *testing.T) {
 
 	t.Run("Happy path: a fantasy Sheet still saves a dice expression", func(t *testing.T) {
 		rec := doAuthRequest(t, h, playerToken, http.MethodPatch, sheetPath,
-			`{"dice":{"row":{"stats.dexterity":"1d20 + @.total"}}}`)
+			`{"dice":{"row":{"stats.dexterity":"1d20 + modifiers.dexterityMod"}}}`)
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 		rec = doAuthRequest(t, h, playerToken, http.MethodGet, sheetPath, "")
@@ -51,7 +51,7 @@ func TestIntegration_FantasyV1Regression(t *testing.T) {
 		var fetched response.Success[sheet.SheetDTO]
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &fetched))
 		require.NotNil(t, fetched.Data.Dice.Row["stats.dexterity"])
-		assert.Equal(t, "1d20 + @.total", *fetched.Data.Dice.Row["stats.dexterity"])
+		assert.Equal(t, "1d20 + modifiers.dexterityMod", *fetched.Data.Dice.Row["stats.dexterity"])
 	})
 
 	rec = doAuthRequest(t, h, gmToken, http.MethodPost, "/campaigns",
@@ -97,6 +97,6 @@ func TestIntegration_FantasyV1Regression(t *testing.T) {
 		assert.Equal(t, "fantasy_v1", linked.Data.TemplateID)
 		assert.InDelta(t, 16.0, nestedNumber(t, linked.Data.Data, "stats", "dexterity"), 1e-9)
 		require.NotNil(t, linked.Data.Dice.Row["stats.dexterity"])
-		assert.Equal(t, "1d20 + @.total", *linked.Data.Dice.Row["stats.dexterity"])
+		assert.Equal(t, "1d20 + modifiers.dexterityMod", *linked.Data.Dice.Row["stats.dexterity"])
 	})
 }

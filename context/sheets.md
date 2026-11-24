@@ -324,8 +324,9 @@ system, carry `identity.name` as their Name leaf, and use the same static Sectio
 `inventory`, `features`, `spells` and `resources`.
 
 - **Identity** — `identity.name` (text, generatable); `identity.class`, `identity.subclass`,
-  `identity.species` and `identity.background` (editable text, capped at 60 like the name, not
-  generatable, character only); `identity.level` (1–20, character only) or
+  `identity.species` and `identity.background` (editable text, capped at 60 like the name,
+  character only) are generatable with generation enums, and the subclass enum carries the empty
+  option; `identity.level` (1–20, character only) or
   `identity.challengeRating` (0–30, fractional CRs entered as `0.125`, `0.25`, `0.5`) and the
   derived `identity.proficiencyBonus`. The character bonus is `2 + floor((level - 1) / 4)`; the
   stat block bonus is `2 + floor((max(CR, 1) - 1) / 4)`, so CR 0 and every fractional CR give +2.
@@ -417,6 +418,28 @@ system, carry `identity.name` as their Name leaf, and use the same static Sectio
   `record_used * (1 - record_rechargeShort)` for the short rest. Every expression reads the stored
   Sheet before the action, and spending a Hit Point Die stays a Roll where the player enters the
   HP gained and the die spent.
+
+- **Generation metadata (5E)** — both Templates declare per-kind prompt guidance: the character
+  asks for an SRD class and subclass, an original name, level 1 with 0 XP when the concept states
+  none, a Hit Point base equal to the Hit Die size and per level half the die plus one, and text
+  at most about 300 runes; the stat block asks for an SRD or original creature and takes the
+  challenge rating from the concept. The `fifth` Game system supplies the brief, the allowed
+  class, subclass, species, background and condition names, and a denylist of product and setting
+  terms (including `race`); boot rejects an unknown or unaccepted guidance kind and empty text.
+  Record lists carry `MaxRecords`: the character caps attacks at 6, inventory at 20, features and
+  feats at 15, spells at 30 and resources at 6; the stat block caps traits, actions, bonus actions,
+  reactions and legendary actions at 6 each and resources at 4. A cap is 1–capacity, and 0 means
+  no generation cap. The character's class, subclass, species and background leaves use generation
+  enums from the allowed names, `identity.level` and `status.xp` prefer their defaults, the Hit Die
+  size is generated as one of 6, 8, 10 or 12, and spell slot totals and the Pact Magic count are
+  generated with a zero minimum. Its class/subclass rule binds the class, subclass and level paths
+  with the subclass available from level 3, and requires the class enum to equal the allowed
+  classes in order and the subclass enum to equal the allowed subclasses plus the empty option.
+  The save-proficiency rule lists the six `saves.<ability>.prof` flags and requires exactly two on.
+  Hit points are generated from `combat.hp.base` (1–20) and `combat.hp.perLevel` (0–20) on the
+  character, and `hitPoints.count` (1–20) and `hitPoints.size` (4–20) on the stat block. Boot
+  rejects a bad enum value or rule shape, a class/subclass enum that drifts from the Game system,
+  and a save rule that does not ask for one to all of its distinct flagged paths.
 
 The character's Record Sections use the generic list contract below: one Record Row per
 `<list>.<id>`, a flat shape and the per-Record exclusive groups. The Template Section dice are the
@@ -1269,8 +1292,8 @@ Web:
   active while the two fifth-edition Templates stay `draft` until the LGN-386 release cutover, so
   a deployment outside development neither lists nor creates them. Until LGN-383 neither Template
   has a Play preset, so a Sheet of either keeps the generic Edit form and its footer with no
-  Play/Edit toggle; until LGN-384 generation reads only their generatable leaves, with no
-  Template-specific AI generation config. A template change requires a deploy
+  Play/Edit toggle; generation reads their declared generation metadata (see Fifth-edition
+  Templates). A template change requires a deploy
   and, if incompatible, a new ID. Only the `fifth` Game system ships, and a Template bound to one
   keeps it for the life of its slug.
 - No offline open: the IndexedDB sheet copy is written and evicted but never read as a fallback,

@@ -10,6 +10,7 @@ import (
 	"legnaris/backend/internal/engine"
 	"legnaris/backend/internal/generation"
 	generationamqp "legnaris/backend/internal/generation/amqp"
+	"legnaris/backend/internal/llm"
 	llmfactory "legnaris/backend/internal/llm/factory"
 	"legnaris/backend/internal/platform/breaker"
 	"legnaris/backend/internal/quota"
@@ -56,17 +57,13 @@ func buildGeneration(cfg env.Env) (generationRunner, func(), error) {
 	}
 
 	mdb := database.Client.Database(vars.DatabaseName)
-	worker, err := generation.NewWorker(generation.WorkerDeps{
-		Jobs:       generation.NewMongoStore(mdb),
-		Catalog:    registry,
-		Client:     client,
-		Breaker:    breaker.New(breaker.DefaultBreakerThreshold, breaker.DefaultBreakerProbeInterval, time.Now),
-		Quota:      quota.NewService(quota.NewMongoStore(mdb), nil),
-		Tx:         db.NewTransactor(database.Client, nil),
-		LLMTimeout: vars.LLMTimeout,
-		Now:        time.Now,
-		Logger:     cfg.Logger,
-	})
+	worker, err := buildGenerationWorker(cfg,
+		generation.NewMongoStore(mdb),
+		registry,
+		client,
+		quota.NewService(quota.NewMongoStore(mdb), nil),
+		db.NewTransactor(database.Client, nil),
+	)
 	if err != nil {
 		cleanup()
 		return nil, nil, err
@@ -77,6 +74,27 @@ func buildGeneration(cfg env.Env) (generationRunner, func(), error) {
 			return worker.Process(ctx, msg.ID)
 		}, cfg.Logger)
 	return consumer, cleanup, nil
+}
+
+func buildGenerationWorker(
+	cfg env.Env,
+	jobs generation.JobStore,
+	catalog generation.Catalog,
+	client llm.Client,
+	quota generation.Quota,
+	tx generation.Transactor,
+) (*generation.Worker, error) {
+	return generation.NewWorker(generation.WorkerDeps{
+		Jobs:       jobs,
+		Catalog:    catalog,
+		Client:     client,
+		Breaker:    breaker.New(breaker.DefaultBreakerThreshold, breaker.DefaultBreakerProbeInterval, time.Now),
+		Quota:      quota,
+		Tx:         tx,
+		LLMTimeout: cfg.Variables.LLMTimeout,
+		Now:        time.Now,
+		Logger:     cfg.Logger,
+	})
 }
 
 func runConcurrently(ctx context.Context, runners ...func(context.Context) error) error {
