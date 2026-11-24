@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import type { Sheet } from '../api/models/sheet';
+import type { TemplateDetail } from '../api/models/template';
 import { buildSections, rowKey } from '../engine/field_grouping';
 import { createDiceStore } from '../sheet/dice_store';
 import { DiceProvider } from '../sheet/dice_row';
@@ -15,6 +17,7 @@ import {
 import type { PresetContextValue } from '../sheet/preset/preset_context';
 import { PresetProvider } from '../sheet/preset/preset_context';
 import { DEMO_SHEET, DEMO_TEMPLATE } from './demo_character';
+import type { DemoDerivation } from './demo_store';
 import { createDemoEditStore } from './demo_store';
 
 type DemoPresetValue = Pick<PresetContextValue, 'store' | 'template' | 'sheet' | 'dice'>;
@@ -24,11 +27,15 @@ interface DemoRuntime {
   readonly dice: DiceContextValue;
 }
 
-export function createDemoRuntime(): DemoRuntime {
-  const store = createDemoEditStore(DEMO_TEMPLATE, DEMO_SHEET);
-  const sections = buildSections(DEMO_TEMPLATE.fields);
-  const schema = diceSchemaFromFields(DEMO_TEMPLATE.fields);
-  const sectionRows = diceSectionRows(DEMO_TEMPLATE.fields);
+export function createDemoRuntime(
+  template: TemplateDetail = DEMO_TEMPLATE,
+  sheet: Sheet = DEMO_SHEET,
+  derive?: DemoDerivation,
+): DemoRuntime {
+  const store = createDemoEditStore(template, sheet, derive);
+  const sections = buildSections(template.fields);
+  const schema = diceSchemaFromFields(template.fields);
+  const sectionRows = diceSectionRows(template.fields);
   const check = (target: 'row' | 'section', key: string, expression: string) =>
     target === 'row'
       ? checkExpression(expression, schema, key)
@@ -38,16 +45,16 @@ export function createDemoRuntime(): DemoRuntime {
     store: diceStore,
     schema,
     check,
-    defaults: templateDiceDefaults(DEMO_TEMPLATE.dice, DEMO_TEMPLATE.fields),
+    defaults: templateDiceDefaults(template.dice, template.fields),
     rowKeys: new Set(sections.flatMap((section) => section.rows.map(rowKey))),
     sectionRows,
-    notD20: templateDiceMarking(DEMO_TEMPLATE.dice, DEMO_TEMPLATE.fields),
+    notD20: templateDiceMarking(template.dice, template.fields),
     savedValues: () => store.getState().data,
     draftValues: () => store.getPendingDelta(),
   };
 
   return {
-    preset: { store, template: DEMO_TEMPLATE, sheet: DEMO_SHEET, dice },
+    preset: { store, template, sheet, dice },
     dice,
   };
 }
@@ -55,11 +62,17 @@ export function createDemoRuntime(): DemoRuntime {
 export function DemoProvider({
   children,
   onInteract,
+  template = DEMO_TEMPLATE,
+  sheet = DEMO_SHEET,
+  derive,
 }: {
   readonly children: ReactNode;
   readonly onInteract?: () => void;
+  readonly template?: TemplateDetail;
+  readonly sheet?: Sheet;
+  readonly derive?: DemoDerivation;
 }) {
-  const [runtime] = useState(createDemoRuntime);
+  const [runtime] = useState(() => createDemoRuntime(template, sheet, derive));
   const onInteractRef = useRef(onInteract);
 
   useEffect(() => {

@@ -94,6 +94,10 @@ function skillTotal(
   return modifiers[skillAbility(skill)] + bonus + proficient;
 }
 
+export type DemoDerivation = (data: Record<string, unknown>) => ReadonlyMap<string, number>;
+
+export const NO_DERIVATION: DemoDerivation = () => new Map();
+
 export function deriveDemoValues(data: Record<string, unknown>): Map<string, number> {
   const derived = new Map<string, number>();
   const modifiers = modifiersFrom(data);
@@ -132,21 +136,28 @@ export function deriveDemoValues(data: Record<string, unknown>): Map<string, num
   return derived;
 }
 
-function applyDerived(data: Record<string, unknown>): void {
-  for (const [path, value] of deriveDemoValues(data)) {
+function applyDerived(data: Record<string, unknown>, derive: DemoDerivation): void {
+  for (const [path, value] of derive(data)) {
     setPathValue(data, path, value);
   }
 }
 
-function withDerived(seed: Record<string, unknown>): Record<string, unknown> {
+function withDerived(
+  seed: Record<string, unknown>,
+  derive: DemoDerivation,
+): Record<string, unknown> {
   const derived = cloneTree(seed) as Record<string, unknown>;
-  applyDerived(derived);
+  applyDerived(derived, derive);
   return derived;
 }
 
-export function createDemoEditStore(template: TemplateDetail, sheet: Sheet): SheetEditStore {
+export function createDemoEditStore(
+  template: TemplateDetail,
+  sheet: Sheet,
+  derive: DemoDerivation = deriveDemoValues,
+): SheetEditStore {
   const editable = editableLeafPaths(template.fields);
-  const seeded = withDerived(seedFromSheet(template.fields, sheet.data));
+  const seeded = withDerived(seedFromSheet(template.fields, sheet.data), derive);
   const seededDice = sheet.dice ?? EMPTY_DICE;
   const saveWindow = createRollingWindow(() => Date.now(), Number.POSITIVE_INFINITY);
   const previewWindow = createRollingWindow(() => Date.now(), Number.POSITIVE_INFINITY);
@@ -210,7 +221,7 @@ export function createDemoEditStore(template: TemplateDetail, sheet: Sheet): She
       setPathValue(data, path, value);
       editedPaths.add(path);
     }
-    applyDerived(data);
+    applyDerived(data, derive);
 
     commit({
       ...state,
@@ -308,7 +319,7 @@ export function createDemoEditStore(template: TemplateDetail, sheet: Sheet): She
 
     applyReset: (cascade) => {
       const data = mergeCascade(state.data, cascade);
-      applyDerived(data);
+      applyDerived(data, derive);
       commit({
         ...state,
         data,
