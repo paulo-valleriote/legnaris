@@ -839,6 +839,11 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     await editStore.refresh();
   }, [editStore]);
 
+  const presetReset = useMemo(
+    () => ({ run: runReset, onApplied: applyReset, refresh: refreshSheet }),
+    [runReset, applyReset, refreshSheet],
+  );
+
   const resetActions = template.actions ?? [];
   const showResetActions = !playing && !arranging && resetActions.length > 0;
 
@@ -905,7 +910,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     playing && preset !== undefined && preset.statBlock?.when(sheet.kind) === true;
 
   return (
-    <PresetProvider {...presetValue}>
+    <PresetProvider {...presetValue} reset={presetReset}>
       <header className="lg-sheet__header">
         <div className="lg-sheet__heading">
           <div className="lg-sheet__heading-text">

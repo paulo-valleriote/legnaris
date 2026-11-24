@@ -5,6 +5,7 @@ import { messageWith } from '../../l10n/strings';
 import { LONG_PRESS_MS, useRowRoll } from '../dice_row';
 import { diceSummary } from '../dice_view';
 import { opensRollModeMenu, RollModeDialog, rollModeFromClick } from '../roll_mode';
+import { usePresetContext } from './preset_context';
 import './rollable_value.css';
 
 export function rollAccessibleName(label: string, resolution: Resolution): string {
@@ -36,6 +37,7 @@ export function RollableValue({
   icon,
 }: RollableValueProps) {
   const { resolution, offersMode, hasD20Term, roll } = useRowRoll(rowKey, sectionKey, label);
+  const { rollMode, consumeRollMode } = usePresetContext();
   const [choosing, setChoosing] = useState(false);
   const pressTimer = useRef<number | undefined>(undefined);
   const longPressed = useRef(false);
@@ -68,11 +70,19 @@ export function RollableValue({
     );
   }
 
+  const rollOnce = (mode: RollMode) => {
+    roll(mode);
+    consumeRollMode();
+  };
+
   const rollWith = (mode: RollMode) => {
     cancelPress();
     setChoosing(false);
-    roll(mode);
+    rollOnce(mode);
   };
+
+  const clickMode = (event: { readonly shiftKey: boolean; readonly altKey: boolean }) =>
+    event.shiftKey || event.altKey ? rollModeFromClick(event) : rollMode;
 
   const startPress = () => {
     longPressed.current = false;
@@ -109,7 +119,7 @@ export function RollableValue({
                 if (offersMode) {
                   openChoice();
                 } else {
-                  roll('normal');
+                  rollOnce(rollMode);
                 }
               }
             : undefined
@@ -122,7 +132,7 @@ export function RollableValue({
                   if (offersMode) {
                     openChoice();
                   } else {
-                    roll('normal');
+                    rollOnce(rollMode);
                   }
                 }
               }
@@ -133,7 +143,7 @@ export function RollableValue({
             longPressed.current = false;
             return;
           }
-          roll(offersMode ? rollModeFromClick(event) : 'normal');
+          rollOnce(offersMode ? clickMode(event) : 'normal');
         }}
       >
         {content}

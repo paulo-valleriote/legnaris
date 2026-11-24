@@ -724,23 +724,32 @@ The composable library (`preset/compose/`) is the generic half of that registry.
 `PresetConfig` per Template carries its `templateId`, an identity `header` binding (the name Field
 path and an optional subtitle Field path), an ordered `pieces` list, optional Reset action ids and
 the same `layout` / `narrowLayout` / `sectionNav` blocks as a `SheetPreset`; a piece carries a
-stable `key`, a `kind` (`statPills` or `pips`) and its Field-path bindings, and holds no React, no
-strings and no per-Template code. `presetFromConfig(config)` turns a config into the existing
-`SheetPreset` shape, so `PresetPlayView` draws it unchanged: the header becomes `Header`, each piece
-becomes one `sections` entry in its listed order, and the optional blocks pass through. A piece
-component reads values only through `usePresetValue` / `usePresetLabel` / `usePresetCommit`
-(`preset_context.tsx`): the identity header edits the bound name and subtitle leaves; stat pills
-draw one labelled pill per bound leaf and pass its value through `RollableValue` (a Row without
-dice stays plain text); pips draw the `count` leaf filled out of a `max` leaf path or fixed number,
-each pip a keyboard-operable toggle that commits through `usePresetCommit`. `registry.ts` keeps
-`PRESET_CONFIGS` beside the frozen `fantasyPreset` and resolves a Template id through `presetFor`;
-the fantasy preset wins its id, and a Template with no registered config still opens the generic
-form. `configPathErrors(config, template)` is pure: it collects every header, piece and Reset action
-binding and reports the paths absent from the Template's `buildSections(template.fields)` leaves,
-Record list paths and Reset action ids. `web/src/test/preset_fixtures.tsx` builds the
-Template-agnostic Template, Sheet, edit store, Dice context and `PresetProvider` wrapper every piece
-test reuses, and the piece suites name no 5E or fantasy id; the registry suite alone names
-`fantasy_v1` to prove the frozen preset still resolves.
+stable `key`, a `kind` (`statPills`, `pips`, `recordTable`, `resetBar` or `rollMode`) and its own
+bindings (`pills` paths, `count`/`max`, a Record list path plus optional `columns`, or Reset action
+ids), and holds no React, no strings and no per-Template code. `presetFromConfig(config)` turns a
+config into the existing `SheetPreset` shape, so `PresetPlayView` draws it unchanged: the header
+becomes `Header`, each piece becomes one `sections` entry in its listed order, and the optional
+blocks pass through. A piece component reads values only through `usePresetValue` /
+`usePresetLabel` / `usePresetCommit` (`preset_context.tsx`): the identity header edits the bound
+name and subtitle leaves; stat pills draw one labelled pill per bound leaf and pass its value
+through `RollableValue` (a Row without dice stays plain text); pips draw the `count` leaf filled
+out of a `max` leaf path or fixed number, each pip a keyboard-operable toggle that commits through
+`usePresetCommit`; the Record table draws the list's chosen columns as editable `SheetFieldControl`
+cells plus Add and Remove through the edit store's list operations, with a `RollableValue` on the
+Record Row when the list declares a Row default dice, the shared empty and at-capacity copy; the
+Reset bar renders `ResetActions` for its bound action ids over the provider's reset binding (the
+same run, apply and refresh callbacks as the Edit screen, so there is no new request path); the
+Roll mode bar sets a provider-held Normal / Advantage / Disadvantage choice that the next
+`RollableValue` roll consumes, then returns to Normal, and it writes nothing to the Sheet.
+`registry.ts` keeps `PRESET_CONFIGS` beside the frozen `fantasyPreset` and resolves a Template id
+through `presetFor`; the fantasy preset wins its id, and a Template with no registered config still
+opens the generic form. `configPathErrors(config, template)` is pure: it collects every header,
+piece and Reset action binding and reports the paths absent from the Template's
+`buildSections(template.fields)` leaves, Record list paths and their column names, and Reset action
+ids. `web/src/test/preset_fixtures.tsx` builds the Template-agnostic Template, Sheet, edit store,
+Dice context and `PresetProvider` wrapper every piece test reuses, and the piece suites name no 5E
+or fantasy id; the registry suite alone names `fantasy_v1` to prove the frozen preset still
+resolves.
 The `fantasy_v1` preset currently draws the hero header, the combat strip, the attack cards, the
 ability medallions, the spellcasting panel and the table-rules disclosure. A preset declares an
 ordered body layout: full-width Section blocks and column blocks, plus an optional narrow layout. The

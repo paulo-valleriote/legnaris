@@ -19,7 +19,7 @@ import {
   templateDiceMarking,
 } from '../sheet/dice_view';
 import type { PresetConfig } from '../sheet/preset/compose/types';
-import type { PresetContextValue } from '../sheet/preset/preset_context';
+import type { PresetResetBinding } from '../sheet/preset/preset_context';
 import { PresetProvider } from '../sheet/preset/preset_context';
 import type { SheetEditStore } from '../sheet/sheet_edit';
 import { createSheetEditStore } from '../sheet/sheet_edit';
@@ -133,7 +133,12 @@ export interface PresetRuntime {
   readonly sheet: Sheet;
   readonly store: SheetEditStore;
   readonly dice: DiceContextValue;
-  readonly preset: Omit<PresetContextValue, 'fields'>;
+  readonly preset: {
+    readonly store: SheetEditStore;
+    readonly template: TemplateDetail;
+    readonly sheet: Sheet;
+    readonly dice: DiceContextValue;
+  };
 }
 
 export function createPresetRuntime(
@@ -169,12 +174,13 @@ export function createPresetRuntime(
 export interface PresetRenderOptions {
   readonly template?: TemplateDetail;
   readonly sheet?: Sheet;
+  readonly reset?: PresetResetBinding;
 }
 
 export function renderPreset(ui: ReactNode, options: PresetRenderOptions = {}) {
   const runtime = createPresetRuntime(options.template, options.sheet);
   const result = render(
-    <PresetProvider {...runtime.preset}>
+    <PresetProvider {...runtime.preset} reset={options.reset}>
       <DiceProvider value={runtime.dice}>{ui}</DiceProvider>
     </PresetProvider>,
   );

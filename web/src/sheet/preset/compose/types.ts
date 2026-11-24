@@ -22,7 +22,30 @@ export interface PresetPipsPiece {
   readonly max: string | number;
 }
 
-export type PresetPiece = PresetStatPillsPiece | PresetPipsPiece;
+export interface PresetRecordTablePiece {
+  readonly kind: 'recordTable';
+  readonly key: string;
+  readonly list: string;
+  readonly columns?: readonly string[];
+}
+
+export interface PresetResetBarPiece {
+  readonly kind: 'resetBar';
+  readonly key: string;
+  readonly actions: readonly string[];
+}
+
+export interface PresetRollModePiece {
+  readonly kind: 'rollMode';
+  readonly key: string;
+}
+
+export type PresetPiece =
+  | PresetStatPillsPiece
+  | PresetPipsPiece
+  | PresetRecordTablePiece
+  | PresetResetBarPiece
+  | PresetRollModePiece;
 
 export type PresetPieceKind = PresetPiece['kind'];
 

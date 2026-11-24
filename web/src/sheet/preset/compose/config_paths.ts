@@ -10,6 +10,15 @@ function knownPaths(template: TemplateDetail): ReadonlySet<string> {
     }
     for (const list of section.lists) {
       paths.add(list.path);
+      for (const column of list.columns) {
+        if (column.kind === 'field') {
+          paths.add(`${list.path}.${column.name}`);
+        } else {
+          for (const option of column.options) {
+            paths.add(`${list.path}.${option.name}`);
+          }
+        }
+      }
     }
   }
   for (const action of template.actions ?? []) {
@@ -18,12 +27,22 @@ function knownPaths(template: TemplateDetail): ReadonlySet<string> {
   return paths;
 }
 
+function columnPaths(piece: Extract<PresetPiece, { kind: 'recordTable' }>): readonly string[] {
+  return (piece.columns ?? []).map((column) => `${piece.list}.${column}`);
+}
+
 function piecePaths(piece: PresetPiece): readonly string[] {
   switch (piece.kind) {
     case 'statPills':
       return piece.pills.map((pill) => pill.path);
     case 'pips':
       return typeof piece.max === 'string' ? [piece.count, piece.max] : [piece.count];
+    case 'recordTable':
+      return [piece.list, ...columnPaths(piece)];
+    case 'resetBar':
+      return piece.actions;
+    case 'rollMode':
+      return [];
   }
 }
 

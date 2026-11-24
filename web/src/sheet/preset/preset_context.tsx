@@ -1,12 +1,27 @@
-import { createContext, useCallback, useContext, useMemo, useSyncExternalStore } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { ReactNode } from 'react';
 import type { Sheet } from '../../api/models/sheet';
 import { valueAtPath } from '../../api/models/sheet';
-import type { FieldSchema, TemplateDetail } from '../../api/models/template';
+import type { FieldSchema, ResetAction, TemplateDetail } from '../../api/models/template';
+import type { RollMode } from '../../dice/roll';
 import type { SheetField } from '../../engine/field_grouping';
 import { buildSections, fieldDisplayName, lastSegment } from '../../engine/field_grouping';
 import type { DiceContextValue } from '../dice_row';
 import type { SheetEditStore } from '../sheet_edit';
+
+export interface PresetResetBinding {
+  readonly run: (action: ResetAction, requestId: string) => Promise<Record<string, unknown>>;
+  readonly onApplied: (action: ResetAction, cascade: Record<string, unknown>) => void;
+  readonly refresh: () => Promise<void>;
+  readonly requestId?: () => string;
+}
 
 export interface PresetContextValue {
   readonly store: SheetEditStore;
@@ -14,15 +29,30 @@ export interface PresetContextValue {
   readonly sheet: Sheet;
   readonly dice: DiceContextValue;
   readonly fields: ReadonlyMap<string, SheetField>;
+  readonly reset: PresetResetBinding | undefined;
+  readonly rollMode: RollMode;
+  readonly setRollMode: (mode: RollMode) => void;
+  readonly consumeRollMode: () => void;
 }
 
 const PresetContext = createContext<PresetContextValue | null>(null);
 
-interface PresetProviderProps extends Omit<PresetContextValue, 'fields'> {
+interface PresetProviderProps extends Omit<
+  PresetContextValue,
+  'fields' | 'reset' | 'rollMode' | 'setRollMode' | 'consumeRollMode'
+> {
+  readonly reset?: PresetResetBinding;
   readonly children: ReactNode;
 }
 
-export function PresetProvider({ store, template, sheet, dice, children }: PresetProviderProps) {
+export function PresetProvider({
+  store,
+  template,
+  sheet,
+  dice,
+  reset,
+  children,
+}: PresetProviderProps) {
   const fields = useMemo(
     () =>
       new Map(
@@ -32,9 +62,11 @@ export function PresetProvider({ store, template, sheet, dice, children }: Prese
       ),
     [template],
   );
+  const [rollMode, setRollMode] = useState<RollMode>('normal');
+  const consumeRollMode = useCallback(() => setRollMode('normal'), []);
   const value = useMemo(
-    () => ({ store, template, sheet, dice, fields }),
-    [store, template, sheet, dice, fields],
+    () => ({ store, template, sheet, dice, fields, reset, rollMode, setRollMode, consumeRollMode }),
+    [store, template, sheet, dice, fields, reset, rollMode, consumeRollMode],
   );
   return <PresetContext.Provider value={value}>{children}</PresetContext.Provider>;
 }
