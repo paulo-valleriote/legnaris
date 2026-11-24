@@ -18,14 +18,11 @@ func TestIntegration_Sheets_Layout(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	ctx := context.Background()
 
-	token, _ := newAuthUser(t, h, mdb, "layout-owner@example.com", "layout-owner")
+	token, userID := newAuthUser(t, h, mdb, "layout-owner@example.com", "layout-owner")
 	otherToken, _ := newAuthUser(t, h, mdb, "layout-other@example.com", "layout-other")
 
-	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Layout"}`)
-	require.Equal(t, http.StatusCreated, createRec.Code, createRec.Body.String())
-	var created response.Success[sheet.SheetDTO]
-	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	sheetID := created.Data.ID
+	created := createFantasySheet(t, h, mdb, token, userID, "character", "Layout")
+	sheetID := created.ID
 	path := "/sheets/" + sheetID + "/layout"
 
 	fetch := func(t *testing.T) response.Success[sheet.SheetDTO] {

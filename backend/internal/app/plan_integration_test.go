@@ -17,7 +17,7 @@ func TestIntegration_SheetLimits(t *testing.T) {
 	token, _ := newAuthUser(t, h, mdb, "limits@example.com", "limits-user")
 
 	t.Run("Happy path: the first character on Free is created with its kind", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Hero"}`)
+		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fifth_character_v1","kind":"character","sheet_name":"Hero"}`)
 		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 
 		var created response.Success[sheet.SheetDTO]
@@ -26,7 +26,7 @@ func TestIntegration_SheetLimits(t *testing.T) {
 	})
 
 	t.Run("Error: a second character on Free is a 409 naming the kind and limit", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Second"}`)
+		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fifth_character_v1","kind":"character","sheet_name":"Second"}`)
 		require.Equal(t, http.StatusConflict, rec.Code, rec.Body.String())
 
 		var body struct {
@@ -41,13 +41,13 @@ func TestIntegration_SheetLimits(t *testing.T) {
 	})
 
 	t.Run("Error: a creation without a kind is a 400 INVALID_REQUEST", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","sheet_name":"NoKind"}`)
+		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fifth_character_v1","sheet_name":"NoKind"}`)
 		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	})
 
-	t.Run("Happy path: fantasy_v1 creates NPC and Enemy Sheets with their kind", func(t *testing.T) {
+	t.Run("Happy path: fifth_stat_block_v1 creates NPC and Enemy Sheets with their kind", func(t *testing.T) {
 		for _, kind := range []string{"npc", "enemy"} {
-			rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"`+kind+`","sheet_name":"Goblin"}`)
+			rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fifth_stat_block_v1","kind":"`+kind+`","sheet_name":"Goblin"}`)
 			require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
 
 			var created response.Success[sheet.SheetDTO]
@@ -57,7 +57,7 @@ func TestIntegration_SheetLimits(t *testing.T) {
 	})
 
 	t.Run("Error: an unknown kind is a 400 INVALID_REQUEST", func(t *testing.T) {
-		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"dragon","sheet_name":"Goblin"}`)
+		rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fifth_stat_block_v1","kind":"dragon","sheet_name":"Goblin"}`)
 		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	})
 

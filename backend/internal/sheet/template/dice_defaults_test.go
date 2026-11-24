@@ -375,7 +375,7 @@ func TestDefaultTemplates_AllBootWithDice(t *testing.T) {
 
 	registry, err := BuildRegistry(engine.NewFormulaEngine(), WithDraftsAllowed(true))
 	require.NoError(t, err)
-	assert.Len(t, registry.List(), len(DefaultTemplates()))
+	assert.Len(t, registry.List(), 2)
 }
 
 func TestRegistry_FantasyV1ExposesDiceInDTO(t *testing.T) {

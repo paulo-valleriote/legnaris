@@ -36,6 +36,7 @@ func lifecycleTemplateService(t *testing.T, state template.State) *templatemocks
 		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: limitTemplateID}).
 		Return(lifecycleTemplate(state), nil).
 		Maybe()
+	svc.EXPECT().List(mock.Anything).Return([]template.Template{}, nil).Maybe()
 	return svc
 }
 

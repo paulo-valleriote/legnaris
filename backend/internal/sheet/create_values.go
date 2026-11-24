@@ -32,10 +32,15 @@ type creationBase struct {
 
 type templateGate func(tmpl *template.Template, draftsAllowed bool) bool
 
-func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind plan.SheetKind, templateID, campaignID string, allowed templateGate) (creationBase, error) {
+func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind plan.SheetKind, templateID, campaignID string, allowed templateGate, startFallback bool) (creationBase, error) {
 	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: templateID})
 	if err != nil {
 		return creationBase{}, translateTemplateErr(err)
+	}
+	if startFallback && campaignID == "" && tmpl.State == template.StateRetired {
+		if fallback := s.catalogDefault(ctx, kind); fallback != nil {
+			tmpl = fallback
+		}
 	}
 	if err := s.checkTemplateState(ctx, ownerID, tmpl, campaignID, allowed); err != nil {
 		return creationBase{}, err
@@ -44,7 +49,7 @@ func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind 
 		return creationBase{}, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateKindRefused, nil)
 	}
 
-	dag, exists := s.provider.DAG(templateID)
+	dag, exists := s.provider.DAG(tmpl.ID)
 	if !exists {
 		return creationBase{}, apperr.NewError(apperr.CodeNotFound, "template not found", nil)
 	}
@@ -57,6 +62,19 @@ func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind 
 		return creationBase{}, apperr.NewError(apperr.CodeInternal, "failed to resolve plan", err)
 	}
 	return creationBase{kind: kind, tmpl: tmpl, dag: dag, limit: current.SheetLimit(kind)}, nil
+}
+
+func (s *ServiceImpl) catalogDefault(ctx context.Context, kind plan.SheetKind) *template.Template {
+	listed, err := s.templateService.List(ctx)
+	if err != nil {
+		return nil
+	}
+	for i := range listed {
+		if listed[i].Default && listed[i].AcceptsKind(kind) {
+			return &listed[i]
+		}
+	}
+	return nil
 }
 
 func (s *ServiceImpl) checkTemplateState(ctx context.Context, ownerID string, tmpl *template.Template, campaignID string, allowed templateGate) error {
@@ -117,7 +135,7 @@ func (s *ServiceImpl) CreateWithValues(ctx context.Context, cmd CreateWithValues
 		return nil, err
 	}
 
-	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID, "", (*template.Template).Available)
+	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID, "", (*template.Template).Available, false)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +156,7 @@ func (s *ServiceImpl) CreateWithValues(ctx context.Context, cmd CreateWithValues
 	now := time.Now()
 	newSheet := Sheet{
 		ID:         sheetID,
-		TemplateID: cmd.TemplateID,
+		TemplateID: base.tmpl.ID,
 		OwnerID:    cmd.OwnerID,
 		Kind:       kind,
 		Name:       cmd.SheetName,
@@ -162,7 +180,7 @@ func (s *ServiceImpl) CreateWithValues(ctx context.Context, cmd CreateWithValues
 	if err != nil {
 		return nil, translateCreateErr(err, kind, base.limit)
 	}
-	s.publishSheetEvent(eventSheetCreated, cmd.OwnerID, sheetID, newSheet.Version, map[string]any{detailTemplateIDKey: cmd.TemplateID})
+	s.publishSheetEvent(eventSheetCreated, cmd.OwnerID, sheetID, newSheet.Version, map[string]any{detailTemplateIDKey: base.tmpl.ID})
 	return &newSheet, nil
 }
 

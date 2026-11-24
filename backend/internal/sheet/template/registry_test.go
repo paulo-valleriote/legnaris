@@ -64,7 +64,13 @@ func TestRegistry_ListReturnsDeepCopies(t *testing.T) {
 		tamperTemplate(&list[i])
 	}
 
-	assert.Equal(t, DefaultTemplates(), registry.List(),
+	expected := make([]Template, 0, len(DefaultTemplates()))
+	for _, tmpl := range DefaultTemplates() {
+		if tmpl.State.Listed(true) {
+			expected = append(expected, tmpl)
+		}
+	}
+	assert.Equal(t, expected, registry.List(),
 		"mutating templates returned by List changed the registry")
 }
 
@@ -91,6 +97,7 @@ func TestRegistry_IsIsolatedFromDefaultTemplatesCatalog(t *testing.T) {
 	entry := &templates[0]
 	dex := entry.Fields["stats"].Children["dexterity"].Schema
 	require.NotNil(t, dex)
+	require.Equal(t, "fantasy_v1", entry.ID)
 
 	savedName, savedDefault := entry.Name, entry.Default
 	savedType, savedEditable := dex.Type, dex.IsEditable
@@ -115,7 +122,8 @@ func TestRegistry_IsIsolatedFromDefaultTemplatesCatalog(t *testing.T) {
 
 	listed := registry.List()
 	require.NotEmpty(t, listed)
-	assert.Equal(t, savedName, listed[0].Name)
+	assert.Equal(t, fifthCharacterID, listed[0].ID)
+	assert.NotContains(t, catalogIDs(listed), entry.ID)
 	assert.NotContains(t, listed[0].Fields, "tampered")
 }
 
