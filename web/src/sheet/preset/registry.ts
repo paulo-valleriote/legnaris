@@ -1,9 +1,18 @@
 import type { TemplateDetail } from '../../api/models/template';
+import { presetFromConfig } from './compose/adapter';
+import type { PresetConfig } from './compose/types';
 import { fantasyPreset } from './fantasy';
 import type { SheetPreset } from './types';
 
-const PRESETS: readonly SheetPreset[] = [fantasyPreset];
+export const PRESET_CONFIGS: readonly PresetConfig[] = [];
 
-export function presetFor(template: TemplateDetail): SheetPreset | undefined {
-  return PRESETS.find((preset) => preset.templateId === template.id);
+export function presetFor(
+  template: TemplateDetail,
+  configs: readonly PresetConfig[] = PRESET_CONFIGS,
+): SheetPreset | undefined {
+  if (template.id === fantasyPreset.templateId) {
+    return fantasyPreset;
+  }
+  const config = configs.find((entry) => entry.templateId === template.id);
+  return config === undefined ? undefined : presetFromConfig(config);
 }

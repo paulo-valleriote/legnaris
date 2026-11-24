@@ -1,0 +1,44 @@
+import type { ComponentType } from 'react';
+import type { PresetHeaderProps, SheetPreset } from '../types';
+import { IdentityHeader } from './identity_header';
+import { Pips } from './pips';
+import { StatPills } from './stat_pills';
+import type { PresetConfig, PresetPiece, PresetPipsPiece, PresetStatPillsPiece } from './types';
+
+function headerComponent(config: PresetConfig): ComponentType<PresetHeaderProps> {
+  return function ConfigHeader({ level }: PresetHeaderProps) {
+    return <IdentityHeader header={config.header} level={level} />;
+  };
+}
+
+function statPillsComponent(piece: PresetStatPillsPiece): ComponentType {
+  return function StatPillsSection() {
+    return <StatPills piece={piece} />;
+  };
+}
+
+function pipsComponent(piece: PresetPipsPiece): ComponentType {
+  return function PipsSection() {
+    return <Pips piece={piece} />;
+  };
+}
+
+function pieceComponent(piece: PresetPiece): ComponentType {
+  switch (piece.kind) {
+    case 'statPills':
+      return statPillsComponent(piece);
+    case 'pips':
+      return pipsComponent(piece);
+  }
+}
+
+export function presetFromConfig(config: PresetConfig): SheetPreset {
+  return {
+    templateId: config.templateId,
+    Header: headerComponent(config),
+    sections: config.pieces.map((piece) => ({ key: piece.key, Component: pieceComponent(piece) })),
+    ...(config.layout === undefined ? {} : { layout: config.layout }),
+    ...(config.narrowLayout === undefined ? {} : { narrowLayout: config.narrowLayout }),
+    ...(config.sectionNav === undefined ? {} : { sectionNav: config.sectionNav }),
+  };
+}
