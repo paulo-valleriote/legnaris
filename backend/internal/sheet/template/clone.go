@@ -12,6 +12,7 @@ func cloneTemplate(tmpl Template) Template {
 	tmpl.RowDice = maps.Clone(tmpl.RowDice)
 	tmpl.NotD20Sections = slices.Clone(tmpl.NotD20Sections)
 	tmpl.NotD20Rows = slices.Clone(tmpl.NotD20Rows)
+	tmpl.PromptGuidanceByKind = maps.Clone(tmpl.PromptGuidanceByKind)
 	tmpl.Actions = cloneResetActions(tmpl.Actions)
 	return tmpl
 }
