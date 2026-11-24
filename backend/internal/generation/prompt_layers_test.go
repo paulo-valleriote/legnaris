@@ -28,36 +28,40 @@ func defaultTemplateFixture(t *testing.T, id string) *template.Template {
 
 func TestSystemPrompt_LayersPerTemplate(t *testing.T) {
 	tests := []struct {
-		name         string
-		templateID   string
-		kind         plan.SheetKind
-		subject      string
-		wantBrief    bool
-		wantGuidance bool
+		name              string
+		templateID        string
+		kind              plan.SheetKind
+		subject           string
+		wantBrief         bool
+		wantFantasyRules  bool
+		wantFifthGuidance bool
 	}{
 		{
-			name:         "Happy path: fantasy_v1 has guidance but no game system brief",
-			templateID:   fantasyV1ID,
-			kind:         plan.KindCharacter,
-			subject:      "a tabletop RPG player character sheet",
-			wantBrief:    false,
-			wantGuidance: true,
+			name:              "Happy path: fantasy_v1 has guidance but no game system brief",
+			templateID:        fantasyV1ID,
+			kind:              plan.KindCharacter,
+			subject:           "a tabletop RPG player character sheet",
+			wantBrief:         false,
+			wantFantasyRules:  true,
+			wantFifthGuidance: false,
 		},
 		{
-			name:         "Happy path: the fifth-edition character carries its game system brief",
-			templateID:   "fifth_character_v1",
-			kind:         plan.KindCharacter,
-			subject:      "a tabletop RPG player character sheet",
-			wantBrief:    true,
-			wantGuidance: false,
+			name:              "Happy path: the fifth-edition character carries its game system brief and per-kind guidance",
+			templateID:        "fifth_character_v1",
+			kind:              plan.KindCharacter,
+			subject:           "a tabletop RPG player character sheet",
+			wantBrief:         true,
+			wantFantasyRules:  false,
+			wantFifthGuidance: true,
 		},
 		{
-			name:         "Happy path: the fifth-edition stat block carries its game system brief",
-			templateID:   "fifth_stat_block_v1",
-			kind:         plan.KindEnemy,
-			subject:      "an enemy sheet that the game master controls",
-			wantBrief:    true,
-			wantGuidance: false,
+			name:              "Happy path: the fifth-edition stat block carries its game system brief and per-kind guidance",
+			templateID:        "fifth_stat_block_v1",
+			kind:              plan.KindEnemy,
+			subject:           "an enemy sheet that the game master controls",
+			wantBrief:         true,
+			wantFantasyRules:  false,
+			wantFifthGuidance: true,
 		},
 	}
 
@@ -78,10 +82,16 @@ func TestSystemPrompt_LayersPerTemplate(t *testing.T) {
 				assert.NotContains(t, prompt, "game system is")
 			}
 
-			if tc.wantGuidance {
+			if tc.wantFantasyRules {
 				assert.Contains(t, prompt, "experience points and proficiency bonus consistent with it.")
 			} else {
 				assert.NotContains(t, prompt, "experience points and proficiency bonus")
+			}
+
+			if tc.wantFifthGuidance {
+				assert.Contains(t, prompt, "closest SRD option")
+			} else {
+				assert.NotContains(t, prompt, "closest SRD option")
 			}
 		})
 	}

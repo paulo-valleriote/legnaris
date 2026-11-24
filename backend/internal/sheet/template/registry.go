@@ -77,6 +77,10 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template, opts ...Regi
 			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
 		}
 
+		if err := ValidatePromptGuidance(stored); err != nil {
+			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
+		}
+
 		registry.templates[stored.ID] = stored
 		registry.dags[stored.ID] = dag
 		registry.order = append(registry.order, stored.ID)

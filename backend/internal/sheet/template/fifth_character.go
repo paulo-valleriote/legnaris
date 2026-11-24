@@ -16,13 +16,24 @@ const (
 	fifthSubclassMinLevel = 3
 )
 
+var fifthCharacterPromptGuidance = map[plan.SheetKind]string{
+	plan.KindCharacter: `The subject is a player character with one class and its SRD subclass.
+Choose the class, subclass, species and background from the SRD when the concept fits them.
+An out-of-SRD concept uses the closest SRD option instead.
+A multiclass concept becomes its dominant class.
+Name the character with an original name.
+A character with no stated level is level 1 with 0 experience points.
+Write feature text as a short paraphrase of at most about 300 runes.`,
+}
+
 var fifthCharacterTemplate = Template{
-	ID:           fifthCharacterID,
-	Name:         "5E Character",
-	State:        StateDraft,
-	Kinds:        []plan.SheetKind{plan.KindCharacter},
-	GameSystemID: GameSystemFifth,
-	NameLeaf:     fifthNameLeaf,
+	ID:                   fifthCharacterID,
+	Name:                 "5E Character",
+	State:                StateDraft,
+	Kinds:                []plan.SheetKind{plan.KindCharacter},
+	GameSystemID:         GameSystemFifth,
+	PromptGuidanceByKind: fifthCharacterPromptGuidance,
+	NameLeaf:             fifthNameLeaf,
 	Fields: FieldGroup{
 		fifthIdentitySection:     {Children: fifthCharacterIdentityGroup(), Order: fifthCharacterIdentityOrder},
 		fifthAbilitiesSection:    {Children: fifthAbilitiesGroup(), Order: fifthAbilitiesOrder()},

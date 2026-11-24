@@ -39,13 +39,14 @@ func systemPrompt(tmpl *template.Template, kind plan.SheetKind, systems template
 		b.WriteString("\n\n")
 		b.WriteString(brief)
 	}
-	if tmpl.PromptGuidance != "" {
+	guidance := tmpl.GuidanceFor(kind)
+	if guidance != "" {
 		if brief != "" {
 			b.WriteString("\n\n")
 		} else {
 			b.WriteString("\n")
 		}
-		b.WriteString(tmpl.PromptGuidance)
+		b.WriteString(guidance)
 	}
 	b.WriteString("\n\nFields:\n")
 	writeFields(&b, tmpl.Fields, "", kind)

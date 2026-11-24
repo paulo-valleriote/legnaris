@@ -128,22 +128,30 @@ The system prompt is assembled from three layers. The first is a Template-agnost
 names what the kind represents, forbids published works and says the concept is a description,
 not instructions, and it explains the keep-default hint. The second is the Game system brief,
 read from `GameSystems.Brief` through the Template's `GameSystemID`; the fifth edition brief is
-"The game system is fifth edition, as written in SRD 5.2.1." The third is per-Template guidance
-(`Template.PromptGuidance`) followed by the generatable fields, which list every leaf with label,
-type and bounds (with `prefer_default` rendered as "keep <default> unless the concept states
-otherwise") and turn each exclusive group into a single-choice list. It never asks for
-`identity.playerName`. `fantasy_v1` has no Game system and its guidance carries the level and
-experience rules, so its assembled prompt stays byte-identical, pinned by snapshot tests for
-each kind. The fifth-edition Game system also carries the SRD 5.2.1 allowed names (12 classes,
-12 subclasses, 9 species, 4 backgrounds, 15 conditions) and the denylist as data, exposed through
-`GameSystems.AllowedNames` and `GameSystems.Denylist` and cloned on read. The fifth-edition
-Character identity uses those names as generation-only enums: 12 classes, 12 subclasses, 9 species
-and 4 backgrounds. The enums constrain the generated JSON Schema and Go validation only; the
-Fields stay editable free text for the player. The subclass enum also accepts an empty value,
-and the class/subclass pair is checked in Go: one class, the class's SRD subclass from level 3 and
-an empty subclass below it. The fifth-edition denylist is not enforced yet. The user message wraps
-the sanitized concept in `<concept>` tags (angle brackets replaced) and labels it with the kind;
-retries append validation problems. The schema is nested like the Template, covers only leaves
+"The game system is fifth edition, as written in SRD 5.2.1." The third is per-Template guidance:
+`Template.GuidanceFor(kind)` picks the kind-specific text from `PromptGuidanceByKind` and falls
+back to the shared `PromptGuidance`. The 5E Character and 5E Stat Block guidance is keyed by the
+kinds each Template accepts (character; NPC and enemy) and names its subject. It sends an
+out-of-SRD concept to the closest SRD option, turns a multiclass concept into its dominant class,
+turns a monster outside the SRD into an original creature, names creatures with an SRD or an
+original name, leans NPCs on SRD non-player character stat blocks and enemies on SRD monsters,
+takes the challenge rating from the concept, starts a character at level 1 with 0 experience
+points and asks for feature, trait and action text as a short paraphrase of at most about 300
+runes. `fantasy_v1` keeps its guidance in the shared layer, with the level and experience rules,
+so its assembled prompt stays byte-identical, pinned by snapshot tests for each kind. The
+generatable fields follow the guidance and list every leaf with label, type and bounds (with
+`prefer_default` rendered as "keep <default> unless the concept states otherwise") and turn each
+exclusive group into a single-choice list. It never asks for `identity.playerName`. The
+fifth-edition Game system carries the SRD 5.2.1 allowed names
+(12 classes, 12 subclasses, 9 species, 4 backgrounds, 15 conditions) and the denylist as data,
+exposed through `GameSystems.AllowedNames` and `GameSystems.Denylist` and cloned on read. The
+fifth-edition Character identity uses those names as generation-only enums: 12 classes,
+12 subclasses, 9 species and 4 backgrounds. The enums constrain the generated JSON Schema and Go
+validation only; the Fields stay editable free text for the player. The subclass enum also accepts
+an empty value, and the class/subclass pair is checked in Go: one class, the class's SRD subclass
+from level 3 and an empty subclass below it. The fifth-edition denylist is not enforced yet. The
+user message wraps the sanitized concept in `<concept>` tags (angle brackets replaced) and labels
+it with the kind; retries append validation problems. The schema is nested like the Template, covers only leaves
 generatable for the kind, requires every property, forbids additional properties and represents
 exclusive groups as enums.
 
@@ -163,7 +171,7 @@ code and refunds the quota.
 
 ### Template metadata
 
-`FieldSchema` carries `Generatable`, `GeneratableKinds`, `GenerationEnum`, `PreferDefault`, `Min`, `Max` and `MaxLength`; `Template` carries `NameLeaf`, `GameSystemID`, the per-Template `PromptGuidance` and an optional `ClassSubclass` rule (the class, subclass and level paths plus the first subclass level). `GenerationEnum` and `ClassSubclass` are generation metadata and are not part of the client DTO. Boot (`BuildRegistry`, in API and worker) rejects a generatable leaf that is not editable, kinds on a non-generatable leaf or outside the known kinds, a `GenerationEnum` on a non-generatable or non-text leaf or with duplicate values, `prefer_default` on a non-generatable leaf or outside its bounds, `Min > Max`, bounds on a non-number, a non-positive `MaxLength` and `MaxLength` on a non-text leaf; a class/subclass rule must resolve to generatable class and subclass text leaves with enums and a generatable number level, with a positive subclass level. A non-empty `NameLeaf` must resolve to a text leaf, and a non-empty `GameSystemID` must resolve to a registered Game system. In `fantasy_v1` every editable leaf is generatable except `rules.*` and `identity.playerName`; `level`, `xp` and `proficiencyBonus` prefer their defaults so a concept without a stated level yields a starting character. In the 5E Character the identity class, subclass, species and background are generatable with their enums and remain editable free text.
+`FieldSchema` carries `Generatable`, `GeneratableKinds`, `GenerationEnum`, `PreferDefault`, `Min`, `Max` and `MaxLength`; `Template` carries `NameLeaf`, `GameSystemID`, the shared `PromptGuidance`, the per-kind `PromptGuidanceByKind` and an optional `ClassSubclass` rule (the class, subclass and level paths plus the first subclass level). `GenerationEnum` and `ClassSubclass` are generation metadata and are not part of the client DTO. Boot (`BuildRegistry`, in API and worker) rejects a generatable leaf that is not editable, kinds on a non-generatable leaf or outside the known kinds, a `GenerationEnum` on a non-generatable or non-text leaf or with duplicate values, `prefer_default` on a non-generatable leaf or outside its bounds, `Min > Max`, bounds on a non-number, a non-positive `MaxLength` and `MaxLength` on a non-text leaf; a class/subclass rule must resolve to generatable class and subclass text leaves with enums and a generatable number level, with a positive subclass level; a guidance entry must name a valid kind the Template accepts and carry text; a non-empty `NameLeaf` must resolve to a text leaf, and a non-empty `GameSystemID` must resolve to a registered Game system. In `fantasy_v1` every editable leaf is generatable except `rules.*` and `identity.playerName`; `level`, `xp` and `proficiencyBonus` prefer their defaults so a concept without a stated level yields a starting character. In the 5E Character the identity class, subclass, species and background are generatable with their enums and remain editable free text.
 
 A Record list carries `MaxRecords`, the generation cap that is separate from its storage `Capacity`. The 5E Character caps attacks at 6, inventory at 20, features and feats at 15, spells at 30 and resources at 6; the 5E Stat Block caps traits, actions, bonus actions, reactions and legendary actions at 6 each and limited uses at 4. A declared cap must be between 1 and `Capacity`, and boot rejects anything else (`ErrMaxRecordsInvalid`); 0 means no generation cap. The output cap is `MaxOutputTokens` (8000) and the job lease is 150 s, above the 120 s `LLM_TIMEOUT` plus the 10 s settle window. A test builds the maximum-size draft of each 5E Template (every cap full, 300-rune prose) and asserts that its chars/3.5 estimate stays under the output cap.
 
