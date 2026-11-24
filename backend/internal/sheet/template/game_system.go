@@ -3,13 +3,24 @@ package template
 import (
 	"fmt"
 	"regexp"
+	"slices"
 )
 
 const GameSystemFifth = "fifth"
 
+const fifthEditionBrief = "The game system is fifth edition, as written in SRD 5.2.1."
+
 type GameSystemNotice struct {
 	Label string
 	Path  string
+}
+
+type GameSystemNames struct {
+	Classes     []string
+	Subclasses  []string
+	Species     []string
+	Backgrounds []string
+	Conditions  []string
 }
 
 type GameSystem struct {
@@ -17,6 +28,9 @@ type GameSystem struct {
 	Name               string
 	CompatibilityLabel string
 	Notice             GameSystemNotice
+	Brief              string
+	AllowedNames       GameSystemNames
+	Denylist           []string
 }
 
 type GameSystems struct {
@@ -25,12 +39,54 @@ type GameSystems struct {
 
 var gameSystemIDPattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
+var fifthEditionNames = GameSystemNames{
+	Classes: []string{
+		"Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk",
+		"Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard",
+	},
+	Subclasses: []string{
+		"Path of the Berserker", "College of Lore", "Life Domain", "Circle of the Land",
+		"Champion", "Warrior of the Open Hand", "Oath of Devotion", "Hunter", "Thief",
+		"Draconic Sorcery", "Fiend Patron", "Evoker",
+	},
+	Species: []string{
+		"Dragonborn", "Dwarf", "Elf", "Gnome", "Goliath", "Halfling", "Human", "Orc", "Tiefling",
+	},
+	Backgrounds: []string{"Acolyte", "Criminal", "Sage", "Soldier"},
+	Conditions: []string{
+		"Blinded", "Charmed", "Deafened", "Exhaustion", "Frightened", "Grappled",
+		"Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone",
+		"Restrained", "Stunned", "Unconscious",
+	},
+}
+
+var fifthEditionDenylist = []string{
+	"Dungeons & Dragons",
+	"D&D",
+	"D&D Beyond",
+	"Wizards of the Coast",
+	"Player's Handbook",
+	"official",
+	"licensed by",
+	"powered by",
+	"Forgotten Realms",
+	"Strahd",
+	"Orcus",
+	"Tiamat",
+	"beholder",
+	"mind flayer",
+	"race",
+}
+
 var defaultGameSystemList = []GameSystem{
 	{
 		ID:                 GameSystemFifth,
 		Name:               "5E",
 		CompatibilityLabel: "5E compatible",
 		Notice:             GameSystemNotice{Label: "SRD 5.2.1", Path: "/srd"},
+		Brief:              fifthEditionBrief,
+		AllowedNames:       fifthEditionNames,
+		Denylist:           fifthEditionDenylist,
 	},
 }
 
@@ -52,7 +108,7 @@ func BuildGameSystems(systems []GameSystem) (GameSystems, error) {
 		if _, exists := registry.systems[system.ID]; exists {
 			return GameSystems{}, fmt.Errorf("%w: %q", ErrGameSystemDuplicateID, system.ID)
 		}
-		registry.systems[system.ID] = system
+		registry.systems[system.ID] = system.clone()
 	}
 
 	return registry, nil
@@ -60,7 +116,49 @@ func BuildGameSystems(systems []GameSystem) (GameSystems, error) {
 
 func (g GameSystems) Fetch(id string) (GameSystem, bool) {
 	system, ok := g.systems[id]
-	return system, ok
+	if !ok {
+		return GameSystem{}, false
+	}
+	return system.clone(), true
+}
+
+func (g GameSystems) Brief(id string) (string, bool) {
+	system, ok := g.systems[id]
+	if !ok {
+		return "", false
+	}
+	return system.Brief, true
+}
+
+func (g GameSystems) AllowedNames(id string) (GameSystemNames, bool) {
+	system, ok := g.systems[id]
+	if !ok {
+		return GameSystemNames{}, false
+	}
+	return system.AllowedNames.clone(), true
+}
+
+func (g GameSystems) Denylist(id string) ([]string, bool) {
+	system, ok := g.systems[id]
+	if !ok {
+		return nil, false
+	}
+	return slices.Clone(system.Denylist), true
+}
+
+func (s GameSystem) clone() GameSystem {
+	s.AllowedNames = s.AllowedNames.clone()
+	s.Denylist = slices.Clone(s.Denylist)
+	return s
+}
+
+func (n GameSystemNames) clone() GameSystemNames {
+	n.Classes = slices.Clone(n.Classes)
+	n.Subclasses = slices.Clone(n.Subclasses)
+	n.Species = slices.Clone(n.Species)
+	n.Backgrounds = slices.Clone(n.Backgrounds)
+	n.Conditions = slices.Clone(n.Conditions)
+	return n
 }
 
 func validateGameSystem(system GameSystem) error {
