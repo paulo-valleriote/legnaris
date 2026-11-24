@@ -724,8 +724,8 @@ The composable library (`preset/compose/`) is the generic half of that registry.
 `PresetConfig` per Template carries its `templateId`, an identity `header` binding (the name Field
 path and an optional subtitle Field path), an ordered `pieces` list, optional Reset action ids and
 the same `layout` / `narrowLayout` / `sectionNav` blocks as a `SheetPreset`; a piece carries a
-stable `key`, a `kind` (`statPills`, `pips`, `abilityGrid`, `saveList`, `skillList`, `hitPoints` or
-`conditions`) and its Field-path bindings, and holds no React, no
+stable `key`, a `kind` (`statPills`, `pips`, `abilityGrid`, `saveList`, `skillList`, `hitPoints`,
+`conditions`, `recordTable`, `resetBar` or `rollMode`) and its Field-path bindings, and holds no React, no
 strings and no per-Template code. `presetFromConfig(config)` turns a config into the existing
 `SheetPreset` shape, so `PresetPlayView` draws it unchanged: the header becomes `Header`, each piece
 becomes one `sections` entry in its listed order, and the optional blocks pass through. A piece
@@ -749,12 +749,19 @@ meter, and one amount entry whose Damage lets the temp leaf absorb first and flo
 zero while Heal clamps to the maximum, the maximum staying read-only when its leaf is derived. The
 conditions piece binds numeric flags as toggle chips that commit 0/1 (the part before the first
 colon stays the chip, the rest is its accessible description) and an optional exhaustion track
-(`level`, a fixed or bound `max`, an optional derived `penalty`) that reuses the pips. `registry.ts` keeps
+(`level`, a fixed or bound `max`, an optional derived `penalty`) that reuses the pips.
+The Record table draws a bound Record list's chosen `columns` as editable `SheetFieldControl`
+cells plus Add and Remove through the edit store's list operations, with a `RollableValue` on the
+Record Row when the list declares a Row default dice, the shared empty and at-capacity copy; the
+Reset bar renders `ResetActions` for its bound action ids over the provider's reset binding (the
+same run, apply and refresh callbacks as the Edit screen, so there is no new request path); the
+Roll mode bar sets a provider-held Normal / Advantage / Disadvantage choice that the next
+`RollableValue` roll consumes, then returns to Normal, and it writes nothing to the Sheet. `registry.ts` keeps
 `PRESET_CONFIGS` beside the frozen `fantasyPreset` and resolves a Template id through `presetFor`;
 the fantasy preset wins its id, and a Template with no registered config still opens the generic
 form. `configPathErrors(config, template)` is pure: it collects every header, piece and Reset action
 binding and reports the paths absent from the Template's `buildSections(template.fields)` leaves,
-Record list paths and Reset action ids. `web/src/test/preset_fixtures.tsx` builds the
+Record list paths and their column names, and Reset action ids. `web/src/test/preset_fixtures.tsx` builds the
 Template-agnostic Template, Sheet, edit store, Dice context and `PresetProvider` wrapper every piece
 test reuses, and the piece suites name no 5E or fantasy id; the registry suite alone names
 `fantasy_v1` to prove the frozen preset still resolves.

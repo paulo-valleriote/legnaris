@@ -85,6 +85,24 @@ export interface PresetConditionsPiece {
   readonly exhaustion?: PresetExhaustionTrack;
 }
 
+export interface PresetRecordTablePiece {
+  readonly kind: 'recordTable';
+  readonly key: string;
+  readonly list: string;
+  readonly columns?: readonly string[];
+}
+
+export interface PresetResetBarPiece {
+  readonly kind: 'resetBar';
+  readonly key: string;
+  readonly actions: readonly string[];
+}
+
+export interface PresetRollModePiece {
+  readonly kind: 'rollMode';
+  readonly key: string;
+}
+
 export type PresetPiece =
   | PresetStatPillsPiece
   | PresetPipsPiece
@@ -92,7 +110,10 @@ export type PresetPiece =
   | PresetSaveListPiece
   | PresetSkillListPiece
   | PresetHitPointsPiece
-  | PresetConditionsPiece;
+  | PresetConditionsPiece
+  | PresetRecordTablePiece
+  | PresetResetBarPiece
+  | PresetRollModePiece;
 
 export type PresetPieceKind = PresetPiece['kind'];
 

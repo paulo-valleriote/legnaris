@@ -5,6 +5,9 @@ import { Conditions } from './conditions';
 import { HitPointsTrack } from './hit_points_track';
 import { IdentityHeader } from './identity_header';
 import { Pips } from './pips';
+import { RecordTable } from './record_table';
+import { ResetBar } from './reset_bar';
+import { RollModeBar } from './roll_mode_bar';
 import { SaveList } from './save_list';
 import { SkillList } from './skill_list';
 import { StatPills } from './stat_pills';
@@ -17,6 +20,9 @@ import type {
   PresetSkillListPiece,
   PresetConditionsPiece,
   PresetHitPointsPiece,
+  PresetRecordTablePiece,
+  PresetResetBarPiece,
+  PresetRollModePiece,
   PresetStatPillsPiece,
 } from './types';
 
@@ -68,6 +74,24 @@ function conditionsComponent(piece: PresetConditionsPiece): ComponentType {
   };
 }
 
+function recordTableComponent(piece: PresetRecordTablePiece): ComponentType {
+  return function RecordTableSection() {
+    return <RecordTable piece={piece} />;
+  };
+}
+
+function resetBarComponent(piece: PresetResetBarPiece): ComponentType {
+  return function ResetBarSection() {
+    return <ResetBar piece={piece} />;
+  };
+}
+
+function rollModeComponent(piece: PresetRollModePiece): ComponentType {
+  return function RollModeSection() {
+    return <RollModeBar piece={piece} />;
+  };
+}
+
 function pieceComponent(piece: PresetPiece): ComponentType {
   switch (piece.kind) {
     case 'statPills':
@@ -84,6 +108,12 @@ function pieceComponent(piece: PresetPiece): ComponentType {
       return hitPointsComponent(piece);
     case 'conditions':
       return conditionsComponent(piece);
+    case 'recordTable':
+      return recordTableComponent(piece);
+    case 'resetBar':
+      return resetBarComponent(piece);
+    case 'rollMode':
+      return rollModeComponent(piece);
   }
 }
 

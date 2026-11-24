@@ -378,6 +378,7 @@ export const messages = {
   'preset.pips.group': '{label}, {count} of {max}',
   'preset.pips.set': 'Set {label} to {count}',
   'preset.skill.rank': '{label}, rank {count} of {max}',
+  'preset.rollMode.group': 'Roll mode for the next roll',
   'sheet.play.attackRoll': 'Attack roll, {name}, {value}',
   'sheet.play.damageRoll': 'Damage roll, {name}, {value}',
   'sheet.play.initiativeRoll': 'Roll initiative, {value}',
