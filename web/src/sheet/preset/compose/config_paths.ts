@@ -24,6 +24,15 @@ function piecePaths(piece: PresetPiece): readonly string[] {
       return piece.pills.map((pill) => pill.path);
     case 'pips':
       return typeof piece.max === 'string' ? [piece.count, piece.max] : [piece.count];
+    case 'abilityGrid':
+      return piece.abilities.flatMap((ability) => [ability.score, ability.modifier]);
+    case 'saveList':
+      return piece.saves.flatMap((save) => [save.proficiency, save.total]);
+    case 'skillList':
+      return [
+        ...piece.skills.flatMap((skill) => [skill.rank, skill.total]),
+        ...(typeof piece.max === 'string' ? [piece.max] : []),
+      ];
   }
 }
 

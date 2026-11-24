@@ -80,9 +80,60 @@ export function presetTemplateDetail(): TemplateDetail {
           dice: '1d6',
         },
       },
+      abilities: {
+        label: 'Abilities',
+        children: {
+          might: {
+            schema: { type: 'number', label: 'Might', is_editable: true, default: 10 },
+          },
+          mightModifier: {
+            schema: { type: 'number', label: 'Might Modifier', is_editable: false, default: 0 },
+          },
+          agility: {
+            schema: { type: 'number', label: 'Agility', is_editable: true, default: 10 },
+          },
+          agilityModifier: {
+            schema: { type: 'number', label: 'Agility Modifier', is_editable: false, default: 0 },
+          },
+        },
+      },
+      saves: {
+        label: 'Saves',
+        children: {
+          reflex: {
+            schema: { type: 'number', label: 'Reflex', is_editable: false, default: 0 },
+          },
+          reflexProf: {
+            schema: { type: 'number', label: 'Reflex Proficiency', is_editable: true, default: 0 },
+          },
+          will: {
+            schema: { type: 'number', label: 'Will', is_editable: false, default: 0 },
+          },
+          willProf: {
+            schema: { type: 'number', label: 'Will Proficiency', is_editable: true, default: 0 },
+          },
+        },
+      },
+      skills: {
+        label: 'Skills',
+        children: {
+          athleticsRank: {
+            schema: { type: 'number', label: 'Athletics', is_editable: true, default: 0 },
+          },
+          athleticsTotal: {
+            schema: { type: 'number', label: 'Athletics Total', is_editable: false, default: 0 },
+          },
+          stealthRank: {
+            schema: { type: 'number', label: 'Stealth', is_editable: true, default: 0 },
+          },
+          stealthTotal: {
+            schema: { type: 'number', label: 'Stealth Total', is_editable: false, default: 0 },
+          },
+        },
+      },
     },
     dice: {
-      section: {},
+      section: { abilities: '1d20+1', saves: '1d20+2', skills: '1d20' },
       row: { 'vitals.armor': '1d20+4' },
     },
     actions: [
@@ -100,6 +151,9 @@ export function presetSheet(overrides: Record<string, unknown> = {}): Sheet {
       identity: { name: 'Nova', subtitle: 'Scout' },
       vitals: { armor: 14, hit: 12, empty: '' },
       charges: { used: 1, limit: 4 },
+      abilities: { might: 16, mightModifier: 3, agility: 12, agilityModifier: 1 },
+      saves: { reflex: 5, reflexProf: 1, will: -2, willProf: 0 },
+      skills: { athleticsRank: 2, athleticsTotal: 6, stealthRank: 0, stealthTotal: -1 },
     },
     created_at: '2026-10-01T21:38:54.635Z',
     updated_at: '2026-10-02T09:00:00.000Z',

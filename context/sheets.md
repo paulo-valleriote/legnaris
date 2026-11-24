@@ -724,7 +724,7 @@ The composable library (`preset/compose/`) is the generic half of that registry.
 `PresetConfig` per Template carries its `templateId`, an identity `header` binding (the name Field
 path and an optional subtitle Field path), an ordered `pieces` list, optional Reset action ids and
 the same `layout` / `narrowLayout` / `sectionNav` blocks as a `SheetPreset`; a piece carries a
-stable `key`, a `kind` (`statPills` or `pips`) and its Field-path bindings, and holds no React, no
+stable `key`, a `kind` (`statPills`, `pips`, `abilityGrid`, `saveList` or `skillList`) and its Field-path bindings, and holds no React, no
 strings and no per-Template code. `presetFromConfig(config)` turns a config into the existing
 `SheetPreset` shape, so `PresetPlayView` draws it unchanged: the header becomes `Header`, each piece
 becomes one `sections` entry in its listed order, and the optional blocks pass through. A piece
@@ -732,7 +732,17 @@ component reads values only through `usePresetValue` / `usePresetLabel` / `usePr
 (`preset_context.tsx`): the identity header edits the bound name and subtitle leaves; stat pills
 draw one labelled pill per bound leaf and pass its value through `RollableValue` (a Row without
 dice stays plain text); pips draw the `count` leaf filled out of a `max` leaf path or fixed number,
-each pip a keyboard-operable toggle that commits through `usePresetCommit`. `registry.ts` keeps
+each pip a keyboard-operable toggle that commits through `usePresetCommit`. The score pieces keep
+their rolls on the existing `RollableValue` path and bind the Section whose dice they read
+(`section`) instead of deriving it from the row: the ability grid draws one cell per bound
+`score`/`modifier` pair, with the signed modifier rolled and the score edited through
+`InlineEdit`; the save list draws one row per bound `proficiency`/`total` pair, its flag a
+pressed toggle that commits `0`/`1` and its signed total rolled; the skill list draws one row per
+bound `rank`/`total` pair plus an optional literal `ability` tag, its `0..max` rank a pip control
+(a `max` leaf path or fixed number) whose activation cycles the value and wraps at the maximum,
+and its signed total rolled. Missing values draw the shared empty copy and offer no roll, and
+`compose/scores_data.ts` holds the pure signed formatting, integer score parse, proficiency toggle
+and clamped rank helpers. `registry.ts` keeps
 `PRESET_CONFIGS` beside the frozen `fantasyPreset` and resolves a Template id through `presetFor`;
 the fantasy preset wins its id, and a Template with no registered config still opens the generic
 form. `configPathErrors(config, template)` is pure: it collects every header, piece and Reset action

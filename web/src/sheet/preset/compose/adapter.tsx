@@ -1,9 +1,20 @@
 import type { ComponentType } from 'react';
 import type { PresetHeaderProps, SheetPreset } from '../types';
+import { AbilityGrid } from './ability_grid';
 import { IdentityHeader } from './identity_header';
 import { Pips } from './pips';
+import { SaveList } from './save_list';
+import { SkillList } from './skill_list';
 import { StatPills } from './stat_pills';
-import type { PresetConfig, PresetPiece, PresetPipsPiece, PresetStatPillsPiece } from './types';
+import type {
+  PresetAbilityGridPiece,
+  PresetConfig,
+  PresetPiece,
+  PresetPipsPiece,
+  PresetSaveListPiece,
+  PresetSkillListPiece,
+  PresetStatPillsPiece,
+} from './types';
 
 function headerComponent(config: PresetConfig): ComponentType<PresetHeaderProps> {
   return function ConfigHeader({ level }: PresetHeaderProps) {
@@ -23,12 +34,36 @@ function pipsComponent(piece: PresetPipsPiece): ComponentType {
   };
 }
 
+function abilityGridComponent(piece: PresetAbilityGridPiece): ComponentType {
+  return function AbilityGridSection() {
+    return <AbilityGrid piece={piece} />;
+  };
+}
+
+function saveListComponent(piece: PresetSaveListPiece): ComponentType {
+  return function SaveListSection() {
+    return <SaveList piece={piece} />;
+  };
+}
+
+function skillListComponent(piece: PresetSkillListPiece): ComponentType {
+  return function SkillListSection() {
+    return <SkillList piece={piece} />;
+  };
+}
+
 function pieceComponent(piece: PresetPiece): ComponentType {
   switch (piece.kind) {
     case 'statPills':
       return statPillsComponent(piece);
     case 'pips':
       return pipsComponent(piece);
+    case 'abilityGrid':
+      return abilityGridComponent(piece);
+    case 'saveList':
+      return saveListComponent(piece);
+    case 'skillList':
+      return skillListComponent(piece);
   }
 }
 
