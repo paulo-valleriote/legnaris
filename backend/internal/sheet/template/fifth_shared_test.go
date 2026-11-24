@@ -97,17 +97,19 @@ func fifthSectionRows(t *testing.T, tmpl Template, section string) []string {
 
 func TestFifthTemplates_Registered(t *testing.T) {
 	tests := []struct {
-		name     string
-		id       string
-		label    string
-		kinds    []plan.SheetKind
-		identity []string
+		name      string
+		id        string
+		label     string
+		isDefault bool
+		kinds     []plan.SheetKind
+		identity  []string
 	}{
 		{
-			name:  "Happy path: the character template accepts only character sheets",
-			id:    fifthCharacterID,
-			label: "5E Character",
-			kinds: []plan.SheetKind{plan.KindCharacter},
+			name:      "Happy path: the character template accepts only character sheets and is the default",
+			id:        fifthCharacterID,
+			label:     "5E Character",
+			isDefault: true,
+			kinds:     []plan.SheetKind{plan.KindCharacter},
 			identity: []string{
 				"name", fifthClassKey, fifthSubclassKey, fifthSpeciesKey, fifthBackgroundKey,
 				"level", fifthJackOfAllTradesKey, fieldNameProficiencyBonus,
@@ -134,10 +136,10 @@ func TestFifthTemplates_Registered(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tmpl := fifthTemplateByID(t, tc.id)
 			assert.Equal(t, tc.label, tmpl.Name)
-			assert.Equal(t, StateDraft, tmpl.State)
+			assert.Equal(t, StateActive, tmpl.State)
 			assert.Equal(t, GameSystemFifth, tmpl.GameSystemID)
 			assert.Equal(t, tc.kinds, tmpl.Kinds)
-			assert.False(t, tmpl.Default)
+			assert.Equal(t, tc.isDefault, tmpl.Default)
 			assert.Equal(t, "identity.name", tmpl.NameLeaf)
 			require.NoError(t, ValidateNameLeaf(tmpl))
 			assert.Equal(t, tc.identity, orderedKeys(tmpl.Fields[fifthIdentitySection].Children, tmpl.Fields[fifthIdentitySection].Order))
@@ -145,15 +147,13 @@ func TestFifthTemplates_Registered(t *testing.T) {
 	}
 }
 
-func TestFifthTemplates_DraftVisibility(t *testing.T) {
+func TestFifthTemplates_ActiveVisibility(t *testing.T) {
 	tests := []struct {
-		name        string
-		drafts      bool
-		wantListed  bool
-		wantCreates bool
+		name   string
+		drafts bool
 	}{
-		{name: "Edge: a draft is hidden and not creatable outside development", drafts: false},
-		{name: "Happy path: a draft is listed and creatable in development", drafts: true, wantListed: true, wantCreates: true},
+		{name: "Happy path: an active template is listed and creatable outside development", drafts: false},
+		{name: "Happy path: an active template is listed and creatable in development", drafts: true},
 	}
 
 	for _, tc := range tests {
@@ -163,11 +163,11 @@ func TestFifthTemplates_DraftVisibility(t *testing.T) {
 
 			listed := catalogIDs(registry.List())
 			for _, id := range []string{fifthCharacterID, fifthStatBlockID} {
-				assert.Equal(t, tc.wantListed, containsString(listed, id), "%s listed", id)
+				assert.True(t, containsString(listed, id), "%s listed", id)
 
 				tmpl, ok := registry.FetchByID(id)
 				require.True(t, ok, "%s fetchable", id)
-				assert.Equal(t, tc.wantCreates, tmpl.Creatable(tc.drafts))
+				assert.True(t, tmpl.Creatable(tc.drafts), "%s creatable", id)
 			}
 		})
 	}

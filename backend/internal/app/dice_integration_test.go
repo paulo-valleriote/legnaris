@@ -21,14 +21,11 @@ func TestIntegration_Sheets_Dice(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 	ctx := context.Background()
 
-	token, _ := newAuthUser(t, h, mdb, "dice-owner@example.com", "dice-owner")
+	token, userID := newAuthUser(t, h, mdb, "dice-owner@example.com", "dice-owner")
 	otherToken, _ := newAuthUser(t, h, mdb, "dice-other@example.com", "dice-other")
 
-	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Dice"}`)
-	require.Equal(t, http.StatusCreated, createRec.Code, createRec.Body.String())
-	var created response.Success[sheet.SheetDTO]
-	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	sheetID := created.Data.ID
+	created := createFantasySheet(t, h, mdb, token, userID, "character", "Dice")
+	sheetID := created.ID
 	path := "/sheets/" + sheetID
 
 	fetch := func(t *testing.T) response.Success[sheet.SheetDTO] {

@@ -26,7 +26,7 @@ Write trait and action text as a short paraphrase of at most about 300 runes.`,
 var fifthStatBlockTemplate = Template{
 	ID:                   fifthStatBlockID,
 	Name:                 "5E Stat Block",
-	State:                StateDraft,
+	State:                StateActive,
 	Kinds:                []plan.SheetKind{plan.KindNPC, plan.KindEnemy},
 	GameSystemID:         GameSystemFifth,
 	PromptGuidanceByKind: fifthStatBlockPromptGuidance,

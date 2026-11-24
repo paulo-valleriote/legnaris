@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -16,18 +17,51 @@ import (
 func TestIntegration_FantasyV1Regression(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
 
-	gmToken, _ := newAuthUser(t, h, mdb, "fantasy-gm@example.com", "fantasy-gm")
+	gmToken, gmID := newAuthUser(t, h, mdb, "fantasy-gm@example.com", "fantasy-gm")
 	playerToken, _ := newAuthUser(t, h, mdb, "fantasy-player@example.com", "fantasy-player")
 
-	rec := doAuthRequest(t, h, playerToken, http.MethodPost, "/sheets",
-		`{"template_id":"fantasy_v1","kind":"character","sheet_name":"Aria"}`)
-	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+	campaignID := insertFantasyCampaign(t, mdb, gmID)
 
-	var created response.Success[sheet.SheetDTO]
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
-	require.Equal(t, "fantasy_v1", created.Data.TemplateID)
-	sheetID := created.Data.ID
+	rec := doAuthRequest(t, h, playerToken, http.MethodPost, "/campaigns/join", `{"code":"FANTASY1"}`)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	var joined response.Success[campaign.View]
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &joined))
+	require.Equal(t, campaign.RolePlayer, joined.Data.ViewerRole)
+	assert.Equal(t, "fantasy_v1", joined.Data.TemplateID)
+	assert.Contains(t, joined.Data.TemplateIDs, "fantasy_v1")
+
+	createCampaignSheet := func(t *testing.T, kind, name string) sheet.SheetDTO {
+		t.Helper()
+		body := fmt.Sprintf(
+			`{"template_id":"fantasy_v1","kind":%q,"sheet_name":%q,"campaign_id":%q}`,
+			kind, name, campaignID,
+		)
+		rec := doAuthRequest(t, h, playerToken, http.MethodPost, "/sheets", body)
+		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+
+		var created response.Success[sheet.SheetDTO]
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
+		require.Equal(t, "fantasy_v1", created.Data.TemplateID)
+		return created.Data
+	}
+
+	character := createCampaignSheet(t, "character", "Aria")
+	assert.Equal(t, "character", character.Kind)
+	assert.Equal(t, "fantasy_v1", character.TemplateID)
+	sheetID := character.ID
 	sheetPath := "/sheets/" + sheetID
+
+	t.Run("Happy path: a retired Template still starts NPCs and enemies from its existing Campaign", func(t *testing.T) {
+		for _, tc := range []struct{ kind, name string }{
+			{kind: "npc", name: "Old Tomek"},
+			{kind: "enemy", name: "Dire Wolf"},
+		} {
+			created := createCampaignSheet(t, tc.kind, tc.name)
+			assert.Equal(t, tc.kind, created.Kind)
+			assert.Equal(t, "fantasy_v1", created.TemplateID)
+		}
+	})
 
 	t.Run("Happy path: a fantasy Sheet still edits and derives", func(t *testing.T) {
 		rec := doAuthRequest(t, h, playerToken, http.MethodPatch, sheetPath,
@@ -53,25 +87,6 @@ func TestIntegration_FantasyV1Regression(t *testing.T) {
 		require.NotNil(t, fetched.Data.Dice.Row["stats.dexterity"])
 		assert.Equal(t, "1d20 + modifiers.dexterityMod", *fetched.Data.Dice.Row["stats.dexterity"])
 	})
-
-	rec = doAuthRequest(t, h, gmToken, http.MethodPost, "/campaigns",
-		`{"name":"The Ember Crown","template_id":"fantasy_v1"}`)
-	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
-
-	var campaignBody response.Success[campaign.View]
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &campaignBody))
-	assert.Equal(t, "fantasy_v1", campaignBody.Data.TemplateID)
-	assert.Contains(t, campaignBody.Data.TemplateIDs, "fantasy_v1")
-	require.NotEmpty(t, campaignBody.Data.InviteCode)
-	campaignID := campaignBody.Data.ID
-
-	rec = doAuthRequest(t, h, playerToken, http.MethodPost, "/campaigns/join",
-		`{"code":"`+campaignBody.Data.InviteCode+`"}`)
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-
-	var joined response.Success[campaign.View]
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &joined))
-	require.Equal(t, campaign.RolePlayer, joined.Data.ViewerRole)
 
 	t.Run("Happy path: a fantasy Character still links and reads through the Campaign", func(t *testing.T) {
 		rec := doAuthRequest(t, h, playerToken, http.MethodPut, "/campaigns/"+campaignID+"/character",

@@ -14,6 +14,7 @@ import (
 
 	"legnaris/backend/internal/app"
 	"legnaris/backend/internal/auth"
+	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/engine"
 	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/plan"
@@ -221,24 +222,89 @@ func TestIntegration_TemplatesList(t *testing.T) {
 
 	var body response.Success[[]template.TemplateDTO]
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-	require.Len(t, body.Data, 1)
+	require.Len(t, body.Data, 2)
 
-	tmpl := body.Data[0]
-	assert.Equal(t, "fantasy_v1", tmpl.ID)
-	assert.Equal(t, "Fantasy Template", tmpl.Name)
-	assert.True(t, tmpl.Default)
-	assert.Equal(t, []plan.SheetKind{plan.KindCharacter, plan.KindNPC, plan.KindEnemy}, tmpl.Kinds)
+	ids := make([]string, 0, len(body.Data))
+	defaults := make([]string, 0, 1)
+	for _, tmpl := range body.Data {
+		ids = append(ids, tmpl.ID)
+		if tmpl.Default {
+			defaults = append(defaults, tmpl.ID)
+		}
+		require.NotNil(t, tmpl.GameSystem)
+		assert.Equal(t, "fifth", tmpl.GameSystem.ID)
+		assert.Equal(t, "5E", tmpl.GameSystem.Name)
+	}
+	assert.ElementsMatch(t, []string{"fifth_character_v1", "fifth_stat_block_v1"}, ids)
+	assert.Equal(t, []string{"fifth_character_v1"}, defaults)
 
-	stats, ok := tmpl.Fields["stats"]
+	character := body.Data[0]
+	require.Equal(t, "fifth_character_v1", character.ID)
+	assert.Equal(t, "5E Character", character.Name)
+	assert.Equal(t, []plan.SheetKind{plan.KindCharacter}, character.Kinds)
+
+	abilities, ok := character.Fields["abilities"]
 	require.True(t, ok)
-	require.NotNil(t, stats.Children)
+	require.NotNil(t, abilities.Children)
 
-	dex := stats.Children["dexterity"]
-	require.NotNil(t, dex.Schema)
-	assert.Equal(t, "number", dex.Schema.Type)
-	assert.True(t, dex.Schema.IsEditable)
-	assert.InDelta(t, 10.0, dex.Schema.Default, 1e-9)
-	assert.Empty(t, dex.Schema.Formula)
+	score := abilities.Children["dexterity"].Children["score"]
+	require.NotNil(t, score.Schema)
+	assert.Equal(t, "number", score.Schema.Type)
+	assert.True(t, score.Schema.IsEditable)
+	assert.InDelta(t, 10.0, score.Schema.Default, 1e-9)
+	assert.Empty(t, score.Schema.Formula)
+}
+
+func TestIntegration_CampaignCreationOffersOnlyTheFifthEditionSystem(t *testing.T) {
+	h, mdb := newIntegrationRouter(t)
+	token, _ := newAuthUser(t, h, mdb, "campaign-scope@example.com", "campaign-scope")
+
+	retired := []struct {
+		name string
+		body string
+	}{
+		{name: "Error: the retired fantasy Template cannot start a Campaign", body: `{"name":"The Ember Crown","template_id":"fantasy_v1"}`},
+		{name: "Error: an unknown Game system cannot start a Campaign", body: `{"name":"The Ember Crown","game_system":"sixth"}`},
+	}
+	for _, tc := range retired {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := doAuthRequest(t, h, token, http.MethodPost, "/campaigns", tc.body)
+			require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+
+			var body response.ErrorResponse
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			assert.Equal(t, "INVALID_REQUEST", body.Error.Code)
+		})
+	}
+
+	t.Run("Happy path: the fifth edition Game system is the only offered scope", func(t *testing.T) {
+		rec := doAuthRequest(t, h, token, http.MethodPost, "/campaigns", `{"name":"Underdark","game_system":"fifth"}`)
+		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+
+		var body response.Success[campaign.View]
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+		require.NotNil(t, body.Data.GameSystem)
+		assert.Equal(t, "fifth", body.Data.GameSystem.ID)
+		assert.Equal(t, "5E", body.Data.GameSystem.Name)
+		assert.ElementsMatch(t,
+			[]string{"fifth_character_v1", "fifth_stat_block_v1"},
+			body.Data.TemplateIDs,
+		)
+	})
+}
+
+func TestIntegration_StaleSignUpFallsBackToTheDefaultTemplate(t *testing.T) {
+	h, mdb := newIntegrationRouter(t)
+	token, _ := newAuthUser(t, h, mdb, "stale-start@example.com", "stale-start")
+
+	rec := doAuthRequest(t, h, token, http.MethodPost, "/sheets",
+		`{"template_id":"fantasy_v1","kind":"character","sheet_name":"Hero"}`)
+	require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+
+	var created response.Success[sheet.SheetDTO]
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
+	assert.Equal(t, "fifth_character_v1", created.Data.TemplateID)
+	assert.Equal(t, "character", created.Data.Kind)
 }
 
 func TestIntegration_TemplatesFetchByID(t *testing.T) {
@@ -359,34 +425,30 @@ func TestIntegration_BootDoesNotCreateTemplateCollection(t *testing.T) {
 
 func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, mdb, "sheets-cfp@example.com", "sheets-cfp")
+	token, userID := newAuthUser(t, h, mdb, "sheets-cfp@example.com", "sheets-cfp")
 
-	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Test Sheet"}`)
-	require.Equal(t, http.StatusCreated, createRec.Code)
+	created := createFantasySheet(t, h, mdb, token, userID, "character", "Test Sheet")
 
-	var created response.Success[sheet.SheetDTO]
-	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-
-	sheetID := created.Data.ID
+	sheetID := created.ID
 	require.NotEmpty(t, sheetID)
-	assert.Equal(t, "fantasy_v1", created.Data.TemplateID)
-	assert.Equal(t, "Test Sheet", created.Data.Name)
+	assert.Equal(t, "fantasy_v1", created.TemplateID)
+	assert.Equal(t, "Test Sheet", created.Name)
 
-	stats, ok := created.Data.Data["stats"].(map[string]any)
+	stats, ok := created.Data["stats"].(map[string]any)
 	require.True(t, ok)
 	assert.InDelta(t, 10.0, stats["dexterity"], 1e-9)
 	assert.InDelta(t, 10.0, stats["constitution"], 1e-9)
 
-	derived, ok := created.Data.Data["derived"].(map[string]any)
+	derived, ok := created.Data["derived"].(map[string]any)
 	require.True(t, ok)
 	assert.InDelta(t, 10.0, derived["armorClass"], 1e-9)
 	assert.InDelta(t, 10.0, derived["passiveAwareness"], 1e-9)
 
-	identity, ok := created.Data.Data["identity"].(map[string]any)
+	identity, ok := created.Data["identity"].(map[string]any)
 	require.True(t, ok)
 	assert.Empty(t, identity["characterName"])
 
-	skillsData, ok := created.Data.Data["skills"].(map[string]any)
+	skillsData, ok := created.Data["skills"].(map[string]any)
 	require.True(t, ok)
 	stealth, ok := skillsData["stealth"].(map[string]any)
 	require.True(t, ok)
@@ -427,14 +489,10 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 
 func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, mdb, "sheets-calib@example.com", "sheets-calib")
+	token, userID := newAuthUser(t, h, mdb, "sheets-calib@example.com", "sheets-calib")
 
-	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Calibration"}`)
-	require.Equal(t, http.StatusCreated, createRec.Code)
-
-	var created response.Success[sheet.SheetDTO]
-	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	sheetID := created.Data.ID
+	created := createFantasySheet(t, h, mdb, token, userID, "character", "Calibration")
+	sheetID := created.ID
 
 	rulesRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"rules":{"modifierBase":12}}}`)
 	require.Equal(t, http.StatusOK, rulesRec.Code)
@@ -489,14 +547,10 @@ func TestIntegration_Sheets_CalibrationAndTextUpdates(t *testing.T) {
 
 func TestIntegration_Sheets_ExclusiveOptions(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, mdb, "sheets-exclusive@example.com", "sheets-exclusive")
+	token, userID := newAuthUser(t, h, mdb, "sheets-exclusive@example.com", "sheets-exclusive")
 
-	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Exclusive"}`)
-	require.Equal(t, http.StatusCreated, createRec.Code)
-
-	var created response.Success[sheet.SheetDTO]
-	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	sheetID := created.Data.ID
+	created := createFantasySheet(t, h, mdb, token, userID, "character", "Exclusive")
+	sheetID := created.ID
 
 	statsRec := doAuthRequest(t, h, token, http.MethodPatch, "/sheets/"+sheetID, `{"data":{"stats":{"dexterity":14,"constitution":12}}}`)
 	require.Equal(t, http.StatusOK, statsRec.Code)
@@ -563,14 +617,10 @@ func TestIntegration_Sheets_NestingDepthLimit(t *testing.T) {
 
 func TestIntegration_Sheets_Preview(t *testing.T) {
 	h, mdb := newIntegrationRouter(t)
-	token, _ := newAuthUser(t, h, mdb, "sheets-preview@example.com", "sheets-preview")
+	token, userID := newAuthUser(t, h, mdb, "sheets-preview@example.com", "sheets-preview")
 
-	createRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Preview"}`)
-	require.Equal(t, http.StatusCreated, createRec.Code)
-
-	var created response.Success[sheet.SheetDTO]
-	require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
-	sheetID := created.Data.ID
+	created := createFantasySheet(t, h, mdb, token, userID, "character", "Preview")
+	sheetID := created.ID
 
 	previewRec := doAuthRequest(t, h, token, http.MethodPost, "/sheets/"+sheetID+"/preview", `{"data":{"stats":{"dexterity":16}}}`)
 	require.Equal(t, http.StatusOK, previewRec.Code)
@@ -699,7 +749,7 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 
 	t.Run("PATCH with unknown field returns 400 UNKNOWN_FIELD", func(t *testing.T) {
 		ownerToken, _ := newAuthUser(t, h, mdb, "err-map-unknown@example.com", "err-map-unknown")
-		createRec := doAuthRequest(t, h, ownerToken, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Err Map"}`)
+		createRec := doAuthRequest(t, h, ownerToken, http.MethodPost, "/sheets", `{"template_id":"fifth_character_v1","kind":"character","sheet_name":"Err Map"}`)
 		require.Equal(t, http.StatusCreated, createRec.Code)
 		var created response.Success[sheet.SheetDTO]
 		require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
@@ -710,12 +760,12 @@ func TestIntegration_ErrorStatusMapping(t *testing.T) {
 
 	t.Run("PATCH on non-editable field returns 400 INVALID_REQUEST", func(t *testing.T) {
 		ownerToken, _ := newAuthUser(t, h, mdb, "err-map-nonedit@example.com", "err-map-nonedit")
-		createRec := doAuthRequest(t, h, ownerToken, http.MethodPost, "/sheets", `{"template_id":"fantasy_v1","kind":"character","sheet_name":"Err Map 2"}`)
+		createRec := doAuthRequest(t, h, ownerToken, http.MethodPost, "/sheets", `{"template_id":"fifth_character_v1","kind":"character","sheet_name":"Err Map 2"}`)
 		require.Equal(t, http.StatusCreated, createRec.Code)
 		var created response.Success[sheet.SheetDTO]
 		require.NoError(t, json.Unmarshal(createRec.Body.Bytes(), &created))
 
-		rec := doAuthRequest(t, h, ownerToken, http.MethodPatch, "/sheets/"+created.Data.ID, `{"data":{"modifiers":{"dexterityMod":99}}}`)
+		rec := doAuthRequest(t, h, ownerToken, http.MethodPatch, "/sheets/"+created.Data.ID, `{"data":{"identity":{"proficiencyBonus":99}}}`)
 		assertErrorBody(t, rec, http.StatusBadRequest, "INVALID_REQUEST")
 	})
 

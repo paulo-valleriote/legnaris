@@ -77,7 +77,7 @@ func TestFifthTemplateGoldens_Contract(t *testing.T) {
 			tmpl, ok := registry.FetchByID(id)
 			require.True(t, ok)
 			require.Equal(t, GameSystemFifth, tmpl.GameSystemID)
-			require.Equal(t, StateDraft, tmpl.State)
+			require.Equal(t, StateActive, tmpl.State)
 		}
 	})
 }

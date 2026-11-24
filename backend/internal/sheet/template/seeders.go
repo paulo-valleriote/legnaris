@@ -90,8 +90,7 @@ Write any text in the language of the concept.`
 var fantasyV1Template = Template{
 	ID:             "fantasy_v1",
 	Name:           "Fantasy Template",
-	State:          StateActive,
-	Default:        true,
+	State:          StateRetired,
 	Kinds:          []plan.SheetKind{plan.KindCharacter, plan.KindNPC, plan.KindEnemy},
 	PromptGuidance: fantasyV1PromptGuidance,
 	Fields: FieldGroup{
