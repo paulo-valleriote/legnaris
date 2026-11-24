@@ -107,6 +107,9 @@ func constraints(schema *template.FieldSchema) string {
 	if options := enumOptions(schema.GenerationEnum); options != "" {
 		parts = append(parts, "one of: "+options)
 	}
+	if options := generationValueOptions(schema.GenerationValues); options != "" {
+		parts = append(parts, "one of: "+options)
+	}
 	if schema.PreferDefault {
 		parts = append(parts, fmt.Sprintf("keep %g unless the concept states otherwise", schema.Default))
 	}
@@ -114,6 +117,17 @@ func constraints(schema *template.FieldSchema) string {
 		return ""
 	}
 	return " [" + strings.Join(parts, ", ") + "]"
+}
+
+func generationValueOptions(values []float64) string {
+	if len(values) == 0 {
+		return ""
+	}
+	options := make([]string, len(values))
+	for i, value := range values {
+		options[i] = fmt.Sprintf("%g", value)
+	}
+	return strings.Join(options, ", ")
 }
 
 func enumOptions(values []string) string {

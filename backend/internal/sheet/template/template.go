@@ -58,6 +58,7 @@ type Template struct {
 	PromptGuidance       string                    `bson:"prompt_guidance,omitempty"`
 	PromptGuidanceByKind map[plan.SheetKind]string `bson:"prompt_guidance_by_kind,omitempty"`
 	ClassSubclass        *ClassSubclassRule        `bson:"class_subclass,omitempty"`
+	SaveProficiencies    *SaveProficiencyRule      `bson:"save_proficiencies,omitempty"`
 	Actions              []ResetAction             `bson:"actions,omitempty"`
 	CreatedAt            time.Time                 `bson:"created_at,omitempty"`
 	UpdatedAt            time.Time                 `bson:"updated_at,omitempty"`
@@ -77,6 +78,8 @@ type FieldSchema struct {
 	Generatable      bool             `bson:"generatable,omitempty"`
 	GeneratableKinds []plan.SheetKind `bson:"generatable_kinds,omitempty"`
 	GenerationEnum   []string         `bson:"generation_enum,omitempty"`
+	GenerationValues []float64        `bson:"generation_values,omitempty"`
+	NotGeneratable   bool             `bson:"not_generatable,omitempty"`
 	PreferDefault    bool             `bson:"prefer_default,omitempty"`
 	Flag             bool             `bson:"flag,omitempty"`
 	Min              *float64         `bson:"min,omitempty"`

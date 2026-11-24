@@ -49,6 +49,9 @@ func levelOf(group template.FieldGroup, kind plan.SheetKind) level {
 		switch {
 		case node.IsLeaf():
 			schema := node.Schema
+			if schema.NotGeneratable {
+				continue
+			}
 			if schema.ExclusiveGroup != "" {
 				if schema.GeneratableFor(kind) {
 					lv.exclusive[schema.ExclusiveGroup] = append(lv.exclusive[schema.ExclusiveGroup], name)
@@ -75,7 +78,7 @@ func shapeLevel(shape template.FieldGroup) level {
 	lv := newLevel()
 	for _, name := range slices.Sorted(maps.Keys(shape)) {
 		node := shape[name]
-		if !node.IsLeaf() || node.Schema == nil || !node.Schema.IsEditable || node.Schema.Formula != "" {
+		if !node.IsLeaf() || node.Schema == nil || !node.Schema.IsEditable || node.Schema.Formula != "" || node.Schema.NotGeneratable {
 			continue
 		}
 		if node.Schema.ExclusiveGroup != "" {
@@ -182,6 +185,9 @@ func leafSchema(schema *template.FieldSchema) (map[string]any, error) {
 		}
 		if schema.Flag {
 			prop["enum"] = []any{0, 1}
+		}
+		if len(schema.GenerationValues) > 0 {
+			prop["enum"] = schema.GenerationValues
 		}
 		return prop, nil
 	case fieldTypeText:

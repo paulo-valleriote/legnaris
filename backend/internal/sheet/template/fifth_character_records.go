@@ -191,7 +191,7 @@ func fifthFeaturesGroup() FieldGroup {
 			Shape: FieldGroup{
 				fieldNameName:         textField("Name"),
 				fifthFeatureSourceKey: textField("Source"),
-				fifthFeatureTextKey:   textField("Text"),
+				fifthFeatureTextKey:   textFieldWithLimit("Text", fifthRecordTextMaxLength),
 			},
 		}},
 	}
@@ -233,7 +233,7 @@ func fifthResourcesGroup() FieldGroup {
 			Shape: FieldGroup{
 				fieldNameName:                 textField("Name"),
 				fifthResourceMaxKey:           numField("Max", 0),
-				fifthResourceUsedKey:          numField("Used", 0),
+				fifthResourceUsedKey:          stateField(numField("Used", 0)),
 				fifthResourceRechargeShortKey: fifthChoice("Recharge", "Short rest", 0, fifthResourceRechargeGroup),
 				fifthResourceRechargeLongKey:  fifthChoice("Recharge", "Long rest", 0, fifthResourceRechargeGroup),
 				fifthResourceRechargeNoneKey:  fifthChoice("Recharge", "None", 1, fifthResourceRechargeGroup),

@@ -56,9 +56,7 @@ func fifthStatBlockDetailsGroup() FieldGroup {
 }
 
 func fifthStatBlockText(label string, maxLength int) FieldNode {
-	node := textField(label)
-	node.Schema.MaxLength = &maxLength
-	return node
+	return textFieldWithLimit(label, maxLength)
 }
 
 func fifthStatBlockTraitsList() *ListSchema {
@@ -80,7 +78,7 @@ func fifthStatBlockLegendaryActionsList() *ListSchema {
 func fifthStatBlockTextRecordList(label string) *ListSchema {
 	name := fifthStatBlockText("Name", 60)
 	name.Schema.ColumnLabel = fifthStatBlockColumnName
-	text := fifthStatBlockText("Text", 500)
+	text := fifthStatBlockText("Text", fifthRecordTextMaxLength)
 	text.Schema.ColumnLabel = "Text"
 
 	return &ListSchema{
@@ -187,7 +185,7 @@ func fifthStatBlockResourcesList() *ListSchema {
 	maximum := numField("Maximum uses", 0)
 	maximum.Schema.ColumnLabel = "Max"
 
-	used := numField("Used uses", 0)
+	used := stateField(numField("Used uses", 0))
 	used.Schema.ColumnLabel = "Used"
 
 	remaining := calcField(

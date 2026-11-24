@@ -149,8 +149,11 @@ fifth-edition Character identity uses those names as generation-only enums: 12 c
 12 subclasses, 9 species and 4 backgrounds. The enums constrain the generated JSON Schema and Go
 validation only; the Fields stay editable free text for the player. The subclass enum also accepts
 an empty value, and the class/subclass pair is checked in Go: one class, the class's SRD subclass
-from level 3 and an empty subclass below it. The fifth-edition denylist is not enforced yet. The
-user message wraps the sanitized concept in `<concept>` tags (angle brackets replaced) and labels
+from level 3 and an empty subclass below it. Every generated text value is checked against the
+fifth-edition denylist as a case-insensitive, whole-word match, so a term like "beholder" or
+"official" is an output problem unless it is part of a longer word; substrings ("beholders",
+"unofficial") pass. The same check covers Record text. The user message wraps the sanitized
+concept in `<concept>` tags (angle brackets replaced) and labels
 it with the kind; retries append validation problems. The schema is nested like the Template, covers only leaves
 generatable for the kind, requires every property, forbids additional properties and represents
 exclusive groups as enums.
@@ -160,18 +163,24 @@ each item carries only the non-derived shape Fields (derived Record Fields stay 
 of them, forbids unknown ones and represents a Record-level exclusive group as one enum. A list
 without a cap is not generated, so `fantasy_v1`, which has no capped lists and no generation
 enums, keeps its object-only schema. Output is parsed as strict JSON (1 MiB bound), rejected on
-unknown keys, checked for type, finiteness, range, flag 0/1, rune length and generation enums,
-expanded into 0/1 exclusive flags, then seeded and recalculated as a preview would. Generated
+unknown keys, checked for type, finiteness, range, flag 0/1, rune length, generation enums,
+numeric value sets, the save-proficiency count and the denylist, expanded into 0/1 exclusive
+flags, then seeded and recalculated as a preview would. Feature, trait and action Record text is
+capped at 300 runes, so 301 is an output problem. The 5E Character has exactly two save
+proficiencies, a Hit Die of 6, 8, 10 or 12 and non-negative spell slots (pact slots included).
+State Fields (current and temporary hit points, spent spell slots, used hit dice, conditions,
+death saves, resource usage) are not generatable: they stay out of the schema and prompt and seed
+at their Template defaults, with no invented combat state. Generated
 arrays are assigned Record ids and positions and assembled through the normal Record path, so a
 draft Sheet carries them in its list maps and their derived shape Fields recalculate. An empty
-array assembles as an empty list `{}`. A class/subclass mismatch is an output problem like any
-other; invalid output is retried twice with the problems sent back. Transient transport failures
-get one retry after 500 ms, and an open circuit breaker fails fast. A terminal failure stores its
-code and refunds the quota.
+array assembles as an empty list `{}`. A class/subclass or invariant mismatch is an output
+problem like any other; invalid output is retried twice with the problems sent back. Transient
+transport failures get one retry after 500 ms, and an open circuit breaker fails fast. A terminal
+failure stores its code and refunds the quota.
 
 ### Template metadata
 
-`FieldSchema` carries `Generatable`, `GeneratableKinds`, `GenerationEnum`, `PreferDefault`, `Min`, `Max` and `MaxLength`; `Template` carries `NameLeaf`, `GameSystemID`, the shared `PromptGuidance`, the per-kind `PromptGuidanceByKind` and an optional `ClassSubclass` rule (the class, subclass and level paths plus the first subclass level). `GenerationEnum` and `ClassSubclass` are generation metadata and are not part of the client DTO. Boot (`BuildRegistry`, in API and worker) rejects a generatable leaf that is not editable, kinds on a non-generatable leaf or outside the known kinds, a `GenerationEnum` on a non-generatable or non-text leaf or with duplicate values, `prefer_default` on a non-generatable leaf or outside its bounds, `Min > Max`, bounds on a non-number, a non-positive `MaxLength` and `MaxLength` on a non-text leaf; a class/subclass rule must resolve to generatable class and subclass text leaves with enums and a generatable number level, with a positive subclass level; a guidance entry must name a valid kind the Template accepts and carry text; a non-empty `NameLeaf` must resolve to a text leaf, and a non-empty `GameSystemID` must resolve to a registered Game system. In `fantasy_v1` every editable leaf is generatable except `rules.*` and `identity.playerName`; `level`, `xp` and `proficiencyBonus` prefer their defaults so a concept without a stated level yields a starting character. In the 5E Character the identity class, subclass, species and background are generatable with their enums and remain editable free text.
+`FieldSchema` carries `Generatable`, `GeneratableKinds`, `GenerationEnum`, `GenerationValues`, `NotGeneratable`, `PreferDefault`, `Min`, `Max` and `MaxLength`; `Template` carries `NameLeaf`, `GameSystemID`, the shared `PromptGuidance`, the per-kind `PromptGuidanceByKind`, an optional `ClassSubclass` rule (the class, subclass and level paths plus the first subclass level) and an optional `SaveProficiencies` rule (the flagged paths plus how many must be on). `GenerationEnum`, `GenerationValues`, `NotGeneratable`, `ClassSubclass` and `SaveProficiencies` are generation metadata and are not part of the client DTO. Boot (`BuildRegistry`, in API and worker) rejects a generatable leaf that is not editable, kinds on a non-generatable leaf or outside the known kinds, a `GenerationEnum` on a non-generatable or non-text leaf or with duplicate values, `GenerationValues` on a non-generatable or non-number leaf, with duplicates or outside the declared bounds, a `NotGeneratable` leaf that is also generatable, carries kinds or is not editable, `prefer_default` on a non-generatable leaf or outside its bounds, `Min > Max`, bounds on a non-number, a non-positive `MaxLength` and `MaxLength` on a non-text leaf; a class/subclass rule must resolve to generatable class and subclass text leaves with enums and a generatable number level, with a positive subclass level; a save-proficiency rule must ask for between one and all of its paths and each path must resolve to a generatable flagged number; a guidance entry must name a valid kind the Template accepts and carry text; a non-empty `NameLeaf` must resolve to a text leaf, and a non-empty `GameSystemID` must resolve to a registered Game system. In `fantasy_v1` every editable leaf is generatable except `rules.*` and `identity.playerName`; `level`, `xp` and `proficiencyBonus` prefer their defaults so a concept without a stated level yields a starting character. In the 5E Character the identity class, subclass, species and background are generatable with their enums and remain editable free text; `level` prefers 1 and `status.xp` prefers 0, the six save proficiencies are generated with exactly two on, the Hit Die is the value set 6/8/10/12, spell slot totals are generated with a zero minimum, and feature text is capped at 300 runes. The 5E Stat Block takes its challenge rating from the concept with no preferred default, and its trait, action, bonus-action, reaction and legendary-action text is capped at 300 runes.
 
 A Record list carries `MaxRecords`, the generation cap that is separate from its storage `Capacity`. The 5E Character caps attacks at 6, inventory at 20, features and feats at 15, spells at 30 and resources at 6; the 5E Stat Block caps traits, actions, bonus actions, reactions and legendary actions at 6 each and limited uses at 4. A declared cap must be between 1 and `Capacity`, and boot rejects anything else (`ErrMaxRecordsInvalid`); 0 means no generation cap. The output cap is `MaxOutputTokens` (8000) and the job lease is 150 s, above the 120 s `LLM_TIMEOUT` plus the 10 s settle window. A test builds the maximum-size draft of each 5E Template (every cap full, 300-rune prose) and asserts that its chars/3.5 estimate stays under the output cap.
 
@@ -206,7 +215,9 @@ A Record list carries `MaxRecords`, the generation cap that is separate from its
 
 ## Known limits
 
-- There is no moderation call and no output filter; the fifth-edition denylist is Game system data but is not enforced yet, so the published-works rule is enforced by the prompt only.
+- There is no moderation call and no output filter beyond the fifth-edition denylist check, which
+  is a literal whole-word match and not a classifier; the published-works rule is enforced by the
+  prompt and that check only.
 - Prompt-injection defense is the schema plus validation, not content filtering; the model can still produce inaccurate or unwanted text.
 - There is no streaming and no cancel endpoint; regenerate is a new paid job.
 - Only one generation may be open per user, so a second request conflicts even when the first is nearly done.

@@ -201,8 +201,20 @@ func generatableNumber(node FieldNode, lo, hi float64) FieldNode {
 	return node
 }
 
+func generatableNumberMin(node FieldNode, lo float64) FieldNode {
+	node.Schema.Generatable = true
+	node.Schema.Min = &lo
+	return node
+}
+
 func generatableText(node FieldNode, maxLength int) FieldNode {
 	node.Schema.Generatable = true
+	node.Schema.MaxLength = &maxLength
+	return node
+}
+
+func textFieldWithLimit(label string, maxLength int) FieldNode {
+	node := textField(label)
 	node.Schema.MaxLength = &maxLength
 	return node
 }

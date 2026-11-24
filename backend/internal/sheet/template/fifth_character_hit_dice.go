@@ -33,7 +33,8 @@ func fifthPrimaryHitDiePool() FieldNode {
 	countPath := []string{fifthHitDiceSection, fifthHitDiePrimaryKey, fifthHitDieCountKey}
 	spentPath := []string{fifthHitDiceSection, fifthHitDiePrimaryKey, fifthHitDieSpentKey}
 
-	size := generatableNumber(numField("Hit Die size", 8), 4, 12)
+	size := generatableNumber(numField("Hit Die size", 8), 6, 12)
+	size.Schema.GenerationValues = []float64{6, 8, 10, 12}
 	size.Schema.ColumnLabel = "Size"
 	count := calcField(
 		"Primary Hit Dice",

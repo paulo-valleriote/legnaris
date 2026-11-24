@@ -14,6 +14,8 @@ const (
 	fifthBackgroundKey = "background"
 
 	fifthSubclassMinLevel = 3
+
+	fifthSaveProficiencyCount = 2
 )
 
 var fifthCharacterPromptGuidance = map[plan.SheetKind]string{
@@ -70,7 +72,19 @@ var fifthCharacterTemplate = Template{
 		Level:         []string{fifthIdentitySection, fifthLevelKey},
 		SubclassLevel: fifthSubclassMinLevel,
 	},
+	SaveProficiencies: &SaveProficiencyRule{
+		Paths:    fifthSaveProficiencyPaths(),
+		Required: fifthSaveProficiencyCount,
+	},
 	Actions: fifthCharacterRestActions(),
+}
+
+func fifthSaveProficiencyPaths() [][]string {
+	paths := make([][]string, 0, len(abilities))
+	for _, ability := range abilities {
+		paths = append(paths, []string{fifthSavesSection, ability.key, fifthProfKey})
+	}
+	return paths
 }
 
 var fifthCharacterIdentityOrder = []string{

@@ -172,6 +172,7 @@ func TestAssemble_DefaultTemplatesContract(t *testing.T) {
 
 					object := syntheticOutput(t, schema, variant.useMaximum)
 					reconcileClassSubclass(t, &tmpl, object)
+					reconcileSaveProficiencies(t, &tmpl, object)
 					raw, err := json.Marshal(object)
 					require.NoError(t, err)
 
@@ -214,6 +215,21 @@ func reconcileClassSubclass(t *testing.T, tmpl *template.Template, object map[st
 		subclass = names.Subclasses[index]
 	}
 	require.NoError(t, maputils.Set(object, rule.Subclass, subclass))
+}
+
+func reconcileSaveProficiencies(t *testing.T, tmpl *template.Template, object map[string]any) {
+	t.Helper()
+	rule := tmpl.SaveProficiencies
+	if rule == nil {
+		return
+	}
+	for index, path := range rule.Paths {
+		value := 0.0
+		if index < rule.Required {
+			value = 1
+		}
+		require.NoError(t, maputils.Set(object, path, value))
+	}
 }
 
 func syntheticOutput(t *testing.T, raw json.RawMessage, useMaximum bool) map[string]any {

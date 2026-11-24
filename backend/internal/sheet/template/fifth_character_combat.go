@@ -189,7 +189,7 @@ func fifthCharacterCombatGroup() FieldGroup {
 }
 
 func fifthCharacterStatusGroup() FieldGroup {
-	xp := numField("Experience points", 0)
+	xp := preferDefault(generatableNumber(numField("Experience points", 0), 0, 355000))
 	xp.Schema.ColumnLabel = "XP"
 
 	inspiration := numField("Heroic Inspiration", 0)

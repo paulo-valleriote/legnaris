@@ -68,7 +68,7 @@ var fifthStatBlockIdentityOrder = []string{
 }
 
 func fifthStatBlockIdentityGroup() FieldGroup {
-	challengeRating := preferDefault(generatableNumber(numField("Challenge rating", 0), 0, 30))
+	challengeRating := generatableNumber(numField("Challenge rating", 0), 0, 30)
 	proficiency := calcField(
 		"Proficiency bonus",
 		fmt.Sprintf("2 + floor((max(%s, 1) - 1) / 4)", Path{fifthIdentitySection, fifthChallengeRatingKey}.EngineKey()),

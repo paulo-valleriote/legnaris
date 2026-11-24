@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"legnaris/backend/internal/plan"
@@ -63,8 +64,12 @@ func Expand(tmpl *template.Template, kind plan.SheetKind, output map[string]any)
 		return nil, ErrNoTemplate
 	}
 	c := &checker{tmpl: tmpl, kind: kind}
+	if denylist, ok := template.DefaultGameSystems().Denylist(tmpl.GameSystemID); ok {
+		c.denylist = denylist
+	}
 	values := c.group(tmpl.Fields, output, "")
 	c.classSubclass(values)
+	c.saveProficiencies(values)
 	if len(c.problems) > 0 {
 		return nil, &OutputError{Problems: c.problems}
 	}
@@ -74,6 +79,7 @@ func Expand(tmpl *template.Template, kind plan.SheetKind, output map[string]any)
 type checker struct {
 	tmpl     *template.Template
 	kind     plan.SheetKind
+	denylist []string
 	problems []string
 }
 
@@ -185,6 +191,10 @@ func (c *checker) number(path string, schema *template.FieldSchema, raw any) (an
 		c.add(path, "must be 0 or 1")
 		return nil, false
 	}
+	if len(schema.GenerationValues) > 0 && !slices.Contains(schema.GenerationValues, value) {
+		c.add(path, "must be one of the listed options")
+		return nil, false
+	}
 	return value, true
 }
 
@@ -200,6 +210,10 @@ func (c *checker) text(path string, schema *template.FieldSchema, raw any) (any,
 	}
 	if len(schema.GenerationEnum) > 0 && !slices.Contains(schema.GenerationEnum, value) {
 		c.add(path, "must be one of the listed options")
+		return nil, false
+	}
+	if term, denied := containsDeniedTerm(value, c.denylist); denied {
+		c.add(path, fmt.Sprintf("contains the denied term %q", term))
 		return nil, false
 	}
 	return value, true
@@ -307,6 +321,87 @@ func (c *checker) classSubclass(values map[string]any) {
 	if subclass != expected {
 		c.add(strings.Join(rule.Subclass, "."), fmt.Sprintf("must be %q for class %q", expected, class))
 	}
+}
+
+func (c *checker) saveProficiencies(values map[string]any) {
+	rule := c.tmpl.SaveProficiencies
+	if rule == nil {
+		return
+	}
+	count := 0
+	for _, path := range rule.Paths {
+		value, ok := lookupNumber(values, path)
+		if !ok {
+			return
+		}
+		if value != 0 {
+			count++
+		}
+	}
+	if count == rule.Required {
+		return
+	}
+	c.add(saveProficiencyPath(rule), fmt.Sprintf("must have exactly %d save proficiencies", rule.Required))
+}
+
+func saveProficiencyPath(rule *template.SaveProficiencyRule) string {
+	if len(rule.Paths) == 0 {
+		return "saves"
+	}
+	return strings.Join(rule.Paths[0][:len(rule.Paths[0])-1], ".")
+}
+
+func containsDeniedTerm(text string, denylist []string) (string, bool) {
+	if text == "" || len(denylist) == 0 {
+		return "", false
+	}
+	lowered := strings.ToLower(text)
+	for _, term := range denylist {
+		needle := strings.ToLower(term)
+		if needle == "" {
+			continue
+		}
+		if containsWholeWord(lowered, needle) {
+			return term, true
+		}
+	}
+	return "", false
+}
+
+func containsWholeWord(text, needle string) bool {
+	for offset := 0; offset <= len(text)-len(needle); {
+		index := strings.Index(text[offset:], needle)
+		if index < 0 {
+			return false
+		}
+		start := offset + index
+		end := start + len(needle)
+		if !wordRuneBefore(text, start) && !wordRuneAfter(text, end) {
+			return true
+		}
+		offset = start + 1
+	}
+	return false
+}
+
+func wordRuneBefore(text string, index int) bool {
+	if index <= 0 {
+		return false
+	}
+	r, _ := utf8.DecodeLastRuneInString(text[:index])
+	return isWordRune(r)
+}
+
+func wordRuneAfter(text string, index int) bool {
+	if index >= len(text) {
+		return false
+	}
+	r, _ := utf8.DecodeRuneInString(text[index:])
+	return isWordRune(r)
+}
+
+func isWordRune(r rune) bool {
+	return unicode.IsLetter(r) || unicode.IsDigit(r) || r == '_'
 }
 
 func lookupString(values map[string]any, path []string) (string, bool) {

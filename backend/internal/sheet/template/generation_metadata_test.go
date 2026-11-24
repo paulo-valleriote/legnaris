@@ -301,6 +301,89 @@ func TestValidateGenerationMetadata(t *testing.T) {
 			})}),
 			wantErr: ErrGenerationEnumDuplicate,
 		},
+		{
+			name: "Happy path: a generatable number leaf restricted to a value set is valid",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Generatable: true, Min: f64(6), Max: f64(12), GenerationValues: []float64{6, 8, 10, 12},
+			})}),
+		},
+		{
+			name: "Edge: a value set without bounds is valid",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Generatable: true, GenerationValues: []float64{6, 8, 10, 12},
+			})}),
+		},
+		{
+			name: "Edge: an empty value set is no metadata",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Generatable: true, GenerationValues: []float64{},
+			})}),
+		},
+		{
+			name: "Error: a value set on a non-generatable leaf is rejected",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				GenerationValues: []float64{6},
+			})}),
+			wantErr: ErrGenerationValuesOnNonGeneratable,
+		},
+		{
+			name: "Error: a value set on a text leaf is rejected",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true, GenerationValues: []float64{6},
+			})}),
+			wantErr: ErrGenerationValuesOnNonNumber,
+		},
+		{
+			name: "Error: a duplicate value is rejected",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Generatable: true, GenerationValues: []float64{6, 6},
+			})}),
+			wantErr: ErrGenerationValuesDuplicate,
+		},
+		{
+			name: "Error: a value below the minimum is rejected",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Generatable: true, Min: f64(6), GenerationValues: []float64{4},
+			})}),
+			wantErr: ErrGenerationValuesOutOfBounds,
+		},
+		{
+			name: "Error: a value above the maximum is rejected",
+			tmpl: genTemplate(FieldGroup{"hitDie": genLeaf(FieldSchema{
+				Generatable: true, Max: f64(12), GenerationValues: []float64{20},
+			})}),
+			wantErr: ErrGenerationValuesOutOfBounds,
+		},
+		{
+			name: "Happy path: an editable state leaf marked not generatable is valid",
+			tmpl: genTemplate(FieldGroup{"used": genLeaf(FieldSchema{NotGeneratable: true})}),
+		},
+		{
+			name:    "Error: a state leaf that is also generatable is rejected",
+			tmpl:    genTemplate(FieldGroup{"used": genLeaf(FieldSchema{Generatable: true, NotGeneratable: true})}),
+			wantErr: ErrNotGeneratableOnGeneratable,
+		},
+		{
+			name: "Error: a state leaf with a kind restriction is rejected",
+			tmpl: genTemplate(FieldGroup{"used": genLeaf(FieldSchema{
+				NotGeneratable: true, GeneratableKinds: []plan.SheetKind{plan.KindCharacter},
+			})}),
+			wantErr: ErrNotGeneratableOnGeneratable,
+		},
+		{
+			name: "Error: a derived leaf marked not generatable is rejected",
+			tmpl: genTemplate(FieldGroup{"total": {Schema: &FieldSchema{
+				Type: fieldTypeNumber, Formula: "1", NotGeneratable: true,
+			}}}),
+			wantErr: ErrNotGeneratableNotEditable,
+		},
+		{
+			name: "Error: a state leaf that is not editable is rejected",
+			tmpl: genTemplate(FieldGroup{"used": {Schema: &FieldSchema{
+				Type: fieldTypeNumber, NotGeneratable: true,
+			}}}),
+			wantErr: ErrNotGeneratableNotEditable,
+		},
 	}
 
 	for _, tc := range tests {

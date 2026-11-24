@@ -224,6 +224,77 @@ func identityFixtureTemplate() *template.Template {
 	}
 }
 
+var contentFixtureAbilities = []string{
+	"strength", "dexterity", "constitution", "intelligence", "wisdom", "charisma",
+}
+
+func contentFixtureTemplate() *template.Template {
+	saves := template.FieldGroup{}
+	paths := make([][]string, 0, len(contentFixtureAbilities))
+	for _, ability := range contentFixtureAbilities {
+		saves[ability] = template.FieldNode{Schema: &template.FieldSchema{
+			Type: "number", Label: ability, IsEditable: true, Generatable: true,
+			Default: 0, Min: ptr(0.0), Max: ptr(1.0), Flag: true,
+		}}
+		paths = append(paths, []string{"saves", ability})
+	}
+	return &template.Template{
+		ID:           fixtureID,
+		Name:         "Content",
+		GameSystemID: template.GameSystemFifth,
+		SaveProficiencies: &template.SaveProficiencyRule{
+			Paths:    paths,
+			Required: 2,
+		},
+		Fields: template.FieldGroup{
+			"identity": {Children: template.FieldGroup{
+				"name": {Schema: &template.FieldSchema{
+					Type: "text", Label: "Name", IsEditable: true, Generatable: true, MaxLength: ptr(60),
+				}},
+			}},
+			"saves": {Children: saves},
+			"hitDice": {Children: template.FieldGroup{
+				"size": {Schema: &template.FieldSchema{
+					Type: "number", Label: "Hit Die size", IsEditable: true, Generatable: true,
+					Default: 8, Min: ptr(6.0), Max: ptr(12.0), GenerationValues: []float64{6, 8, 10, 12},
+				}},
+			}},
+			"spellcasting": {Children: template.FieldGroup{
+				"slots": {Schema: &template.FieldSchema{
+					Type: "number", Label: "Level 1 spell slots", IsEditable: true, Generatable: true,
+					Default: 0, Min: ptr(0.0),
+				}},
+			}},
+			"notes": {Children: template.FieldGroup{
+				"list": {List: &template.ListSchema{
+					Label:      "Notes",
+					Capacity:   2,
+					MaxRecords: 1,
+					Shape: template.FieldGroup{
+						"text": {Schema: &template.FieldSchema{
+							Type: "text", Label: "Text", IsEditable: true, MaxLength: ptr(300),
+						}},
+					},
+				}},
+			}},
+		},
+	}
+}
+
+func contentOutput() map[string]any {
+	saves := map[string]any{
+		"strength": 1, "dexterity": 1, "constitution": 0,
+		"intelligence": 0, "wisdom": 0, "charisma": 0,
+	}
+	return map[string]any{
+		"identity":     map[string]any{"name": "Aria"},
+		"saves":        saves,
+		"hitDice":      map[string]any{"size": 8},
+		"spellcasting": map[string]any{"slots": 2},
+		"notes":        map[string]any{"list": []map[string]any{}},
+	}
+}
+
 func brokenFormulaFixtureTemplate() *template.Template {
 	return &template.Template{
 		ID:   fixtureID,

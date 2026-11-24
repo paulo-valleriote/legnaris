@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 
 	"legnaris/backend/internal/plan"
 )
@@ -36,7 +37,21 @@ var (
 
 	ErrGenerationEnumDuplicate = errors.New("generation enum values must be unique")
 
+	ErrGenerationValuesOnNonGeneratable = errors.New("generation values are only allowed on generatable leaves")
+
+	ErrGenerationValuesOnNonNumber = errors.New("generation values are only allowed on number leaves")
+
+	ErrGenerationValuesDuplicate = errors.New("generation values must be unique")
+
+	ErrGenerationValuesOutOfBounds = errors.New("generation value is outside the declared bounds")
+
+	ErrNotGeneratableOnGeneratable = errors.New("not generatable is not allowed on a generatable leaf")
+
+	ErrNotGeneratableNotEditable = errors.New("not generatable is only allowed on an editable leaf")
+
 	ErrClassSubclassInvalid = errors.New("class and subclass rule is invalid")
+
+	ErrSaveProficiencyInvalid = errors.New("save proficiency rule is invalid")
 )
 
 type ClassSubclassRule struct {
@@ -46,8 +61,16 @@ type ClassSubclassRule struct {
 	SubclassLevel int      `bson:"subclass_level"`
 }
 
+type SaveProficiencyRule struct {
+	Paths    [][]string `bson:"paths"`
+	Required int        `bson:"required"`
+}
+
 func ValidateGenerationMetadata(tmpl Template) error {
 	if err := validateClassSubclass(tmpl); err != nil {
+		return err
+	}
+	if err := validateSaveProficiencies(tmpl); err != nil {
 		return err
 	}
 	return validateGenerationGroup(tmpl.Fields, Path{})
@@ -79,6 +102,23 @@ func validateClassSubclass(tmpl Template) error {
 	return nil
 }
 
+func validateSaveProficiencies(tmpl Template) error {
+	rule := tmpl.SaveProficiencies
+	if rule == nil {
+		return nil
+	}
+	if rule.Required < 1 || rule.Required > len(rule.Paths) {
+		return fmt.Errorf("%w: required %d of %d paths", ErrSaveProficiencyInvalid, rule.Required, len(rule.Paths))
+	}
+	for _, path := range rule.Paths {
+		leaf := generatedLeafAt(tmpl.Fields, path)
+		if leaf == nil || leaf.Type != fieldTypeNumber || !leaf.Flag || !leaf.Generatable {
+			return fmt.Errorf("%w: %q must resolve to a generatable flagged number", ErrSaveProficiencyInvalid, strings.Join(path, "."))
+		}
+	}
+	return nil
+}
+
 func generatedLeafAt(group FieldGroup, path []string) *FieldSchema {
 	if len(path) == 0 {
 		return nil
@@ -94,6 +134,13 @@ func generatedLeafAt(group FieldGroup, path []string) *FieldSchema {
 				return nil
 			}
 			return node.Schema
+		}
+		if node.IsList() {
+			if node.List == nil {
+				return nil
+			}
+			current = node.List.Shape
+			continue
 		}
 		if !node.IsGroup() {
 			return nil
@@ -137,10 +184,16 @@ func validateLeafGeneration(schema *FieldSchema) error {
 	if schema.Generatable && !schema.IsEditable {
 		return ErrGeneratableNotEditable
 	}
+	if err := validateNotGeneratable(schema); err != nil {
+		return err
+	}
 	if err := validateGeneratableKinds(schema); err != nil {
 		return err
 	}
 	if err := validateGenerationEnum(schema); err != nil {
+		return err
+	}
+	if err := validateGenerationValues(schema); err != nil {
 		return err
 	}
 	if err := validatePreferDefault(schema); err != nil {
@@ -150,6 +203,19 @@ func validateLeafGeneration(schema *FieldSchema) error {
 		return err
 	}
 	return validateMaxLength(schema)
+}
+
+func validateNotGeneratable(schema *FieldSchema) error {
+	if !schema.NotGeneratable {
+		return nil
+	}
+	if schema.Generatable || len(schema.GeneratableKinds) > 0 {
+		return ErrNotGeneratableOnGeneratable
+	}
+	if !schema.IsEditable {
+		return ErrNotGeneratableNotEditable
+	}
+	return nil
 }
 
 func validateGeneratableKinds(schema *FieldSchema) error {
@@ -183,6 +249,32 @@ func validateGenerationEnum(schema *FieldSchema) error {
 			return fmt.Errorf("%w: %q", ErrGenerationEnumDuplicate, value)
 		}
 		seen[value] = true
+	}
+	return nil
+}
+
+func validateGenerationValues(schema *FieldSchema) error {
+	if len(schema.GenerationValues) == 0 {
+		return nil
+	}
+	if !schema.Generatable {
+		return ErrGenerationValuesOnNonGeneratable
+	}
+	if schema.Type != fieldTypeNumber {
+		return ErrGenerationValuesOnNonNumber
+	}
+	seen := make(map[float64]bool, len(schema.GenerationValues))
+	for _, value := range schema.GenerationValues {
+		if seen[value] {
+			return fmt.Errorf("%w: %g", ErrGenerationValuesDuplicate, value)
+		}
+		seen[value] = true
+		if schema.Min != nil && value < *schema.Min {
+			return fmt.Errorf("%w: %g", ErrGenerationValuesOutOfBounds, value)
+		}
+		if schema.Max != nil && value > *schema.Max {
+			return fmt.Errorf("%w: %g", ErrGenerationValuesOutOfBounds, value)
+		}
 	}
 	return nil
 }

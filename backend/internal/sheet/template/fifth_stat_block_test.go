@@ -37,7 +37,7 @@ func TestFifthStatBlock_Structure(t *testing.T) {
 		require.NotNil(t, cr)
 		assert.Equal(t, fieldTypeNumber, cr.Type)
 		assert.True(t, cr.IsEditable)
-		assert.True(t, cr.PreferDefault)
+		assert.False(t, cr.PreferDefault)
 		assert.InDelta(t, 0.0, cr.Default, 1e-9)
 		require.NotNil(t, cr.Min)
 		require.NotNil(t, cr.Max)
