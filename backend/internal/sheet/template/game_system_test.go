@@ -192,12 +192,160 @@ func TestDefaultGameSystems_PinnedEntry(t *testing.T) {
 	system, ok := DefaultGameSystems().Fetch(GameSystemFifth)
 	require.True(t, ok)
 
-	assert.Equal(t, GameSystem{
-		ID:                 GameSystemFifth,
-		Name:               "5E",
-		CompatibilityLabel: "5E compatible",
-		Notice:             GameSystemNotice{Label: "SRD 5.2.1", Path: "/srd"},
-	}, system)
+	assert.Equal(t, GameSystemFifth, system.ID)
+	assert.Equal(t, "5E", system.Name)
+	assert.Equal(t, "5E compatible", system.CompatibilityLabel)
+	assert.Equal(t, GameSystemNotice{Label: "SRD 5.2.1", Path: "/srd"}, system.Notice)
+	assert.Equal(t, "The game system is fifth edition, as written in SRD 5.2.1.", system.Brief)
+}
+
+func TestDefaultGameSystems_FifthEditionNames(t *testing.T) {
+	system, ok := DefaultGameSystems().Fetch(GameSystemFifth)
+	require.True(t, ok)
+
+	assert.Equal(t, GameSystemNames{
+		Classes: []string{
+			"Barbarian", "Bard", "Cleric", "Druid", "Fighter", "Monk",
+			"Paladin", "Ranger", "Rogue", "Sorcerer", "Warlock", "Wizard",
+		},
+		Subclasses: []string{
+			"Path of the Berserker", "College of Lore", "Life Domain", "Circle of the Land",
+			"Champion", "Warrior of the Open Hand", "Oath of Devotion", "Hunter", "Thief",
+			"Draconic Sorcery", "Fiend Patron", "Evoker",
+		},
+		Species: []string{
+			"Dragonborn", "Dwarf", "Elf", "Gnome", "Goliath", "Halfling", "Human", "Orc", "Tiefling",
+		},
+		Backgrounds: []string{"Acolyte", "Criminal", "Sage", "Soldier"},
+		Conditions: []string{
+			"Blinded", "Charmed", "Deafened", "Exhaustion", "Frightened", "Grappled",
+			"Incapacitated", "Invisible", "Paralyzed", "Petrified", "Poisoned", "Prone",
+			"Restrained", "Stunned", "Unconscious",
+		},
+	}, system.AllowedNames)
+}
+
+func TestDefaultGameSystems_FifthEditionDenylist(t *testing.T) {
+	system, ok := DefaultGameSystems().Fetch(GameSystemFifth)
+	require.True(t, ok)
+
+	assert.Equal(t, []string{
+		"Dungeons & Dragons",
+		"D&D",
+		"D&D Beyond",
+		"Wizards of the Coast",
+		"Player's Handbook",
+		"official",
+		"licensed by",
+		"powered by",
+		"Forgotten Realms",
+		"Strahd",
+		"Orcus",
+		"Tiamat",
+		"beholder",
+		"mind flayer",
+		"race",
+	}, system.Denylist)
+}
+
+func TestGameSystems_DataAccessors(t *testing.T) {
+	registry, err := BuildGameSystems([]GameSystem{gameSystemWith(func(system *GameSystem) {
+		system.Brief = "Custom brief."
+		system.AllowedNames = GameSystemNames{
+			Classes:     []string{"Fighter"},
+			Subclasses:  []string{"Champion"},
+			Species:     []string{"Human"},
+			Backgrounds: []string{"Soldier"},
+			Conditions:  []string{"Prone"},
+		}
+		system.Denylist = []string{"beholder"}
+	})})
+	require.NoError(t, err)
+
+	brief, ok := registry.Brief(GameSystemFifth)
+	require.True(t, ok)
+	assert.Equal(t, "Custom brief.", brief)
+
+	names, ok := registry.AllowedNames(GameSystemFifth)
+	require.True(t, ok)
+	assert.Equal(t, []string{"Fighter"}, names.Classes)
+	assert.Equal(t, []string{"Champion"}, names.Subclasses)
+	assert.Equal(t, []string{"Human"}, names.Species)
+	assert.Equal(t, []string{"Soldier"}, names.Backgrounds)
+	assert.Equal(t, []string{"Prone"}, names.Conditions)
+
+	denylist, ok := registry.Denylist(GameSystemFifth)
+	require.True(t, ok)
+	assert.Equal(t, []string{"beholder"}, denylist)
+
+	_, ok = registry.Brief("sixth")
+	assert.False(t, ok)
+	_, ok = registry.AllowedNames("sixth")
+	assert.False(t, ok)
+	_, ok = registry.Denylist("sixth")
+	assert.False(t, ok)
+}
+
+func TestGameSystems_DataAccessorsReturnCopies(t *testing.T) {
+	registry, err := BuildGameSystems([]GameSystem{gameSystemWith(func(system *GameSystem) {
+		system.AllowedNames = GameSystemNames{Classes: []string{"Fighter"}}
+		system.Denylist = []string{"beholder"}
+	})})
+	require.NoError(t, err)
+
+	names, ok := registry.AllowedNames(GameSystemFifth)
+	require.True(t, ok)
+	names.Classes[0] = "Mutated"
+
+	denylist, ok := registry.Denylist(GameSystemFifth)
+	require.True(t, ok)
+	denylist[0] = "mutated"
+
+	fetched, ok := registry.Fetch(GameSystemFifth)
+	require.True(t, ok)
+	assert.Equal(t, []string{"Fighter"}, fetched.AllowedNames.Classes)
+	assert.Equal(t, []string{"beholder"}, fetched.Denylist)
+}
+
+func TestGameSystems_DataEdgeCases(t *testing.T) {
+	tests := []struct {
+		name   string
+		system GameSystem
+	}{
+		{
+			name: "Edge: a game system without a brief or names builds with empty data",
+			system: GameSystem{
+				ID:                 "custom",
+				Name:               "Custom",
+				CompatibilityLabel: "Custom compatible",
+				Notice:             GameSystemNotice{Label: "Custom", Path: "/custom"},
+			},
+		},
+		{
+			name: "Edge: a game system with an empty denylist builds",
+			system: GameSystem{
+				ID:                 "custom",
+				Name:               "Custom",
+				CompatibilityLabel: "Custom compatible",
+				Notice:             GameSystemNotice{Label: "Custom", Path: "/custom"},
+				Brief:              "Custom brief.",
+				Denylist:           []string{},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			registry, err := BuildGameSystems([]GameSystem{tc.system})
+			require.NoError(t, err)
+
+			fetched, ok := registry.Fetch(tc.system.ID)
+			require.True(t, ok)
+			assert.Equal(t, tc.system.Brief, fetched.Brief)
+			assert.Equal(t, tc.system.AllowedNames, fetched.AllowedNames)
+			assert.Empty(t, fetched.Denylist)
+		})
+	}
 }
 
 func TestBuildRegistry_GameSystem(t *testing.T) {
