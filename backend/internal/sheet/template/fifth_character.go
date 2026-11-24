@@ -25,6 +25,7 @@ An out-of-SRD concept uses the closest SRD option instead.
 A multiclass concept becomes its dominant class.
 Name the character with an original name.
 A character with no stated level is level 1 with 0 experience points.
+Set the hit point base to the Hit Die size and the hit points per level to half the die size plus one.
 Write feature text as a short paraphrase of at most about 300 runes.`,
 }
 

@@ -101,6 +101,66 @@ func TestOutputSchema_RecordLists(t *testing.T) {
 	})
 }
 
+func TestOutputSchema_RecordKindFiltering(t *testing.T) {
+	tmpl := kindedRecordFixtureTemplate()
+
+	tests := []struct {
+		name      string
+		kind      plan.SheetKind
+		wantField bool
+	}{
+		{name: "Happy path: an NPC record offers the NPC-only field", kind: plan.KindNPC, wantField: true},
+		{name: "Edge: a character record omits the NPC-only field", kind: plan.KindCharacter, wantField: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			props := schemaProps(t, mustSchema(t, tmpl, tc.kind))
+			items := props["inventory"].(map[string]any)["properties"].(map[string]any)["items"].(map[string]any)
+			fields := items["items"].(map[string]any)["properties"].(map[string]any)
+
+			assert.Contains(t, fields, "name")
+			if tc.wantField {
+				assert.Contains(t, fields, "npcNote")
+				return
+			}
+			assert.NotContains(t, fields, "npcNote")
+		})
+	}
+}
+
+func TestExpand_RecordKindFiltering(t *testing.T) {
+	tmpl := kindedRecordFixtureTemplate()
+
+	t.Run("Happy path: an NPC record accepts the NPC-only field", func(t *testing.T) {
+		output := recordOutput(map[string]any{"name": "Sword", "npcNote": "kept by the captain"})
+		_, err := generation.Expand(tmpl, plan.KindNPC, fixtureObject(t, output))
+		require.NoError(t, err)
+	})
+
+	t.Run("Edge: a character record does not need the NPC-only field", func(t *testing.T) {
+		_, err := generation.Expand(tmpl, plan.KindCharacter, fixtureObject(t, recordOutput(map[string]any{"name": "Sword"})))
+		require.NoError(t, err)
+	})
+
+	t.Run("Error: a character record refuses the NPC-only field", func(t *testing.T) {
+		output := recordOutput(map[string]any{"name": "Sword", "npcNote": "kept by the captain"})
+		_, err := generation.Expand(tmpl, plan.KindCharacter, fixtureObject(t, output))
+		requireOutputProblem(t, err, "inventory.items[0]: has 1 field the template does not allow")
+	})
+}
+
+func TestExpand_ClassNotInGameSystem(t *testing.T) {
+	tmpl := identityFixtureTemplate()
+	names, ok := template.DefaultGameSystems().AllowedNames(template.GameSystemFifth)
+	require.True(t, ok)
+	tmpl.Fields["identity"].Children["class"].Schema.GenerationEnum = append([]string{"Artificer"}, names.Classes...)
+
+	output := identityOutput(1, "Artificer", "", names.Species[0], names.Backgrounds[0])
+	_, err := generation.Expand(tmpl, plan.KindCharacter, fixtureObject(t, output))
+	requireOutputProblem(t, err, "identity.class: must be one of the game system classes")
+}
+
 func TestOutputSchema_FifthEditionRecordLists(t *testing.T) {
 	tmpl := fifthTemplateFixture(t, "fifth_character_v1")
 	props := schemaProps(t, mustSchema(t, tmpl, plan.KindCharacter))

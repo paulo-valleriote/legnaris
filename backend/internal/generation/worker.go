@@ -32,14 +32,15 @@ const (
 const maxProblemsBytes = 500
 
 type WorkerDeps struct {
-	Jobs    JobStore
-	Catalog Catalog
-	Client  llm.Client
-	Breaker *breaker.Breaker
-	Quota   Quota
-	Tx      Transactor
-	Now     func() time.Time
-	Logger  logger.StructuredLogger
+	Jobs       JobStore
+	Catalog    Catalog
+	Client     llm.Client
+	Breaker    *breaker.Breaker
+	Quota      Quota
+	Tx         Transactor
+	LLMTimeout time.Duration
+	Now        func() time.Time
+	Logger     logger.StructuredLogger
 }
 
 type Worker struct {
@@ -49,6 +50,8 @@ type Worker struct {
 	breaker *breaker.Breaker
 	quota   Quota
 	tx      Transactor
+	lease   time.Duration
+	budget  time.Duration
 	now     func() time.Time
 	backoff time.Duration
 	logger  logger.StructuredLogger
@@ -68,6 +71,8 @@ func NewWorker(deps WorkerDeps) (*Worker, error) {
 		return nil, errors.New("generation worker: nil quota")
 	case deps.Tx == nil:
 		return nil, errors.New("generation worker: nil transactor")
+	case deps.LLMTimeout <= 0:
+		return nil, errors.New("generation worker: non-positive LLM timeout")
 	case deps.Logger == nil:
 		return nil, errors.New("generation worker: nil logger")
 	}
@@ -82,6 +87,8 @@ func NewWorker(deps WorkerDeps) (*Worker, error) {
 		breaker: deps.Breaker,
 		quota:   deps.Quota,
 		tx:      deps.Tx,
+		lease:   LeaseDurationFor(deps.LLMTimeout),
+		budget:  jobBudgetFor(deps.LLMTimeout),
 		now:     now,
 		backoff: TransportBackoff,
 		logger:  deps.Logger,
@@ -90,7 +97,7 @@ func NewWorker(deps WorkerDeps) (*Worker, error) {
 
 func (w *Worker) Process(ctx context.Context, id string) error {
 	claimedAt := w.now()
-	doc, claimed, err := w.jobs.ClaimQueued(ctx, id, claimedAt, LeaseDuration)
+	doc, claimed, err := w.jobs.ClaimQueued(ctx, id, claimedAt, w.lease)
 	if err != nil {
 		return err
 	}
@@ -100,7 +107,7 @@ func (w *Worker) Process(ctx context.Context, id string) error {
 		return nil
 	}
 
-	jobCtx, cancel := context.WithTimeout(ctx, LeaseDuration)
+	jobCtx, cancel := context.WithTimeout(ctx, w.budget)
 	defer cancel()
 	values, code := w.generate(jobCtx, doc)
 

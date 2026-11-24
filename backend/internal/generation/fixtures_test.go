@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"legnaris/backend/internal/engine"
+	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet/template"
 
 	"github.com/stretchr/testify/require"
@@ -181,6 +182,31 @@ func recordFixtureTemplate() *template.Template {
 					Type: "number", Label: "Total weight",
 					Aggregate: &template.AggregateSchema{
 						List: "inventory.items", Field: "lineWeight", Op: template.AggregateSum,
+					},
+				}},
+			}},
+		},
+	}
+}
+
+func kindedRecordFixtureTemplate() *template.Template {
+	return &template.Template{
+		ID:   fixtureID,
+		Name: "Kinded records",
+		Fields: template.FieldGroup{
+			"inventory": {Children: template.FieldGroup{
+				"items": {List: &template.ListSchema{
+					Label:      "Items",
+					Capacity:   2,
+					MaxRecords: 1,
+					Shape: template.FieldGroup{
+						"name": {Schema: &template.FieldSchema{
+							Type: "text", Label: "Name", IsEditable: true,
+						}},
+						"npcNote": {Schema: &template.FieldSchema{
+							Type: "text", Label: "NPC note", IsEditable: true, Generatable: true,
+							GeneratableKinds: []plan.SheetKind{plan.KindNPC},
+						}},
 					},
 				}},
 			}},

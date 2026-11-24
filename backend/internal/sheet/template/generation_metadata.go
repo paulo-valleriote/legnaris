@@ -84,6 +84,19 @@ func validateClassSubclass(tmpl Template) error {
 	class := generatedLeafAt(tmpl.Fields, rule.Class)
 	subclass := generatedLeafAt(tmpl.Fields, rule.Subclass)
 	level := generatedLeafAt(tmpl.Fields, rule.Level)
+	if err := validateClassSubclassLeaves(class, subclass, level); err != nil {
+		return err
+	}
+	if err := validateClassSubclassEnums(tmpl.GameSystemID, class, subclass); err != nil {
+		return err
+	}
+	if rule.SubclassLevel < 1 {
+		return fmt.Errorf("%w: subclass level must be positive", ErrClassSubclassInvalid)
+	}
+	return nil
+}
+
+func validateClassSubclassLeaves(class, subclass, level *FieldSchema) error {
 	if class == nil || subclass == nil || level == nil {
 		return fmt.Errorf("%w: paths must resolve to leaves", ErrClassSubclassInvalid)
 	}
@@ -96,10 +109,36 @@ func validateClassSubclass(tmpl Template) error {
 	if len(class.GenerationEnum) == 0 || len(subclass.GenerationEnum) == 0 {
 		return fmt.Errorf("%w: class and subclass need a generation enum", ErrClassSubclassInvalid)
 	}
-	if rule.SubclassLevel < 1 {
-		return fmt.Errorf("%w: subclass level must be positive", ErrClassSubclassInvalid)
+	return nil
+}
+
+func validateClassSubclassEnums(gameSystemID string, class, subclass *FieldSchema) error {
+	names, ok := defaultGameSystems.AllowedNames(gameSystemID)
+	if !ok {
+		return fmt.Errorf("%w: game system %q has no allowed names", ErrClassSubclassInvalid, gameSystemID)
+	}
+	if len(names.Classes) != len(names.Subclasses) {
+		return fmt.Errorf("%w: game system classes and subclasses must have the same length", ErrClassSubclassInvalid)
+	}
+	if !slices.Equal(class.GenerationEnum, names.Classes) {
+		return fmt.Errorf("%w: class enum must match the game system classes in order", ErrClassSubclassInvalid)
+	}
+	subclasses, hasEmpty := trimEmptyOption(subclass.GenerationEnum)
+	if !hasEmpty || !slices.Equal(subclasses, names.Subclasses) {
+		return fmt.Errorf("%w: subclass enum must match the game system subclasses plus the empty option", ErrClassSubclassInvalid)
+	}
+	if len(class.GenerationEnum) != len(subclasses) {
+		return fmt.Errorf("%w: class and subclass enums must have the same length", ErrClassSubclassInvalid)
 	}
 	return nil
+}
+
+func trimEmptyOption(values []string) ([]string, bool) {
+	trimmed := slices.Clone(values)
+	if len(trimmed) == 0 || trimmed[len(trimmed)-1] != "" {
+		return trimmed, false
+	}
+	return trimmed[:len(trimmed)-1], true
 }
 
 func validateSaveProficiencies(tmpl Template) error {
@@ -110,10 +149,16 @@ func validateSaveProficiencies(tmpl Template) error {
 	if rule.Required < 1 || rule.Required > len(rule.Paths) {
 		return fmt.Errorf("%w: required %d of %d paths", ErrSaveProficiencyInvalid, rule.Required, len(rule.Paths))
 	}
+	seen := make(map[string]bool, len(rule.Paths))
 	for _, path := range rule.Paths {
+		key := strings.Join(path, ".")
+		if seen[key] {
+			return fmt.Errorf("%w: duplicate path %q", ErrSaveProficiencyInvalid, key)
+		}
+		seen[key] = true
 		leaf := generatedLeafAt(tmpl.Fields, path)
 		if leaf == nil || leaf.Type != fieldTypeNumber || !leaf.Flag || !leaf.Generatable {
-			return fmt.Errorf("%w: %q must resolve to a generatable flagged number", ErrSaveProficiencyInvalid, strings.Join(path, "."))
+			return fmt.Errorf("%w: %q must resolve to a generatable flagged number", ErrSaveProficiencyInvalid, key)
 		}
 	}
 	return nil

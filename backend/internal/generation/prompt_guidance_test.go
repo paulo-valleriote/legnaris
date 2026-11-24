@@ -27,6 +27,7 @@ func TestSystemPrompt_FifthEditionKindGuidance(t *testing.T) {
 				"closest SRD option",
 				"Name the character with an original name.",
 				"level 1 with 0 experience points",
+				"Set the hit point base to the Hit Die size and the hit points per level to half the die size plus one.",
 				"Write feature text as a short paraphrase of at most about 300 runes.",
 			},
 		},

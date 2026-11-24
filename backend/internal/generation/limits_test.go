@@ -41,8 +41,35 @@ var draftTextRunesByLabel = map[string]int{
 func TestLeaseOutlastsTimeoutWithSettleMargin(t *testing.T) {
 	const leaseMargin = 20 * time.Second
 
-	assert.Greater(t, LeaseDuration, env.DefaultLLMTimeout+settleTimeout)
-	assert.GreaterOrEqual(t, LeaseDuration-env.DefaultLLMTimeout-settleTimeout, leaseMargin)
+	tests := []struct {
+		name    string
+		timeout time.Duration
+	}{
+		{name: "Happy path: the default LLM timeout", timeout: env.DefaultLLMTimeout},
+		{name: "Happy path: a longer configured LLM timeout", timeout: 300 * time.Second},
+		{name: "Edge: the shortest configured LLM timeout", timeout: time.Second},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			lease := LeaseDurationFor(tc.timeout)
+			budget := jobBudgetFor(tc.timeout)
+			calls := time.Duration(1+MaxSchemaRetries) * time.Duration(1+TransportRetries) * tc.timeout
+			backoffs := time.Duration(1+MaxSchemaRetries) * TransportBackoff
+
+			assert.GreaterOrEqual(t, budget, calls+backoffs,
+				"the job context must cover every schema retry and transport retry at the LLM timeout")
+			assert.Equal(t, budget+settleTimeout+leaseMargin, lease,
+				"the lease must cover the job context, the settle window and the margin")
+			assert.GreaterOrEqual(t, lease-budget-settleTimeout, leaseMargin,
+				"the settle write must finish before the lease expires")
+		})
+	}
+
+	t.Run("Edge: the default job context fits the advertised schema retries", func(t *testing.T) {
+		schemaAttempts := time.Duration(1+MaxSchemaRetries) * env.DefaultLLMTimeout
+		assert.GreaterOrEqual(t, jobBudgetFor(env.DefaultLLMTimeout), schemaAttempts)
+	})
 }
 
 func TestMaxSizeDraftFitsOutputTokenCap(t *testing.T) {

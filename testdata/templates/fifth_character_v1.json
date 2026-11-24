@@ -3330,8 +3330,11 @@
                   "type": "number",
                   "label": "Hit point base",
                   "is_editable": true,
-                  "default": 0,
-                  "column_label": "Base"
+                  "default": 1,
+                  "column_label": "Base",
+                  "generatable": true,
+                  "min": 1,
+                  "max": 20
                 }
               },
               "perLevel": {
@@ -3340,7 +3343,10 @@
                   "label": "Hit points per level",
                   "is_editable": true,
                   "default": 0,
-                  "column_label": "Per level"
+                  "column_label": "Per level",
+                  "generatable": true,
+                  "min": 0,
+                  "max": 20
                 }
               },
               "misc": {
@@ -3356,7 +3362,7 @@
                 "schema": {
                   "type": "number",
                   "label": "Hit point maximum",
-                  "formula": "combat_hp_base + abilities_constitution_mod * identity_level + combat_hp_perLevel * identity_level + combat_hp_misc",
+                  "formula": "max(1, combat_hp_base + abilities_constitution_mod * identity_level + combat_hp_perLevel * (identity_level - 1) + combat_hp_misc)",
                   "depends_on": [
                     [
                       "combat",

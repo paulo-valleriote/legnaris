@@ -268,7 +268,7 @@ func recordPath(listPath string, index int) string {
 
 func (c *checker) record(listPath string, index int, shape template.FieldGroup, data map[string]any) map[string]any {
 	path := recordPath(listPath, index)
-	lv := shapeLevel(shape)
+	lv := shapeLevel(shape, c.kind)
 	c.rejectUnknown(lv, data, path)
 	values := map[string]any{}
 	for _, name := range slices.Sorted(maps.Keys(lv.leaves)) {
@@ -305,6 +305,7 @@ func (c *checker) classSubclass(values map[string]any) {
 	}
 	index := slices.Index(names.Classes, class)
 	if index < 0 {
+		c.add(strings.Join(rule.Class, "."), "must be one of the game system classes")
 		return
 	}
 	if level < float64(rule.SubclassLevel) {

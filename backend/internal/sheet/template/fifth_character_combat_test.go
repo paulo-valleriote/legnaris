@@ -55,15 +55,25 @@ func TestFifthCharacterCombat_Structure(t *testing.T) {
 		assert.InDelta(t, 0.0, requirement.Default, 1e-9)
 	})
 
-	t.Run("Happy path: hit points enter base, per level, misc, current and temporary", func(t *testing.T) {
+	t.Run("Happy path: hit points generate base and per level, enter misc and derive the maximum", func(t *testing.T) {
 		hp := group[fifthHitPointsKey]
 		require.NotNil(t, hp.Children)
 		assert.Equal(t, fifthHPOrder, hp.Columns)
 
-		for _, key := range []string{fifthHPBaseKey, fifthHPPerLevelKey, fifthHPMiscKey, fifthHPCurrentKey, fifthHPTempKey} {
+		for _, key := range []string{fifthHPBaseKey, fifthHPPerLevelKey} {
 			schema := hp.Children[key].Schema
 			require.NotNil(t, schema, key)
 			assert.True(t, schema.IsEditable, key)
+			assert.True(t, schema.Generatable, key)
+			require.NotNil(t, schema.Min, key)
+			require.NotNil(t, schema.Max, key)
+		}
+
+		for _, key := range []string{fifthHPMiscKey, fifthHPCurrentKey, fifthHPTempKey} {
+			schema := hp.Children[key].Schema
+			require.NotNil(t, schema, key)
+			assert.True(t, schema.IsEditable, key)
+			assert.False(t, schema.Generatable, key)
 		}
 
 		maximum := hp.Children[fifthHPMaxKey].Schema
@@ -258,7 +268,7 @@ func TestFifthCharacterHitPointMaximum(t *testing.T) {
 		want    float64
 	}{
 		{
-			name: "Happy path: maximum adds Constitution per level, the per-level bonus and misc",
+			name: "Happy path: maximum adds Constitution per level, the per-level bonus after level one and misc",
 			updates: map[string]any{
 				"identity.level":               float64(3),
 				"abilities.constitution.score": float64(14),
@@ -266,12 +276,41 @@ func TestFifthCharacterHitPointMaximum(t *testing.T) {
 				"combat.hp.perLevel":           float64(5),
 				"combat.hp.misc":               float64(2),
 			},
-			want: 31,
+			want: 26,
 		},
 		{
-			name:    "Edge: the defaults give a zero maximum",
+			name: "Happy path: level one with CON 14 and a d10 Hit Die gives 12",
+			updates: map[string]any{
+				"identity.level":               float64(1),
+				"abilities.constitution.score": float64(14),
+				"combat.hp.base":               float64(10),
+				"combat.hp.perLevel":           float64(6),
+			},
+			want: 12,
+		},
+		{
+			name: "Edge: level one with CON 8 keeps at least one hit point",
+			updates: map[string]any{
+				"identity.level":               float64(1),
+				"abilities.constitution.score": float64(8),
+				"combat.hp.base":               float64(10),
+				"combat.hp.perLevel":           float64(6),
+			},
+			want: 9,
+		},
+		{
+			name: "Edge: the maximum never drops below one",
+			updates: map[string]any{
+				"identity.level":               float64(20),
+				"abilities.constitution.score": float64(1),
+				"combat.hp.base":               float64(1),
+			},
+			want: 1,
+		},
+		{
+			name:    "Edge: the defaults give a positive maximum",
 			updates: map[string]any{},
-			want:    0,
+			want:    1,
 		},
 		{
 			name: "Edge: a negative Constitution lowers the maximum",

@@ -71,8 +71,19 @@ func TestOutputSchema_ContentChecks(t *testing.T) {
 		assert.Equal(t, []any{0.0, 1.0}, prof["enum"])
 	})
 
+	t.Run("Happy path: the hit point inputs are generatable and combat state stays out", func(t *testing.T) {
+		hp := schemaNode(t, character, "combat", "hp")["properties"].(map[string]any)
+		assert.Contains(t, hp, "base")
+		assert.Contains(t, hp, "perLevel")
+		assert.InDelta(t, 1.0, hp["base"].(map[string]any)["minimum"], 1e-9)
+		assert.InDelta(t, 0.0, hp["perLevel"].(map[string]any)["minimum"], 1e-9)
+		assert.NotContains(t, hp, "max")
+		assert.NotContains(t, hp, "misc")
+		assert.NotContains(t, hp, "current")
+		assert.NotContains(t, hp, "temp")
+	})
+
 	t.Run("Edge: state fields stay out of the character schema", func(t *testing.T) {
-		assert.NotContains(t, schemaNode(t, character, "combat")["properties"], "hp")
 		status := schemaNode(t, character, "status")["properties"].(map[string]any)
 		assert.NotContains(t, status, "conditions")
 		assert.NotContains(t, status, "deathSaves")
@@ -110,9 +121,14 @@ func TestSystemPrompt_ContentChecks(t *testing.T) {
 		assert.Contains(t, character, "status.xp (Experience points, number) [min 0, max 355000, keep 0 unless the concept states otherwise]")
 	})
 
+	t.Run("Happy path: the hit point inputs are prompted with their bounds", func(t *testing.T) {
+		assert.Contains(t, character, "combat.hp.base (Hit point base, number) [min 1, max 20]")
+		assert.Contains(t, character, "combat.hp.perLevel (Hit points per level, number) [min 0, max 20]")
+	})
+
 	t.Run("Edge: state fields are not prompted", func(t *testing.T) {
 		for _, path := range []string{
-			"combat.hp.current", "combat.hp.temp", "hitDice.primary.spent",
+			"combat.hp.current", "combat.hp.temp", "combat.hp.misc", "hitDice.primary.spent",
 			"status.conditions", "status.deathSaves", "spellcasting.slot1.spent",
 			"resources.list.used",
 		} {
@@ -257,6 +273,59 @@ func TestAssemble_FifthStateDefaults(t *testing.T) {
 	assert.InDelta(t, 0.0, spellcasting["slot1"].(map[string]any)["spent"], 1e-9)
 	assert.InDelta(t, 0.0, spellcasting["pact"].(map[string]any)["used"], 1e-9)
 	assert.Equal(t, map[string]any{}, data["resources"].(map[string]any)["list"])
+}
+
+func TestAssemble_FifthHitPoints(t *testing.T) {
+	tmpl := fifthTemplateFixture(t, "fifth_character_v1")
+	dag := fixtureDAG(t, tmpl)
+
+	tests := []struct {
+		name     string
+		level    float64
+		con      float64
+		die      float64
+		base     float64
+		perLevel float64
+		want     float64
+	}{
+		{
+			name:  "Happy path: level one with CON 14 and a d10 Hit Die has 12 hit points",
+			level: 1, con: 14, die: 10, base: 10, perLevel: 6, want: 12,
+		},
+		{
+			name:  "Edge: level one with CON 8 keeps a positive maximum",
+			level: 1, con: 8, die: 10, base: 10, perLevel: 6, want: 9,
+		},
+		{
+			name:  "Edge: the maximum never drops below one even with poor values",
+			level: 1, con: 8, die: 6, base: 1, perLevel: 0, want: 1,
+		},
+		{
+			name:  "Edge: a high-level character with CON 1 still has at least one hit point",
+			level: 20, con: 1, die: 6, base: 1, perLevel: 0, want: 1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			values := map[string]any{
+				"identity":  map[string]any{"level": tc.level},
+				"abilities": map[string]any{"constitution": map[string]any{"score": tc.con}},
+				"hitDice": map[string]any{
+					"primary": map[string]any{"size": tc.die},
+				},
+				"combat": map[string]any{"hp": map[string]any{
+					"base": tc.base, "perLevel": tc.perLevel,
+				}},
+			}
+
+			data, err := generation.Assemble(tmpl, dag, plan.KindCharacter, values)
+			require.NoError(t, err)
+
+			hp := data["combat"].(map[string]any)["hp"].(map[string]any)
+			assert.InDelta(t, tc.want, hp["max"], 1e-9)
+		})
+	}
 }
 
 func TestWorkerProcess_ContentRetries(t *testing.T) {

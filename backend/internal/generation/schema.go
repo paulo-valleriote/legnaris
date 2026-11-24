@@ -66,7 +66,7 @@ func levelOf(group template.FieldGroup, kind plan.SheetKind) level {
 				lv.groups[name] = node.Children
 			}
 		case node.IsList():
-			if node.List != nil && node.List.MaxRecords > 0 && shapeLevel(node.List.Shape).hasGenerated() {
+			if node.List != nil && node.List.MaxRecords > 0 && shapeLevel(node.List.Shape, kind).hasGenerated() {
 				lv.lists[name] = node.List
 			}
 		}
@@ -74,11 +74,14 @@ func levelOf(group template.FieldGroup, kind plan.SheetKind) level {
 	return lv
 }
 
-func shapeLevel(shape template.FieldGroup) level {
+func shapeLevel(shape template.FieldGroup, kind plan.SheetKind) level {
 	lv := newLevel()
 	for _, name := range slices.Sorted(maps.Keys(shape)) {
 		node := shape[name]
 		if !node.IsLeaf() || node.Schema == nil || !node.Schema.IsEditable || node.Schema.Formula != "" || node.Schema.NotGeneratable {
+			continue
+		}
+		if len(node.Schema.GeneratableKinds) > 0 && !node.Schema.GeneratableFor(kind) {
 			continue
 		}
 		if node.Schema.ExclusiveGroup != "" {
@@ -135,7 +138,7 @@ func schemaFromLevel(lv level, kind plan.SheetKind) (map[string]any, error) {
 		}
 	}
 	for _, name := range slices.Sorted(maps.Keys(lv.lists)) {
-		items, err := recordSchema(lv.lists[name].Shape)
+		items, err := recordSchema(lv.lists[name].Shape, kind)
 		if err != nil {
 			return nil, fmt.Errorf("list %q: %w", name, err)
 		}
@@ -165,8 +168,8 @@ func schemaFromLevel(lv level, kind plan.SheetKind) (map[string]any, error) {
 	}, nil
 }
 
-func recordSchema(shape template.FieldGroup) (map[string]any, error) {
-	lv := shapeLevel(shape)
+func recordSchema(shape template.FieldGroup, kind plan.SheetKind) (map[string]any, error) {
+	lv := shapeLevel(shape, kind)
 	if !lv.hasGenerated() {
 		return nil, nil
 	}

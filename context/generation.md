@@ -41,7 +41,7 @@ sequenceDiagram
     A->>Q: publish generation.<kind>.requested (confirm)
     A-->>W: 202 {id}
     Q->>K: deliver job
-    K->>M: claim queued -> running (150 s lease)
+    K->>M: claim queued -> running (derived lease)
     K->>L: system prompt, concept, strict JSON Schema
     L-->>K: JSON values, usage, finish reason
     K->>K: validate, expand exclusive groups, seed and recalculate
@@ -66,7 +66,7 @@ sequenceDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> queued
-    queued --> running: claim, 150 s lease
+    queued --> running: claim, derived lease
     queued --> failed: publish gave up (publish_failed)
     running --> succeeded: valid output stored
     running --> failed: provider, template or output failure
@@ -152,7 +152,13 @@ fifth-edition Character identity uses those names as generation-only enums: 12 c
 12 subclasses, 9 species and 4 backgrounds. The enums constrain the generated JSON Schema and Go
 validation only; the Fields stay editable free text for the player. The subclass enum also accepts
 an empty value, and the class/subclass pair is checked in Go: one class, the class's SRD subclass
-from level 3 and an empty subclass below it. Every generated text value is checked against the
+from level 3 and an empty subclass below it. A class accepted by the enum but absent from the
+game system is an output problem, so a mismatch is retried instead of skipping the pairing check.
+The Character also generates its hit point inputs: the base and the per-level value are
+generatable, with the guidance asking for the Hit Die size as the base and half the die size plus
+one as the per-level value; the maximum is derived as `max(1, base + CON mod * level + perLevel *
+(level - 1) + misc)`, so a level-1 character with CON 14 and a d10 Hit Die has 12 hit points and
+poor inputs still leave at least one. Every generated text value is checked against the
 fifth-edition denylist as a case-insensitive, whole-word match, so a term like "beholder" or
 "official" is an output problem unless it is part of a longer word; substrings ("beholders",
 "unofficial") pass. The same check covers Record text. The user message wraps the sanitized
@@ -162,7 +168,7 @@ generatable for the kind, requires every property, forbids additional properties
 exclusive groups as enums.
 
 Every Record list with a `MaxRecords` cap is offered as an array of objects: `maxItems` is the cap,
-each item carries only the non-derived shape Fields (derived Record Fields stay out), requires all
+each item carries only the non-derived shape Fields that the kind may generate (derived Record Fields and Fields scoped to another kind stay out), requires all
 of them, forbids unknown ones and represents a Record-level exclusive group as one enum. A list
 without a cap is not generated, so `fantasy_v1`, which has no capped lists and no generation
 enums, keeps its object-only schema. Output is parsed as strict JSON (1 MiB bound), rejected on
@@ -183,13 +189,13 @@ failure stores its code and refunds the quota.
 
 ### Template metadata
 
-`FieldSchema` carries `Generatable`, `GeneratableKinds`, `GenerationEnum`, `GenerationValues`, `NotGeneratable`, `PreferDefault`, `Min`, `Max` and `MaxLength`; `Template` carries `NameLeaf`, `GameSystemID`, the shared `PromptGuidance`, the per-kind `PromptGuidanceByKind`, an optional `ClassSubclass` rule (the class, subclass and level paths plus the first subclass level) and an optional `SaveProficiencies` rule (the flagged paths plus how many must be on). `GenerationEnum`, `GenerationValues`, `NotGeneratable`, `ClassSubclass` and `SaveProficiencies` are generation metadata and are not part of the client DTO. Boot (`BuildRegistry`, in API and worker) rejects a generatable leaf that is not editable, kinds on a non-generatable leaf or outside the known kinds, a `GenerationEnum` on a non-generatable or non-text leaf or with duplicate values, `GenerationValues` on a non-generatable or non-number leaf, with duplicates or outside the declared bounds, a `NotGeneratable` leaf that is also generatable, carries kinds or is not editable, `prefer_default` on a non-generatable leaf or outside its bounds, `Min > Max`, bounds on a non-number, a non-positive `MaxLength` and `MaxLength` on a non-text leaf; a class/subclass rule must resolve to generatable class and subclass text leaves with enums and a generatable number level, with a positive subclass level; a save-proficiency rule must ask for between one and all of its paths and each path must resolve to a generatable flagged number; a guidance entry must name a valid kind the Template accepts and carry text; a non-empty `NameLeaf` must resolve to a text leaf, and a non-empty `GameSystemID` must resolve to a registered Game system. In `fantasy_v1` every editable leaf is generatable except `rules.*` and `identity.playerName`; `level`, `xp` and `proficiencyBonus` prefer their defaults so a concept without a stated level yields a starting character. In the 5E Character the identity class, subclass, species and background are generatable with their enums and remain editable free text; `level` prefers 1 and `status.xp` prefers 0, the six save proficiencies are generated with exactly two on, the Hit Die is the value set 6/8/10/12, spell slot totals are generated with a zero minimum, and feature text is capped at 300 runes. The 5E Stat Block takes its challenge rating from the concept with no preferred default, and its trait, action, bonus-action, reaction and legendary-action text is capped at 300 runes.
+`FieldSchema` carries `Generatable`, `GeneratableKinds`, `GenerationEnum`, `GenerationValues`, `NotGeneratable`, `PreferDefault`, `Min`, `Max` and `MaxLength`; `Template` carries `NameLeaf`, `GameSystemID`, the shared `PromptGuidance`, the per-kind `PromptGuidanceByKind`, an optional `ClassSubclass` rule (the class, subclass and level paths plus the first subclass level) and an optional `SaveProficiencies` rule (the flagged paths plus how many must be on). `GenerationEnum`, `GenerationValues`, `NotGeneratable`, `ClassSubclass` and `SaveProficiencies` are generation metadata and are not part of the client DTO. Boot (`BuildRegistry`, in API and worker) rejects a generatable leaf that is not editable, kinds on a non-generatable leaf or outside the known kinds, a `GenerationEnum` on a non-generatable or non-text leaf or with duplicate values, `GenerationValues` on a non-generatable or non-number leaf, with duplicates or outside the declared bounds, a `NotGeneratable` leaf that is also generatable, carries kinds or is not editable, `prefer_default` on a non-generatable leaf or outside its bounds, `Min > Max`, bounds on a non-number, a non-positive `MaxLength` and `MaxLength` on a non-text leaf; a class/subclass rule must resolve to generatable class and subclass text leaves with enums and a generatable number level, with a positive subclass level, and its class enum must equal the game system classes in order while its subclass enum must equal the game system subclasses plus the empty option, both the same length; a save-proficiency rule must ask for between one and all of its distinct paths, each path resolving to a generatable flagged number; a guidance entry must name a valid kind the Template accepts and carry text; a non-empty `NameLeaf` must resolve to a text leaf, and a non-empty `GameSystemID` must resolve to a registered Game system. In `fantasy_v1` every editable leaf is generatable except `rules.*` and `identity.playerName`; `level`, `xp` and `proficiencyBonus` prefer their defaults so a concept without a stated level yields a starting character. In the 5E Character the identity class, subclass, species and background are generatable with their enums and remain editable free text; `level` prefers 1 and `status.xp` prefers 0, the six save proficiencies are generated with exactly two on, the Hit Die is the value set 6/8/10/12, spell slot totals are generated with a zero minimum, and feature text is capped at 300 runes. The 5E Stat Block takes its challenge rating from the concept with no preferred default, and its trait, action, bonus-action, reaction and legendary-action text is capped at 300 runes.
 
-A Record list carries `MaxRecords`, the generation cap that is separate from its storage `Capacity`. The 5E Character caps attacks at 6, inventory at 20, features and feats at 15, spells at 30 and resources at 6; the 5E Stat Block caps traits, actions, bonus actions, reactions and legendary actions at 6 each and limited uses at 4. A declared cap must be between 1 and `Capacity`, and boot rejects anything else (`ErrMaxRecordsInvalid`); 0 means no generation cap. The output cap is `MaxOutputTokens` (8000) and the job lease is 150 s, above the 120 s `LLM_TIMEOUT` plus the 10 s settle window. A test builds the maximum-size draft of each 5E Template (every cap full, 300-rune prose) and asserts that its chars/3.5 estimate stays under the output cap.
+A Record list carries `MaxRecords`, the generation cap that is separate from its storage `Capacity`. The 5E Character caps attacks at 6, inventory at 20, features and feats at 15, spells at 30 and resources at 6; the 5E Stat Block caps traits, actions, bonus actions, reactions and legendary actions at 6 each and limited uses at 4. A declared cap must be between 1 and `Capacity`, and boot rejects anything else (`ErrMaxRecordsInvalid`); 0 means no generation cap. The output cap is `MaxOutputTokens` (8000). The worker takes the configured `LLM_TIMEOUT`, refuses a non-positive value and derives the job context budget as `(1 + MaxSchemaRetries) * (1 + TransportRetries) * timeout + retry backoffs`; the claim lease adds the 10 s settle window and a 20 s margin, 751.5 s at the 120 s default, so every advertised schema retry and its transport retry fits inside the job context and the settle write still lands before the lease expires. A test builds the maximum-size draft of each 5E Template (every cap full, 300-rune prose) and asserts that its chars/3.5 estimate stays under the output cap, and another asserts the lease covers every retry at the timeout for the default and a configured timeout.
 
 ### Configuration and boot checks
 
-`GENERATION_ENABLED` (default false) is the kill switch: the API answers 503 `PROVIDER_UNAVAILABLE` before reserving anything, and the worker does not open the LLM consumer. `GENERATION_DAILY_CAP` (default 200) must not be negative. `LLM_PROVIDER` is `openrouter`; the other keys are `LLM_BASE_URL`, `LLM_API_KEY` (worker only), `LLM_MODEL` (default `deepseek/deepseek-v4.1-flash`), `LLM_TIMEOUT` (default 120 s) and `LLM_REASONING_EFFORT` (empty for the provider default, or `none`, `minimal`, `low`, `medium`, `high`, `xhigh`). The environment check refuses a `:free` model, a negative cap and an unknown effort; building the worker client additionally refuses an unknown provider or a missing key, model or logger, a non-HTTP base URL and a non-positive timeout.
+`GENERATION_ENABLED` (default false) is the kill switch: the API answers 503 `PROVIDER_UNAVAILABLE` before reserving anything, and the worker does not open the LLM consumer. `GENERATION_DAILY_CAP` (default 200) must not be negative. `LLM_PROVIDER` is `openrouter`; the other keys are `LLM_BASE_URL`, `LLM_API_KEY` (worker only), `LLM_MODEL` (default `deepseek/deepseek-v4.1-flash`), `LLM_TIMEOUT` (default 120 s, which also derives the job lease) and `LLM_REASONING_EFFORT` (empty for the provider default, or `none`, `minimal`, `low`, `medium`, `high`, `xhigh`). The environment check refuses a `:free` model, a negative cap and an unknown effort; building the worker client additionally refuses an unknown provider or a missing key, model or logger, a non-HTTP base URL and a non-positive timeout.
 
 ## Code map
 

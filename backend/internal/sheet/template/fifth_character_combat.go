@@ -121,9 +121,9 @@ func fifthCharacterCombatGroup() FieldGroup {
 
 	requirement := numField("Heavy armor Strength requirement", 0)
 
-	hpBase := numField("Hit point base", 0)
+	hpBase := generatableNumber(numField("Hit point base", 1), 1, 20)
 	hpBase.Schema.ColumnLabel = "Base"
-	hpPerLevel := numField("Hit points per level", 0)
+	hpPerLevel := generatableNumber(numField("Hit points per level", 0), 0, 20)
 	hpPerLevel.Schema.ColumnLabel = "Per level"
 	hpMisc := numField("Hit point misc", 0)
 	hpMisc.Schema.ColumnLabel = upperFirst(fifthMiscKey)
@@ -131,7 +131,7 @@ func fifthCharacterCombatGroup() FieldGroup {
 	hpMax := calcField(
 		"Hit point maximum",
 		fmt.Sprintf(
-			"%s + %s * %s + %s * %s + %s",
+			"max(1, %s + %s * %s + %s * (%s - 1) + %s)",
 			hpBaseKey, constitutionKey, levelKey, hpPerLevelKey, levelKey, hpMiscKey,
 		),
 		[]string{fifthCombatSection, fifthHitPointsKey, fifthHPBaseKey},

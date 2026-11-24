@@ -57,14 +57,15 @@ func buildGeneration(cfg env.Env) (generationRunner, func(), error) {
 
 	mdb := database.Client.Database(vars.DatabaseName)
 	worker, err := generation.NewWorker(generation.WorkerDeps{
-		Jobs:    generation.NewMongoStore(mdb),
-		Catalog: registry,
-		Client:  client,
-		Breaker: breaker.New(breaker.DefaultBreakerThreshold, breaker.DefaultBreakerProbeInterval, time.Now),
-		Quota:   quota.NewService(quota.NewMongoStore(mdb), nil),
-		Tx:      db.NewTransactor(database.Client, nil),
-		Now:     time.Now,
-		Logger:  cfg.Logger,
+		Jobs:       generation.NewMongoStore(mdb),
+		Catalog:    registry,
+		Client:     client,
+		Breaker:    breaker.New(breaker.DefaultBreakerThreshold, breaker.DefaultBreakerProbeInterval, time.Now),
+		Quota:      quota.NewService(quota.NewMongoStore(mdb), nil),
+		Tx:         db.NewTransactor(database.Client, nil),
+		LLMTimeout: vars.LLMTimeout,
+		Now:        time.Now,
+		Logger:     cfg.Logger,
 	})
 	if err != nil {
 		cleanup()

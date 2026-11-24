@@ -399,26 +399,32 @@ func TestValidateGenerationMetadata(t *testing.T) {
 }
 
 func TestValidateGenerationMetadata_ClassSubclass(t *testing.T) {
+	names, ok := DefaultGameSystems().AllowedNames(GameSystemFifth)
+	require.True(t, ok)
+	require.NotEmpty(t, names.Classes)
+	require.Len(t, names.Subclasses, len(names.Classes))
+
 	valid := func() Template {
 		return Template{
-			ID: "gen_test", State: StateActive,
+			ID: "gen_test", State: StateActive, GameSystemID: GameSystemFifth,
 			ClassSubclass: &ClassSubclassRule{
 				Class: []string{"identity", "class"}, Subclass: []string{"identity", "subclass"},
 				Level: []string{"identity", "level"}, SubclassLevel: 3,
 			},
 			Fields: FieldGroup{"identity": {Children: FieldGroup{
 				"class": genLeaf(FieldSchema{
-					Type: fieldTypeText, Generatable: true, GenerationEnum: []string{"Fighter"},
+					Type: fieldTypeText, Generatable: true, GenerationEnum: append([]string{}, names.Classes...),
 				}),
 				"subclass": genLeaf(FieldSchema{
-					Type: fieldTypeText, Generatable: true, GenerationEnum: []string{"", "Champion"},
+					Type: fieldTypeText, Generatable: true,
+					GenerationEnum: append(append([]string{}, names.Subclasses...), ""),
 				}),
 				"level": genLeaf(FieldSchema{Generatable: true, Min: f64(1), Max: f64(20)}),
 			}}},
 		}
 	}
 
-	t.Run("Happy path: the three paths and the minimum level are valid", func(t *testing.T) {
+	t.Run("Happy path: the full game-system enums and the minimum level are valid", func(t *testing.T) {
 		require.NoError(t, ValidateGenerationMetadata(valid()))
 	})
 
@@ -443,6 +449,28 @@ func TestValidateGenerationMetadata_ClassSubclass(t *testing.T) {
 		{name: "Error: the class needs a generation enum", mutate: func(tmpl *Template) {
 			tmpl.Fields["identity"].Children["class"].Schema.GenerationEnum = nil
 		}},
+		{name: "Error: the class enum must match the game system classes", mutate: func(tmpl *Template) {
+			tmpl.Fields["identity"].Children["class"].Schema.GenerationEnum = names.Classes[:len(names.Classes)-1]
+		}},
+		{name: "Error: a reordered class enum must match the game system order", mutate: func(tmpl *Template) {
+			enum := append([]string{}, names.Classes...)
+			enum[0], enum[1] = enum[1], enum[0]
+			tmpl.Fields["identity"].Children["class"].Schema.GenerationEnum = enum
+		}},
+		{name: "Error: the subclass enum must match the game system subclasses", mutate: func(tmpl *Template) {
+			enum := append(append([]string{}, names.Subclasses...), "")
+			enum[0] = enum[1]
+			tmpl.Fields["identity"].Children["subclass"].Schema.GenerationEnum = enum
+		}},
+		{name: "Error: the subclass enum needs the empty option", mutate: func(tmpl *Template) {
+			tmpl.Fields["identity"].Children["subclass"].Schema.GenerationEnum = append([]string{}, names.Subclasses...)
+		}},
+		{name: "Error: a class and subclass rule needs a game system", mutate: func(tmpl *Template) {
+			tmpl.GameSystemID = ""
+		}},
+		{name: "Error: a class and subclass rule needs a known game system", mutate: func(tmpl *Template) {
+			tmpl.GameSystemID = "unknown"
+		}},
 		{name: "Error: the minimum subclass level must be positive", mutate: func(tmpl *Template) {
 			tmpl.ClassSubclass.SubclassLevel = 0
 		}},
@@ -453,6 +481,29 @@ func TestValidateGenerationMetadata_ClassSubclass(t *testing.T) {
 			tmpl := valid()
 			tc.mutate(&tmpl)
 			require.ErrorIs(t, ValidateGenerationMetadata(tmpl), ErrClassSubclassInvalid)
+		})
+	}
+}
+
+func TestValidateGenerationMetadata_SaveProficiencyDuplicates(t *testing.T) {
+	tests := []struct {
+		name  string
+		paths [][]string
+	}{
+		{
+			name:  "Error: a duplicate path is refused",
+			paths: saveProficiencyPaths("strength", "strength", "wisdom"),
+		},
+		{
+			name:  "Edge: a path repeated three times is refused",
+			paths: saveProficiencyPaths("strength", "strength", "strength"),
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpl := saveProficiencyTemplate(tc.paths, 2)
+			require.ErrorIs(t, ValidateGenerationMetadata(tmpl), ErrSaveProficiencyInvalid)
 		})
 	}
 }
