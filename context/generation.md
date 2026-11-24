@@ -94,13 +94,14 @@ Create and accept share 5 requests/min per user (`GENERATION_CREATE_RATE_LIMIT_*
 
 ### Template lifecycle
 
-A Draft Template may start a generation only when `APP_ENV`, trimmed and case-insensitive, is
-`development`; an empty or any other value is 400 `INVALID_REQUEST` before consent, plan, Sheet
-room, the daily cap and the quota, so a refused request reserves nothing. A Retired Template is
-400 too, with its own message saying it is retired and cannot start new generations. Accepting a
-succeeded job runs the same Sheet-create gate: a Draft job is accepted only in
-development, while a Retired job still accepts so an existing draft can become a Sheet. The state
-is not exposed to the client; see [sheets](sheets.md).
+The 5E Character and 5E Stat Block are Draft Templates: they can start a generation only when
+`APP_ENV`, trimmed and case-insensitive, is `development`; an empty or any other value is 400
+`INVALID_REQUEST` before consent, plan, Sheet room, the daily cap and the quota, so a refused
+request reserves nothing. A Retired Template is 400 too, with its own message saying it is retired
+and cannot start new generations. Accepting a succeeded job runs the same Sheet-create gate: a
+Draft job is accepted only in development, while a job whose Template was retired after it
+succeeded still accepts, so the player can turn that draft into a Sheet. The state is not exposed
+to the client; see [sheets](sheets.md).
 
 ### Statuses and errors
 
@@ -130,15 +131,17 @@ not instructions, and it explains the keep-default hint. The second is the Game 
 read from `GameSystems.Brief` through the Template's `GameSystemID`; the fifth edition brief is
 "The game system is fifth edition, as written in SRD 5.2.1." The third is per-Template guidance:
 `Template.GuidanceFor(kind)` picks the kind-specific text from `PromptGuidanceByKind` and falls
-back to the shared `PromptGuidance`. The 5E Character and 5E Stat Block guidance is keyed by the
-kinds each Template accepts (character; NPC and enemy) and names its subject. It sends an
-out-of-SRD concept to the closest SRD option, turns a multiclass concept into its dominant class,
-turns a monster outside the SRD into an original creature, names creatures with an SRD or an
-original name, leans NPCs on SRD non-player character stat blocks and enemies on SRD monsters,
-takes the challenge rating from the concept, starts a character at level 1 with 0 experience
-points and asks for feature, trait and action text as a short paraphrase of at most about 300
-runes. `fantasy_v1` keeps its guidance in the shared layer, with the level and experience rules,
-so its assembled prompt stays byte-identical, pinned by snapshot tests for each kind. The
+back to the shared `PromptGuidance`. The 5E Character guidance is keyed to the character kind and
+names its subject; it sends an out-of-SRD concept to the closest SRD option, turns a multiclass
+concept into its dominant class, names the character with an original name, starts a character
+with no stated level at level 1 with 0 experience points and asks for feature text as a short
+paraphrase of at most about 300 runes. The 5E Stat Block guidance is keyed to NPC and enemy; it
+sends an out-of-SRD concept to the closest SRD option, turns a monster outside the SRD into an
+original creature, names a creature with an SRD or an original name, leans NPCs on SRD non-player
+character stat blocks and enemies on SRD monsters, takes the challenge rating from the concept and
+asks for trait and action text as a short paraphrase of at most about 300 runes. `fantasy_v1`
+keeps its guidance in the shared layer, with the level and experience rules, so its assembled
+prompt stays byte-identical, pinned by snapshot tests for each kind. The
 generatable fields follow the guidance and list every leaf with label, type and bounds (with
 `prefer_default` rendered as "keep <default> unless the concept states otherwise") and turn each
 exclusive group into a single-choice list. It never asks for `identity.playerName`. The
