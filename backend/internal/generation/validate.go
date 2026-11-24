@@ -8,6 +8,7 @@ import (
 	"math"
 	"slices"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 
 	"legnaris/backend/internal/plan"
@@ -61,8 +62,9 @@ func Expand(tmpl *template.Template, kind plan.SheetKind, output map[string]any)
 	if tmpl == nil {
 		return nil, ErrNoTemplate
 	}
-	c := &checker{kind: kind}
+	c := &checker{tmpl: tmpl, kind: kind}
 	values := c.group(tmpl.Fields, output, "")
+	c.classSubclass(values)
 	if len(c.problems) > 0 {
 		return nil, &OutputError{Problems: c.problems}
 	}
@@ -70,6 +72,7 @@ func Expand(tmpl *template.Template, kind plan.SheetKind, output map[string]any)
 }
 
 type checker struct {
+	tmpl     *template.Template
 	kind     plan.SheetKind
 	problems []string
 }
@@ -98,6 +101,9 @@ func (c *checker) group(fields template.FieldGroup, data map[string]any, prefix 
 	for _, name := range slices.Sorted(maps.Keys(lv.groups)) {
 		c.child(name, lv.groups[name], data, prefix, values)
 	}
+	for _, name := range slices.Sorted(maps.Keys(lv.lists)) {
+		c.list(name, lv.lists[name], data, prefix, values)
+	}
 	for _, exclusiveGroup := range slices.Sorted(maps.Keys(lv.exclusive)) {
 		c.exclusive(exclusiveGroup, lv, data, prefix, values)
 	}
@@ -113,6 +119,9 @@ func (c *checker) rejectUnknown(lv level, data map[string]any, prefix string) {
 		allowed[name] = true
 	}
 	for name := range lv.exclusive {
+		allowed[name] = true
+	}
+	for name := range lv.lists {
 		allowed[name] = true
 	}
 	unknown := 0
@@ -172,6 +181,10 @@ func (c *checker) number(path string, schema *template.FieldSchema, raw any) (an
 		c.add(path, "is above the maximum")
 		return nil, false
 	}
+	if schema.Flag && value != 0 && value != 1 {
+		c.add(path, "must be 0 or 1")
+		return nil, false
+	}
 	return value, true
 }
 
@@ -183,6 +196,10 @@ func (c *checker) text(path string, schema *template.FieldSchema, raw any) (any,
 	}
 	if schema.MaxLength != nil && utf8.RuneCountInString(value) > *schema.MaxLength {
 		c.add(path, "is longer than the maximum length")
+		return nil, false
+	}
+	if len(schema.GenerationEnum) > 0 && !slices.Contains(schema.GenerationEnum, value) {
+		c.add(path, "must be one of the listed options")
 		return nil, false
 	}
 	return value, true
@@ -201,6 +218,128 @@ func (c *checker) child(name string, fields template.FieldGroup, data map[string
 		return
 	}
 	values[name] = c.group(fields, object, path)
+}
+
+func (c *checker) list(name string, list *template.ListSchema, data map[string]any, prefix string, values map[string]any) {
+	path := join(prefix, name)
+	raw, present := data[name]
+	if !present {
+		c.add(path, "is required")
+		return
+	}
+	items, ok := raw.([]any)
+	if !ok {
+		c.add(path, "must be an array")
+		return
+	}
+	if len(items) > list.MaxRecords {
+		c.add(path, fmt.Sprintf("has more than %d records", list.MaxRecords))
+		return
+	}
+	records := make([]any, 0, len(items))
+	for index, item := range items {
+		object, ok := item.(map[string]any)
+		if !ok {
+			c.add(recordPath(path, index), "must be an object")
+			continue
+		}
+		records = append(records, c.record(path, index, list.Shape, object))
+	}
+	values[name] = records
+}
+
+func recordPath(listPath string, index int) string {
+	return fmt.Sprintf("%s[%d]", listPath, index)
+}
+
+func (c *checker) record(listPath string, index int, shape template.FieldGroup, data map[string]any) map[string]any {
+	path := recordPath(listPath, index)
+	lv := shapeLevel(shape)
+	c.rejectUnknown(lv, data, path)
+	values := map[string]any{}
+	for _, name := range slices.Sorted(maps.Keys(lv.leaves)) {
+		fieldPath := join(path, name)
+		raw, present := data[name]
+		if !present {
+			c.add(fieldPath, "is required")
+			continue
+		}
+		if value, ok := c.leaf(fieldPath, lv.leaves[name], raw); ok {
+			values[name] = value
+		}
+	}
+	for _, exclusiveGroup := range slices.Sorted(maps.Keys(lv.exclusive)) {
+		c.exclusive(exclusiveGroup, lv, data, path, values)
+	}
+	return values
+}
+
+func (c *checker) classSubclass(values map[string]any) {
+	rule := c.tmpl.ClassSubclass
+	if rule == nil {
+		return
+	}
+	class, classOK := lookupString(values, rule.Class)
+	subclass, subclassOK := lookupString(values, rule.Subclass)
+	level, levelOK := lookupNumber(values, rule.Level)
+	if !classOK || !subclassOK || !levelOK {
+		return
+	}
+	names, ok := template.DefaultGameSystems().AllowedNames(c.tmpl.GameSystemID)
+	if !ok {
+		return
+	}
+	index := slices.Index(names.Classes, class)
+	if index < 0 {
+		return
+	}
+	if level < float64(rule.SubclassLevel) {
+		if subclass != "" {
+			c.add(strings.Join(rule.Subclass, "."), fmt.Sprintf("must be empty below level %d", rule.SubclassLevel))
+		}
+		return
+	}
+	if index >= len(names.Subclasses) {
+		c.add(strings.Join(rule.Class, "."), "has no subclass in the game system")
+		return
+	}
+	expected := names.Subclasses[index]
+	if subclass != expected {
+		c.add(strings.Join(rule.Subclass, "."), fmt.Sprintf("must be %q for class %q", expected, class))
+	}
+}
+
+func lookupString(values map[string]any, path []string) (string, bool) {
+	value, ok := lookupValue(values, path)
+	if !ok {
+		return "", false
+	}
+	text, ok := value.(string)
+	return text, ok
+}
+
+func lookupNumber(values map[string]any, path []string) (float64, bool) {
+	value, ok := lookupValue(values, path)
+	if !ok {
+		return 0, false
+	}
+	number, ok := value.(float64)
+	return number, ok
+}
+
+func lookupValue(values map[string]any, path []string) (any, bool) {
+	var current any = values
+	for _, name := range path {
+		object, ok := current.(map[string]any)
+		if !ok {
+			return nil, false
+		}
+		current, ok = object[name]
+		if !ok {
+			return nil, false
+		}
+	}
+	return current, len(path) > 0
 }
 
 func (c *checker) exclusive(name string, lv level, data map[string]any, prefix string, values map[string]any) {

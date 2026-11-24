@@ -301,6 +301,30 @@ func TestWorkerProcess_SchemaRetries(t *testing.T) {
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
 
+	t.Run("Happy path: a wrong-class subclass is retried with the pair problem and then succeeds", func(t *testing.T) {
+		f := newWorkerFixture(t, 5)
+		tmpl := identityFixtureTemplate()
+		dag := fixtureDAG(t, tmpl)
+		f.catalog.EXPECT().FetchByID(fixtureID).Return(tmpl, true).Once()
+		f.catalog.EXPECT().DAG(fixtureID).Return(dag, true).Once()
+		f.expectClaim(dailyReservation)
+
+		wrongRaw, err := json.Marshal(identityOutput(5, "Fighter", "Life Domain", "Human", "Soldier"))
+		require.NoError(t, err)
+		rightRaw, err := json.Marshal(identityOutput(5, "Fighter", "Champion", "Human", "Soldier"))
+		require.NoError(t, err)
+
+		f.generateResponse(llm.Response{Output: wrongRaw}, nil)
+		f.client.EXPECT().Generate(mock.Anything, mock.MatchedBy(func(req llm.Request) bool {
+			return strings.Contains(req.Prompt, "rejected") &&
+				strings.Contains(req.Prompt, "identity.subclass") &&
+				strings.Contains(req.Prompt, "Champion")
+		})).Return(llm.Response{Output: rightRaw}, nil).Once()
+		f.completeWith(true)
+
+		require.NoError(t, f.worker.Process(context.Background(), jobID))
+	})
+
 	tests := []struct {
 		name    string
 		outputs []string

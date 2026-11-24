@@ -36,23 +36,35 @@ func TestFifthCharacter_Structure(t *testing.T) {
 		require.NotNil(t, name.MaxLength)
 		assert.Equal(t, 60, *name.MaxLength)
 
-		texts := map[string]string{
-			fifthClassKey:      "Class",
-			fifthSubclassKey:   "Subclass",
-			fifthSpeciesKey:    "Species",
-			fifthBackgroundKey: "Background",
+		names, ok := DefaultGameSystems().AllowedNames(GameSystemFifth)
+		require.True(t, ok)
+		texts := map[string]struct {
+			label string
+			enum  []string
+		}{
+			fifthClassKey:      {label: "Class", enum: names.Classes},
+			fifthSubclassKey:   {label: "Subclass", enum: append(append([]string{}, names.Subclasses...), "")},
+			fifthSpeciesKey:    {label: "Species", enum: names.Species},
+			fifthBackgroundKey: {label: "Background", enum: names.Backgrounds},
 		}
-		for key, label := range texts {
+		for key, want := range texts {
 			schema := identity[key].Schema
 			require.NotNil(t, schema, key)
 			assert.Equal(t, fieldTypeText, schema.Type, key)
 			assert.True(t, schema.IsEditable, key)
-			assert.False(t, schema.Generatable, key)
+			assert.True(t, schema.Generatable, key)
 			assert.Empty(t, schema.Formula, key)
-			assert.Equal(t, label, schema.Label, key)
+			assert.Equal(t, want.label, schema.Label, key)
+			assert.Equal(t, want.enum, schema.GenerationEnum, key)
 			require.NotNil(t, schema.MaxLength, key)
 			assert.Equal(t, 60, *schema.MaxLength, key)
 		}
+
+		require.NotNil(t, tmpl.ClassSubclass)
+		assert.Equal(t, []string{fifthIdentitySection, fifthClassKey}, tmpl.ClassSubclass.Class)
+		assert.Equal(t, []string{fifthIdentitySection, fifthSubclassKey}, tmpl.ClassSubclass.Subclass)
+		assert.Equal(t, []string{fifthIdentitySection, fifthLevelKey}, tmpl.ClassSubclass.Level)
+		assert.Equal(t, fifthSubclassMinLevel, tmpl.ClassSubclass.SubclassLevel)
 
 		level := identity[fifthLevelKey].Schema
 		require.NotNil(t, level)

@@ -33,6 +33,7 @@
               "label": "Class",
               "is_editable": true,
               "default": 0,
+              "generatable": true,
               "max_length": 60
             }
           },
@@ -42,6 +43,7 @@
               "label": "Subclass",
               "is_editable": true,
               "default": 0,
+              "generatable": true,
               "max_length": 60
             }
           },
@@ -51,6 +53,7 @@
               "label": "Species",
               "is_editable": true,
               "default": 0,
+              "generatable": true,
               "max_length": 60
             }
           },
@@ -60,6 +63,7 @@
               "label": "Background",
               "is_editable": true,
               "default": 0,
+              "generatable": true,
               "max_length": 60
             }
           },

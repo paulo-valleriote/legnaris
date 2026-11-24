@@ -76,6 +76,10 @@ func writeFields(b *strings.Builder, group template.FieldGroup, prefix string, k
 		}
 		b.WriteString("\n")
 	}
+	for _, name := range slices.Sorted(maps.Keys(lv.lists)) {
+		list := lv.lists[name]
+		fmt.Fprintf(b, "- %s (%s, at most %d records)\n", join(prefix, name), list.Label, list.MaxRecords)
+	}
 	for _, name := range slices.Sorted(maps.Keys(lv.groups)) {
 		writeFields(b, lv.groups[name], join(prefix, name), kind)
 	}
@@ -99,6 +103,9 @@ func constraints(schema *template.FieldSchema) string {
 	if schema.MaxLength != nil {
 		parts = append(parts, fmt.Sprintf("at most %d characters", *schema.MaxLength))
 	}
+	if options := enumOptions(schema.GenerationEnum); options != "" {
+		parts = append(parts, "one of: "+options)
+	}
 	if schema.PreferDefault {
 		parts = append(parts, fmt.Sprintf("keep %g unless the concept states otherwise", schema.Default))
 	}
@@ -106,6 +113,26 @@ func constraints(schema *template.FieldSchema) string {
 		return ""
 	}
 	return " [" + strings.Join(parts, ", ") + "]"
+}
+
+func enumOptions(values []string) string {
+	options := make([]string, 0, len(values))
+	empty := false
+	for _, value := range values {
+		if value == "" {
+			empty = true
+			continue
+		}
+		options = append(options, value)
+	}
+	if len(options) == 0 {
+		return ""
+	}
+	joined := strings.Join(options, ", ")
+	if empty {
+		return joined + ", or empty"
+	}
+	return joined
 }
 
 func join(prefix, key string) string {

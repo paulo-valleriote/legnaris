@@ -110,6 +110,36 @@ func TestGenerationMetadata_CopiesDoNotAlias(t *testing.T) {
 	assert.True(t, dtoStrength.PreferDefault)
 }
 
+func TestGenerationMetadata_ClassSubclassCopiesDoNotAlias(t *testing.T) {
+	original := Template{
+		ClassSubclass: &ClassSubclassRule{
+			Class: []string{"identity", "class"}, Subclass: []string{"identity", "subclass"},
+			Level: []string{"identity", "level"}, SubclassLevel: 3,
+		},
+		Fields: FieldGroup{"identity": {Children: FieldGroup{
+			"class": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true, GenerationEnum: []string{"Fighter"},
+			}),
+		}}},
+	}
+
+	cloned := cloneTemplate(original)
+	require.NotSame(t, original.ClassSubclass, cloned.ClassSubclass)
+	require.NotSame(t, &original.ClassSubclass.Class[0], &cloned.ClassSubclass.Class[0])
+	require.NotSame(t, &original.ClassSubclass.Subclass[0], &cloned.ClassSubclass.Subclass[0])
+	require.NotSame(t, &original.ClassSubclass.Level[0], &cloned.ClassSubclass.Level[0])
+
+	originalEnum := original.Fields["identity"].Children["class"].Schema.GenerationEnum
+	clonedEnum := cloned.Fields["identity"].Children["class"].Schema.GenerationEnum
+	require.NotSame(t, &originalEnum[0], &clonedEnum[0])
+
+	cloned.ClassSubclass.Class[0] = "stats"
+	clonedEnum[0] = "Wizard"
+
+	assert.Equal(t, []string{"identity", "class"}, original.ClassSubclass.Class)
+	assert.Equal(t, []string{"Fighter"}, originalEnum)
+}
+
 func TestFantasyV1_GenerationMetadata(t *testing.T) {
 	schemas, paths := collectLeaves(fantasyV1Template.Fields)
 	require.NotEmpty(t, schemas)

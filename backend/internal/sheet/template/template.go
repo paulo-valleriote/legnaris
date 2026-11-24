@@ -35,23 +35,24 @@ func (n *FieldNode) IsList() bool {
 }
 
 type Template struct {
-	ID             string            `bson:"_id,omitempty"`
-	Name           string            `bson:"name"`
-	State          State             `bson:"state"`
-	Fields         FieldGroup        `bson:"fields"`
-	Default        bool              `bson:"default"`
-	SectionOrder   []string          `bson:"section_order,omitempty"`
-	NameLeaf       string            `bson:"name_leaf,omitempty"`
-	SectionDice    map[string]string `bson:"section_dice,omitempty"`
-	RowDice        map[string]string `bson:"row_dice,omitempty"`
-	NotD20Sections []string          `bson:"not_d20_sections,omitempty"`
-	NotD20Rows     []string          `bson:"not_d20_rows,omitempty"`
-	Kinds          []plan.SheetKind  `bson:"kinds,omitempty"`
-	GameSystemID   string            `bson:"game_system,omitempty"`
-	PromptGuidance string            `bson:"prompt_guidance,omitempty"`
-	Actions        []ResetAction     `bson:"actions,omitempty"`
-	CreatedAt      time.Time         `bson:"created_at,omitempty"`
-	UpdatedAt      time.Time         `bson:"updated_at,omitempty"`
+	ID             string             `bson:"_id,omitempty"`
+	Name           string             `bson:"name"`
+	State          State              `bson:"state"`
+	Fields         FieldGroup         `bson:"fields"`
+	Default        bool               `bson:"default"`
+	SectionOrder   []string           `bson:"section_order,omitempty"`
+	NameLeaf       string             `bson:"name_leaf,omitempty"`
+	SectionDice    map[string]string  `bson:"section_dice,omitempty"`
+	RowDice        map[string]string  `bson:"row_dice,omitempty"`
+	NotD20Sections []string           `bson:"not_d20_sections,omitempty"`
+	NotD20Rows     []string           `bson:"not_d20_rows,omitempty"`
+	Kinds          []plan.SheetKind   `bson:"kinds,omitempty"`
+	GameSystemID   string             `bson:"game_system,omitempty"`
+	PromptGuidance string             `bson:"prompt_guidance,omitempty"`
+	ClassSubclass  *ClassSubclassRule `bson:"class_subclass,omitempty"`
+	Actions        []ResetAction      `bson:"actions,omitempty"`
+	CreatedAt      time.Time          `bson:"created_at,omitempty"`
+	UpdatedAt      time.Time          `bson:"updated_at,omitempty"`
 	rowIndex       *templateRowIndex
 }
 
@@ -67,6 +68,7 @@ type FieldSchema struct {
 	ColumnLabel      string           `bson:"column_label,omitempty"`
 	Generatable      bool             `bson:"generatable,omitempty"`
 	GeneratableKinds []plan.SheetKind `bson:"generatable_kinds,omitempty"`
+	GenerationEnum   []string         `bson:"generation_enum,omitempty"`
 	PreferDefault    bool             `bson:"prefer_default,omitempty"`
 	Flag             bool             `bson:"flag,omitempty"`
 	Min              *float64         `bson:"min,omitempty"`

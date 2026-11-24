@@ -2,6 +2,7 @@ package template
 
 import (
 	"fmt"
+	"slices"
 
 	"legnaris/backend/internal/plan"
 )
@@ -11,6 +12,8 @@ const (
 	fifthSubclassKey   = "subclass"
 	fifthSpeciesKey    = "species"
 	fifthBackgroundKey = "background"
+
+	fifthSubclassMinLevel = 3
 )
 
 var fifthCharacterTemplate = Template{
@@ -50,7 +53,13 @@ var fifthCharacterTemplate = Template{
 	SectionDice:    fifthCheckDice(),
 	RowDice:        fifthCharacterRowDice(),
 	NotD20Sections: []string{fifthHitDiceSection},
-	Actions:        fifthCharacterRestActions(),
+	ClassSubclass: &ClassSubclassRule{
+		Class:         []string{fifthIdentitySection, fifthClassKey},
+		Subclass:      []string{fifthIdentitySection, fifthSubclassKey},
+		Level:         []string{fifthIdentitySection, fifthLevelKey},
+		SubclassLevel: fifthSubclassMinLevel,
+	},
+	Actions: fifthCharacterRestActions(),
 }
 
 var fifthCharacterIdentityOrder = []string{
@@ -75,15 +84,14 @@ func fifthCharacterIdentityGroup() FieldGroup {
 		[]string{fifthIdentitySection, fifthLevelKey},
 	)
 
-	maxLength := 60
-	class := textField("Class")
-	class.Schema.MaxLength = &maxLength
-	subclass := textField("Subclass")
-	subclass.Schema.MaxLength = &maxLength
-	species := textField("Species")
-	species.Schema.MaxLength = &maxLength
-	background := textField("Background")
-	background.Schema.MaxLength = &maxLength
+	class := generatableText(textField("Class"), 60)
+	class.Schema.GenerationEnum = slices.Clone(fifthEditionSystemNames.Classes)
+	subclass := generatableText(textField("Subclass"), 60)
+	subclass.Schema.GenerationEnum = append(slices.Clone(fifthEditionSystemNames.Subclasses), "")
+	species := generatableText(textField("Species"), 60)
+	species.Schema.GenerationEnum = slices.Clone(fifthEditionSystemNames.Species)
+	background := generatableText(textField("Background"), 60)
+	background.Schema.GenerationEnum = slices.Clone(fifthEditionSystemNames.Backgrounds)
 
 	return FieldGroup{
 		fieldNameName:             generatableText(textField("Name"), 60),

@@ -3,6 +3,7 @@ package generation_test
 import (
 	"encoding/json"
 	"errors"
+	"slices"
 	"testing"
 	"unicode/utf8"
 
@@ -10,6 +11,7 @@ import (
 	"legnaris/backend/internal/generation"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet/template"
+	"legnaris/backend/shared/maputils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -168,10 +170,12 @@ func TestAssemble_DefaultTemplatesContract(t *testing.T) {
 					}
 					require.NoError(t, err)
 
-					raw, err := json.Marshal(syntheticOutput(t, schema, variant.useMaximum))
+					object := syntheticOutput(t, schema, variant.useMaximum)
+					reconcileClassSubclass(t, &tmpl, object)
+					raw, err := json.Marshal(object)
 					require.NoError(t, err)
 
-					object, err := generation.ParseOutput(raw)
+					object, err = generation.ParseOutput(raw)
 					require.NoError(t, err)
 					expanded, err := generation.Expand(&tmpl, kind, object)
 					require.NoError(t, err)
@@ -183,6 +187,33 @@ func TestAssemble_DefaultTemplatesContract(t *testing.T) {
 			}
 		}
 	}
+}
+
+func reconcileClassSubclass(t *testing.T, tmpl *template.Template, object map[string]any) {
+	t.Helper()
+	rule := tmpl.ClassSubclass
+	if rule == nil {
+		return
+	}
+	classValue, ok := maputils.Get(object, rule.Class)
+	require.True(t, ok, "the synthetic output carries the class")
+	class, ok := classValue.(string)
+	require.True(t, ok)
+	levelValue, ok := maputils.Get(object, rule.Level)
+	require.True(t, ok, "the synthetic output carries the level")
+	level, ok := levelValue.(float64)
+	require.True(t, ok)
+
+	subclass := ""
+	if level >= float64(rule.SubclassLevel) {
+		names, ok := template.DefaultGameSystems().AllowedNames(tmpl.GameSystemID)
+		require.True(t, ok)
+		index := slices.Index(names.Classes, class)
+		require.GreaterOrEqual(t, index, 0)
+		require.Less(t, index, len(names.Subclasses))
+		subclass = names.Subclasses[index]
+	}
+	require.NoError(t, maputils.Set(object, rule.Subclass, subclass))
 }
 
 func syntheticOutput(t *testing.T, raw json.RawMessage, useMaximum bool) map[string]any {
@@ -198,6 +229,19 @@ func syntheticOutput(t *testing.T, raw json.RawMessage, useMaximum bool) map[str
 func syntheticValue(t *testing.T, schema map[string]any, useMaximum bool) any {
 	t.Helper()
 	switch schema["type"] {
+	case "array":
+		if !useMaximum {
+			return []any{}
+		}
+		item, ok := schema["items"].(map[string]any)
+		require.True(t, ok, "an array schema carries its item schema")
+		limit, ok := schema["maxItems"].(float64)
+		require.True(t, ok, "a generated array declares its cap")
+		items := make([]any, 0, int(limit))
+		for range int(limit) {
+			items = append(items, syntheticValue(t, item, useMaximum))
+		}
+		return items
 	case "object":
 		properties, ok := schema["properties"].(map[string]any)
 		require.True(t, ok, "an object schema carries properties")
@@ -209,6 +253,12 @@ func syntheticValue(t *testing.T, schema map[string]any, useMaximum bool) any {
 		}
 		return out
 	case "number":
+		if options, ok := schema["enum"].([]any); ok && len(options) > 0 {
+			if useMaximum {
+				return options[len(options)-1]
+			}
+			return options[0]
+		}
 		lower, hasLower := schema["minimum"].(float64)
 		upper, hasUpper := schema["maximum"].(float64)
 		switch {

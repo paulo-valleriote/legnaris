@@ -268,6 +268,39 @@ func TestValidateGenerationMetadata(t *testing.T) {
 			}}}),
 			wantErr: ErrRangeOnNonNumber,
 		},
+		{
+			name: "Happy path: a generatable text leaf with a generation enum is valid",
+			tmpl: genTemplate(FieldGroup{"class": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true, GenerationEnum: []string{"Fighter", "Wizard"},
+			})}),
+		},
+		{
+			name: "Edge: an empty generation enum is no metadata",
+			tmpl: genTemplate(FieldGroup{"class": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true, GenerationEnum: []string{},
+			})}),
+		},
+		{
+			name: "Error: a generation enum on a non-generatable leaf is rejected",
+			tmpl: genTemplate(FieldGroup{"class": genLeaf(FieldSchema{
+				Type: fieldTypeText, GenerationEnum: []string{"Fighter"},
+			})}),
+			wantErr: ErrGenerationEnumOnNonGeneratable,
+		},
+		{
+			name: "Error: a generation enum on a number leaf is rejected",
+			tmpl: genTemplate(FieldGroup{"level": genLeaf(FieldSchema{
+				Generatable: true, GenerationEnum: []string{"one"},
+			})}),
+			wantErr: ErrGenerationEnumOnNonText,
+		},
+		{
+			name: "Error: a duplicate generation enum value is rejected",
+			tmpl: genTemplate(FieldGroup{"class": genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true, GenerationEnum: []string{"Fighter", "Fighter"},
+			})}),
+			wantErr: ErrGenerationEnumDuplicate,
+		},
 	}
 
 	for _, tc := range tests {
@@ -278,6 +311,65 @@ func TestValidateGenerationMetadata(t *testing.T) {
 				return
 			}
 			require.ErrorIs(t, err, tc.wantErr)
+		})
+	}
+}
+
+func TestValidateGenerationMetadata_ClassSubclass(t *testing.T) {
+	valid := func() Template {
+		return Template{
+			ID: "gen_test", State: StateActive,
+			ClassSubclass: &ClassSubclassRule{
+				Class: []string{"identity", "class"}, Subclass: []string{"identity", "subclass"},
+				Level: []string{"identity", "level"}, SubclassLevel: 3,
+			},
+			Fields: FieldGroup{"identity": {Children: FieldGroup{
+				"class": genLeaf(FieldSchema{
+					Type: fieldTypeText, Generatable: true, GenerationEnum: []string{"Fighter"},
+				}),
+				"subclass": genLeaf(FieldSchema{
+					Type: fieldTypeText, Generatable: true, GenerationEnum: []string{"", "Champion"},
+				}),
+				"level": genLeaf(FieldSchema{Generatable: true, Min: f64(1), Max: f64(20)}),
+			}}},
+		}
+	}
+
+	t.Run("Happy path: the three paths and the minimum level are valid", func(t *testing.T) {
+		require.NoError(t, ValidateGenerationMetadata(valid()))
+	})
+
+	tests := []struct {
+		name   string
+		mutate func(*Template)
+	}{
+		{name: "Error: the class path must resolve", mutate: func(tmpl *Template) {
+			tmpl.ClassSubclass.Class = []string{"identity", "missing"}
+		}},
+		{name: "Error: the subclass path must resolve to a leaf", mutate: func(tmpl *Template) {
+			tmpl.ClassSubclass.Subclass = []string{"identity"}
+		}},
+		{name: "Error: the level path must be a number", mutate: func(tmpl *Template) {
+			tmpl.Fields["identity"].Children["level"] = genLeaf(FieldSchema{
+				Type: fieldTypeText, Generatable: true, GenerationEnum: []string{"1"},
+			})
+		}},
+		{name: "Error: the class must be generatable", mutate: func(tmpl *Template) {
+			tmpl.Fields["identity"].Children["class"].Schema.Generatable = false
+		}},
+		{name: "Error: the class needs a generation enum", mutate: func(tmpl *Template) {
+			tmpl.Fields["identity"].Children["class"].Schema.GenerationEnum = nil
+		}},
+		{name: "Error: the minimum subclass level must be positive", mutate: func(tmpl *Template) {
+			tmpl.ClassSubclass.SubclassLevel = 0
+		}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpl := valid()
+			tc.mutate(&tmpl)
+			require.ErrorIs(t, ValidateGenerationMetadata(tmpl), ErrClassSubclassInvalid)
 		})
 	}
 }

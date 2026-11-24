@@ -29,10 +29,78 @@ var (
 	ErrMaxLengthOnNonText = errors.New("max length is only allowed on text leaves")
 
 	ErrMaxRecordsInvalid = errors.New("max records must be between one and capacity")
+
+	ErrGenerationEnumOnNonGeneratable = errors.New("generation enum is only allowed on generatable leaves")
+
+	ErrGenerationEnumOnNonText = errors.New("generation enum is only allowed on text leaves")
+
+	ErrGenerationEnumDuplicate = errors.New("generation enum values must be unique")
+
+	ErrClassSubclassInvalid = errors.New("class and subclass rule is invalid")
 )
 
+type ClassSubclassRule struct {
+	Class         []string `bson:"class"`
+	Subclass      []string `bson:"subclass"`
+	Level         []string `bson:"level"`
+	SubclassLevel int      `bson:"subclass_level"`
+}
+
 func ValidateGenerationMetadata(tmpl Template) error {
+	if err := validateClassSubclass(tmpl); err != nil {
+		return err
+	}
 	return validateGenerationGroup(tmpl.Fields, Path{})
+}
+
+func validateClassSubclass(tmpl Template) error {
+	rule := tmpl.ClassSubclass
+	if rule == nil {
+		return nil
+	}
+	class := generatedLeafAt(tmpl.Fields, rule.Class)
+	subclass := generatedLeafAt(tmpl.Fields, rule.Subclass)
+	level := generatedLeafAt(tmpl.Fields, rule.Level)
+	if class == nil || subclass == nil || level == nil {
+		return fmt.Errorf("%w: paths must resolve to leaves", ErrClassSubclassInvalid)
+	}
+	if class.Type != fieldTypeText || subclass.Type != fieldTypeText || level.Type != fieldTypeNumber {
+		return fmt.Errorf("%w: class and subclass must be text and level must be a number", ErrClassSubclassInvalid)
+	}
+	if !class.Generatable || !subclass.Generatable || !level.Generatable {
+		return fmt.Errorf("%w: class, subclass and level must be generatable", ErrClassSubclassInvalid)
+	}
+	if len(class.GenerationEnum) == 0 || len(subclass.GenerationEnum) == 0 {
+		return fmt.Errorf("%w: class and subclass need a generation enum", ErrClassSubclassInvalid)
+	}
+	if rule.SubclassLevel < 1 {
+		return fmt.Errorf("%w: subclass level must be positive", ErrClassSubclassInvalid)
+	}
+	return nil
+}
+
+func generatedLeafAt(group FieldGroup, path []string) *FieldSchema {
+	if len(path) == 0 {
+		return nil
+	}
+	current := group
+	for index, name := range path {
+		node, ok := current[name]
+		if !ok {
+			return nil
+		}
+		if index == len(path)-1 {
+			if !node.IsLeaf() {
+				return nil
+			}
+			return node.Schema
+		}
+		if !node.IsGroup() {
+			return nil
+		}
+		current = node.Children
+	}
+	return nil
 }
 
 func validateGenerationGroup(group FieldGroup, prefix Path) error {
@@ -72,6 +140,9 @@ func validateLeafGeneration(schema *FieldSchema) error {
 	if err := validateGeneratableKinds(schema); err != nil {
 		return err
 	}
+	if err := validateGenerationEnum(schema); err != nil {
+		return err
+	}
 	if err := validatePreferDefault(schema); err != nil {
 		return err
 	}
@@ -92,6 +163,26 @@ func validateGeneratableKinds(schema *FieldSchema) error {
 		if _, ok := plan.ParseSheetKind(string(kind)); !ok {
 			return fmt.Errorf("%w: %q", ErrGeneratableKindInvalid, kind)
 		}
+	}
+	return nil
+}
+
+func validateGenerationEnum(schema *FieldSchema) error {
+	if len(schema.GenerationEnum) == 0 {
+		return nil
+	}
+	if !schema.Generatable {
+		return ErrGenerationEnumOnNonGeneratable
+	}
+	if schema.Type != fieldTypeText {
+		return ErrGenerationEnumOnNonText
+	}
+	seen := make(map[string]bool, len(schema.GenerationEnum))
+	for _, value := range schema.GenerationEnum {
+		if seen[value] {
+			return fmt.Errorf("%w: %q", ErrGenerationEnumDuplicate, value)
+		}
+		seen[value] = true
 	}
 	return nil
 }

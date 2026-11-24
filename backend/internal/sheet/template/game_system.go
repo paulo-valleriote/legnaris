@@ -92,6 +92,16 @@ var defaultGameSystemList = []GameSystem{
 
 var defaultGameSystems = mustBuildDefaultGameSystems()
 
+var fifthEditionSystemNames = mustFifthEditionSystemNames()
+
+func mustFifthEditionSystemNames() GameSystemNames {
+	names, ok := defaultGameSystems.AllowedNames(GameSystemFifth)
+	if !ok {
+		panic("missing default fifth-edition game system")
+	}
+	return names
+}
+
 func DefaultGameSystems() GameSystems {
 	return defaultGameSystems
 }
