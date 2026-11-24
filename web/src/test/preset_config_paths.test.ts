@@ -61,6 +61,23 @@ describe('configPathErrors', () => {
     expect(configPathErrors(unknown, template)).toEqual(['ghost_action']);
   });
 
+  it('Error: an unknown score Row is reported', () => {
+    const unknown = config({
+      pieces: [
+        {
+          kind: 'abilityGrid',
+          key: 'abilities',
+          section: 'abilities',
+          abilities: [
+            { score: 'abilities.might', modifier: 'abilities.mightModifier', row: 'ghost' },
+          ],
+        },
+      ],
+    });
+
+    expect(configPathErrors(unknown, template)).toEqual(['ghost']);
+  });
+
   it('Edge: a numeric pips maximum binds no path', () => {
     const numeric = config({ pieces: [pips('charges.used', 3)] });
 

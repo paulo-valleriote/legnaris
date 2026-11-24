@@ -26,7 +26,7 @@ export function IdentityHeader({ header, level = 1 }: IdentityHeaderProps) {
 
   return (
     <div className="lg-compose-header">
-      <Heading className="lg-compose-header__name">
+      <Heading className="lg-compose-header__name" data-testid="sheet-name">
         <InlineEdit
           className="lg-compose-header__title"
           label={nameLabel}

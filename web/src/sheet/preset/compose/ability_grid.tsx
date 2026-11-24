@@ -31,7 +31,7 @@ function AbilityCell({
       <span className="lg-compose-ability__name">{scoreLabel}</span>
       <RollableValue
         className="lg-compose-ability__modifier"
-        rowKey={ability.modifier}
+        rowKey={ability.row ?? ability.modifier}
         sectionKey={section}
         label={modifierLabel}
         text={modifier === undefined ? message('sheet.play.noValue') : formatSigned(modifier)}

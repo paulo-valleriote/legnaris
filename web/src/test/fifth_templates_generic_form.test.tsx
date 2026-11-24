@@ -95,7 +95,7 @@ afterEach(() => {
   cleanup();
 });
 
-describe('the real 5E Character DTO through the generic form', () => {
+describe('the real 5E Character DTO', () => {
   it('Happy path: the golden DTO decodes as a draft fifth-system character Template', () => {
     const template = goldenTemplate(characterGolden);
 
@@ -108,7 +108,7 @@ describe('the real 5E Character DTO through the generic form', () => {
     expect(Object.keys(template.fields)).toContain('inventory');
   });
 
-  it('Happy path: every Section, toggle, rank and Record list draws', async () => {
+  it('Happy path: the character opens in Play and draws its pieces', async () => {
     openSheet(
       CHARACTER_SHEET_ID,
       'fifth_character_v1',
@@ -116,41 +116,17 @@ describe('the real 5E Character DTO through the generic form', () => {
       characterData(),
       'character',
     );
-    await screen.findByTestId('sheet-name');
+    await screen.findByTestId('sheet-play');
 
-    for (const heading of [
-      'Identity',
-      'Abilities',
-      'Saves',
-      'Skills',
-      'Exhaustion',
-      'Passive',
-      'Armor',
-      'Hit dice',
-      'Spellcasting',
-      'Combat',
-      'Status',
-      'Coins',
-      'Attacks',
-      'Inventory',
-      'Features',
-      'Spells',
-      'Resources',
-    ]) {
-      expect(screen.getByRole('heading', { name: heading })).toBeInTheDocument();
-    }
+    expect(screen.getByTestId('sheet-name')).toHaveTextContent('Brenna');
+    expect(screen.getByTestId('compose-hit-points')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-ability-grid')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-save-list')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-skill-list')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-conditions')).toBeInTheDocument();
 
-    expect(screen.getByRole('checkbox', { name: 'Jack of All Trades' })).toBeInTheDocument();
-    expect(screen.getByRole('checkbox', { name: 'Heroic Inspiration' })).toBeInTheDocument();
-
-    const rank = within(row('skills.acrobatics')).getByRole('textbox', {
-      name: 'Acrobatics rank',
-    });
-    expect(rank).toHaveAttribute('inputmode', 'decimal');
-    expect(rank).toHaveValue('0');
-
-    expect(recordRows()).toHaveLength(1);
-    const inventoryRow = recordRows()[0] as HTMLElement;
+    expect(recordRows()).toHaveLength(0);
+    const inventoryRow = screen.getByTestId('compose-record-row');
     expect(within(inventoryRow).getByRole('textbox', { name: 'Name' })).toHaveValue('Rope');
     expect(within(inventoryRow).getByRole('checkbox', { name: 'Attuned' })).toBeChecked();
   });
@@ -163,7 +139,7 @@ describe('the real 5E Character DTO through the generic form', () => {
       characterData(),
       'character',
     );
-    await screen.findByTestId('sheet-name');
+    await screen.findByTestId('sheet-play');
 
     const bar = screen.getByRole('group', { name: message('sheet.reset.group') });
     expect(
@@ -173,7 +149,7 @@ describe('the real 5E Character DTO through the generic form', () => {
     ).toEqual(['Long rest', 'Short rest']);
   });
 
-  it('Happy path: a d20 Row offers a Roll mode and a marked Hit Die Row offers none', async () => {
+  it('Happy path: a d20 score offers a Roll mode and the Hit Die pips offer no roll', async () => {
     openSheet(
       CHARACTER_SHEET_ID,
       'fifth_character_v1',
@@ -181,14 +157,13 @@ describe('the real 5E Character DTO through the generic form', () => {
       characterData(),
       'character',
     );
-    await screen.findByTestId('sheet-name');
+    await screen.findByTestId('sheet-play');
 
-    expect(
-      within(row('abilities.dexterity')).getByRole('button', { name: /^Roll Dexterity/ }),
-    ).toHaveAttribute('aria-haspopup', 'dialog');
-    expect(
-      within(row('hitDice.primary')).getByRole('button', { name: /^Roll Primary Hit Dice/ }),
-    ).not.toHaveAttribute('aria-haspopup', 'dialog');
+    expect(screen.getByRole('button', { name: /^Roll Dexterity modifier/ })).toHaveAttribute(
+      'aria-haspopup',
+      'dialog',
+    );
+    expect(screen.queryByRole('button', { name: /^Roll Primary Hit Dice/ })).toBeNull();
   });
 });
 

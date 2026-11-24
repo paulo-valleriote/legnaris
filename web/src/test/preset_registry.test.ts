@@ -35,8 +35,8 @@ describe('the preset registry', () => {
     expect(presetFor(templateWithId('ghost_v1'))).toBeUndefined();
   });
 
-  it('Edge: the default registry registers no config yet', () => {
-    expect(presetFor(templateWithId(PRESET_TEMPLATE_ID))).toBeUndefined();
+  it('Happy path: the default registry resolves the fifth character config', () => {
+    expect(presetFor(templateWithId('fifth_character_v1'))?.templateId).toBe('fifth_character_v1');
   });
 });
 

@@ -57,7 +57,7 @@ function SkillRow({
       )}
       <RollableValue
         className="lg-compose-skill__total"
-        rowKey={skill.total}
+        rowKey={skill.row ?? skill.total}
         sectionKey={section}
         label={totalLabel}
         text={total === undefined ? message('sheet.play.noValue') : formatSigned(total)}

@@ -20,9 +20,10 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   everything the rules derive from the Sheet is derived; `fifth_stat_block_v1` "5E Stat Block"
   (`npc`, `enemy`) derives the proficiency bonus and the XP from the challenge rating. Both
   ship as `draft` Templates of the `fifth` Game system, so only a development deployment lists
-  and creates them until the LGN-386 release cutover, and both are played and edited through
-  the generic Section/Row form with no preset. Cost: the player types class-granted values, and
-  the generic form is the whole presentation; the engine
+  and creates them until the LGN-386 release cutover. The character plays through the
+  composable `fifth_character` config (LGN-417); the stat block keeps the generic Section/Row
+  form until its own config lands. Cost: the player types class-granted values, and the
+  generic form is the whole presentation for Templates without a config; the engine
   capabilities they rely on are live: dice sized by Fields with a minimum total, Record
   lists with derived Record formulas, Reset actions, `min`, `max`, `lookup`, numeric flags and
   the d20-test marking of the Roll modes (LGN-390).
@@ -428,6 +429,23 @@ exhaustion.penalty` and `1d20 + exhaustion.penalty`. Every expression stays insi
 64-character cap. Only the character's `hitDice` Section and the stat block's `hitPoints.maximum`
 Row are marked as non-d20 tests. Both Templates use only SRD terms in labels, keys and names.
 
+`fifth_character_v1` plays through the composable config in
+`web/src/sheet/preset/compose/configs/fifth_character.ts`, registered in `PRESET_CONFIGS`. The
+identity header binds the name and the class subtitle; one stat-pill row carries class, subclass,
+species, background and level, another carries armor class, initiative, speed, proficiency bonus
+and Passive Perception; the hit-point track binds `combat.hp.current`, `.max` and `.temp`; the
+ability grid, save list and 18-skill list bind their score/modifier, proficiency/total and
+rank/total leaves with an explicit `row`, so each roll reads the Exhaustion-penalised Section
+expression from its own Row. The conditions piece carries every SRD condition and the Exhaustion
+pips (level of 6 with the derived penalty); pips draw death save successes and failures out of 3,
+the primary Hit Die and the four extra pools from their `spent` leaves, and the nine spell levels
+and Pact Magic from `spent`/`total` and `used`/`count`; Record tables draw attacks, inventory,
+features, spells and resources; the Reset bar binds `long_rest` and `short_rest`; and the Roll mode
+bar drives the next roll. The wide layout keeps identity, vitals and hit points above three columns
+(scores, status and rest pips, spell slots) with the Record tables below; the narrow layout
+flattens the same Sections in reading order. A test decodes the golden with `parseTemplateDetail`
+and asserts `configPathErrors` is empty.
+
 `fifth_stat_block_v1` keeps the seven shared Sections as a prefix and appends `experience`,
 `hitPoints`, `initiative`, `speed`, `details`, `traits`, `actions`, `bonusActions`, `reactions`,
 `legendaryActions` and `resources`; `fifth_character_v1` appends its own Record Sections above.
@@ -459,11 +477,11 @@ Row are marked as non-d20 tests. Both Templates use only SRD terms in labels, ke
   Recharge 5-6 are entered as printed. `details.resistances|immunities|senses|languages` are
   text. Every Record list holds at most 50 Records.
 
-Both Templates are usable end to end through the generic form: every Section draws with its
+`fifth_stat_block_v1` is usable end to end through the generic form: every Section draws with its
 title, a `flag` leaf draws as a toggle, a skill rank draws as a number entry, each Record list
-draws as its table, the character's Edit form draws the Reset action bar with `Long rest` and
-`Short rest`, and the Rows marked not a d20 test (the character's whole `hitDice` Section and
-the stat block's `hitPoints.maximum` Row) offer no Roll mode. Their wire contract is pinned by
+draws as its table, and the Rows marked not a d20 test offer no Roll mode. The character keeps the
+same generic Edit form and plays through its config, whose Edit form still draws the Reset action
+bar with `Long rest` and `Short rest`. Their wire contract is pinned by
 `testdata/templates/fifth_character_v1.json` and `fifth_stat_block_v1.json`, full
 `GET /templates/:id` bodies that a Go test compares to the registry's DTO and the web suite
 decodes with `parseTemplateDetail`; a DTO change moves the goldens deliberately. Their ids,
@@ -732,10 +750,13 @@ becomes one `sections` entry in its listed order, and the optional blocks pass t
 component reads values only through `usePresetValue` / `usePresetLabel` / `usePresetCommit`
 (`preset_context.tsx`): the identity header edits the bound name and subtitle leaves; stat pills
 draw one labelled pill per bound leaf and pass its value through `RollableValue` (a Row without
-dice stays plain text); pips draw the `count` leaf filled out of a `max` leaf path or fixed number,
+dice stays plain text), with an optional `row` naming the Row whose dice it reads; pips draw the
+`count` leaf filled out of a `max` leaf path or fixed number,
 each pip a keyboard-operable toggle that commits through `usePresetCommit`. The score pieces keep
 their rolls on the existing `RollableValue` path and bind the Section whose dice they read
-(`section`) instead of deriving it from the row: the ability grid draws one cell per bound
+(`section`) instead of deriving it from the row, plus an optional `row` for a Section expression
+that reads its Row's columns (`@.mod`, `@.total`), falling back to the bound leaf path: the ability
+grid draws one cell per bound
 `score`/`modifier` pair, with the signed modifier rolled and the score edited through
 `InlineEdit`; the save list draws one row per bound `proficiency`/`total` pair, its flag a
 pressed toggle that commits `0`/`1` and its signed total rolled; the skill list draws one row per
@@ -758,13 +779,14 @@ same run, apply and refresh callbacks as the Edit screen, so there is no new req
 Roll mode bar sets a provider-held Normal / Advantage / Disadvantage choice that the next
 `RollableValue` roll consumes, then returns to Normal, and it writes nothing to the Sheet. `registry.ts` keeps
 `PRESET_CONFIGS` beside the frozen `fantasyPreset` and resolves a Template id through `presetFor`;
-the fantasy preset wins its id, and a Template with no registered config still opens the generic
+the registry holds `fifthCharacterConfig`, the fantasy preset wins its id, and a Template with no
+registered config still opens the generic
 form. `configPathErrors(config, template)` is pure: it collects every header, piece and Reset action
 binding and reports the paths absent from the Template's `buildSections(template.fields)` leaves,
-Record list paths and their column names, and Reset action ids. `web/src/test/preset_fixtures.tsx` builds the
+Row keys, Record list paths and their column names, and Reset action ids. `web/src/test/preset_fixtures.tsx` builds the
 Template-agnostic Template, Sheet, edit store, Dice context and `PresetProvider` wrapper every piece
-test reuses, and the piece suites name no 5E or fantasy id; the registry suite alone names
-`fantasy_v1` to prove the frozen preset still resolves.
+test reuses, and the piece suites name no 5E or fantasy id; the registry and fifth-character
+config suites alone name the frozen and 5E ids.
 The `fantasy_v1` preset currently draws the hero header, the combat strip, the attack cards, the
 ability medallions, the spellcasting panel and the table-rules disclosure. A preset declares an
 ordered body layout: full-width Section blocks and column blocks, plus an optional narrow layout. The

@@ -30,7 +30,7 @@ function SaveRow({ save, section }: { readonly save: PresetSave; readonly sectio
       </span>
       <RollableValue
         className="lg-compose-save__total"
-        rowKey={save.total}
+        rowKey={save.row ?? save.total}
         sectionKey={section}
         label={label}
         text={total === undefined ? message('sheet.play.noValue') : formatSigned(total)}

@@ -7,6 +7,7 @@ export interface PresetIdentityHeader {
 
 export interface PresetStatPill {
   readonly path: string;
+  readonly row?: string;
 }
 
 export interface PresetStatPillsPiece {
@@ -25,6 +26,7 @@ export interface PresetPipsPiece {
 export interface PresetAbility {
   readonly score: string;
   readonly modifier: string;
+  readonly row?: string;
 }
 
 export interface PresetAbilityGridPiece {
@@ -37,6 +39,7 @@ export interface PresetAbilityGridPiece {
 export interface PresetSave {
   readonly proficiency: string;
   readonly total: string;
+  readonly row?: string;
 }
 
 export interface PresetSaveListPiece {
@@ -50,6 +53,7 @@ export interface PresetSkill {
   readonly rank: string;
   readonly total: string;
   readonly ability?: string;
+  readonly row?: string;
 }
 
 export interface PresetSkillListPiece {

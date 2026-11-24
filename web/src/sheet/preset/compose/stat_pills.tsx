@@ -30,7 +30,7 @@ function StatPill({ pill }: { readonly pill: PresetStatPill }) {
       <span className="lg-compose-stat__label">{label}</span>
       <RollableValue
         className="lg-compose-stat__value"
-        rowKey={pill.path}
+        rowKey={pill.row ?? pill.path}
         sectionKey={sectionKeyOfRow(pill.path)}
         label={label}
         text={displayValue(value)}
