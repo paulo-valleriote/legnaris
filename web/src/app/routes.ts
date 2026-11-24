@@ -27,6 +27,8 @@ export const CAMPAIGN_NPC_PATH = '/campaigns/:id/npcs/:sheetId';
 
 export const PRIVACY_PATH = '/privacy';
 
+export const SRD_PATH = '/srd';
+
 export const NOT_FOUND_PATH = '*';
 
 export const DECLARED_ROUTES: readonly DeclaredRoute[] = [
@@ -93,6 +95,13 @@ export const DECLARED_ROUTES: readonly DeclaredRoute[] = [
   {
     path: PRIVACY_PATH,
     label: 'Privacy policy',
+    audience: 'public',
+    deepLink: true,
+    notFound: false,
+  },
+  {
+    path: SRD_PATH,
+    label: 'SRD attribution',
     audience: 'public',
     deepLink: true,
     notFound: false,

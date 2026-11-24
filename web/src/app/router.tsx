@@ -13,6 +13,7 @@ import { NotFound } from '../shell/not_found';
 import { SheetScreen } from '../sheet/sheet_screen';
 import { YourSheetScreen } from '../sheet/your_sheet_screen';
 import { PrivacyScreen } from '../legal/privacy_screen';
+import { SrdScreen } from '../legal/srd_screen';
 import { PlansScreen } from '../plans/plans_screen';
 import { JoinScreen } from '../join/join_screen';
 import {
@@ -25,6 +26,7 @@ import {
   NOT_FOUND_PATH,
   PLANS_PATH,
   PRIVACY_PATH,
+  SRD_PATH,
 } from './routes';
 
 const DemoScreen = lazy(() => import('../landing/demo_screen'));
@@ -47,6 +49,7 @@ const SCREENS: Record<string, ReactElement> = {
     </Suspense>
   ),
   [PRIVACY_PATH]: <PrivacyScreen />,
+  [SRD_PATH]: <SrdScreen />,
   [NOT_FOUND_PATH]: <NotFound />,
 };
 

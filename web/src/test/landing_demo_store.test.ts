@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { valueAtPath } from '../api/models/sheet';
 import { DEMO_SHEET, DEMO_TEMPLATE } from '../landing/demo_character';
-import { createDemoEditStore, deriveDemoValues } from '../landing/demo_store';
+import { FIFTH_DEMO_SHEET, FIFTH_DEMO_TEMPLATE } from '../landing/fifth_demo_character';
+import { createDemoEditStore, deriveDemoValues, NO_DERIVATION } from '../landing/demo_store';
+import { templateDerivation } from '../landing/template_derivation';
 import { pendingCount } from '../sheet/sheet_edit';
 
 function openDemo() {
@@ -258,6 +260,45 @@ describe('the demo edit store', () => {
 
     expect(read(second, 'stats.strength')).toBe(16);
     expect(read(second, 'modifiers.strengthMod')).toBe(3);
+  });
+});
+
+describe('the demo derive seam', () => {
+  it('Happy path: a supplied derive writes its values on the seed and every edit', () => {
+    const derive = () => new Map([['abilities.wisdom.mod', 9]]);
+    const store = createDemoEditStore(FIFTH_DEMO_TEMPLATE, FIFTH_DEMO_SHEET, derive);
+
+    expect(valueAtPath(store.getState().data, 'abilities.wisdom.mod')).toBe(9);
+
+    store.setPath('abilities.wisdom.score', 18);
+
+    expect(valueAtPath(store.getState().data, 'abilities.wisdom.mod')).toBe(9);
+    expect(store.getState().editedPaths).toEqual(new Set(['abilities.wisdom.score']));
+  });
+
+  it('Edge: NO_DERIVATION keeps the stored saves.wisdom after an ability edit', () => {
+    const store = createDemoEditStore(FIFTH_DEMO_TEMPLATE, FIFTH_DEMO_SHEET, NO_DERIVATION);
+
+    store.setPath('abilities.wisdom.score', 18);
+
+    expect(valueAtPath(store.getState().data, 'abilities.wisdom.score')).toBe(18);
+    expect(valueAtPath(store.getState().data, 'abilities.wisdom.mod')).toBe(3);
+    expect(valueAtPath(store.getState().data, 'saves.wisdom.total')).toBe(5);
+    expect(store.getState().editedPaths).toEqual(new Set(['abilities.wisdom.score']));
+  });
+
+  it('Happy path: the template derivation recomputes the 5E modifiers and their dependents', () => {
+    const store = createDemoEditStore(
+      FIFTH_DEMO_TEMPLATE,
+      FIFTH_DEMO_SHEET,
+      templateDerivation(FIFTH_DEMO_TEMPLATE),
+    );
+
+    store.setPath('abilities.wisdom.score', 18);
+
+    expect(valueAtPath(store.getState().data, 'abilities.wisdom.mod')).toBe(4);
+    expect(valueAtPath(store.getState().data, 'saves.wisdom.total')).toBe(6);
+    expect(valueAtPath(store.getState().data, 'spellcasting.saveDC')).toBe(14);
   });
 });
 

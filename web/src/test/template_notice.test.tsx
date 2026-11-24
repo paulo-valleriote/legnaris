@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
 import { message } from '../l10n/strings';
@@ -116,7 +116,7 @@ describe('owner sheet template notice', () => {
     const dialog = await screen.findByRole('dialog', { name: message('sheet.leaveTitle') });
     await user.click(within(dialog).getByRole('button', { name: message('sheet.leaveConfirm') }));
 
-    expect(await screen.findByTestId('not-found')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('location-pathname')).toHaveTextContent('/srd'));
   });
 
   it('Edge: cancelling the guard keeps the Sheet open', async () => {
