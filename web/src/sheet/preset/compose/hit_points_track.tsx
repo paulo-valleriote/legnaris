@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { sectionKeyOfRow } from '../../../engine/field_grouping';
 import { message } from '../../../l10n/strings';
 import { Button } from '../../../ui/button';
 import { Field } from '../../../ui/field';
@@ -9,6 +10,7 @@ import {
   usePresetSchema,
   usePresetValue,
 } from '../preset_context';
+import { RollableValue } from '../rollable_value';
 import {
   applyDamage,
   applyHeal,
@@ -100,7 +102,17 @@ function HitPointsTrackBody({
               {maxLabel === undefined ? null : (
                 <span className="lg-compose-hp__max-label">{maxLabel}</span>
               )}
-              <span className="lg-compose-hp__max-value">{String(max)}</span>
+              {maxPath === undefined || maxLabel === undefined ? (
+                <span className="lg-compose-hp__max-value">{String(max)}</span>
+              ) : (
+                <RollableValue
+                  className="lg-compose-hp__max-value"
+                  rowKey={maxPath}
+                  sectionKey={sectionKeyOfRow(maxPath)}
+                  label={maxLabel}
+                  text={String(max)}
+                />
+              )}
             </span>
           )}
         </span>

@@ -35,8 +35,11 @@ describe('the preset registry', () => {
     expect(presetFor(templateWithId('ghost_v1'))).toBeUndefined();
   });
 
-  it('Happy path: the default registry resolves the fifth character config', () => {
+  it('Happy path: the default registry resolves both fifth-edition configs', () => {
     expect(presetFor(templateWithId('fifth_character_v1'))?.templateId).toBe('fifth_character_v1');
+    expect(presetFor(templateWithId('fifth_stat_block_v1'))?.templateId).toBe(
+      'fifth_stat_block_v1',
+    );
   });
 });
 

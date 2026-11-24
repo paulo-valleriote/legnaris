@@ -743,7 +743,7 @@ The composable library (`preset/compose/`) is the generic half of that registry.
 path and an optional subtitle Field path), an ordered `pieces` list, optional Reset action ids and
 the same `layout` / `narrowLayout` / `sectionNav` blocks as a `SheetPreset`; a piece carries a
 stable `key`, a `kind` (`statPills`, `pips`, `abilityGrid`, `saveList`, `skillList`, `hitPoints`,
-`conditions`, `recordTable`, `resetBar` or `rollMode`) and its Field-path bindings, and holds no React, no
+`conditions`, `recordTable`, `resetBar`, `rollMode` or `textFields`) and its Field-path bindings, and holds no React, no
 strings and no per-Template code. `presetFromConfig(config)` turns a config into the existing
 `SheetPreset` shape, so `PresetPlayView` draws it unchanged: the header becomes `Header`, each piece
 becomes one `sections` entry in its listed order, and the optional blocks pass through. A piece
@@ -777,7 +777,10 @@ Record Row when the list declares a Row default dice, the shared empty and at-ca
 Reset bar renders `ResetActions` for its bound action ids over the provider's reset binding (the
 same run, apply and refresh callbacks as the Edit screen, so there is no new request path); the
 Roll mode bar sets a provider-held Normal / Advantage / Disadvantage choice that the next
-`RollableValue` roll consumes, then returns to Normal, and it writes nothing to the Sheet. `registry.ts` keeps
+`RollableValue` roll consumes, then returns to Normal, and it writes nothing to the Sheet. The
+text fields piece binds text leaves and draws each with its original label, the stored text as an
+inline text edit that commits through `usePresetCommit`, and the shared inline add copy when the
+value is blank; no Template-specific label or key reaches the piece. `registry.ts` keeps
 `PRESET_CONFIGS` beside the frozen `fantasyPreset` and resolves a Template id through `presetFor`;
 the registry holds `fifthCharacterConfig`, the fantasy preset wins its id, and a Template with no
 registered config still opens the generic
@@ -785,8 +788,28 @@ form. `configPathErrors(config, template)` is pure: it collects every header, pi
 binding and reports the paths absent from the Template's `buildSections(template.fields)` leaves,
 Row keys, Record list paths and their column names, and Reset action ids. `web/src/test/preset_fixtures.tsx` builds the
 Template-agnostic Template, Sheet, edit store, Dice context and `PresetProvider` wrapper every piece
-test reuses, and the piece suites name no 5E or fantasy id; the registry and fifth-character
-config suites alone name the frozen and 5E ids.
+test reuses, and the piece suites name no 5E or fantasy id; the registry, fifth-character and
+stat-block suites alone name the frozen preset and the two 5E ids.
+The `fifth_character_v1` config (`compose/configs/fifth_character.ts`) is described under
+Fifth-edition Templates; it and the stat block config sit in `PRESET_CONFIGS` beside the frozen
+fantasy preset and open their Template in Play.
+The `fifth_stat_block_v1` config (`compose/configs/fifth_stat_block.ts`) is the first shipped
+data-only preset for a fifth-edition Template, so an NPC or enemy opens in the compact Play body
+with no per-Template React. The identity pills carry the Challenge rating and the derived XP, the
+combat pills the armor class, initiative score, five exhaustion-adjusted speeds, proficiency bonus
+and Passive Perception, and the hit-point track binds `current`, `maximum` and `temp`; the track's
+derived maximum draws its own Roll through `RollableValue`, and the Template's not-a-d20 marking
+leaves it without a Roll mode. The ability grid, save list and skill list bind all six abilities,
+saves and eighteen skills (rank maximum 2) with their Section dice, the conditions piece draws
+Exhaustion as its level pips plus the derived penalty, and the text fields piece draws the four
+`details.*` leaves. The six Record tables draw traits, actions, bonus actions, reactions, legendary
+actions and resources; an action Record keeps the list Row default dice, so its to-hit rolls while
+the damage stays entered text. A Roll mode bar closes the body, and the Template declares no Reset
+action, so no bar draws. The wide layout keeps identity, combat, hit points and conditions across
+the top, then abilities and saves beside skills, then the details and Record tables; the narrow
+layout is one flat column in the same order.
+
+
 The `fantasy_v1` preset currently draws the hero header, the combat strip, the attack cards, the
 ability medallions, the spellcasting panel and the table-rules disclosure. A preset declares an
 ordered body layout: full-width Section blocks and column blocks, plus an optional narrow layout. The

@@ -11,6 +11,7 @@ import { RollModeBar } from './roll_mode_bar';
 import { SaveList } from './save_list';
 import { SkillList } from './skill_list';
 import { StatPills } from './stat_pills';
+import { TextFields } from './text_fields';
 import type {
   PresetAbilityGridPiece,
   PresetConfig,
@@ -24,6 +25,7 @@ import type {
   PresetResetBarPiece,
   PresetRollModePiece,
   PresetStatPillsPiece,
+  PresetTextFieldsPiece,
 } from './types';
 
 function headerComponent(config: PresetConfig): ComponentType<PresetHeaderProps> {
@@ -92,6 +94,12 @@ function rollModeComponent(piece: PresetRollModePiece): ComponentType {
   };
 }
 
+function textFieldsComponent(piece: PresetTextFieldsPiece): ComponentType {
+  return function TextFieldsSection() {
+    return <TextFields piece={piece} />;
+  };
+}
+
 function pieceComponent(piece: PresetPiece): ComponentType {
   switch (piece.kind) {
     case 'statPills':
@@ -114,6 +122,8 @@ function pieceComponent(piece: PresetPiece): ComponentType {
       return resetBarComponent(piece);
     case 'rollMode':
       return rollModeComponent(piece);
+    case 'textFields':
+      return textFieldsComponent(piece);
   }
 }
 
