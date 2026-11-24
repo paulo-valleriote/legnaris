@@ -60,12 +60,39 @@ export interface PresetSkillListPiece {
   readonly skills: readonly PresetSkill[];
 }
 
+export interface PresetHitPointsPiece {
+  readonly kind: 'hitPoints';
+  readonly key: string;
+  readonly current: string;
+  readonly max: string | number;
+  readonly temp?: string;
+}
+
+export interface PresetConditionFlag {
+  readonly path: string;
+}
+
+export interface PresetExhaustionTrack {
+  readonly level: string;
+  readonly max: string | number;
+  readonly penalty?: string;
+}
+
+export interface PresetConditionsPiece {
+  readonly kind: 'conditions';
+  readonly key: string;
+  readonly conditions: readonly PresetConditionFlag[];
+  readonly exhaustion?: PresetExhaustionTrack;
+}
+
 export type PresetPiece =
   | PresetStatPillsPiece
   | PresetPipsPiece
   | PresetAbilityGridPiece
   | PresetSaveListPiece
-  | PresetSkillListPiece;
+  | PresetSkillListPiece
+  | PresetHitPointsPiece
+  | PresetConditionsPiece;
 
 export type PresetPieceKind = PresetPiece['kind'];
 

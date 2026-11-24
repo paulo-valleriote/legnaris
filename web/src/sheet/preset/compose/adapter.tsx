@@ -1,6 +1,8 @@
 import type { ComponentType } from 'react';
 import type { PresetHeaderProps, SheetPreset } from '../types';
 import { AbilityGrid } from './ability_grid';
+import { Conditions } from './conditions';
+import { HitPointsTrack } from './hit_points_track';
 import { IdentityHeader } from './identity_header';
 import { Pips } from './pips';
 import { SaveList } from './save_list';
@@ -13,6 +15,8 @@ import type {
   PresetPipsPiece,
   PresetSaveListPiece,
   PresetSkillListPiece,
+  PresetConditionsPiece,
+  PresetHitPointsPiece,
   PresetStatPillsPiece,
 } from './types';
 
@@ -52,6 +56,18 @@ function skillListComponent(piece: PresetSkillListPiece): ComponentType {
   };
 }
 
+function hitPointsComponent(piece: PresetHitPointsPiece): ComponentType {
+  return function HitPointsSection() {
+    return <HitPointsTrack piece={piece} />;
+  };
+}
+
+function conditionsComponent(piece: PresetConditionsPiece): ComponentType {
+  return function ConditionsSection() {
+    return <Conditions piece={piece} />;
+  };
+}
+
 function pieceComponent(piece: PresetPiece): ComponentType {
   switch (piece.kind) {
     case 'statPills':
@@ -64,6 +80,10 @@ function pieceComponent(piece: PresetPiece): ComponentType {
       return saveListComponent(piece);
     case 'skillList':
       return skillListComponent(piece);
+    case 'hitPoints':
+      return hitPointsComponent(piece);
+    case 'conditions':
+      return conditionsComponent(piece);
   }
 }
 
