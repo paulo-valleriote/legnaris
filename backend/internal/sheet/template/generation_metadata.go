@@ -27,6 +27,8 @@ var (
 	ErrMaxLengthInvalid = errors.New("max length must be greater than zero")
 
 	ErrMaxLengthOnNonText = errors.New("max length is only allowed on text leaves")
+
+	ErrMaxRecordsInvalid = errors.New("max records must be between one and capacity")
 )
 
 func ValidateGenerationMetadata(tmpl Template) error {
@@ -45,6 +47,9 @@ func validateGenerationGroup(group FieldGroup, prefix Path) error {
 		}
 		if node.IsList() {
 			if node.List != nil {
+				if err := validateMaxRecords(node.List); err != nil {
+					return fmt.Errorf("list %q: %w", current.String(), err)
+				}
 				if err := validateGenerationGroup(node.List.Shape, current); err != nil {
 					return err
 				}
@@ -129,6 +134,16 @@ func validateMaxLength(schema *FieldSchema) error {
 	}
 	if *schema.MaxLength <= 0 {
 		return ErrMaxLengthInvalid
+	}
+	return nil
+}
+
+func validateMaxRecords(list *ListSchema) error {
+	if list.MaxRecords == 0 {
+		return nil
+	}
+	if list.MaxRecords < 0 || list.MaxRecords > list.Capacity {
+		return fmt.Errorf("%w: %d (capacity %d)", ErrMaxRecordsInvalid, list.MaxRecords, list.Capacity)
 	}
 	return nil
 }

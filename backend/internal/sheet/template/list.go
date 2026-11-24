@@ -17,12 +17,13 @@ const (
 )
 
 type ListSchema struct {
-	Label    string     `bson:"label"`
-	Columns  []string   `bson:"columns,omitempty"`
-	Capacity int        `bson:"capacity"`
-	Shape    FieldGroup `bson:"shape"`
-	Dice     string     `bson:"dice,omitempty"`
-	NotD20   bool       `bson:"not_d20,omitempty"`
+	Label      string     `bson:"label"`
+	Columns    []string   `bson:"columns,omitempty"`
+	Capacity   int        `bson:"capacity"`
+	MaxRecords int        `bson:"max_records,omitempty"`
+	Shape      FieldGroup `bson:"shape"`
+	Dice       string     `bson:"dice,omitempty"`
+	NotD20     bool       `bson:"not_d20,omitempty"`
 }
 
 func (l *ListSchema) SeedRecord(position float64) map[string]any {
@@ -41,12 +42,13 @@ func (l *ListSchema) Clone() *ListSchema {
 		return nil
 	}
 	return &ListSchema{
-		Label:    l.Label,
-		Columns:  slices.Clone(l.Columns),
-		Capacity: l.Capacity,
-		Shape:    cloneFieldGroup(l.Shape),
-		Dice:     l.Dice,
-		NotD20:   l.NotD20,
+		Label:      l.Label,
+		Columns:    slices.Clone(l.Columns),
+		Capacity:   l.Capacity,
+		MaxRecords: l.MaxRecords,
+		Shape:      cloneFieldGroup(l.Shape),
+		Dice:       l.Dice,
+		NotD20:     l.NotD20,
 	}
 }
 

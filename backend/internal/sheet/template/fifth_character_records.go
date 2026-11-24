@@ -20,6 +20,12 @@ const (
 	fifthSpellsCapacity    = 100
 	fifthResourcesCapacity = 20
 
+	fifthAttacksMaxRecords   = 6
+	fifthInventoryMaxRecords = 20
+	fifthFeaturesMaxRecords  = 15
+	fifthSpellsMaxRecords    = 30
+	fifthResourcesMaxRecords = 6
+
 	fifthAttackAbilityGroup = "attackAbility"
 
 	fifthAttackToHitKey       = "toHit"
@@ -76,9 +82,10 @@ func fifthAttacksGroup() FieldGroup {
 				fieldNameName, fifthAttackToHitKey, fifthAttackDamageBonusKey,
 				fifthAttackDamageKey, fifthAttackNotesKey,
 			},
-			Capacity: fifthAttacksCapacity,
-			Shape:    fifthAttackShape(),
-			Dice:     "1d20 + @.toHit + exhaustion.penalty",
+			Capacity:   fifthAttacksCapacity,
+			MaxRecords: fifthAttacksMaxRecords,
+			Shape:      fifthAttackShape(),
+			Dice:       "1d20 + @.toHit + exhaustion.penalty",
 		}},
 	}
 }
@@ -133,8 +140,9 @@ func fifthInventoryGroup() FieldGroup {
 				fieldNameName, fifthInventoryQuantityKey, fifthInventoryWeightKey,
 				fifthInventoryLineWeightKey, fifthInventoryAttunedKey, fifthInventoryNotesKey,
 			},
-			Capacity: fifthInventoryCapacity,
-			Shape:    fifthInventoryShape(),
+			Capacity:   fifthInventoryCapacity,
+			MaxRecords: fifthInventoryMaxRecords,
+			Shape:      fifthInventoryShape(),
 		}},
 		fifthInventoryTotalWeightKey: {Schema: &FieldSchema{
 			Type:  fieldTypeNumber,
@@ -176,9 +184,10 @@ func fifthInventoryShape() FieldGroup {
 func fifthFeaturesGroup() FieldGroup {
 	return FieldGroup{
 		fifthRecordListKey: {List: &ListSchema{
-			Label:    "Features and feats",
-			Columns:  []string{fieldNameName, fifthFeatureSourceKey, fifthFeatureTextKey},
-			Capacity: fifthFeaturesCapacity,
+			Label:      "Features and feats",
+			Columns:    []string{fieldNameName, fifthFeatureSourceKey, fifthFeatureTextKey},
+			Capacity:   fifthFeaturesCapacity,
+			MaxRecords: fifthFeaturesMaxRecords,
 			Shape: FieldGroup{
 				fieldNameName:         textField("Name"),
 				fifthFeatureSourceKey: textField("Source"),
@@ -196,7 +205,8 @@ func fifthSpellsGroup() FieldGroup {
 				fieldNameName, fifthSpellLevelKey, fifthSpellPreparedKey,
 				fifthSpellConcentrationKey, fifthSpellRitualKey, fifthSpellNotesKey,
 			},
-			Capacity: fifthSpellsCapacity,
+			Capacity:   fifthSpellsCapacity,
+			MaxRecords: fifthSpellsMaxRecords,
 			Shape: FieldGroup{
 				fieldNameName:              textField("Name"),
 				fifthSpellLevelKey:         numField("Level", 0),
@@ -218,7 +228,8 @@ func fifthResourcesGroup() FieldGroup {
 				fifthResourceRechargeShortKey, fifthResourceRechargeLongKey,
 				fifthResourceRechargeNoneKey,
 			},
-			Capacity: fifthResourcesCapacity,
+			Capacity:   fifthResourcesCapacity,
+			MaxRecords: fifthResourcesMaxRecords,
 			Shape: FieldGroup{
 				fieldNameName:                 textField("Name"),
 				fifthResourceMaxKey:           numField("Max", 0),

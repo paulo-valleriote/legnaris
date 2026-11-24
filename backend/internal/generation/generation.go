@@ -35,11 +35,11 @@ const (
 )
 
 const (
-	LeaseDuration    = 90 * time.Second
+	LeaseDuration    = 150 * time.Second
 	MaxSchemaRetries = 2
 	TransportRetries = 1
 	TransportBackoff = 500 * time.Millisecond
-	MaxOutputTokens  = 6000
+	MaxOutputTokens  = 8000
 	ReapInterval     = 10 * time.Second
 )
 

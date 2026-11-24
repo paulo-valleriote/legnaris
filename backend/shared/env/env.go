@@ -157,7 +157,7 @@ const (
 	defaultLLMProvider             = "openrouter"
 	defaultLLMBaseURL              = "https://openrouter.ai/api/v1"
 	defaultLLMModel                = "deepseek/deepseek-v4.1-flash"
-	defaultLLMTimeout              = 60 * time.Second
+	DefaultLLMTimeout              = 120 * time.Second
 
 	defaultGenerationEnabled         = false
 	defaultGenerationDailyCap        = 200
@@ -345,7 +345,7 @@ func (e *Env) buildVariables() Variables {
 		LLMAPIKey:                         e.lookupStringEnv("LLM_API_KEY", ""),
 		LLMModel:                          e.lookupStringEnv("LLM_MODEL", defaultLLMModel),
 		LLMReasoningEffort:                e.lookupStringEnv(keyLLMReasoningEffort, ""),
-		LLMTimeout:                        e.lookupDurationEnv("LLM_TIMEOUT", defaultLLMTimeout),
+		LLMTimeout:                        e.lookupDurationEnv("LLM_TIMEOUT", DefaultLLMTimeout),
 		GenerationEnabled:                 e.lookupBoolEnv("GENERATION_ENABLED", defaultGenerationEnabled),
 		GenerationDailyCap:                e.lookupIntEnv("GENERATION_DAILY_CAP", defaultGenerationDailyCap),
 		GenerationCreateRateLimitAttempts: e.lookupIntEnv("GENERATION_CREATE_RATE_LIMIT_ATTEMPTS", defaultGenerationCreateAttempts),

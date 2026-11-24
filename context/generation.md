@@ -41,7 +41,7 @@ sequenceDiagram
     A->>Q: publish generation.<kind>.requested (confirm)
     A-->>W: 202 {id}
     Q->>K: deliver job
-    K->>M: claim queued -> running (90 s lease)
+    K->>M: claim queued -> running (150 s lease)
     K->>L: system prompt, concept, strict JSON Schema
     L-->>K: JSON values, usage, finish reason
     K->>K: validate, expand exclusive groups, seed and recalculate
@@ -66,7 +66,7 @@ sequenceDiagram
 ```mermaid
 stateDiagram-v2
     [*] --> queued
-    queued --> running: claim, 90 s lease
+    queued --> running: claim, 150 s lease
     queued --> failed: publish gave up (publish_failed)
     running --> succeeded: valid output stored
     running --> failed: provider, template or output failure
@@ -132,9 +132,11 @@ Output is parsed as strict JSON (1 MiB bound), rejected on unknown keys, checked
 
 `FieldSchema` carries `Generatable`, `GeneratableKinds`, `PreferDefault`, `Min`, `Max` and `MaxLength`; `Template` carries `NameLeaf`. Boot (`BuildRegistry`, in API and worker) rejects a generatable leaf that is not editable, kinds on a non-generatable leaf or outside the known kinds, `prefer_default` on a non-generatable leaf or outside its bounds, `Min > Max`, bounds on a non-number, a non-positive `MaxLength` and `MaxLength` on a non-text leaf; a non-empty `NameLeaf` must resolve to a text leaf. In `fantasy_v1` every editable leaf is generatable except `rules.*` and `identity.playerName`; `level`, `xp` and `proficiencyBonus` prefer their defaults so a concept without a stated level yields a starting character.
 
+A Record list carries `MaxRecords`, the generation cap that is separate from its storage `Capacity`. The 5E Character caps attacks at 6, inventory at 20, features and feats at 15, spells at 30 and resources at 6; the 5E Stat Block caps traits, actions, bonus actions, reactions and legendary actions at 6 each and limited uses at 4. A declared cap must be between 1 and `Capacity`, and boot rejects anything else (`ErrMaxRecordsInvalid`); 0 means no generation cap. The output cap is `MaxOutputTokens` (8000) and the job lease is 150 s, above the 120 s `LLM_TIMEOUT` plus the 10 s settle window. A test builds the maximum-size draft of each 5E Template (every cap full, 300-rune prose) and asserts that its chars/3.5 estimate stays under the output cap.
+
 ### Configuration and boot checks
 
-`GENERATION_ENABLED` (default false) is the kill switch: the API answers 503 `PROVIDER_UNAVAILABLE` before reserving anything, and the worker does not open the LLM consumer. `GENERATION_DAILY_CAP` (default 200) must not be negative. `LLM_PROVIDER` is `openrouter`; the other keys are `LLM_BASE_URL`, `LLM_API_KEY` (worker only), `LLM_MODEL` (default `deepseek/deepseek-v4.1-flash`), `LLM_TIMEOUT` (default 60 s) and `LLM_REASONING_EFFORT` (empty for the provider default, or `none`, `minimal`, `low`, `medium`, `high`, `xhigh`). The environment check refuses a `:free` model, a negative cap and an unknown effort; building the worker client additionally refuses an unknown provider or a missing key, model or logger, a non-HTTP base URL and a non-positive timeout.
+`GENERATION_ENABLED` (default false) is the kill switch: the API answers 503 `PROVIDER_UNAVAILABLE` before reserving anything, and the worker does not open the LLM consumer. `GENERATION_DAILY_CAP` (default 200) must not be negative. `LLM_PROVIDER` is `openrouter`; the other keys are `LLM_BASE_URL`, `LLM_API_KEY` (worker only), `LLM_MODEL` (default `deepseek/deepseek-v4.1-flash`), `LLM_TIMEOUT` (default 120 s) and `LLM_REASONING_EFFORT` (empty for the provider default, or `none`, `minimal`, `low`, `medium`, `high`, `xhigh`). The environment check refuses a `:free` model, a negative cap and an unknown effort; building the worker client additionally refuses an unknown provider or a missing key, model or logger, a non-HTTP base URL and a non-positive timeout.
 
 ## Code map
 

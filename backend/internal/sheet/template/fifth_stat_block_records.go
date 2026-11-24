@@ -33,6 +33,8 @@ const (
 
 	fifthStatBlockActionAbilityGroup  = "actionAbility"
 	fifthStatBlockRecordCapacity      = 50
+	fifthStatBlockRecordMaxRecords    = 6
+	fifthStatBlockResourcesMaxRecords = 4
 	fifthStatBlockDetailTextMaxLength = 400
 
 	fifthStatBlockColumnName = "Name"
@@ -82,9 +84,10 @@ func fifthStatBlockTextRecordList(label string) *ListSchema {
 	text.Schema.ColumnLabel = "Text"
 
 	return &ListSchema{
-		Label:    label,
-		Columns:  []string{fifthStatBlockRecordNameKey, fifthStatBlockRecordTextKey},
-		Capacity: fifthStatBlockRecordCapacity,
+		Label:      label,
+		Columns:    []string{fifthStatBlockRecordNameKey, fifthStatBlockRecordTextKey},
+		Capacity:   fifthStatBlockRecordCapacity,
+		MaxRecords: fifthStatBlockRecordMaxRecords,
 		Shape: FieldGroup{
 			fifthStatBlockRecordNameKey: name,
 			fifthStatBlockRecordTextKey: text,
@@ -94,10 +97,11 @@ func fifthStatBlockTextRecordList(label string) *ListSchema {
 
 func fifthStatBlockActionsList() *ListSchema {
 	return &ListSchema{
-		Label:    "Actions",
-		Columns:  []string{fifthStatBlockRecordNameKey, fifthStatBlockRecordToHitKey, fifthStatBlockRecordDamageKey, fifthStatBlockRecordNotesKey},
-		Capacity: fifthStatBlockRecordCapacity,
-		Shape:    fifthStatBlockActionsShape(),
+		Label:      "Actions",
+		Columns:    []string{fifthStatBlockRecordNameKey, fifthStatBlockRecordToHitKey, fifthStatBlockRecordDamageKey, fifthStatBlockRecordNotesKey},
+		Capacity:   fifthStatBlockRecordCapacity,
+		MaxRecords: fifthStatBlockRecordMaxRecords,
+		Shape:      fifthStatBlockActionsShape(),
 		Dice: fmt.Sprintf(
 			"1d20 + @.%s + %s",
 			fifthStatBlockRecordToHitKey,
@@ -198,9 +202,10 @@ func fifthStatBlockResourcesList() *ListSchema {
 	recharge.Schema.ColumnLabel = "Recharge"
 
 	return &ListSchema{
-		Label:    "Resources",
-		Columns:  []string{fifthStatBlockRecordNameKey, fifthStatBlockRecordMaxKey, fifthStatBlockRecordUsedKey, fifthStatBlockRecordRemainingKey, fifthStatBlockRecordRechargeKey},
-		Capacity: fifthStatBlockRecordCapacity,
+		Label:      "Resources",
+		Columns:    []string{fifthStatBlockRecordNameKey, fifthStatBlockRecordMaxKey, fifthStatBlockRecordUsedKey, fifthStatBlockRecordRemainingKey, fifthStatBlockRecordRechargeKey},
+		Capacity:   fifthStatBlockRecordCapacity,
+		MaxRecords: fifthStatBlockResourcesMaxRecords,
 		Shape: FieldGroup{
 			fifthStatBlockRecordNameKey:      name,
 			fifthStatBlockRecordMaxKey:       maximum,

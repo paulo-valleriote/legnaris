@@ -417,7 +417,7 @@ services:
       LLM_BASE_URL: ${LLM_BASE_URL:-https://openrouter.ai/api/v1}
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODEL: ${LLM_MODEL:-deepseek/deepseek-v4.1-flash}
-      LLM_TIMEOUT: ${LLM_TIMEOUT:-60s}
+      LLM_TIMEOUT: ${LLM_TIMEOUT:-120s}
       LLM_REASONING_EFFORT: ${LLM_REASONING_EFFORT:-}
       # Production: the worker refuses the dev sender (EMAIL_PROVIDER=dev) when
       # APP_ENV is production, so a code can never reach the logs (D10).

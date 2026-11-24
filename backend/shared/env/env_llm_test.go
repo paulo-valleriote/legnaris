@@ -30,7 +30,7 @@ func TestInitVariablesLLMDefaults(t *testing.T) {
 	assert.Empty(t, vars.LLMAPIKey)
 	assert.Equal(t, "deepseek/deepseek-v4.1-flash", vars.LLMModel)
 	assert.Empty(t, vars.LLMReasoningEffort)
-	assert.Equal(t, 60*time.Second, vars.LLMTimeout)
+	assert.Equal(t, 120*time.Second, vars.LLMTimeout)
 }
 
 func TestInitVariablesLLMOverrides(t *testing.T) {
@@ -63,7 +63,7 @@ func TestInitVariablesLLMInvalidTimeoutUsesDefault(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("LLM_TIMEOUT", tc.value)
-			assert.Equal(t, 60*time.Second, initTestVariables().LLMTimeout)
+			assert.Equal(t, 120*time.Second, initTestVariables().LLMTimeout)
 		})
 	}
 }
