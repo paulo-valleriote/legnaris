@@ -54,7 +54,69 @@ export function presetTemplateDetail(): TemplateDetail {
           hit: {
             schema: { type: 'number', label: 'Hit Points', is_editable: true, default: 12 },
           },
+          hitMax: {
+            schema: { type: 'number', label: 'Hit Points Max', is_editable: true, default: 20 },
+          },
+          hitTemp: {
+            schema: {
+              type: 'number',
+              label: 'Temporary Hit Points',
+              is_editable: true,
+              default: 0,
+            },
+          },
+          derivedMax: {
+            schema: {
+              type: 'number',
+              label: 'Derived Max',
+              is_editable: false,
+              default: 20,
+            },
+          },
           empty: { schema: { type: 'text', label: 'Empty Stat', is_editable: true, default: 0 } },
+        },
+      },
+      status: {
+        label: 'Status',
+        children: {
+          conditions: {
+            children: {
+              blinded: {
+                schema: {
+                  type: 'number',
+                  label: 'Blinded: cannot see and automatically fails sight checks',
+                  is_editable: true,
+                  default: 0,
+                  flag: true,
+                },
+              },
+              prone: {
+                schema: {
+                  type: 'number',
+                  label: 'Prone',
+                  is_editable: true,
+                  default: 0,
+                  flag: true,
+                },
+              },
+            },
+          },
+        },
+      },
+      exhaustion: {
+        label: 'Exhaustion',
+        children: {
+          level: {
+            schema: { type: 'number', label: 'Exhaustion level', is_editable: true, default: 0 },
+          },
+          penalty: {
+            schema: {
+              type: 'number',
+              label: 'Exhaustion penalty',
+              is_editable: false,
+              default: 0,
+            },
+          },
         },
       },
       charges: {

@@ -24,6 +24,23 @@ function piecePaths(piece: PresetPiece): readonly string[] {
       return piece.pills.map((pill) => pill.path);
     case 'pips':
       return typeof piece.max === 'string' ? [piece.count, piece.max] : [piece.count];
+    case 'hitPoints':
+      return [
+        piece.current,
+        ...(typeof piece.max === 'string' ? [piece.max] : []),
+        ...(piece.temp === undefined ? [] : [piece.temp]),
+      ];
+    case 'conditions':
+      return [
+        ...piece.conditions.map((flag) => flag.path),
+        ...(piece.exhaustion === undefined
+          ? []
+          : [
+              piece.exhaustion.level,
+              ...(typeof piece.exhaustion.max === 'string' ? [piece.exhaustion.max] : []),
+              ...(piece.exhaustion.penalty === undefined ? [] : [piece.exhaustion.penalty]),
+            ]),
+      ];
   }
 }
 

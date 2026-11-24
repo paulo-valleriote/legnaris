@@ -135,3 +135,178 @@
     transition: none;
   }
 }
+
+.lg-compose-hp {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+  min-inline-size: 0;
+  padding: var(--lg-space-12);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-md);
+  background-color: var(--lg-color-surface);
+}
+
+.lg-compose-hp__numbers {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--lg-space-8) var(--lg-space-16);
+  margin: 0;
+}
+
+.lg-compose-hp__value {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--lg-space-2);
+  font-size: var(--lg-type-20);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+.lg-compose-hp__number.lg-inline-edit {
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
+.lg-compose-hp__slash {
+  color: var(--lg-color-text-muted);
+}
+
+.lg-compose-hp__max {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--lg-space-4);
+}
+
+.lg-compose-hp__max-label,
+.lg-compose-hp__temp-label {
+  font-size: var(--lg-type-12);
+  font-weight: var(--lg-font-weight-medium);
+  letter-spacing: var(--lg-tracking-wide);
+  text-transform: uppercase;
+  color: var(--lg-color-text-muted);
+}
+
+.lg-compose-hp__max-value {
+  color: var(--lg-color-text-muted);
+}
+
+.lg-compose-hp__temp {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--lg-space-4);
+  color: var(--lg-color-info);
+}
+
+.lg-compose-hp__temp .lg-compose-hp__number.lg-inline-edit {
+  color: var(--lg-color-info);
+}
+
+.lg-compose-hp__bar {
+  position: relative;
+  block-size: var(--lg-space-8);
+  overflow: hidden;
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-raised);
+}
+
+.lg-compose-hp__fill {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-success);
+  transform-origin: left center;
+  transition: transform var(--lg-motion-240) var(--lg-ease-standard);
+}
+
+.lg-compose-hp__entry {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--lg-space-8);
+}
+
+.lg-compose-hp__amount {
+  flex: 1 1 8rem;
+  min-inline-size: 0;
+}
+
+.lg-compose-conditions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-12);
+  min-inline-size: 0;
+}
+
+.lg-compose-conditions__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lg-space-8);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lg-compose-conditions__item {
+  min-inline-size: 0;
+}
+
+.lg-compose-condition {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--lg-size-control);
+  padding: var(--lg-space-4) var(--lg-space-12);
+  border: var(--lg-size-hairline) solid var(--lg-color-border-strong);
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-surface);
+  color: var(--lg-color-text);
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-medium);
+  line-height: var(--lg-line-tight);
+  cursor: pointer;
+  transition:
+    background-color var(--lg-motion-120) var(--lg-ease-standard),
+    border-color var(--lg-motion-120) var(--lg-ease-standard),
+    color var(--lg-motion-120) var(--lg-ease-standard);
+}
+
+.lg-compose-condition:hover {
+  border-color: var(--lg-color-text-muted);
+  background-color: var(--lg-color-surface-hover);
+}
+
+.lg-compose-condition[aria-pressed='true'] {
+  border-color: var(--lg-color-accent);
+  background-color: var(--lg-color-accent);
+  color: var(--lg-color-accent-text);
+}
+
+.lg-compose-condition[aria-pressed='true']:hover {
+  border-color: var(--lg-color-accent-hover);
+  background-color: var(--lg-color-accent-hover);
+}
+
+.lg-compose-conditions__exhaustion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lg-space-8) var(--lg-space-16);
+}
+
+.lg-compose-conditions__penalty {
+  display: flex;
+  align-items: baseline;
+  gap: var(--lg-space-8);
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-compose-conditions__penalty-value {
+  font-size: var(--lg-type-15);
+  font-weight: var(--lg-font-weight-semibold);
+  color: var(--lg-color-text);
+  font-variant-numeric: tabular-nums;
+}

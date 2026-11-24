@@ -724,15 +724,21 @@ The composable library (`preset/compose/`) is the generic half of that registry.
 `PresetConfig` per Template carries its `templateId`, an identity `header` binding (the name Field
 path and an optional subtitle Field path), an ordered `pieces` list, optional Reset action ids and
 the same `layout` / `narrowLayout` / `sectionNav` blocks as a `SheetPreset`; a piece carries a
-stable `key`, a `kind` (`statPills` or `pips`) and its Field-path bindings, and holds no React, no
-strings and no per-Template code. `presetFromConfig(config)` turns a config into the existing
+stable `key`, a `kind` (`statPills`, `pips`, `hitPoints` or `conditions`) and its Field-path
+bindings, and holds no React, no strings and no per-Template code. `presetFromConfig(config)` turns a config into the existing
 `SheetPreset` shape, so `PresetPlayView` draws it unchanged: the header becomes `Header`, each piece
 becomes one `sections` entry in its listed order, and the optional blocks pass through. A piece
 component reads values only through `usePresetValue` / `usePresetLabel` / `usePresetCommit`
 (`preset_context.tsx`): the identity header edits the bound name and subtitle leaves; stat pills
 draw one labelled pill per bound leaf and pass its value through `RollableValue` (a Row without
 dice stays plain text); pips draw the `count` leaf filled out of a `max` leaf path or fixed number,
-each pip a keyboard-operable toggle that commits through `usePresetCommit`. `registry.ts` keeps
+each pip a keyboard-operable toggle that commits through `usePresetCommit`. The hit-point track
+binds `current`, `max` and an optional `temp` leaf: it draws the current / max / temp numbers, a
+meter, and one amount entry whose Damage lets the temp leaf absorb first and floors the current at
+zero while Heal clamps to the maximum, the maximum staying read-only when its leaf is derived. The
+conditions piece binds numeric flags as toggle chips that commit 0/1 (the part before the first
+colon stays the chip, the rest is its accessible description) and an optional exhaustion track
+(`level`, a fixed or bound `max`, an optional derived `penalty`) that reuses the pips. `registry.ts` keeps
 `PRESET_CONFIGS` beside the frozen `fantasyPreset` and resolves a Template id through `presetFor`;
 the fantasy preset wins its id, and a Template with no registered config still opens the generic
 form. `configPathErrors(config, template)` is pure: it collects every header, piece and Reset action
@@ -1134,7 +1140,8 @@ Web:
   optional kind-selected `statBlock`, the optional `Vitals` bar, ordered section slots, the wide
   column layout, the mobile-first narrow layout and the optional phone section nav);
   `compose/` — the data-only `PresetConfig` contract, its `presetFromConfig` adapter, the pure
-  `configPathErrors` validation and the generic identity-header, stat-pill and pips pieces;
+  `configPathErrors` validation and the generic identity-header, stat-pill, pips, hit-point-track
+  and conditions pieces;
   `section_nav.tsx` — the phone-only section chips and scrollspy; `section_nav_targets.ts` — its
   pure target discovery and active-Section resolution;
   `fantasy/` — the hero, the combat strip, the attack cards, the ability medallions, the
