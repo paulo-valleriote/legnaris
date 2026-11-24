@@ -321,7 +321,9 @@
 @media (prefers-reduced-motion: reduce) {
   .lg-compose-pip__mark,
   .lg-compose-flag__mark,
-  .lg-compose-rank__mark {
+  .lg-compose-rank__mark,
+  .lg-compose-condition,
+  .lg-compose-hp__fill {
     transition: none;
   }
 }

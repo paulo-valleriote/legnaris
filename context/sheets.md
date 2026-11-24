@@ -20,15 +20,15 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   everything the rules derive from the Sheet is derived; `fifth_stat_block_v1` "5E Stat Block"
   (`npc`, `enemy`) derives the proficiency bonus and the XP from the challenge rating. Both
   ship as `draft` Templates of the `fifth` Game system, so only a development deployment lists
-  and creates them until the LGN-386 release cutover. The character plays through the
-  composable `fifth_character` config (LGN-417); the stat block keeps the generic Section/Row
-  form until its own config lands. Cost: the player types class-granted values, and the
-  generic form is the whole presentation for Templates without a config; the engine
-  capabilities they rely on are live: dice sized by Fields with a minimum total, Record
-  lists with derived Record formulas, Reset actions, `min`, `max`, `lookup`, numeric flags and
-  the d20-test marking of the Roll modes (LGN-390).
-- **Planned (LGN-383): composable presets with one config per Template over a bespoke preset
-  per Template or Template-declared presentation roles because** a new Template should cost
+  and creates them until the LGN-386 release cutover. Both play through the composable
+  `fifth_character` and `fifth_stat_block` configs (LGN-417, LGN-418); the character draws every
+  5E character surface and the stat block the compact NPC/enemy body. Cost: the player types
+  class-granted values, and a Template without a config keeps the generic Section/Row form as its
+  whole presentation; the engine capabilities they rely on are live: dice sized by Fields with a
+  minimum total, Record lists with derived Record formulas, Reset actions, `min`, `max`, `lookup`,
+  numeric flags and the d20-test marking of the Roll modes (LGN-390).
+- **Composable presets (LGN-383): one config per Template over a bespoke preset per Template or
+  Template-declared presentation roles because** a new Template should cost
   one config instead of about 35 files, while layout stays in the web rather than in the API
   contract. A need no piece covers becomes a new generic piece, and a Template without a
   config plays through the generic Section/Row view, which also draws Record lists, Reset
@@ -477,11 +477,11 @@ and asserts `configPathErrors` is empty.
   Recharge 5-6 are entered as printed. `details.resistances|immunities|senses|languages` are
   text. Every Record list holds at most 50 Records.
 
-`fifth_stat_block_v1` is usable end to end through the generic form: every Section draws with its
-title, a `flag` leaf draws as a toggle, a skill rank draws as a number entry, each Record list
-draws as its table, and the Rows marked not a d20 test offer no Roll mode. The character keeps the
-same generic Edit form and plays through its config, whose Edit form still draws the Reset action
-bar with `Long rest` and `Short rest`. Their wire contract is pinned by
+Both Templates also stay usable end to end through the generic Edit form: every Section draws with
+its title, a `flag` leaf draws as a toggle, a skill rank draws as a number entry, each Record list
+draws as its table, and the Rows marked not a d20 test offer no Roll mode. The character's Edit
+form still draws the Reset action bar with `Long rest` and `Short rest`. Their wire contract is
+pinned by
 `testdata/templates/fifth_character_v1.json` and `fifth_stat_block_v1.json`, full
 `GET /templates/:id` bodies that a Go test compares to the registry's DTO and the web suite
 decodes with `parseTemplateDetail`; a DTO change moves the goldens deliberately. Their ids,
@@ -740,74 +740,68 @@ kind-selected stat block and ordered section slots, so later gameplay surfaces a
 preset rather than branches in the screen.
 The composable library (`preset/compose/`) is the generic half of that registry. One data-only
 `PresetConfig` per Template carries its `templateId`, an identity `header` binding (the name Field
-path and an optional subtitle Field path), an ordered `pieces` list, optional Reset action ids and
-the same `layout` / `narrowLayout` / `sectionNav` blocks as a `SheetPreset`; a piece carries a
-stable `key`, a `kind` (`statPills`, `pips`, `abilityGrid`, `saveList`, `skillList`, `hitPoints`,
-`conditions`, `recordTable`, `resetBar`, `rollMode` or `textFields`) and its Field-path bindings, and holds no React, no
-strings and no per-Template code. `presetFromConfig(config)` turns a config into the existing
-`SheetPreset` shape, so `PresetPlayView` draws it unchanged: the header becomes `Header`, each piece
-becomes one `sections` entry in its listed order, and the optional blocks pass through. A piece
-component reads values only through `usePresetValue` / `usePresetLabel` / `usePresetCommit`
-(`preset_context.tsx`): the identity header edits the bound name and subtitle leaves; stat pills
-draw one labelled pill per bound leaf and pass its value through `RollableValue` (a Row without
-dice stays plain text), with an optional `row` naming the Row whose dice it reads; pips draw the
-`count` leaf filled out of a `max` leaf path or fixed number,
-each pip a keyboard-operable toggle that commits through `usePresetCommit`. The score pieces keep
-their rolls on the existing `RollableValue` path and bind the Section whose dice they read
-(`section`) instead of deriving it from the row, plus an optional `row` for a Section expression
-that reads its Row's columns (`@.mod`, `@.total`), falling back to the bound leaf path: the ability
-grid draws one cell per bound
-`score`/`modifier` pair, with the signed modifier rolled and the score edited through
-`InlineEdit`; the save list draws one row per bound `proficiency`/`total` pair, its flag a
-pressed toggle that commits `0`/`1` and its signed total rolled; the skill list draws one row per
-bound `rank`/`total` pair plus an optional literal `ability` tag, its `0..max` rank a pip control
-(a `max` leaf path or fixed number) whose activation cycles the value and wraps at the maximum,
-and its signed total rolled. Missing values draw the shared empty copy and offer no roll, and
-`compose/scores_data.ts` holds the pure signed formatting, integer score parse, proficiency toggle
-and clamped rank helpers. The hit-point track
-binds `current`, `max` and an optional `temp` leaf: it draws the current / max / temp numbers, a
-meter, and one amount entry whose Damage lets the temp leaf absorb first and floors the current at
-zero while Heal clamps to the maximum, the maximum staying read-only when its leaf is derived. The
-conditions piece binds numeric flags as toggle chips that commit 0/1 (the part before the first
-colon stays the chip, the rest is its accessible description) and an optional exhaustion track
-(`level`, a fixed or bound `max`, an optional derived `penalty`) that reuses the pips.
-The Record table draws a bound Record list's chosen `columns` as editable `SheetFieldControl`
-cells plus Add and Remove through the edit store's list operations, with a `RollableValue` on the
-Record Row when the list declares a Row default dice, the shared empty and at-capacity copy; the
-Reset bar renders `ResetActions` for its bound action ids over the provider's reset binding (the
-same run, apply and refresh callbacks as the Edit screen, so there is no new request path); the
-Roll mode bar sets a provider-held Normal / Advantage / Disadvantage choice that the next
-`RollableValue` roll consumes, then returns to Normal, and it writes nothing to the Sheet. The
-text fields piece binds text leaves and draws each with its original label, the stored text as an
-inline text edit that commits through `usePresetCommit`, and the shared inline add copy when the
-value is blank; no Template-specific label or key reaches the piece. `registry.ts` keeps
-`PRESET_CONFIGS` beside the frozen `fantasyPreset` and resolves a Template id through `presetFor`;
-the registry holds `fifthCharacterConfig`, the fantasy preset wins its id, and a Template with no
-registered config still opens the generic
-form. `configPathErrors(config, template)` is pure: it collects every header, piece and Reset action
+path and an optional subtitle Field path), an ordered `pieces` list, optional `resetActions` ids
+and the same `layout` / `narrowLayout` / `sectionNav` blocks as a `SheetPreset`. A piece carries a
+stable `key`, a `kind` and its Field-path bindings, and holds no React, no strings and no
+per-Template code. The eleven kinds are:
+
+- `statPills` — one labelled pill per bound leaf, passed through `RollableValue` (a Row without
+  dice stays plain text); an optional `row` names the Row whose dice the pill reads.
+- `pips` — the `count` leaf filled out of a `max` leaf path or a fixed number; each pip is a
+  pressed toggle that commits through `usePresetCommit`.
+- `abilityGrid` — one cell per bound `score`/`modifier` pair, the signed modifier rolled and the
+  score edited through `InlineEdit`.
+- `saveList` — one row per bound `proficiency`/`total` pair, its flag a pressed toggle that
+  commits `0`/`1` and its signed total rolled.
+- `skillList` — one row per bound `rank`/`total` pair plus an optional literal `ability` tag; the
+  `0..max` rank is a pip control (a `max` leaf path or fixed number) that cycles and wraps, and
+  the signed total rolls.
+- `hitPoints` — the bound `current`, `max` and optional `temp` leaves, a meter and one amount
+  entry; Damage lets the temp leaf absorb first and floors the current at zero, Heal clamps to the
+  maximum, and a derived maximum stays read-only.
+- `conditions` — numeric flags as toggle chips that commit `0`/`1` (the part before the first
+  colon stays the chip, the rest is its accessible description) plus an optional exhaustion track
+  (`level`, a fixed or bound `max`, an optional derived `penalty`) that reuses the pips.
+- `recordTable` — a bound Record list's chosen `columns` as editable `SheetFieldControl` cells
+  plus Add and Remove through the edit store's list operations, a `RollableValue` on the Record Row
+  when the list declares Row default dice, and the shared empty and at-capacity copy.
+- `resetBar` — `ResetActions` for its bound action ids over the provider's reset binding (the same
+  run, apply and refresh callbacks as the Edit screen, so there is no new request path).
+- `rollMode` — a provider-held Normal / Advantage / Disadvantage choice that the next
+  `RollableValue` roll consumes, then returns to Normal; it writes nothing to the Sheet.
+- `textFields` — bound text leaves with their original label, an inline text edit that commits
+  through `usePresetCommit`, and the shared inline add copy when the value is blank.
+
+`presetFromConfig(config)` turns a config into the existing `SheetPreset` shape, so
+`PresetPlayView` draws it unchanged: the header becomes `Header`, each piece becomes one `sections`
+entry in its listed order, and the optional blocks pass through. A piece component reads values
+only through `usePresetValue` / `usePresetLabel` / `usePresetCommit` (`preset_context.tsx`).
+Missing values draw the shared empty copy and offer no roll. The score pieces keep their rolls on
+`RollableValue`, bind the Section whose dice they read (`section`) instead of deriving it from the
+row, and take an optional `row` for a Section expression that reads its Row's columns (`@.mod`,
+`@.total`), falling back to the bound leaf path; `compose/scores_data.ts` holds the pure signed
+formatting, integer score parse, proficiency toggle and clamped rank helpers, and
+`compose/hit_points.ts` the hit-point math.
+
+`registry.ts` keeps `PRESET_CONFIGS` beside the frozen `fantasyPreset` and resolves a Template id
+through `presetFor`; the registry holds `fifthCharacterConfig` and `fifthStatBlockConfig`, the
+fantasy preset wins its id, and a Template with no registered config still opens the generic form.
+`configPathErrors(config, template)` is pure: it collects every header, piece and Reset action
 binding and reports the paths absent from the Template's `buildSections(template.fields)` leaves,
-Row keys, Record list paths and their column names, and Reset action ids. `web/src/test/preset_fixtures.tsx` builds the
-Template-agnostic Template, Sheet, edit store, Dice context and `PresetProvider` wrapper every piece
-test reuses, and the piece suites name no 5E or fantasy id; the registry, fifth-character and
-stat-block suites alone name the frozen preset and the two 5E ids.
-The `fifth_character_v1` config (`compose/configs/fifth_character.ts`) is described under
-Fifth-edition Templates; it and the stat block config sit in `PRESET_CONFIGS` beside the frozen
-fantasy preset and open their Template in Play.
-The `fifth_stat_block_v1` config (`compose/configs/fifth_stat_block.ts`) is the first shipped
-data-only preset for a fifth-edition Template, so an NPC or enemy opens in the compact Play body
-with no per-Template React. The identity pills carry the Challenge rating and the derived XP, the
-combat pills the armor class, initiative score, five exhaustion-adjusted speeds, proficiency bonus
-and Passive Perception, and the hit-point track binds `current`, `maximum` and `temp`; the track's
-derived maximum draws its own Roll through `RollableValue`, and the Template's not-a-d20 marking
-leaves it without a Roll mode. The ability grid, save list and skill list bind all six abilities,
-saves and eighteen skills (rank maximum 2) with their Section dice, the conditions piece draws
-Exhaustion as its level pips plus the derived penalty, and the text fields piece draws the four
-`details.*` leaves. The six Record tables draw traits, actions, bonus actions, reactions, legendary
-actions and resources; an action Record keeps the list Row default dice, so its to-hit rolls while
-the damage stays entered text. A Roll mode bar closes the body, and the Template declares no Reset
-action, so no bar draws. The wide layout keeps identity, combat, hit points and conditions across
-the top, then abilities and saves beside skills, then the details and Record tables; the narrow
-layout is one flat column in the same order.
+Row keys, Record list paths and their column names, and Reset action ids.
+`web/src/test/preset_fixtures.tsx` builds the Template-agnostic Template, Sheet, edit store, Dice
+context and `PresetProvider` wrapper every piece test reuses, and the piece suites name no 5E or
+fantasy id; `preset_config_paths.test.ts` covers the path validation, the piece suites cover each
+kind, and `preset_fifth_a11y.test.tsx` sweeps both 5E configs for accessible names, Tab order,
+Enter/Space operation and the reduced-motion CSS block.
+
+The `fifth_character_v1` config (`compose/configs/fifth_character.ts`) and the
+`fifth_stat_block_v1` config (`compose/configs/fifth_stat_block.ts`) are the two shipped data-only
+presets; both are described under Fifth-edition Templates. The character config draws every 5E
+character surface, and the stat block config opens an NPC or enemy in the compact Play body with
+no per-Template React. A regression suite (`preset_fantasy_regression.test.tsx`) pins the frozen
+`fantasy_v1` preset by registry identity, fixture Play surfaces, edit, roll, pending commit and
+the landing demo's import; `web/src/sheet/preset/fantasy/` stays byte-identical.
 
 
 The `fantasy_v1` preset currently draws the hero header, the combat strip, the attack cards, the
