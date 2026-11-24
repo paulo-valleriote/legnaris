@@ -213,6 +213,11 @@ export const messages = {
   'privacy.title': 'Privacy policy',
   'privacy.close': 'Close the privacy policy',
   'privacy.back': 'Back to Legnaris',
+  'srd.title': 'SRD 5.2.1 attribution',
+  'srd.attribution':
+    'This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.',
+  'srd.adaptation':
+    "Legnaris adapts SRD 5.2.1 rules into sheet fields, formulas and labels; rule text is shortened and the name of the publisher's game is removed.",
   'account.loading': 'Loading your account',
   'account.planHeading': 'Plan',
   'account.planFree': 'Free',

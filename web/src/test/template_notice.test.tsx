@@ -116,7 +116,9 @@ describe('owner sheet template notice', () => {
     const dialog = await screen.findByRole('dialog', { name: message('sheet.leaveTitle') });
     await user.click(within(dialog).getByRole('button', { name: message('sheet.leaveConfirm') }));
 
-    expect(await screen.findByTestId('not-found')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: message('srd.title') }),
+    ).toBeInTheDocument();
   });
 
   it('Edge: cancelling the guard keeps the Sheet open', async () => {
