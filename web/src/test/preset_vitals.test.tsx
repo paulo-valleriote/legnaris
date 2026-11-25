@@ -20,6 +20,7 @@ import type {
   PresetHitPointsPiece,
   PresetPiece,
 } from '../sheet/preset/compose/types';
+import { PendingChangesCard } from '../sheet/preset/pending_card';
 import { PresetPlayView } from '../sheet/preset/play_view';
 import { presetConfig, presetSheet, presetTemplateDetail, renderPreset } from './preset_fixtures';
 
@@ -78,6 +79,20 @@ function undoRegion(): HTMLElement {
 
 function amountInput(): HTMLElement {
   return screen.getByRole('textbox', { name: message('sheet.play.amount') });
+}
+
+function pendingCard(): HTMLElement | null {
+  return screen.queryByTestId('sheet-pending-card');
+}
+
+function renderHitPointsWithPendingCard(hit: number, hitTemp = 0) {
+  return renderPreset(
+    <>
+      <HitPointsTrack piece={hitPoints()} />
+      <PendingChangesCard />
+    </>,
+    { sheet: vitalsSheet({ hit, hitTemp, hitMax: 24 }) },
+  );
 }
 
 describe('the hit point track piece', () => {
@@ -180,6 +195,74 @@ describe('the hit point track piece', () => {
 
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 7 } });
     expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('7');
+  });
+
+  it('Happy path: undo after damage clears the pending hit point change', async () => {
+    const user = userEvent.setup();
+    const { store } = renderHitPointsWithPendingCard(24);
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    expect(pendingCard()).toHaveTextContent('Hit Points 24 → 19');
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(pendingCard()).not.toBeInTheDocument();
+    expect([...store.getState().editedPaths]).toEqual([]);
+    expect(store.getPendingDelta()).toEqual({});
+  });
+
+  it('Edge: undo after damage that spent temporary hit points clears every change', async () => {
+    const user = userEvent.setup();
+    const { store } = renderHitPointsWithPendingCard(24, 5);
+
+    await user.type(amountInput(), '8');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    expect(pendingCard()).toHaveTextContent('Hit Points 24 → 21');
+    expect(pendingCard()).toHaveTextContent('Temporary Hit Points 5 → 0');
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(pendingCard()).not.toBeInTheDocument();
+    expect([...store.getState().editedPaths]).toEqual([]);
+    expect(store.getPendingDelta()).toEqual({});
+  });
+
+  it('Edge: undo restores an earlier unsaved hit point edit and keeps it pending', async () => {
+    const user = userEvent.setup();
+    const { store } = renderHitPointsWithPendingCard(24);
+    await user.click(screen.getByRole('button', { name: 'Hit Points' }));
+    const hitPointsInput = screen.getByRole('textbox', { name: 'Hit Points' });
+    await user.clear(hitPointsInput);
+    await user.type(hitPointsInput, '20{Enter}');
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    expect(pendingCard()).toHaveTextContent('Hit Points 24 → 15');
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(pendingCard()).toHaveTextContent('Hit Points 24 → 20');
+    expect(pendingCard()).not.toHaveTextContent('Hit Points 24 → 15');
+    expect([...store.getState().editedPaths]).toEqual(['vitals.hit']);
+    expect(store.getPendingDelta()).toEqual({ vitals: { hit: 20 } });
+  });
+
+  it('Edge: undo keeps an unrelated pending change in the card', async () => {
+    const user = userEvent.setup();
+    const { store } = renderHitPointsWithPendingCard(24);
+    act(() => {
+      store.setPath('identity.name', 'Brenna');
+    });
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(pendingCard()).toHaveTextContent('Name Nova → Brenna');
+    expect(pendingCard()).not.toHaveTextContent('Hit Points');
+    expect([...store.getState().editedPaths]).toEqual(['identity.name']);
+    expect(store.getPendingDelta()).toEqual({ identity: { name: 'Brenna' } });
   });
 
   it('Edge: the undo affordance clears after eight seconds', () => {

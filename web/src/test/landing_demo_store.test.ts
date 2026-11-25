@@ -85,6 +85,18 @@ describe('the demo edit store', () => {
     expect(store.getState().editedPaths).toEqual(new Set(['combat.hp.current']));
   });
 
+  it('Edge: a hit point change back to the stored value removes the edited path', () => {
+    const store = openDemo();
+
+    store.setPath('combat.hp.current', 19);
+    store.setPath('combat.hp.current', 24);
+
+    expect(read(store, 'combat.hp.current')).toBe(24);
+    expect(store.getState().editedPaths.size).toBe(0);
+    expect(store.getPendingDelta()).toEqual({});
+    expect(pendingCount(store.getState())).toBe(0);
+  });
+
   it('Happy path: a dice override lands in the demo block and marks dice pending', () => {
     const store = openDemo();
 
