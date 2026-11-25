@@ -139,6 +139,8 @@ Go declares `*dice.Error` with a `Class` and `Err*` sentinels; it imports neithe
 
 A grammar change starts in the vectors: add or amend the cases (bump `version` for an incompatible format change), then move both implementations until their suites pass. Changing one side alone leaves the other suite red.
 
+A `RollPart` for a `field` term also carries its resolved `path`, so a client can name the term from its Template schema; `label` still holds the path for any caller that reads it.
+
 ## Code map
 
 - `backend/internal/dice/` — `parse.go` (limits, terms, canonical form), `fit.go` (`Schema`, fit and Section validation), `evaluate.go` (`Roller`, parts, totals), `errors.go` (classes and `ClassOf`).
