@@ -30,13 +30,25 @@ func TestAcceptsKind(t *testing.T) {
 	}
 }
 
-func TestDefaultTemplateAcceptsEverySheetKind(t *testing.T) {
-	templates := DefaultTemplates()
-	require.NotEmpty(t, templates)
-	fantasy := templates[0]
+func TestFantasyTemplateAcceptsEverySheetKind(t *testing.T) {
+	fantasy := fifthTemplateByID(t, "fantasy_v1")
 	for _, kind := range plan.SheetKinds() {
 		assert.True(t, fantasy.AcceptsKind(kind), "the fantasy template accepts %s sheets", kind)
 	}
+}
+
+func TestDefaultTemplateAcceptsCharacterSheets(t *testing.T) {
+	templates := DefaultTemplates()
+	defaults := make([]Template, 0, 1)
+	for _, tmpl := range templates {
+		if tmpl.Default {
+			defaults = append(defaults, tmpl)
+		}
+	}
+	require.Len(t, defaults, 1)
+	assert.True(t, defaults[0].AcceptsKind(plan.KindCharacter))
+	assert.False(t, defaults[0].AcceptsKind(plan.KindNPC))
+	assert.False(t, defaults[0].AcceptsKind(plan.KindEnemy))
 }
 
 func TestGeneratableFor(t *testing.T) {

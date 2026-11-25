@@ -36,6 +36,40 @@ func fifthAcceptTemplate(t *testing.T, id string, state template.State) (templat
 	return template.Template{}, nil
 }
 
+func TestService_CreateWithValuesAcceptsASucceededRetiredFantasyJob(t *testing.T) {
+	tmpl, dags := fifthAcceptTemplate(t, "fantasy_v1", template.StateRetired)
+	templates := templatemocks.NewMockService(t)
+	templates.EXPECT().
+		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: "fantasy_v1"}).
+		Return(&tmpl, nil).
+		Once()
+
+	repo := mocks.NewMockRepository(t)
+	repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindCharacter, mock.Anything).Return(nil).Once()
+	repo.EXPECT().Create(mock.Anything, mock.MatchedBy(func(created *sheet.Sheet) bool {
+		return created.TemplateID == "fantasy_v1"
+	})).Return(nil).Once()
+
+	svc := sheet.NewService(repo, templates, dags, logger.NewLogger(slog.LevelError), events.NoOp{},
+		sheet.WithPlanLimits(planFor(t, ownerUserID, plan.Free), runInline(t)),
+	)
+
+	created, err := svc.CreateWithValues(context.Background(), sheet.CreateWithValuesCommand{
+		TemplateID: "fantasy_v1",
+		Kind:       "character",
+		SheetName:  "Aria",
+		OwnerID:    ownerUserID,
+		Values:     map[string]any{"identity": map[string]any{"characterName": "Aria"}},
+	}, nil)
+
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	assert.Equal(t, "fantasy_v1", created.TemplateID)
+	identity, ok := created.Data["identity"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "Aria", identity["characterName"])
+}
+
 func TestService_CreateWithValuesFifthEditionTemplateLifecycle(t *testing.T) {
 	tests := []struct {
 		name          string

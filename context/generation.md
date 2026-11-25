@@ -94,14 +94,15 @@ Create and accept share 5 requests/min per user (`GENERATION_CREATE_RATE_LIMIT_*
 
 ### Template lifecycle
 
-The 5E Character and 5E Stat Block are Draft Templates: they can start a generation only when
+The 5E Character and 5E Stat Block are Active Templates, so a generation against them is gated
+only by the provider and the kill switch. A Draft Template can start a generation only when
 `APP_ENV`, trimmed and case-insensitive, is `development`; an empty or any other value is 400
 `INVALID_REQUEST` before consent, plan, Sheet room, the daily cap and the quota, so a refused
-request reserves nothing. A Retired Template is 400 too, with its own message saying it is retired
-and cannot start new generations. Accepting a succeeded job runs the same Sheet-create gate: a
-Draft job is accepted only in development, while a job whose Template was retired after it
-succeeded still accepts, so the player can turn that draft into a Sheet. The state is not exposed
-to the client; see [sheets](sheets.md).
+request reserves nothing. A Retired Template, including `fantasy_v1`, is 400 too, before any
+reservation, with its own message saying it is retired and cannot start new generations. Accepting
+a succeeded job runs the same Sheet-create gate: a Draft job is accepted only in development,
+while a job whose Template was retired after it succeeded still accepts, so the player can turn
+that draft into a Sheet. The state is not exposed to the client; see [sheets](sheets.md).
 
 ### Statuses and errors
 

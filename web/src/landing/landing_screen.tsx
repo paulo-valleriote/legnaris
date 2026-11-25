@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { Link } from 'react-router-dom';
 import { useApiBaseUrl } from '../app/providers';
-import { DEMO_PATH, PRIVACY_PATH, SIGN_IN_PATH } from '../app/routes';
+import { DEMO_PATH, PRIVACY_PATH, SIGN_IN_PATH, SRD_PATH } from '../app/routes';
 import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
 import { DerivationChain } from './derivation_chain';
@@ -42,7 +42,7 @@ const HERO_SRCSET = ['/images/hero-lava-1280.webp 1280w', '/images/hero-lava-192
   ', ',
 );
 
-const FANTASY_SIGN_UP_PATH = signUpCtaPath('fantasy');
+const FIFTH_SIGN_UP_PATH = signUpCtaPath('fifth');
 
 function MomentsLoading() {
   return (
@@ -63,8 +63,12 @@ const STEPS: readonly Step[] = [
   { title: 'landing.step3Title', body: 'landing.step3Body' },
 ];
 
-const FAQ: readonly { readonly question: MessageKey; readonly answer: MessageKey }[] = [
-  { question: 'landing.faq1Question', answer: 'landing.faq1Answer' },
+const FAQ: readonly {
+  readonly question: MessageKey;
+  readonly answer: MessageKey;
+  readonly link?: MessageKey;
+}[] = [
+  { question: 'landing.faq1Question', answer: 'landing.faq1Answer', link: 'landing.faq1Link' },
   { question: 'landing.faq2Question', answer: 'landing.faq2Answer' },
   { question: 'landing.faq3Question', answer: 'landing.faq3Answer' },
   { question: 'landing.faq4Question', answer: 'landing.faq4Answer' },
@@ -113,6 +117,7 @@ export function LandingScreen() {
 
         <div className="lg-landing__hero-body">
           <div className="lg-landing__hero-copy">
+            <p className="lg-landing__badge">{message('landing.badge')}</p>
             <h1 className="lg-landing__hero-title">{message('landing.heroTitle')}</h1>
             <p className="lg-landing__hero-lead">{message('landing.heroLead')}</p>
             <div className="lg-landing__actions" ref={heroActions}>
@@ -121,7 +126,7 @@ export function LandingScreen() {
               </Link>
               <Link
                 className="lg-landing__cta lg-landing__cta--outline"
-                to={FANTASY_SIGN_UP_PATH}
+                to={FIFTH_SIGN_UP_PATH}
                 onClick={onCtaClick}
               >
                 {message('landing.create')}
@@ -191,7 +196,17 @@ export function LandingScreen() {
                       <ChevronDownIcon />
                     </span>
                   </summary>
-                  <p className="lg-landing__text lg-landing__faq-answer">{message(entry.answer)}</p>
+                  <p className="lg-landing__text lg-landing__faq-answer">
+                    {message(entry.answer)}
+                    {entry.link === undefined ? null : (
+                      <>
+                        {' '}
+                        <Link className="lg-landing__text-link" to={SRD_PATH}>
+                          {message(entry.link)}
+                        </Link>
+                      </>
+                    )}
+                  </p>
                 </details>
               ))}
             </div>
@@ -206,7 +221,7 @@ export function LandingScreen() {
       >
         <Link
           className="lg-landing__cta lg-landing__cta--primary"
-          to={FANTASY_SIGN_UP_PATH}
+          to={FIFTH_SIGN_UP_PATH}
           onClick={onCtaClick}
         >
           {message('landing.create')}
@@ -224,7 +239,7 @@ export function LandingScreen() {
           <div className="lg-landing__actions">
             <Link
               className="lg-landing__cta lg-landing__cta--primary"
-              to={FANTASY_SIGN_UP_PATH}
+              to={FIFTH_SIGN_UP_PATH}
               onClick={onCtaClick}
             >
               {message('landing.create')}
@@ -238,9 +253,14 @@ export function LandingScreen() {
           <small className="lg-landing__copyright">
             {messageWith('landing.copyright', { year: new Date().getFullYear() })}
           </small>
-          <Link className="lg-landing__legal-link" to={PRIVACY_PATH}>
-            {message('landing.footer.privacy')}
-          </Link>
+          <div className="lg-landing__legal-links">
+            <Link className="lg-landing__legal-link" to={PRIVACY_PATH}>
+              {message('landing.footer.privacy')}
+            </Link>
+            <Link className="lg-landing__legal-link" to={SRD_PATH}>
+              {message('landing.footer.srd')}
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

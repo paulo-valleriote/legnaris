@@ -55,19 +55,20 @@ func newRegistryTemplateFixture(t *testing.T, draftsAllowed bool) fixture {
 	return f
 }
 
-func TestCreate_FifthEditionDraftGate(t *testing.T) {
+func TestCreate_CatalogGenerationGate(t *testing.T) {
 	tests := []struct {
 		name          string
 		templateID    string
 		kind          string
 		draftsAllowed bool
 		wantCreated   bool
+		wantMessage   string
 	}{
-		{name: "Edge: the 5E Character is refused outside development", templateID: "fifth_character_v1", kind: "character"},
-		{name: "Edge: the 5E Stat Block is refused outside development", templateID: "fifth_stat_block_v1", kind: "npc"},
-		{name: "Happy path: the 5E Character is queued in development", templateID: "fifth_character_v1", kind: "character", draftsAllowed: true, wantCreated: true},
-		{name: "Happy path: the 5E Stat Block is queued in development", templateID: "fifth_stat_block_v1", kind: "enemy", draftsAllowed: true, wantCreated: true},
-		{name: "Happy path: the active fantasy Template is queued outside development", templateID: "fantasy_v1", kind: "character", wantCreated: true},
+		{name: "Happy path: the 5E Character is queued outside development", templateID: "fifth_character_v1", kind: "character", wantCreated: true},
+		{name: "Happy path: the 5E Stat Block is queued as an NPC outside development", templateID: "fifth_stat_block_v1", kind: "npc", wantCreated: true},
+		{name: "Happy path: the 5E Stat Block is queued as an enemy in development", templateID: "fifth_stat_block_v1", kind: "enemy", draftsAllowed: true, wantCreated: true},
+		{name: "Error: the retired fantasy Template is refused outside development", templateID: "fantasy_v1", kind: "character", wantMessage: generation.MsgTemplateRetired},
+		{name: "Error: the retired fantasy Template is refused in development too", templateID: "fantasy_v1", kind: "character", draftsAllowed: true, wantMessage: generation.MsgTemplateRetired},
 	}
 
 	for _, tc := range tests {
@@ -101,12 +102,13 @@ func TestCreate_FifthEditionDraftGate(t *testing.T) {
 
 			assert.Empty(t, id)
 			requireCode(t, err, apperr.CodeInvalidRequest, 400)
-			assert.Equal(t, generation.MsgTemplateState, appErrorOf(t, err).Message)
+			assert.Equal(t, tc.wantMessage, appErrorOf(t, err).Message)
 			f.plans.AssertNotCalled(t, "PlanOf")
 			f.consent.AssertNotCalled(t, "Gate")
 			f.sheets.AssertNotCalled(t, "CheckSheetLimit")
 			f.store.AssertNotCalled(t, "ReserveCap")
 			f.store.AssertNotCalled(t, "Insert")
+			f.quota.AssertNotCalled(t, "ReserveDaily", mock.Anything, mock.Anything)
 		})
 	}
 }

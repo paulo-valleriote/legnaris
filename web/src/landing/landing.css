@@ -151,6 +151,24 @@ body:has(.lg-landing) {
     both;
 }
 
+.lg-landing__badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  margin: 0;
+  padding: var(--lg-space-4) var(--lg-space-12);
+  border: var(--lg-size-hairline) solid var(--lg-color-stage-accent);
+  border-radius: var(--lg-radius-pill);
+  color: var(--lg-color-stage-accent);
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+  letter-spacing: var(--lg-tracking-wide);
+  text-transform: uppercase;
+  animation: lg-landing-rise var(--lg-motion-600) var(--lg-ease-out) calc(var(--lg-motion-120) * 2)
+    both;
+}
+
 .lg-landing__hero-lead {
   max-width: 60ch;
   margin: 0;
@@ -596,6 +614,22 @@ body:has(.lg-landing) {
 
 .lg-landing__legal-link:hover {
   color: var(--lg-color-stage-accent);
+}
+
+.lg-landing__legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--lg-space-16);
+}
+
+.lg-landing__text-link {
+  color: var(--lg-color-stage-accent);
+  text-decoration: underline;
+  text-underline-offset: var(--lg-underline-offset);
+}
+
+.lg-landing__text-link:hover {
+  color: var(--lg-color-stage-accent-hover);
 }
 
 /* Motion */

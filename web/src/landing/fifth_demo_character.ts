@@ -231,7 +231,7 @@ export const FIFTH_DEMO_SHEET: Sheet = {
       initiative: { alert: 0, misc: 0, total: 0 },
       speed: { base: 30, total: 30 },
       armorStrengthRequirement: 0,
-      hp: { base: 8, perLevel: 5, misc: 0, max: 29, current: 29, temp: 0 },
+      hp: { base: 8, perLevel: 5, misc: 0, max: 24, current: 24, temp: 0 },
       carryingCapacity: 180,
     },
     status: {

@@ -101,6 +101,7 @@ func TestBuildRegistry_NotD20Tests(t *testing.T) {
 		return Template{
 			ID:             "not_d20_v1",
 			State:          StateActive,
+			Default:        true,
 			Fields:         FieldGroup{"stats": {Children: FieldGroup{"strength": layoutLeaf("")}}},
 			NotD20Sections: sections,
 			NotD20Rows:     rows,

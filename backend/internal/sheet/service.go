@@ -192,7 +192,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 		return nil, err
 	}
 
-	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID, cmd.CampaignID, (*template.Template).Creatable)
+	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID, cmd.CampaignID, (*template.Template).Creatable, true)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 
 	newSheet := Sheet{
 		ID:         sheetID,
-		TemplateID: cmd.TemplateID,
+		TemplateID: base.tmpl.ID,
 		OwnerID:    cmd.OwnerID,
 		Kind:       kind,
 		Name:       cmd.SheetName,
@@ -226,7 +226,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	if err != nil {
 		return nil, translateCreateErr(err, kind, limit)
 	}
-	s.publishSheetEvent(eventSheetCreated, cmd.OwnerID, sheetID, newSheet.Version, map[string]any{detailTemplateIDKey: cmd.TemplateID})
+	s.publishSheetEvent(eventSheetCreated, cmd.OwnerID, sheetID, newSheet.Version, map[string]any{detailTemplateIDKey: base.tmpl.ID})
 	return &newSheet, nil
 }
 

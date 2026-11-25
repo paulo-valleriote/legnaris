@@ -187,6 +187,7 @@ func TestBuildRegistry_DiceDefaults(t *testing.T) {
 		return Template{
 			ID:          "dice_v1",
 			State:       StateActive,
+			Default:     true,
 			Fields:      FieldGroup{"stats": {Children: FieldGroup{"strength": layoutLeaf("")}}},
 			SectionDice: section,
 			RowDice:     row,
@@ -375,7 +376,7 @@ func TestDefaultTemplates_AllBootWithDice(t *testing.T) {
 
 	registry, err := BuildRegistry(engine.NewFormulaEngine(), WithDraftsAllowed(true))
 	require.NoError(t, err)
-	assert.Len(t, registry.List(), len(DefaultTemplates()))
+	assert.Len(t, registry.List(), 2)
 }
 
 func TestRegistry_FantasyV1ExposesDiceInDTO(t *testing.T) {

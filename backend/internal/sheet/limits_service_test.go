@@ -197,16 +197,24 @@ func TestService_CreateFantasyTemplateAcceptsNPCAndEnemy(t *testing.T) {
 				FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: fantasy.ID}).
 				Return(&fantasy, nil).
 				Once()
+			scope := mocks.NewMockCampaignScope(t)
+			scope.EXPECT().
+				AllowsTemplate(mock.Anything, ownerUserID, campaignCreateID, fantasy.ID).
+				Return(true, nil).
+				Once()
 			repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, tc.kind, tc.limit).Return(nil).Once()
 			repo.EXPECT().Create(mock.Anything, mock.MatchedBy(func(s *sheet.Sheet) bool {
 				return s.Kind == tc.kind && s.TemplateID == fantasy.ID && s.OwnerID == ownerUserID
 			})).Return(nil).Once()
 
-			svc := newLimitedService(repo, tmplSvc, sheettest.DAGMap{fantasy.ID: dag},
-				planFor(t, ownerUserID, plan.Free), runInline(t))
+			svc := sheet.NewService(repo, tmplSvc, sheettest.DAGMap{fantasy.ID: dag},
+				logger.NewLogger(slog.LevelError), events.NoOp{},
+				sheet.WithPlanLimits(planFor(t, ownerUserID, plan.Free), runInline(t)),
+				sheet.WithCampaignScope(scope))
 
 			created, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
 				TemplateID: fantasy.ID, Kind: string(tc.kind), SheetName: "Mine", OwnerID: ownerUserID,
+				CampaignID: campaignCreateID,
 			})
 			require.NoError(t, err)
 			require.NotNil(t, created)

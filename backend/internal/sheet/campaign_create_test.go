@@ -47,6 +47,7 @@ func newCampaignCreateService(
 			Kinds:  kinds,
 		}, nil).
 		Maybe()
+	templates.EXPECT().List(mock.Anything).Return([]template.Template{}, nil).Maybe()
 	return sheet.NewService(repo, templates, limitDAG(t), logger.NewLogger(slog.LevelError), publisher,
 		sheet.WithPlanLimits(planFor(t, ownerUserID, plan.Free), runInline(t)),
 		sheet.WithCampaignScope(scope),

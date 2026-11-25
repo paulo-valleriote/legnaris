@@ -1,19 +1,30 @@
 import { forwardRef, useId, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { message, messageWith } from '../l10n/strings';
-import { HitPointsCard } from '../sheet/preset/fantasy/hp_card';
-import { HIT_POINTS_CURRENT, HIT_POINTS_MAX } from '../sheet/preset/fantasy/hit_points';
-import { slotPool, spendSlot } from '../sheet/preset/fantasy/slot_pips';
-import { SpellSlots } from '../sheet/preset/fantasy/spells';
-import { XpBar } from '../sheet/preset/fantasy/xp_panel';
-import { LEVEL_PATH, XP_PATH, xpProgress } from '../sheet/preset/fantasy/xp_progress';
-import { usePresetCommit, usePresetContext, usePresetValue } from '../sheet/preset/preset_context';
+import { HitPointsTrack } from '../sheet/preset/compose/hit_points_track';
+import { Pips } from '../sheet/preset/compose/pips';
+import type { PresetHitPointsPiece, PresetPipsPiece } from '../sheet/preset/compose/types';
+import { usePresetContext, usePresetValue } from '../sheet/preset/preset_context';
 import { numberValue } from '../sheet/preset/values';
 import { Button } from '../ui/button';
 import { DemoProvider } from './demo_provider';
+import { longRestCascade, MOMENT_DERIVATION, MOMENT_SHEET, MOMENT_TEMPLATE } from './moment_demo';
 import './game_moments.css';
 
-const XP_FORMAT = new Intl.NumberFormat('en-US');
+const HIT_POINTS_PIECE: PresetHitPointsPiece = {
+  kind: 'hitPoints',
+  key: 'hitPoints',
+  current: 'combat.hp.current',
+  max: 'combat.hp.max',
+  temp: 'combat.hp.temp',
+};
+
+const SLOT_PIECE: PresetPipsPiece = {
+  kind: 'pips',
+  key: 'slot1',
+  count: 'spellcasting.slot1.spent',
+  max: 'spellcasting.slot1.total',
+};
 
 interface MomentProps {
   readonly title: string;
@@ -55,77 +66,9 @@ const Result = forwardRef<HTMLParagraphElement, ResultProps>(function Result({ t
   );
 });
 
-function XpMoment() {
-  const level = numberValue(usePresetValue(LEVEL_PATH));
-  const xp = usePresetValue(XP_PATH);
-  const commitXp = usePresetCommit(XP_PATH);
-  const commitLevel = usePresetCommit(LEVEL_PATH);
-  const resultRef = useRef<HTMLParagraphElement>(null);
-  const progress = xpProgress(level, xp);
-  const gain =
-    progress.nextThreshold === null ? 0 : Math.max(0, progress.nextThreshold - progress.xp);
-  const nextLevel = progress.nextLevel;
-  const result = progress.canLevelUp
-    ? messageWith('landing.momentXpAnnounce', { count: XP_FORMAT.format(progress.xp) })
-    : messageWith('landing.momentXpValue', {
-        count: progress.level,
-        total: XP_FORMAT.format(progress.xp),
-      });
-
-  const gainExperience = () => {
-    if (progress.nextThreshold === null || gain === 0) {
-      return;
-    }
-    commitXp(progress.xp + gain);
-    resultRef.current?.focus();
-  };
-
-  const takeLevel = () => {
-    if (nextLevel === null) {
-      return;
-    }
-    commitLevel(nextLevel);
-    resultRef.current?.focus();
-  };
-
-  return (
-    <Moment
-      title={message('landing.momentXpTitle')}
-      body={message('landing.momentXpBody')}
-      testId="landing-moment-xp"
-    >
-      <div className="lg-moment__stage">
-        <p className="lg-moment__level" data-testid="landing-moment-xp-level">
-          {messageWith('sheet.play.level', { count: progress.level })}
-        </p>
-        <XpBar />
-      </div>
-      <div className="lg-moment__actions">
-        {gain > 0 && (
-          <Button
-            variant="secondary"
-            size="sm"
-            label={messageWith('landing.momentXpGain', { count: XP_FORMAT.format(gain) })}
-            onClick={gainExperience}
-          />
-        )}
-        {progress.canLevelUp && nextLevel !== null && (
-          <Button
-            size="sm"
-            label={messageWith('landing.momentXpLevelUp', { count: nextLevel })}
-            onClick={takeLevel}
-          />
-        )}
-      </div>
-      <Result ref={resultRef} text={result} />
-    </Moment>
-  );
-}
-
 function HpMoment() {
-  const current = numberValue(usePresetValue(HIT_POINTS_CURRENT));
-  const max = numberValue(usePresetValue(HIT_POINTS_MAX));
-  const resultRef = useRef<HTMLParagraphElement>(null);
+  const current = numberValue(usePresetValue('combat.hp.current'));
+  const max = numberValue(usePresetValue('combat.hp.max'));
   const result =
     current === undefined
       ? ''
@@ -138,27 +81,26 @@ function HpMoment() {
       testId="landing-moment-hp"
     >
       <div className="lg-moment__stage">
-        <HitPointsCard />
+        <HitPointsTrack piece={HIT_POINTS_PIECE} />
       </div>
-      <Result ref={resultRef} text={result} />
+      <Result text={result} />
     </Moment>
   );
 }
 
 function SlotMoment() {
   const { store } = usePresetContext();
-  const total = numberValue(usePresetValue('spells.slot1.total'));
-  const expended = numberValue(usePresetValue('spells.slot1.expended'));
+  const total = numberValue(usePresetValue('spellcasting.slot1.total')) ?? 0;
+  const spent = numberValue(usePresetValue('spellcasting.slot1.spent')) ?? 0;
   const resultRef = useRef<HTMLParagraphElement>(null);
-  const pool = slotPool(total, expended);
-  const result = messageWith('landing.momentSlotAnnounce', { count: pool.remaining });
+  const remaining = Math.max(0, total - spent);
+  const result = messageWith('landing.momentSlotAnnounce', { count: remaining });
 
   const spend = () => {
-    if (pool.remaining === 0) {
+    if (remaining === 0) {
       return;
     }
-    const next = spendSlot(pool);
-    store.setPath('spells.slot1.expended', next.expended);
+    store.setPath('spellcasting.slot1.spent', spent + 1);
     resultRef.current?.focus();
   };
 
@@ -169,15 +111,60 @@ function SlotMoment() {
       testId="landing-moment-slot"
     >
       <div className="lg-moment__stage">
-        <SpellSlots />
+        <Pips piece={SLOT_PIECE} />
       </div>
       <div className="lg-moment__actions">
         <Button
           variant="secondary"
           size="sm"
           label={message('landing.momentSlotSpend')}
-          disabled={pool.remaining === 0}
+          disabled={remaining === 0}
           onClick={spend}
+        />
+      </div>
+      <Result ref={resultRef} text={result} />
+    </Moment>
+  );
+}
+
+function RestMoment() {
+  const { store } = usePresetContext();
+  const current = numberValue(usePresetValue('combat.hp.current'));
+  const max = numberValue(usePresetValue('combat.hp.max'));
+  const remaining = numberValue(usePresetValue('spellcasting.slot1.remaining'));
+  const resultRef = useRef<HTMLParagraphElement>(null);
+  const result =
+    current === undefined
+      ? ''
+      : messageWith('landing.momentRestAnnounce', {
+          count: current,
+          total: max ?? 0,
+          slots: remaining ?? 0,
+        });
+
+  const rest = () => {
+    store.applyReset(longRestCascade(store.getState().data));
+    resultRef.current?.focus();
+  };
+
+  return (
+    <Moment
+      title={message('landing.momentRestTitle')}
+      body={message('landing.momentRestBody')}
+      testId="landing-moment-rest"
+    >
+      <div className="lg-moment__stage">
+        <p className="lg-moment__stat" data-testid="landing-moment-rest-hp">
+          {messageWith('landing.momentRestHp', { count: current ?? 0, total: max ?? 0 })}
+        </p>
+        <Pips piece={SLOT_PIECE} />
+      </div>
+      <div className="lg-moment__actions">
+        <Button
+          variant="secondary"
+          size="sm"
+          label={message('landing.momentRestAction')}
+          onClick={rest}
         />
       </div>
       <Result ref={resultRef} text={result} />
@@ -187,10 +174,11 @@ function SlotMoment() {
 
 export default function GameMoments() {
   return (
-    <DemoProvider>
+    <DemoProvider template={MOMENT_TEMPLATE} sheet={MOMENT_SHEET} derive={MOMENT_DERIVATION}>
       <div className="lg-moment-grid" data-testid="landing-game-moments">
-        <XpMoment />
+        <HpMoment />
         <SlotMoment />
+        <RestMoment />
       </div>
     </DemoProvider>
   );
@@ -198,7 +186,7 @@ export default function GameMoments() {
 
 export function HeroSheet() {
   return (
-    <DemoProvider>
+    <DemoProvider template={MOMENT_TEMPLATE} sheet={MOMENT_SHEET} derive={MOMENT_DERIVATION}>
       <div className="lg-moment-hero" data-testid="landing-hero-sheet">
         <HpMoment />
       </div>

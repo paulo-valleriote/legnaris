@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
 
-export const MIGHT_MIN = 8;
-export const MIGHT_MAX = 20;
-const MIGHT_START = 16;
-const TRAINING_BONUS = 2;
+export const STRENGTH_MIN = 8;
+export const STRENGTH_MAX = 20;
+const STRENGTH_START = 16;
+const PROFICIENCY_BONUS = 2;
 const CARRY_PER_POINT = 15;
 
 export interface Derived {
@@ -14,9 +14,13 @@ export interface Derived {
   readonly carry: number;
 }
 
-export function deriveFromMight(might: number): Derived {
-  const modifier = Math.floor((might - 10) / 2);
-  return { modifier, attack: modifier + TRAINING_BONUS, carry: might * CARRY_PER_POINT };
+export function deriveFromStrength(strength: number): Derived {
+  const modifier = Math.floor((strength - 10) / 2);
+  return {
+    modifier,
+    attack: modifier + PROFICIENCY_BONUS,
+    carry: strength * CARRY_PER_POINT,
+  };
 }
 
 export function signed(value: number): string {
@@ -30,8 +34,8 @@ interface Row {
 }
 
 export function DerivationChain() {
-  const [might, setMight] = useState(MIGHT_START);
-  const derived = deriveFromMight(might);
+  const [strength, setStrength] = useState(STRENGTH_START);
+  const derived = deriveFromStrength(strength);
   const rows: readonly Row[] = [
     {
       label: 'landing.chainModifier',
@@ -53,32 +57,32 @@ export function DerivationChain() {
   return (
     <div className="lg-chain" data-testid="landing-chain">
       <div className="lg-chain__source">
-        <span className="lg-chain__source-label" id="lg-chain-might">
-          {message('landing.chainMight')}
+        <span className="lg-chain__source-label" id="lg-chain-strength">
+          {message('landing.chainStrength')}
         </span>
         <div className="lg-chain__stepper">
           <button
             type="button"
             className="lg-chain__step"
             aria-label={message('landing.chainLower')}
-            disabled={might <= MIGHT_MIN}
-            onClick={() => setMight((value) => Math.max(MIGHT_MIN, value - 1))}
+            disabled={strength <= STRENGTH_MIN}
+            onClick={() => setStrength((value) => Math.max(STRENGTH_MIN, value - 1))}
           >
             {message('landing.chainLowerGlyph')}
           </button>
           <output
             className="lg-chain__score"
-            aria-labelledby="lg-chain-might"
-            data-testid="landing-chain-might"
+            aria-labelledby="lg-chain-strength"
+            data-testid="landing-chain-strength"
           >
-            {might}
+            {strength}
           </output>
           <button
             type="button"
             className="lg-chain__step"
             aria-label={message('landing.chainRaise')}
-            disabled={might >= MIGHT_MAX}
-            onClick={() => setMight((value) => Math.min(MIGHT_MAX, value + 1))}
+            disabled={strength >= STRENGTH_MAX}
+            onClick={() => setStrength((value) => Math.min(STRENGTH_MAX, value + 1))}
           >
             {message('landing.chainRaiseGlyph')}
           </button>

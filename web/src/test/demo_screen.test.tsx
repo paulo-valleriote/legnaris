@@ -4,14 +4,14 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { DECLARED_ROUTES, DEMO_PATH, LANDING_PATH } from '../app/routes';
+import { DECLARED_ROUTES, DEMO_PATH, LANDING_PATH, SRD_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
 import { signUpCtaPath } from '../landing/start_intent';
 import { renderApp } from './render';
 import { rollName } from './dice_names';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const FANTASY_SIGN_UP_PATH = signUpCtaPath('fantasy');
+const FIFTH_SIGN_UP_PATH = signUpCtaPath('fifth');
 const fetchSpy = vi.fn(() => Promise.reject(new Error('the demo page must stay offline')));
 
 beforeEach(() => {
@@ -52,7 +52,7 @@ describe('demo page', () => {
     await visitDemo();
 
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole('heading', { level: 2, name: 'Rowan Vale' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 2, name: 'Ysolde Ashgrave' })).toBeInTheDocument();
   });
 
   it('Happy path: Back to home returns to the landing', async () => {
@@ -86,7 +86,7 @@ describe('demo page', () => {
   it('Happy path: rolling a die reveals the sign-up CTA and keeps the demo state', async () => {
     const user = userEvent.setup();
     await visitDemo();
-    const modifier = screen.getByRole('button', { name: rollName('Might modifier') });
+    const modifier = screen.getByRole('button', { name: rollName('Wisdom modifier') });
 
     expect(modifier).toHaveTextContent('+3');
     await user.click(modifier);
@@ -94,7 +94,7 @@ describe('demo page', () => {
     const cta = screen.getByTestId('landing-demo-cta');
     expect(
       within(cta).getByRole('link', { name: message('landing.demoCtaAction') }),
-    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    ).toHaveAttribute('href', FIFTH_SIGN_UP_PATH);
     expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
   });
 
@@ -106,17 +106,27 @@ describe('demo page', () => {
     expect(sticky).toHaveAttribute('inert');
   });
 
-  it('Happy path: after a roll the mobile sticky CTA appears with the Fantasy start intent', async () => {
+  it('Happy path: after a roll the mobile sticky CTA appears with the fifth start intent', async () => {
     const user = userEvent.setup();
     await visitDemo();
-    await user.click(screen.getByRole('button', { name: rollName('Might modifier') }));
+    await user.click(screen.getByRole('button', { name: rollName('Wisdom modifier') }));
 
     expect(screen.getByTestId('landing-sticky-cta')).toHaveClass('lg-landing__sticky--shown');
     expect(
       within(screen.getByTestId('landing-sticky-cta')).getByRole('link', {
         name: message('landing.create'),
       }),
-    ).toHaveAttribute('href', FANTASY_SIGN_UP_PATH);
+    ).toHaveAttribute('href', FIFTH_SIGN_UP_PATH);
+  });
+
+  it('Happy path: the demo footer links to the SRD attribution', async () => {
+    await visitDemo();
+
+    expect(
+      within(screen.getByRole('contentinfo')).getByRole('link', {
+        name: message('landing.footer.srd'),
+      }),
+    ).toHaveAttribute('href', SRD_PATH);
   });
 
   it('Edge: the demo page is its own lazy chunk over the lazily loaded sheet', () => {
@@ -125,8 +135,8 @@ describe('demo page', () => {
     const landing = readFileSync(path.resolve(here, '../landing/landing_screen.tsx'), 'utf8');
 
     expect(router).toContain("lazy(() => import('../landing/demo_screen'))");
-    expect(demo).toContain("lazy(() => import('./demo_sheet'))");
-    expect(demo).not.toContain("from './demo_sheet'");
-    expect(landing).not.toContain('demo_sheet');
+    expect(demo).toContain("lazy(() => import('./fifth_demo_sheet'))");
+    expect(demo).not.toContain("from './fifth_demo_sheet'");
+    expect(landing).not.toContain('fifth_demo_sheet');
   });
 });

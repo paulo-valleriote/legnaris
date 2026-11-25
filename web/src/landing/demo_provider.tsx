@@ -16,7 +16,6 @@ import {
 } from '../sheet/dice_view';
 import type { PresetContextValue } from '../sheet/preset/preset_context';
 import { PresetProvider } from '../sheet/preset/preset_context';
-import { DEMO_SHEET, DEMO_TEMPLATE } from './demo_character';
 import type { DemoDerivation } from './demo_store';
 import { createDemoEditStore } from './demo_store';
 
@@ -28,9 +27,9 @@ interface DemoRuntime {
 }
 
 export function createDemoRuntime(
-  template: TemplateDetail = DEMO_TEMPLATE,
-  sheet: Sheet = DEMO_SHEET,
-  derive?: DemoDerivation,
+  template: TemplateDetail,
+  sheet: Sheet,
+  derive: DemoDerivation,
 ): DemoRuntime {
   const store = createDemoEditStore(template, sheet, derive);
   const sections = buildSections(template.fields);
@@ -62,15 +61,15 @@ export function createDemoRuntime(
 export function DemoProvider({
   children,
   onInteract,
-  template = DEMO_TEMPLATE,
-  sheet = DEMO_SHEET,
+  template,
+  sheet,
   derive,
 }: {
   readonly children: ReactNode;
   readonly onInteract?: () => void;
-  readonly template?: TemplateDetail;
-  readonly sheet?: Sheet;
-  readonly derive?: DemoDerivation;
+  readonly template: TemplateDetail;
+  readonly sheet: Sheet;
+  readonly derive: DemoDerivation;
 }) {
   const [runtime] = useState(() => createDemoRuntime(template, sheet, derive));
   const onInteractRef = useRef(onInteract);

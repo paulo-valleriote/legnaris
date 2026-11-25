@@ -41,10 +41,10 @@ function appQueryClient() {
   return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
-function createdFantasySheet(): Record<string, unknown> {
+function createdFifthSheet(): Record<string, unknown> {
   return {
     id: SHEET_ID,
-    template_id: 'fantasy_v1',
+    template_id: 'fifth_character_v1',
     kind: 'character',
     name: message('landing.startSheetName'),
     data: {},
@@ -54,11 +54,11 @@ function createdFantasySheet(): Record<string, unknown> {
   };
 }
 
-function fantasyTemplate(): Record<string, unknown> {
+function fifthTemplate(): Record<string, unknown> {
   const capture = JSON.parse(
-    readFileSync(path.resolve(here, '../api/fixtures/template_detail.json'), 'utf8'),
-  ) as { response: { body: { data: Record<string, unknown> } } };
-  return capture.response.body.data;
+    readFileSync(path.resolve(here, '../../../testdata/templates/fifth_character_v1.json'), 'utf8'),
+  ) as { data: Record<string, unknown> };
+  return capture.data;
 }
 
 function postRequests(requests: readonly HttpRequest[]): HttpRequest[] {
@@ -76,7 +76,7 @@ function deferredSheetCreation() {
       });
     }
     if (request.method === 'GET' && request.url.includes('/templates/')) {
-      return Promise.resolve(successOutcome(fantasyTemplate()));
+      return Promise.resolve(successOutcome(fifthTemplate()));
     }
     return Promise.resolve(successOutcome(undefined));
   };
@@ -106,8 +106,8 @@ async function registerAt(path: string, auth: ReturnType<typeof createDeferredTr
   const user = userEvent.setup();
   const session = restoringSession(auth.transport);
   const client = createFakeTransport(
-    successOutcome(createdFantasySheet(), 201),
-    successOutcome(fantasyTemplate()),
+    successOutcome(createdFifthSheet(), 201),
+    successOutcome(fifthTemplate()),
   );
 
   renderApp(path, {
@@ -127,15 +127,15 @@ async function registerAt(path: string, auth: ReturnType<typeof createDeferredTr
 }
 
 describe('a sign-up started on the home page', () => {
-  it('Happy path: it creates a fantasy sheet through the normal API and opens it', async () => {
+  it('Happy path: it creates a 5E sheet through the normal API and opens it', async () => {
     const auth = createDeferredTransport();
-    const { client } = await registerAt('/sign-up?start=fantasy', auth);
+    const { client } = await registerAt('/sign-up?start=fifth', auth);
 
     await waitFor(() => expect(postRequests(client.requests)).toHaveLength(1));
 
     const [creation] = postRequests(client.requests);
     expect(JSON.parse(creation.body ?? '{}')).toEqual({
-      template_id: 'fantasy_v1',
+      template_id: 'fifth_character_v1',
       kind: 'character',
       sheet_name: message('landing.startSheetName'),
     });
@@ -147,13 +147,28 @@ describe('a sign-up started on the home page', () => {
     expect(screen.queryByTestId('catalog')).not.toBeInTheDocument();
   });
 
+  it('Happy path: the fantasy alias creates the same 5E sheet and opens it', async () => {
+    const auth = createDeferredTransport();
+    const { client } = await registerAt('/sign-up?start=fantasy', auth);
+
+    await waitFor(() => expect(postRequests(client.requests)).toHaveLength(1));
+
+    const [creation] = postRequests(client.requests);
+    expect(JSON.parse(creation.body ?? '{}')).toEqual({
+      template_id: 'fifth_character_v1',
+      kind: 'character',
+      sheet_name: message('landing.startSheetName'),
+    });
+    expect(await screen.findByTestId('sheet-screen')).toBeInTheDocument();
+  });
+
   it('Happy path: the start intent is stripped before the sheet request settles', async () => {
     const user = userEvent.setup();
     const auth = createDeferredTransport();
     const session = restoringSession(auth.transport);
     const creation = deferredSheetCreation();
 
-    renderApp('/sign-up?start=fantasy', {
+    renderApp('/sign-up?start=fifth', {
       session,
       client: clientWith(withPlanUsage(creation.transport)),
       queryClient: appQueryClient(),
@@ -170,7 +185,7 @@ describe('a sign-up started on the home page', () => {
     expect(screen.queryByTestId('start-sheet')).not.toBeInTheDocument();
     expect(postRequests(creation.requests)).toHaveLength(1);
 
-    creation.resolve(successOutcome(createdFantasySheet(), 201));
+    creation.resolve(successOutcome(createdFifthSheet(), 201));
 
     expect(await screen.findByTestId('sheet-screen')).toBeInTheDocument();
     expect(postRequests(creation.requests)).toHaveLength(1);
@@ -181,11 +196,11 @@ describe('a sign-up started on the home page', () => {
     const auth = createDeferredTransport();
     const session = restoringSession(auth.transport);
     const client = createFakeTransport(
-      successOutcome(createdFantasySheet(), 201),
-      successOutcome(fantasyTemplate()),
+      successOutcome(createdFifthSheet(), 201),
+      successOutcome(fifthTemplate()),
     );
 
-    renderApp('/sign-up?start=fantasy', {
+    renderApp('/sign-up?start=fifth', {
       session,
       client: clientWith(withPlanUsage(client.transport)),
       queryClient: appQueryClient(),
@@ -221,7 +236,7 @@ describe('a sign-up started on the home page', () => {
     );
     const user = userEvent.setup();
 
-    renderApp('/sign-up?start=fantasy', {
+    renderApp('/sign-up?start=fifth', {
       session,
       client: clientWith(withPlanUsage(client.transport)),
       queryClient: appQueryClient(),
@@ -253,7 +268,7 @@ describe('a sign-up started on the home page', () => {
     const client = createFakeTransport(successOutcome([]));
     const user = userEvent.setup();
 
-    renderApp('/sign-in?start=fantasy', {
+    renderApp('/sign-in?start=fifth', {
       session,
       client: clientWith(withPlanUsage(client.transport)),
       queryClient: appQueryClient(),

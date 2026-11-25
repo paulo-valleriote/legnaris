@@ -238,6 +238,29 @@ func TestCampaignScopeResolver_ResolveScope(t *testing.T) {
 	}
 }
 
+func TestCampaignScopeResolver_CreateScopeThroughRealRegistry(t *testing.T) {
+	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
+	require.NoError(t, err)
+	resolver := newCampaignScopeResolver(registry)
+
+	t.Run("Error: the retired fantasy Template cannot start a Campaign", func(t *testing.T) {
+		scope, err := resolver.CreateScope(context.Background(), "", "fantasy_v1")
+
+		require.ErrorIs(t, err, campaign.ErrScopeRetired)
+		assert.Empty(t, scope.Name)
+	})
+
+	t.Run("Happy path: the fifth edition Game system offers only the 5E Templates", func(t *testing.T) {
+		scope, err := resolver.CreateScope(context.Background(), template.GameSystemFifth, "")
+
+		require.NoError(t, err)
+		assert.Equal(t, "5E", scope.Name)
+		assert.Equal(t, []string{"fifth_character_v1", "fifth_stat_block_v1"}, scope.TemplateIDs)
+		require.NotNil(t, scope.GameSystem)
+		assert.Equal(t, template.GameSystemFifth, scope.GameSystem.ID)
+	})
+}
+
 func TestCampaignScopeResolver_ResolveScopeThroughRealRegistry(t *testing.T) {
 	registry, err := template.BuildRegistry(engine.NewFormulaEngine())
 	require.NoError(t, err)

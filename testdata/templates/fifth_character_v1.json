@@ -4213,7 +4213,7 @@
         }
       }
     },
-    "default": false,
+    "default": true,
     "dice": {
       "section": {
         "abilities": "1d20 + @.mod + exhaustion.penalty",

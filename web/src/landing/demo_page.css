@@ -44,9 +44,34 @@
   gap: var(--lg-space-24);
 }
 
+.lg-demo__footer {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: var(--lg-size-landing-max);
+  margin-inline: auto;
+  padding: var(--lg-space-24) var(--lg-space-24) var(--lg-space-48);
+}
+
+.lg-demo__footer-link {
+  color: var(--lg-color-stage-text-muted);
+  font-size: var(--lg-type-13);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.lg-demo__footer-link:hover,
+.lg-demo__footer-link:focus-visible {
+  color: var(--lg-color-stage-text);
+}
+
 @media (min-width: 40rem) {
   .lg-demo__header,
   .lg-demo__main {
+    padding-inline: var(--lg-space-48);
+  }
+
+  .lg-demo__footer {
     padding-inline: var(--lg-space-48);
   }
 }

@@ -84,7 +84,7 @@ describe('landing funnel counters', () => {
     await waitFor(() => expect(screen.getByTestId('landing-demo-sheet')).toBeInTheDocument());
     expect(beacon).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole('button', { name: rollName('Might modifier') }));
+    await user.click(screen.getByRole('button', { name: rollName('Wisdom modifier') }));
     await user.click(
       within(screen.getByTestId('landing-demo-cta')).getByRole('link', {
         name: message('landing.demoCtaAction'),

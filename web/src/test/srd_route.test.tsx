@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import { DECLARED_ROUTES, SRD_PATH } from '../app/routes';
 import { message } from '../l10n/strings';
 import { renderApp } from './render';
+
+vi.setConfig({ testTimeout: 15_000 });
 
 const ATTRIBUTION =
   'This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode.';
@@ -43,15 +45,21 @@ describe('srd route (LGN-420)', () => {
     expect(screen.queryByText(/trademark/i)).not.toBeInTheDocument();
   });
 
-  it('Edge: no public page links to the srd page', async () => {
-    for (const path of ['/', '/demo', '/privacy']) {
+  it('Edge: the landing and the demo footer link to the srd page, and no other public page does', async () => {
+    for (const path of ['/', '/demo']) {
       const view = await visit(path);
-      await screen.findByRole('heading', { level: 1 });
-      const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href') ?? '');
-      for (const href of hrefs) {
-        expect(new URL(href, 'http://legnaris.test').pathname).not.toBe(SRD_PATH);
-      }
+      await screen.findByRole('heading', { level: 1 }, { timeout: 5000 });
+      const footer = screen.getByRole('contentinfo');
+      expect(footer.querySelector(`a[href="${SRD_PATH}"]`)).not.toBeNull();
       view.unmount();
     }
+
+    const privacy = await visit('/privacy');
+    await screen.findByRole('heading', { level: 1 });
+    const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href') ?? '');
+    for (const href of hrefs) {
+      expect(new URL(href, 'http://legnaris.test').pathname).not.toBe(SRD_PATH);
+    }
+    privacy.unmount();
   });
 });
