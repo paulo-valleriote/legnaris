@@ -144,3 +144,12 @@
     display: inline;
   }
 }
+
+@media (max-width: 39.99rem) {
+  .lg-demo .lg-pending-card {
+    bottom: calc(
+      var(--lg-space-12) + var(--lg-size-control) +
+        max(var(--lg-space-12), env(safe-area-inset-bottom, 0em)) + var(--lg-space-16)
+    );
+  }
+}

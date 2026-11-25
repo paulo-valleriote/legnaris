@@ -6,7 +6,11 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
-import { PENDING_ANNOUNCE_MS } from '../sheet/preset/pending_card';
+import {
+  PENDING_ANNOUNCE_MS,
+  PENDING_CARD_SPACE_CLASS,
+  PENDING_CARD_SPACE_PROPERTY,
+} from '../sheet/preset/pending_card';
 import { FANTASY_SHEET_ID, fantasySheetPayload, fantasyTemplatePayload } from './fantasy_fixtures';
 import type { FakeOutcome } from './fake_transport';
 import { createFakeTransport, errorOutcome, successOutcome } from './fake_transport';
@@ -18,6 +22,7 @@ const BASE_URL = 'http://api.test';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const indexHtml = readFileSync(path.resolve(here, '../../index.html'), 'utf8');
 const presetCss = readFileSync(path.resolve(here, '../sheet/preset/preset.css'), 'utf8');
+const demoCss = readFileSync(path.resolve(here, '../landing/demo_page.css'), 'utf8');
 
 interface OpenOptions {
   readonly save?: FakeOutcome;
@@ -119,13 +124,46 @@ describe('the Play save surface', () => {
     expect(card()).not.toBeInTheDocument();
   });
 
-  it('Edge: the table-sync placeholder is a visible chip, not hidden text', async () => {
+  it('Edge: the card renders no table-sync pill', async () => {
     const { user } = await openFantasy();
     await user.click(levelStep('increase'));
 
-    const sync = within(screen.getByTestId('sheet-pending-card')).getByTestId('sheet-pending-sync');
-    expect(sync).toHaveTextContent(message('sheet.pending.tableSync'));
-    expect(sync).not.toHaveAttribute('aria-hidden', 'true');
+    expect(screen.getByTestId('sheet-pending-card')).not.toHaveTextContent('Table sync soon');
+    expect(screen.queryByTestId('sheet-pending-sync')).not.toBeInTheDocument();
+  });
+
+  it('Happy path: the visible card reserves its measured height on the sheet root', async () => {
+    const { user } = await openFantasy();
+    await user.click(levelStep('increase'));
+
+    const root = screen.getByTestId('sheet-play');
+    const cardElement = screen.getByTestId('sheet-pending-card');
+    expect(root).toHaveClass(PENDING_CARD_SPACE_CLASS);
+
+    vi.spyOn(cardElement, 'getBoundingClientRect').mockReturnValue({
+      height: 120,
+      bottom: window.innerHeight - 80,
+    } as DOMRect);
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    const space = Number.parseFloat(root.style.getPropertyValue(PENDING_CARD_SPACE_PROPERTY));
+    expect(Number.isFinite(space)).toBe(true);
+    expect(space).toBeGreaterThanOrEqual(120);
+  });
+
+  it('Edge: hiding the card releases the reserved bottom space', async () => {
+    const { user } = await openFantasy();
+    await user.click(levelStep('increase'));
+
+    const root = screen.getByTestId('sheet-play');
+    expect(root).toHaveClass(PENDING_CARD_SPACE_CLASS);
+
+    await user.click(cardButton('discard'));
+
+    expect(root).not.toHaveClass(PENDING_CARD_SPACE_CLASS);
+    expect(root.style.getPropertyValue(PENDING_CARD_SPACE_PROPERTY)).toBe('');
   });
 
   it('Edge: rapid edits settle into one debounced announcement, not one per edit', async () => {
@@ -225,7 +263,14 @@ describe('the Play save surface', () => {
     expect(presetCss).toMatch(
       /\.lg-pending-card\s*\{[^}]*bottom:\s*calc\([^;]*env\(safe-area-inset-bottom/,
     );
-    expect(presetCss).toMatch(/\.lg-preset:has\(\.lg-pending-card\)\s*\{[^}]*padding-block-end/);
+    expect(presetCss).toMatch(
+      /\.lg-preset--pending-card\s*\{[^}]*padding-block-end:\s*var\(--lg-pending-card-space/,
+    );
+  });
+
+  it('Edge: on a phone the demo card stacks above the sticky sign-up bar', () => {
+    const phone = demoCss.slice(demoCss.indexOf('@media (max-width: 39.99rem)'));
+    expect(phone).toMatch(/\.lg-demo\s+\.lg-pending-card\s*\{[^}]*bottom:\s*calc\(/);
   });
 
   it('Edge: the bar actions are 44px tall on a phone and its slide-in respects reduced motion', () => {

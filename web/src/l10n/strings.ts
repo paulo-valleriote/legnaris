@@ -442,7 +442,6 @@ export const messages = {
   'sheet.pending.change': '{label} {before} → {after}',
   'sheet.pending.separator': ', ',
   'sheet.pending.announce': 'Unsaved changes: {summary}',
-  'sheet.pending.tableSync': 'Table sync soon',
   'sheet.pending.discard': 'Discard changes',
   'sheet.pending.preview': 'Preview changes',
   'sheet.pending.save': 'Save changes',

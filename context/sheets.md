@@ -1073,10 +1073,13 @@ API or auth call and resets on every mount; it supplies no reset binding, so no 
 
 Any Play-mode value edit also floats the pending-changes bar (`pending_card.tsx`, fed by the pure
 `pending_changes.ts`): the only save surface in Play, because the screen draws no footer there.
-It lists each changed field as `<label> <old> → <new>`, the `not saved yet` copy, a small visible
-`Table sync soon` chip and Discard, Preview and Save wired to the same edit store. The bar clears
-the phone home indicator (`viewport-fit=cover` plus `env(safe-area-inset-bottom)`) and the Play
-body reserves the bar's measured height, so the bar never covers the content it hides. Its actions
+It lists each changed field as `<label> <old> → <new>`, the `not saved yet` copy, and Discard,
+Preview and Save wired to the same edit store. The bar clears the phone home indicator
+(`viewport-fit=cover` plus `env(safe-area-inset-bottom)`); while it is shown it marks the Play root
+with `lg-preset--pending-card` and publishes `--lg-pending-card-space` (its measured height plus its
+distance from the viewport bottom), which the root turns into bottom padding, so the last content
+scrolls fully above it; hiding the bar removes both. On `/demo` the phone card also stacks above
+the sticky sign-up bar instead of covering it. Its actions
 are `--lg-size-control` tall on a phone, it slides in unless `prefers-reduced-motion` asks it not
 to, and one polite, debounced live region announces the change summary once typing settles instead
 of on every committed edit. Escape discards outside a text entry, a dialog or the dice panel;
