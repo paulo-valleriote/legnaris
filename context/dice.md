@@ -7,7 +7,7 @@ Dice expressions attach a roll to a Row or a whole Section. A Template supplies 
 ## Why
 
 - **Roll modes stay a client evaluation option over a keep token in the grammar because** the client already throws, keeps and shows both dice and the server never rolls. A Template can mark a Row or Section whose dice are not d20 tests, so a d20 Hit Die offers no advantage, and a term whose faces come from a Field never takes a keep mode at all. Cost: a stored expression cannot pin advantage, and a Template author must mark the exceptions.
-- **Dice sized by numeric Fields, with a minimum total (LGN-391), because** stat block hit points and Hit Point Dice take their count or size from the Sheet. Multiplication stays out of the grammar: a product is a derived Field. Cost: a grammar change in both implementations and their shared vectors, and range errors that can only appear at roll time.
+- **Dice sized by numeric Fields, with a minimum total (LGN-391), because** the live 5E stat block hit points and 5E Hit Point Dice take their count or size from the Sheet. Multiplication stays out of the grammar: a product is a derived Field. Cost: a grammar change in both implementations and their shared vectors, and range errors that can only appear at roll time.
 - **An own grammar over expr-lang** because the expression is typed by a player and the formula engine must never evaluate user text, while the dice needs its own syntax. Cost: a second parser and evaluator.
 - **Two implementations over one server implementation** because the client rolls with no round trip and the server validates what it stores. Cost: shared vectors and two suites that must move together.
 - **Client Rolls over server Rolls** because a Roll needs no audit trail in V1 and works without a network. Cost: no server authority over a result and no history to replay.
@@ -142,7 +142,7 @@ A grammar change starts in the vectors: add or amend the cases (bump `version` f
 ## Code map
 
 - `backend/internal/dice/` — `parse.go` (limits, terms, canonical form), `fit.go` (`Schema`, fit and Section validation), `evaluate.go` (`Roller`, parts, totals), `errors.go` (classes and `ClassOf`).
-- `backend/internal/sheet/template/dice_defaults.go` — boot validation and `ValidateSheetDice`; `not_d20.go` — the not-a-d20-test declaration validator; `row_identity.go` — Record Row keys, Section membership and the shape-aware fit schema; `seeders.go` holds the `fantasy_v1` defaults; `dto.go` emits the template block and the list's `dice`/`not_d20`.
+- `backend/internal/sheet/template/dice_defaults.go` — boot validation and `ValidateSheetDice`; `not_d20.go` — the not-a-d20-test declaration validator; `row_identity.go` — Record Row keys, Section membership and the shape-aware fit schema; `seeders.go` holds the frozen `fantasy_v1` defaults, while `fifth_character.go` and `fifth_stat_block.go` declare the active 5E defaults beside their fields; `dto.go` emits the template block and the list's `dice`/`not_d20`.
 - `backend/internal/sheet/service.go` — `validatedDice`, `translateDiceErr` and the one compare-and-swap save; `sheet.go` holds the stored block; `dto.go` always serializes it on `GET`.
 - `backend/internal/app/sheet.go` — the `PATCH /sheets/:id` route.
 - `testdata/dice/vectors.json` — the shared vectors.

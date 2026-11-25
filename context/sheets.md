@@ -18,9 +18,9 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   the same way for every kind it accepts. `fifth_character_v1` "5E Character" (`character`) keeps
   class, subclass, species and background as text, the player enters what they grant, and
   everything the rules derive from the Sheet is derived; `fifth_stat_block_v1` "5E Stat Block"
-  (`npc`, `enemy`) derives the proficiency bonus and the XP from the challenge rating. Both
-  ship as `draft` Templates of the `fifth` Game system, so only a development deployment lists
-  and creates them until the LGN-386 release cutover. Both play through the composable
+  (`npc`, `enemy`) derives the proficiency bonus and the XP from the challenge rating. Both are
+  `active` Templates of the `fifth` Game system, and `fifth_character_v1` is the catalog default.
+  Both play through the composable
   `fifth_character` and `fifth_stat_block` configs (LGN-417, LGN-418); the character draws every
   5E character surface and the stat block the compact NPC/enemy body. Cost: the player types
   class-granted values, and a Template without a config keeps the generic Section/Row form as its
@@ -41,8 +41,7 @@ create/read/update/preview, layout and Arrange mode, and the web rendering and e
   case-insensitive), and an empty or any other value refuses it, so a process without the variable
   fails closed. A Retired Template leaves the catalog but keeps its existing Sheets, their reads,
   edits, rolls, layouts and duplicates working, and stays fetchable so the web can render them.
-  Cost: every creation path checks the state, nobody can try a Draft in production, and the release
-  is one cutover pull request (LGN-386) that also carries the landing.
+  Cost: every creation path checks the state, and nobody can try a Draft in production.
 - **Templates as code over a `template` collection because** a template is reviewed content and
   no user-supplied game content may ship; the registry and its DAGs are built once at boot, so a
   read costs neither a query nor a compile. Cost: a template change is a deploy, an incompatible
@@ -269,8 +268,9 @@ not part of the Sheet feature.
 ### Template lifecycle
 
 Every Template declares `state` as `draft`, `active` or `retired`; boot rejects a missing or
-unknown value, and `fantasy_v1` is `active`. The state stays server-side: it is not in
-`TemplateDTO`, so the responses of a deployment whose only Template is active are unchanged.
+unknown value. `fifth_character_v1` and `fifth_stat_block_v1` are `active` and
+`fifth_character_v1` is the default, while `fantasy_v1` is `retired`. The state stays
+server-side: it is not in `TemplateDTO`.
 
 Drafts are visible only when `APP_ENV`, trimmed and compared case-insensitively, is `development`.
 An empty value, `production`, `staging` or anything else fails closed; the production API
@@ -310,14 +310,17 @@ non-member, deleting, out of scope) is the same 400 `INVALID_REQUEST` with
 indistinguishable from one that does not exist; an unexpected Campaign read failure is 500
 `INTERNAL_ERROR` with `campaign scope could not be checked`, so an outage is never reported as a
 refusal. For an Active Template the field is ignored and not
-even validated, and it never bypasses the Draft gate, the accepted kinds or the plan limit. Creation
-stores no `campaign_id` and publishes no link event; the client links the Sheet afterwards. See
-[campaigns](campaigns.md) for the Campaign side.
+even validated, and it never bypasses the Draft gate, the accepted kinds or the plan limit.
+Without a `campaign_id`, a request naming a Retired Template falls back to the catalog `default`
+Template that accepts the kind (today `fifth_character_v1`, and only for `character`); when none
+accepts it, the request is the same 400 retired refusal. The fallback applies to `POST /sheets`
+only, never to the generation accept path. Creation stores no `campaign_id` and publishes no link
+event; the client links the Sheet afterwards. See [campaigns](campaigns.md) for the Campaign side.
 
 ### Fifth-edition Templates
 
 `fifth_character_v1` and `fifth_stat_block_v1` share every field path below, so a later story
-extends a Template without renaming a shared part. Both are `draft` Templates of the `fifth` Game
+extends a Template without renaming a shared part. Both are `active` Templates of the `fifth` Game
 system, carry `identity.name` as their Name leaf, and use the same static Section order: `identity`,
 `abilities`, `saves`, `skills`, `exhaustion`, `passive`, `armor`. The character adds `hitDice`,
 `spellcasting`, `combat`, `status` and `coins` after `armor`, then its Record Sections `attacks`,
@@ -835,11 +838,12 @@ The `fifth_character_v1` config (`compose/configs/fifth_character.ts`) and the
 presets; both are described under Fifth-edition Templates. The character config draws every 5E
 character surface, and the stat block config opens an NPC or enemy in the compact Play body with
 no per-Template React. A regression suite (`preset_fantasy_regression.test.tsx`) pins the frozen
-`fantasy_v1` preset by registry identity, fixture Play surfaces, edit, roll, pending commit and
-the landing demo's import; `web/src/sheet/preset/fantasy/` stays byte-identical.
+`fantasy_v1` preset by registry identity, fixture Play surfaces, edit, roll and pending commit,
+and asserts the `/demo` route imports the 5E demo rather than the fantasy preset;
+`web/src/sheet/preset/fantasy/` stays byte-identical.
 
 
-The `fantasy_v1` preset currently draws the hero header, the combat strip, the attack cards, the
+The `fantasy_v1` preset draws the hero header, the combat strip, the attack cards, the
 ability medallions, the spellcasting panel and the table-rules disclosure. A preset declares an
 ordered body layout: full-width Section blocks and column blocks, plus an optional narrow layout. The
 fantasy body draws the combat strip across the top, then three columns (abilities / saving throws
@@ -1052,14 +1056,14 @@ starts empty. A roll made with a mode names `Advantage` or `Disadvantage` beside
 every thrown d20 with the kept one in text colour and the dropped one struck through, and announces
 the newest as `<label> rolled <total> with advantage` (or `with disadvantage`).
 
-The landing demo (`web/src/landing/demo_sheet.tsx`) reuses the same preset components and the
+The landing demo (`web/src/landing/fifth_demo_sheet.tsx`) reuses the same preset components and the
 `SheetEditStore` interface without the sheet screen: `demo_provider.tsx` builds the real Dice
-context, `demo_store.ts` keeps the sample in memory and applies an original local cascade after
-every write (`demo_character.ts`), and the default export is a separate module so a later hero can
-lazy-load it. The demo template reuses the `fantasy_v1` field keys and formulas for its derived
-leaves (the modifier floor, the save and skill proficiency shares, the armor ability choice and the
-spell attack and save DC), so the sample behaves like the server template. It makes no API or auth
-call and resets on every mount.
+context, `demo_store.ts` keeps the sample in memory, and `template_derivation.ts` evaluates the
+demo Template's own formulas after every write. The demo Template and Sheet come from
+`moment_demo.ts`, which points at the invented level 3 Cleric in `fifth_demo_character.ts` decoded
+from the `fifth_character_v1` golden, so the sample derives the same values the server Template
+does. `fifth_demo_sheet.tsx` is a separate lazy module and `/demo` is its only route. It makes no
+API or auth call and resets on every mount; it supplies no reset binding, so no Reset bar is drawn.
 
 Any Play-mode value edit also floats the pending-changes bar (`pending_card.tsx`, fed by the pure
 `pending_changes.ts`): the only save surface in Play, because the screen draws no footer there.
@@ -1288,14 +1292,13 @@ Web:
   and evaluated per Record, and Sheet aggregates read the list. A derived Field is still refused as
   a write (the server computes it). The web client draws a list in the generic Edit form and in a
   Template without a preset; the frozen `fantasy_v1` preset draws no list.
-- Users cannot create or edit templates; the registry is frozen at boot and only `fantasy_v1` is
-  active while the two fifth-edition Templates stay `draft` until the LGN-386 release cutover, so
-  a deployment outside development neither lists nor creates them. Until LGN-383 neither Template
-  has a Play preset, so a Sheet of either keeps the generic Edit form and its footer with no
-  Play/Edit toggle; generation reads their declared generation metadata (see Fifth-edition
-  Templates). A template change requires a deploy
-  and, if incompatible, a new ID. Only the `fifth` Game system ships, and a Template bound to one
-  keeps it for the life of its slug.
+- Users cannot create or edit templates; the registry is frozen at boot. The two fifth-edition
+  Templates are `active` and `fifth_character_v1` is the default, `fantasy_v1` is retired, and
+  only the `fifth` Game system ships. Both 5E Templates play through their composable presets and
+  read their declared generation metadata (see Fifth-edition Templates); a Template without a
+  config keeps the generic Edit form and its footer with no Play/Edit toggle. A template change
+  requires a deploy and, if incompatible, a new ID, and a Template bound to a Game system keeps it
+  for the life of its slug.
 - No offline open: the IndexedDB sheet copy is written and evicted but never read as a fallback,
   so a failed `GET /sheets/:id` fails the screen. A draft can be restored only after a successful
   open.
@@ -1314,17 +1317,20 @@ Web:
   there is no pin cap.
 - A Reset action only assigns numeric leaves and list Fields, evaluates no text expression and
   stores only the last applied request id: replaying an older id after a newer rest applies again.
-  The Edit form cannot preview a rest and a preset's Play view draws no action bar.
+  The Edit form cannot preview a rest; the 5E Character preset draws the Reset bar in Play, while
+  the frozen fantasy preset draws none.
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
-- The landing demo's cascade is local to `web/src/landing/demo_store.ts`; it is an original demo
-  approximation, not the server engine, and it is not a second template registry.
-- Play mode presents the `fantasy_v1` hero header with its experience bar, the armor class shield,
-  the initiative and speed tiles and the hit-points card in the combat strip, the attack cards, the
-  ability medallions, the saving throws and skills, the spellcasting panel with its table-rules
-  disclosure, and the pending-changes save bar; Play draws no footer. An NPC or enemy sheet draws
-  the compact stat block instead of the character sections; a template without a preset always
-  keeps the generic form and its footer.
+- The landing demo's cascade is local to `web/src/landing/demo_store.ts` and
+  `template_derivation.ts`; it evaluates the demo Template's own formulas but is not the server
+  engine, and it is not a second template registry.
+- Play mode presents the Template's preset. The 5E Character composable config draws the identity
+  header, stat pills, hit-point track, ability grid, saves and skills, conditions and rest pips,
+  the Record tables and the Reset bar, with the pending-changes save bar as the only save surface;
+  the 5E Stat Block config draws the compact NPC/enemy body. A `fantasy_v1` Sheet keeps the frozen
+  fantasy preset with its hero header, combat strip, attack cards, ability medallions, saving
+  throws and skills, spellcasting panel and table-rules disclosure. Play draws no footer, and a
+  template without a preset always keeps the generic form and its footer.
 - A Dice-only change has no visible save surface in Play (the bar summarises value edits only) even
   though it counts as unsaved work: save it with `Ctrl+S`/`Cmd+S` or switch to Edit.
 - `GET /sheets` still returns one arbitrary owned sheet for the legacy `/your-sheet` surface; the

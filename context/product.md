@@ -11,36 +11,33 @@ the Sheet during play and never calculates a modifier by hand.
 
 ## Why
 
-- **Planned, first increment (LGN-380 to LGN-386): faithful Templates first, one Game
-  system at a time,** over generic Templates with little behaviour, mechanic families now,
-  or Pathfinder 2e next, because a sheet that does not derive every number fails player
-  trust at the table, families add a Template shape with no demand behind it, and
-  Pathfinder 2e fails the gate today (ORC terms for a paid app unverified; degrees of
-  success need Roll results to feed Fields). The engine stays generic. The first Game
-  system is fifth edition through SRD 5.2.1 (CC-BY-4.0, attribution on a public `/srd`
-  page, "5E" and never the publisher's trademarks). Every Template follows the coherence
-  rule: it automates every value its rules derive, and anything else is plain entry, never
-  an approximation; Roll modes stay the player's choice. The next Game system needs an open
+- **Fifth edition first: faithful Templates first, one Game system at a time,** over
+  generic Templates with little behaviour, mechanic families now, or Pathfinder 2e next,
+  because a sheet that does not derive every number fails player trust at the table,
+  families add a Template shape with no demand behind it, and Pathfinder 2e fails the gate
+  today (ORC terms for a paid app unverified; degrees of success need Roll results to feed
+  Fields). The engine stays generic. The first Game system is fifth edition through SRD
+  5.2.1 (CC-BY-4.0, attribution on a public `/srd` page, "5E" and never the publisher's
+  trademarks); the 5E Character and 5E Stat Block Templates are active, and the 5E
+  Character Template is the catalog default. Every Template follows the coherence rule: it
+  automates every value its rules derive, and anything else is plain entry, never an
+  approximation; Roll modes stay the player's choice. The next Game system needs an open
   license that allows a paid app, engine coverage that keeps the coherence rule, and a real
   demand signal; a Mechanic family is the reserved fallback for a popular system without an
-  open license. Cost: until another Game system passes that gate, players of other games
-  are knowingly not served.
-- **Planned (LGN-386): one cutover pull request over a coordinated release of several**
-  because every push to `main` deploys, so "the same deploy" can only mean the same merge:
-  the lifecycle flip, the landing and the `/demo` switch travel together, while `/srd` and
-  the unmounted demo are prepared earlier (LGN-385). Cost: one larger final pull request.
-- **Planned (LGN-386): `fantasy_v1` becomes a Retired Template with no migration** over
-  keeping it beside the new Templates, hiding it everywhere, migrating its Sheets or porting
-  its preset, because new users would otherwise keep landing on the half-automated sheet,
-  its own Campaigns must still gain Sheets, and any mapping loses data (non-SRD skills,
-  fixed attack and spell slots). Cost: the half-automation remains for existing
-  `fantasy_v1` users, and the frozen `fantasy` preset gets bug fixes only.
+  open license. Cost: players of other games are knowingly not served until another Game
+  system passes that gate.
+- **`fantasy_v1` is a Retired Template with no migration** over keeping it beside the new
+  Templates, hiding it everywhere, migrating its Sheets or porting its preset, because new
+  users would otherwise keep landing on the half-automated sheet, its own Campaigns must
+  still gain Sheets, and any mapping loses data (non-SRD skills, fixed attack and spell
+  slots). It leaves the catalog, Write, generation and Campaign creation, while its
+  existing Sheets and Campaigns keep working. Cost: the half-automation remains for
+  existing `fantasy_v1` users, and the frozen `fantasy` preset gets bug fixes only.
 - Code-defined Templates on one generic engine, with 0/1 `config.*` flags and `rules.*`
   tuning, over user-authored or hardcoded systems because one reviewed mechanism can
-  express different systems. `fantasy_v1` carries no licensed text; the planned faithful
-  Templates above may carry only openly licensed material, with attribution. Cost: another
-  system needs a release, users cannot add one, and authors write rules as formulas and
-  switches.
+  express different systems. `fantasy_v1` carries no licensed text; the 5E Templates carry
+  only openly licensed material, with attribution. Cost: another system needs a release,
+  users cannot add one, and authors write rules as formulas and switches.
 - A compiled dependency graph with cascading recalculation over spreadsheets and
   editable PDFs because the player should not do arithmetic at the table; cost: only
   reviewed editable Fields accept input, and derived values change only through preview
@@ -76,7 +73,7 @@ flowchart TD
   B -->|Try the live sheet| L[Live demo page]
   B -->|Create your character sheet| C[Sign up, then 6-digit email code]
   L -->|Start my sheet| C
-  C -->|home CTA: start=fantasy| N[New Fantasy Sheet]
+  C -->|home CTA: start=fifth| N[New 5E Character Sheet]
   C -->|other sign-up entry points| D[Catalog]
   D --> E{Write or generate?}
   E -->|Write| F[Template, kind and name]
@@ -107,10 +104,10 @@ flowchart LR
 - **Ads only on Free (LGN-335, LGN-349).** Free accounts see manual Google AdSense units, only on passive screens: the catalog (sheet list/dashboard) and the campaign list. The home carries no ad slot, and no visitor sees ads on a sheet, dice, a play session, generation, plans or checkout; no Auto ads and no interstitials. "No ads" is a paid advantage shown on the Plans page and in the upgrade dialog.
 - **Anonymous home funnel (LGN-346).** The landing reports one visit when it opens and one sign-up CTA click, each a fire-and-forget `POST /funnel/home` carrying only the event name. No cookie, identifier or per-user record is created, so the privacy policy needs no change; the counts feed the Prometheus dashboard `deploy/grafana/dashboards/legnaris-funnel.json`.
 - **Proof before sign-up.** The hero now carries the live hit-points card and makes `Try the live sheet` the primary action; sign-up is secondary, and the sign-up form links back to the demo.
-- **The landing presents 5E (LGN-430).** A `5E compatible` badge sits above the unchanged headline, and the lead, step 1 and FAQ name the 5E Character and 5E Stat Block templates as SRD 5.2.1 implementations. The moments section shows hit points under damage, a spell slot spent and a long rest on the prepared 5E demo character. The FAQ and the footer link to `/srd`, and every sign-up CTA carries `start=fifth`; no publisher trademark appears outside the `/srd` attribution.
-- **The live sheet has its own page (LGN-348).** The home hero stays a static pitch (headline, lead, primary sign-up and a secondary `Try the live sheet` link); the full interactive 5E Character sheet, its contextual sign-up CTA and the sticky mobile CTA live at the public `/demo` page, so the landing keeps its flow. The demo page ships as its own lazy chunk and loads the in-memory prepared 5E demo; every demo conversion action uses `signUpCtaPath('fifth')` and reports a `cta_click`. The demo Template now declares all three Sheet kinds and its edit store supports Reset, but the demo draws neither a Reset bar nor a Record list, so what a visitor can change there is unchanged. The demo renders the composable 5E Character preset; the provider only narrows the context value it passes, since the preset context gained provider-held Roll mode and Reset bindings the demo does not use.
-- **`/srd` and the prepared 5E demo (LGN-385).** `/srd` is a public page (`web/src/legal/srd_screen.tsx`) carrying only the SRD 5.2.1 CC-BY-4.0 attribution and the modification note; the landing FAQ and footer link to it from LGN-430. The prepared demo (`web/src/landing/fifth_demo_character.ts`, `fifth_demo_sheet.tsx`) is an invented level 3 Cleric on a copy of `fifth_character_v1`, rendered through the composable preset with `template_derivation.ts` recomputing formulas on edit; `DemoProvider` and the demo store gained optional template, sheet and derive inputs, with the prepared 5E demo as defaults. LGN-429 mounts it at `/demo` through `demo_screen.tsx`; `/demo` no longer uses `demo_v1`.
-- **The home sign-up starts a 5E Character Sheet (LGN-350, LGN-430).** Every sign-up CTA on the landing links to `/sign-up?start=fifth` through `signUpCtaPath` in `web/src/landing/start_intent.ts`, and the intent survives the credential and email-code steps. After authentication the client creates one normal persisted `character` Sheet from `fifth_character_v1` through `POST /sheets`, seeds it into the cache and opens it, ready to fill in. The sheet is not special: it counts toward the plan's character limit and the first-sheet metric. Sign-up entry points without the intent and any failed creation keep the catalog flow; the intent is ignored on the sign-in path.
+- **The landing presents 5E (LGN-430).** A `5E compatible` badge sits above the unchanged headline, and the lead, step 1 and FAQ name the 5E Character and 5E Stat Block templates as SRD 5.2.1 implementations. The moments section shows hit points under damage, a spell slot spent and a long rest on the 5E demo character. The FAQ and the footer link to `/srd`, and every sign-up CTA carries `start=fifth`; no publisher trademark appears outside the `/srd` attribution.
+- **The live sheet has its own page (LGN-348).** The home hero stays a static pitch (headline, lead, primary sign-up and a secondary `Try the live sheet` link); the full interactive 5E Character sheet, its contextual sign-up CTA and the sticky mobile CTA live at the public `/demo` page, so the landing keeps its flow. The demo page ships as its own lazy chunk and loads the in-memory 5E demo; every demo conversion action uses `signUpCtaPath('fifth')` and reports a `cta_click`. The demo renders the composable 5E Character preset over the prepared demo character, so the visitor edits and rolls the same surfaces the owner Sheet draws; it supplies no reset binding, so no Reset bar is drawn, and it makes no API call. The provider only narrows the context value it passes, since the preset context carries provider-held Roll mode and Reset bindings the demo does not use.
+- **`/srd` and the 5E demo (LGN-385).** `/srd` is a public page (`web/src/legal/srd_screen.tsx`) carrying only the SRD 5.2.1 CC-BY-4.0 attribution and the modification note; the landing FAQ and footer link to it. The demo (`web/src/landing/fifth_demo_character.ts`, `fifth_demo_sheet.tsx`) is an invented level 3 Cleric on a copy of `fifth_character_v1`, rendered through the composable preset with `template_derivation.ts` recomputing formulas on edit; `DemoProvider` and the demo store take optional template, sheet and derive inputs, defaulting to the demo character through `moment_demo.ts`. `demo_screen.tsx` mounts it at `/demo`; `demo_v1` and its Fantasy demo are gone.
+- **The home sign-up starts a 5E Character Sheet (LGN-350, LGN-430).** Every sign-up CTA on the landing links to `/sign-up?start=fifth` through `signUpCtaPath` in `web/src/landing/start_intent.ts`, and the intent survives the credential and email-code steps; `start=fantasy` is an accepted alias for the same Template. After authentication the client creates one normal persisted `character` Sheet from `fifth_character_v1` through `POST /sheets`, seeds it into the cache and opens it, ready to fill in. The sheet is not special: it counts toward the plan's character limit and the first-sheet metric. Sign-up entry points without the intent and any failed creation keep the catalog flow; the intent is ignored on the sign-in path.
 
 Every user has exactly one Plan, Free by default.
 
@@ -150,8 +147,8 @@ Every user has exactly one Plan, Free by default.
 
 - `web/src/landing/`, `web/src/legal/`, `web/src/catalog/` and `web/src/generate/` —
   the home pitch, the public live-demo page and its sheet, privacy policy, Template list,
-  creation dialog, the reusable sign-up CTA intent and its post-auth Fantasy sheet starter,
-  and the AI draft.
+  creation dialog, the reusable sign-up CTA intent and its post-auth 5E Character sheet
+  starter, and the AI draft.
 - `web/src/sheet/`, `web/src/library/` and `web/src/plans/` — play view, edit, preview,
   layout, dice, local drafts, Plan display, checkout, cancellation and refund.
 - `web/src/campaign/` and `web/src/join/` — Campaign management, invite and GM view.
@@ -176,10 +173,11 @@ Every user has exactly one Plan, Free by default.
 
 ## Known limits
 
-- Legnaris targets fifth-edition players once the first increment ships (LGN-380 to
-  LGN-386); another Game system joins only through the gate in Why.
-- The catalog ships one reviewed Template. There is no user-authored Template, gallery
-  or Template editor; another system needs a code change and a release.
+- Legnaris targets fifth-edition players; another Game system joins only through the gate
+  in Why.
+- The catalog ships two reviewed Templates, the active 5E Character and 5E Stat Block,
+  with the 5E Character as default and `fantasy_v1` retired. There is no user-authored
+  Template, gallery or Template editor; another system needs a code change and a release.
 - Sheets cannot be exported or imported, and the client has no complete library of
   owned Sheets; a Sheet is reopened from its URL, the single "Your sheet" view, or a
   Campaign link.
