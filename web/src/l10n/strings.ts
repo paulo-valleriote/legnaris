@@ -575,13 +575,16 @@ export const messages = {
   'landing.momentHpTitle': 'Hit points under damage',
   'landing.momentHpBody':
     'Type an amount and take the damage. The bar, the total and the note move together.',
+  'landing.momentHpHint': 'Try it: type 7, then press Damage.',
   'landing.momentHpAnnounce': 'Hit points {count} of {total}.',
   'landing.momentSlotTitle': 'A spell slot spent',
   'landing.momentSlotBody': 'Mark a slot spent. The pips and the remaining count change in place.',
+  'landing.momentSlotHint': 'Try it: spend every slot, then take a long rest.',
   'landing.momentSlotSpend': 'Spend a spell slot',
   'landing.momentSlotAnnounce': '{count} of the level 1 spell slots left.',
   'landing.momentRestTitle': 'A long rest',
   'landing.momentRestBody': 'One tap puts hit points and spent spell slots back to full.',
+  'landing.momentRestHint': 'Try it after taking damage or spending a slot.',
   'landing.momentRestHp': 'Hit points {count} of {total}',
   'landing.momentRestAction': 'Take a long rest',
   'landing.momentRestAnnounce': 'Hit points {count} of {total}. {slots} spell slots left.',
@@ -599,7 +602,8 @@ export const messages = {
   'landing.chainCarry': 'Carrying capacity',
   'landing.chainCarryFormula': 'Strength × 15',
   'landing.chainCarryValue': '{count} lb',
-  'landing.howTitle': 'Change one number. Watch the rest follow.',
+  'landing.howTitle': 'Three steps to the table.',
+  'landing.chainTitle': 'Change one number. Watch the rest follow.',
   'landing.howStepsLabel': 'Steps',
   'landing.step1Title': 'Pick a template',
   'landing.step1Body':
@@ -609,6 +613,22 @@ export const messages = {
   'landing.step3Title': 'Play',
   'landing.step3Body':
     'Edit mid-session, on your phone if you like. The sheet recalculates as you go.',
+  'landing.gmTitle': 'Run the table from one Campaign.',
+  'landing.gmLead':
+    'Game masters get a shared table, not a shared spreadsheet. The Free plan includes one Campaign.',
+  'landing.gmPreviewLabel': 'A Campaign as its game master sees it',
+  'landing.gmPreviewCampaign': 'The Sunken Keep',
+  'landing.gmPreviewHint': 'Try it: reveal the Goblin Boss to the table.',
+  'landing.gmStepsLabel': 'What a game master gets',
+  'landing.gm1Title': 'Share one invite code',
+  'landing.gm1Body':
+    'Players join with the code, and an optional password, then link one character each.',
+  'landing.gm2Title': 'Read every linked sheet',
+  'landing.gm2Body':
+    "You see each player's sheet as they play, refreshed every minute, and never edit it.",
+  'landing.gm3Title': 'Reveal NPCs and enemies',
+  'landing.gm3Body':
+    'Link NPC and enemy sheets to the Campaign and reveal each one to the table when the story needs it.',
   'landing.faqTitle': 'Questions, answered plainly.',
   'landing.faq1Question': 'Which game systems does it support?',
   'landing.faq1Answer':
@@ -621,11 +641,10 @@ export const messages = {
   'landing.faq3Answer':
     'Your pending edits are kept as a local draft and restored the next time you open the sheet.',
   'landing.faq4Question': 'Can I take my sheet somewhere else?',
-  'landing.faq4Answer':
-    'Yes. Export a sheet as JSON, import it back later, or self-host the whole service.',
+  'landing.faq4Answer': 'No. Sheets have no export or import; they stay in your Legnaris account.',
   'landing.faq5Question': 'Can I share a sheet with my table?',
   'landing.faq5Answer':
-    'Not yet. Version 1 gives each account one sheet, with no sharing or game master tools.',
+    'Yes, through a Campaign. Your game master shares an invite code, you join and link one character, and the game master reads it without editing it.',
   'landing.closeTitle': 'Start your character sheet and let it do the counting.',
   'landing.footerLabel': 'Site',
   'landing.footer.privacy': 'Privacy policy',

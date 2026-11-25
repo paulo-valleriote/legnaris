@@ -29,11 +29,12 @@ const SLOT_PIECE: PresetPipsPiece = {
 interface MomentProps {
   readonly title: string;
   readonly body: string;
+  readonly hint: string;
   readonly testId: string;
   readonly children: ReactNode;
 }
 
-function Moment({ title, body, testId, children }: MomentProps) {
+function Moment({ title, body, hint, testId, children }: MomentProps) {
   const titleId = useId();
 
   return (
@@ -42,6 +43,7 @@ function Moment({ title, body, testId, children }: MomentProps) {
         {title}
       </h3>
       <p className="lg-moment__body">{body}</p>
+      <p className="lg-moment__hint">{hint}</p>
       {children}
     </article>
   );
@@ -78,6 +80,7 @@ function HpMoment() {
     <Moment
       title={message('landing.momentHpTitle')}
       body={message('landing.momentHpBody')}
+      hint={message('landing.momentHpHint')}
       testId="landing-moment-hp"
     >
       <div className="lg-moment__stage">
@@ -108,6 +111,7 @@ function SlotMoment() {
     <Moment
       title={message('landing.momentSlotTitle')}
       body={message('landing.momentSlotBody')}
+      hint={message('landing.momentSlotHint')}
       testId="landing-moment-slot"
     >
       <div className="lg-moment__stage">
@@ -151,6 +155,7 @@ function RestMoment() {
     <Moment
       title={message('landing.momentRestTitle')}
       body={message('landing.momentRestBody')}
+      hint={message('landing.momentRestHint')}
       testId="landing-moment-rest"
     >
       <div className="lg-moment__stage">
@@ -179,16 +184,6 @@ export default function GameMoments() {
         <HpMoment />
         <SlotMoment />
         <RestMoment />
-      </div>
-    </DemoProvider>
-  );
-}
-
-export function HeroSheet() {
-  return (
-    <DemoProvider template={MOMENT_TEMPLATE} sheet={MOMENT_SHEET} derive={MOMENT_DERIVATION}>
-      <div className="lg-moment-hero" data-testid="landing-hero-sheet">
-        <HpMoment />
       </div>
     </DemoProvider>
   );

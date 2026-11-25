@@ -212,6 +212,64 @@ describe('landing screen', () => {
     ).toHaveAttribute('href', PRIVACY_PATH);
   });
 
+  it('Happy path: the game master section explains the campaign table', async () => {
+    await visit('/');
+
+    const gm = screen.getByTestId('landing-gm');
+
+    expect(
+      within(gm).getByRole('heading', { level: 2, name: message('landing.gmTitle') }),
+    ).toBeInTheDocument();
+    expect(message('landing.gmTitle')).toBe('Run the table from one Campaign.');
+    const steps = within(gm).getByRole('list', { name: message('landing.gmStepsLabel') });
+    expect(within(steps).getAllByRole('heading', { level: 3 })).toHaveLength(3);
+    expect(within(gm).getByTestId('landing-gm-preview')).toBeInTheDocument();
+    expect(
+      within(gm).getByRole('heading', { level: 3, name: message('landing.gm1Title') }),
+    ).toBeInTheDocument();
+    expect(
+      within(gm).getByRole('heading', { level: 3, name: message('landing.gm2Title') }),
+    ).toBeInTheDocument();
+    expect(
+      within(gm).getByRole('heading', { level: 3, name: message('landing.gm3Title') }),
+    ).toBeInTheDocument();
+  });
+
+  it('Happy path: the FAQ answers the export and sharing questions truthfully', async () => {
+    await visit('/');
+
+    expect(message('landing.faq4Answer')).toBe(
+      'No. Sheets have no export or import; they stay in your Legnaris account.',
+    );
+    expect(message('landing.faq5Answer')).toBe(
+      'Yes, through a Campaign. Your game master shares an invite code, you join and link one character, and the game master reads it without editing it.',
+    );
+    expect(screen.getByText(message('landing.faq4Answer'))).toBeInTheDocument();
+    expect(screen.getByText(message('landing.faq5Answer'))).toBeInTheDocument();
+  });
+
+  it('Edge: the landing copy makes no false export, self-hosting or sharing claims', () => {
+    const copy = Object.entries(messages)
+      .filter(([key]) => key.startsWith('landing.'))
+      .map(([, text]) => text)
+      .join('\n');
+
+    expect(copy).not.toContain('JSON');
+    expect(copy).not.toContain('self-host');
+    expect(copy).not.toContain('no sharing or game master tools');
+  });
+
+  it('Edge: the campaign section takes the band and the FAQ gives it back', async () => {
+    await visit('/');
+
+    const gm = screen.getByTestId('landing-gm');
+    const faq = screen.getByRole('region', { name: message('landing.faqTitle') });
+
+    expect(gm).toHaveClass('lg-landing__section--band');
+    expect(faq).toHaveClass('lg-landing__section');
+    expect(faq).not.toHaveClass('lg-landing__section--band');
+  });
+
   it('Edge: the home mounts no ad slot even when a slot is configured', async () => {
     renderApp('/', {
       session: 'unauthenticated',
@@ -374,6 +432,25 @@ describe('landing mobile conversion bar', () => {
     expect(within(hero).getByRole('link', { name: message('landing.create') })).toHaveClass(
       'lg-landing__cta--outline',
     );
-    expect(await within(hero).findByTestId('landing-hero-sheet')).toBeInTheDocument();
+    expect(within(hero).getByTestId('landing-chain')).toBeInTheDocument();
+  });
+
+  it('Edge: the hit points moment appears once, in the moments grid', async () => {
+    await visit('/');
+
+    const hero = screen.getByRole('banner');
+    expect(within(hero).queryByTestId('landing-moment-hp')).not.toBeInTheDocument();
+    expect(await screen.findAllByTestId('landing-moment-hp')).toHaveLength(1);
+    expect(screen.getAllByTestId('landing-chain')).toHaveLength(1);
+  });
+
+  it('Happy path: the hero chain recalculates in place from the first paint', async () => {
+    const user = userEvent.setup();
+    await visit('/');
+
+    const hero = screen.getByRole('banner');
+    await user.click(within(hero).getByRole('button', { name: message('landing.chainRaise') }));
+
+    expect(within(hero).getByTestId('landing-chain-strength')).toHaveTextContent('17');
   });
 });

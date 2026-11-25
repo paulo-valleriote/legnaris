@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
 
@@ -35,6 +35,7 @@ interface Row {
 
 export function DerivationChain() {
   const [strength, setStrength] = useState(STRENGTH_START);
+  const titleId = useId();
   const derived = deriveFromStrength(strength);
   const rows: readonly Row[] = [
     {
@@ -55,7 +56,10 @@ export function DerivationChain() {
   ];
 
   return (
-    <div className="lg-chain" data-testid="landing-chain">
+    <div className="lg-chain" role="group" aria-labelledby={titleId} data-testid="landing-chain">
+      <h2 className="lg-chain__title" id={titleId}>
+        {message('landing.chainTitle')}
+      </h2>
       <div className="lg-chain__source">
         <span className="lg-chain__source-label" id="lg-chain-strength">
           {message('landing.chainStrength')}

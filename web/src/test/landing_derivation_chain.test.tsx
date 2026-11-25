@@ -1,3 +1,4 @@
+import { message } from '../l10n/strings';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {
@@ -57,5 +58,19 @@ describe('DerivationChain', () => {
     expect(screen.getByTestId('landing-chain-strength')).toHaveTextContent(String(STRENGTH_MIN));
     expect(screen.getByRole('button', { name: 'Lower Strength' })).toBeDisabled();
     expect(screen.getByTestId('landing.chainModifier-value')).toHaveTextContent('-1');
+  });
+
+  it('Happy path: the chain is a group named by its own level-2 heading', () => {
+    render(<DerivationChain />);
+    const heading = screen.getByRole('heading', { level: 2, name: message('landing.chainTitle') });
+    expect(screen.getByRole('group', { name: message('landing.chainTitle') })).toContainElement(
+      heading,
+    );
+  });
+
+  it('Edge: the chain title and the steps title say different things', () => {
+    expect(message('landing.chainTitle')).not.toBe(message('landing.howTitle'));
+    expect(message('landing.chainTitle').trim()).not.toBe('');
+    expect(message('landing.howTitle').trim()).not.toBe('');
   });
 });
