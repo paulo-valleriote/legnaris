@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { message } from '../l10n/strings';
+import { message, messageWith } from '../l10n/strings';
 import { presetFromConfig } from '../sheet/preset/compose/adapter';
 import { AbilityGrid } from '../sheet/preset/compose/ability_grid';
 import { configPathErrors } from '../sheet/preset/compose/config_paths';
@@ -11,6 +11,7 @@ import {
   nextProficiency,
   nextRank,
   parseScore,
+  rankProficiency,
   rankValue,
   rowDisplayName,
 } from '../sheet/preset/compose/scores_data';
@@ -32,6 +33,18 @@ import {
 } from './preset_fixtures';
 
 const MINUS = '\u2212';
+
+const PROFICIENT = message('sheet.play.proficiencyProficient');
+const NOT_PROFICIENT = message('sheet.play.proficiencyNotProficient');
+const EXPERTISE = message('sheet.play.proficiencyExpertise');
+
+function saveName(label: string, state: string): string {
+  return messageWith('sheet.play.proficiencyForState', { label, state });
+}
+
+function rankName(label: string, count: number, max: number, state: string): string {
+  return messageWith('preset.skill.rank', { label, count, max, state });
+}
 
 function abilityGrid(
   abilities: readonly {
@@ -103,6 +116,17 @@ describe('the score helpers', () => {
     expect(rankValue(-1, 3)).toBe(0);
     expect(rankValue('2', 3)).toBe(0);
     expect(rankValue(undefined, 3)).toBe(0);
+  });
+
+  it('Edge: rankProficiency reads expertise at two or more, proficiency at one and none otherwise', () => {
+    expect(rankProficiency(0)).toBe('none');
+    expect(rankProficiency(1)).toBe('proficient');
+    expect(rankProficiency(2)).toBe('expertise');
+    expect(rankProficiency(9)).toBe('expertise');
+    expect(rankProficiency(-1)).toBe('none');
+    expect(rankProficiency(Number.NaN)).toBe('none');
+    expect(rankProficiency(undefined)).toBe('none');
+    expect(rankProficiency('2')).toBe('none');
   });
 
   it('Edge: nextRank wraps at the maximum and stays at zero without one', () => {
@@ -277,22 +301,42 @@ describe('the save list piece', () => {
     const row = screen.getByTestId('compose-save-saves.reflex');
     expect(within(row).getByText('Reflex')).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: /^Roll Reflex/ })).toHaveTextContent('+5');
-    expect(within(row).getByRole('button', { name: 'Proficiency for Reflex' })).toHaveAttribute(
+    expect(
+      within(row).getByRole('button', { name: saveName('Reflex', PROFICIENT) }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      within(screen.getByTestId('compose-save-saves.will')).getByRole('button', {
+        name: saveName('Will', NOT_PROFICIENT),
+      }),
+    ).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('Happy path: the save group header explains the filled dot', () => {
+    renderPreset(<SaveList piece={saveList([reflex])} />);
+
+    const legend = screen.getByTestId('compose-saves-legend');
+    expect(legend).toHaveTextContent(PROFICIENT);
+    expect(within(legend).queryByText(EXPERTISE)).not.toBeInTheDocument();
+  });
+
+  it('Happy path: the proficiency dot exposes its state beyond the pressed flag', () => {
+    renderPreset(<SaveList piece={saveList([reflex, will])} />);
+
+    expect(screen.getByRole('button', { name: saveName('Reflex', PROFICIENT) })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
-    expect(
-      within(screen.getByTestId('compose-save-saves.will')).getByRole('button', {
-        name: 'Proficiency for Will',
-      }),
-    ).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: saveName('Will', NOT_PROFICIENT) })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
   });
 
   it('Happy path: the proficiency flag commits a toggle through the store', async () => {
     const user = userEvent.setup();
     const { store } = renderPreset(<SaveList piece={saveList([reflex])} />);
 
-    await user.click(screen.getByRole('button', { name: 'Proficiency for Reflex' }));
+    await user.click(screen.getByRole('button', { name: saveName('Reflex', PROFICIENT) }));
 
     expect(store.getPendingDelta()).toEqual({ saves: { reflexProf: 0 } });
   });
@@ -301,7 +345,7 @@ describe('the save list piece', () => {
     const user = userEvent.setup();
     const { store } = renderPreset(<SaveList piece={saveList([will])} />);
 
-    await user.click(screen.getByRole('button', { name: 'Proficiency for Will' }));
+    await user.click(screen.getByRole('button', { name: saveName('Will', NOT_PROFICIENT) }));
 
     expect(store.getPendingDelta()).toEqual({ saves: { willProf: 1 } });
   });
@@ -349,7 +393,9 @@ describe('the skill list piece', () => {
 
     const row = screen.getByTestId('compose-skill-skills.athleticsRank');
     expect(within(row).getByText('Athletics')).toBeInTheDocument();
-    expect(within(row).getByRole('button', { name: 'Athletics, rank 2 of 3' })).toBeInTheDocument();
+    expect(
+      within(row).getByRole('button', { name: rankName('Athletics', 2, 3, EXPERTISE) }),
+    ).toBeInTheDocument();
     expect(within(row).getByRole('button', { name: /Athletics Total/ })).toHaveTextContent('+6');
 
     const stealthRow = screen.getByTestId('compose-skill-skills.stealthRank');
@@ -357,14 +403,47 @@ describe('the skill list piece', () => {
     expect(within(row).queryByText('DEX')).not.toBeInTheDocument();
   });
 
+  it('Happy path: the skill group header explains proficiency and expertise', () => {
+    renderPreset(<SkillList piece={skillList([athletics])} />);
+
+    const legend = screen.getByTestId('compose-skills-legend');
+    expect(legend).toHaveTextContent(PROFICIENT);
+    expect(legend).toHaveTextContent(EXPERTISE);
+  });
+
+  it('Edge: a one-rank list explains proficiency without expertise', () => {
+    renderPreset(<SkillList piece={skillList([athletics], 1)} />);
+
+    const legend = screen.getByTestId('compose-skills-legend');
+    expect(legend).toHaveTextContent(PROFICIENT);
+    expect(within(legend).queryByText(EXPERTISE)).not.toBeInTheDocument();
+  });
+
+  it('Edge: a list without a rank maximum draws no proficiency legend', () => {
+    renderPreset(<SkillList piece={skillList([athletics], 'ghost.max')} />);
+
+    expect(screen.queryByTestId('compose-skills-legend')).not.toBeInTheDocument();
+  });
+
+  it('Happy path: the rank control exposes proficiency and expertise beyond the filled pips', () => {
+    renderPreset(<SkillList piece={skillList([athletics, stealth])} />);
+
+    expect(
+      screen.getByRole('button', { name: rankName('Athletics', 2, 3, EXPERTISE) }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: rankName('Stealth', 0, 3, NOT_PROFICIENT) }),
+    ).toBeInTheDocument();
+  });
+
   it('Happy path: a pointer click cycles the rank and wraps at the maximum', async () => {
     const user = userEvent.setup();
     const { store } = renderPreset(<SkillList piece={skillList([athletics])} />);
 
-    await user.click(screen.getByRole('button', { name: 'Athletics, rank 2 of 3' }));
+    await user.click(screen.getByRole('button', { name: rankName('Athletics', 2, 3, EXPERTISE) }));
     expect(store.getPendingDelta()).toEqual({ skills: { athleticsRank: 3 } });
 
-    await user.click(screen.getByRole('button', { name: 'Athletics, rank 3 of 3' }));
+    await user.click(screen.getByRole('button', { name: rankName('Athletics', 3, 3, EXPERTISE) }));
     expect(store.getPendingDelta()).toEqual({ skills: { athleticsRank: 0 } });
   });
 
@@ -372,11 +451,11 @@ describe('the skill list piece', () => {
     const user = userEvent.setup();
     const { store } = renderPreset(<SkillList piece={skillList([athletics])} />);
 
-    screen.getByRole('button', { name: 'Athletics, rank 2 of 3' }).focus();
+    screen.getByRole('button', { name: rankName('Athletics', 2, 3, EXPERTISE) }).focus();
     await user.keyboard('{Enter}');
     expect(store.getPendingDelta()).toEqual({ skills: { athleticsRank: 3 } });
 
-    screen.getByRole('button', { name: 'Athletics, rank 3 of 3' }).focus();
+    screen.getByRole('button', { name: rankName('Athletics', 3, 3, EXPERTISE) }).focus();
     await user.keyboard(' ');
     expect(store.getPendingDelta()).toEqual({ skills: { athleticsRank: 0 } });
   });
@@ -387,8 +466,10 @@ describe('the skill list piece', () => {
       sheet: presetSheet({ data: { skills: { athleticsRank: 9, athleticsTotal: 6 } } }),
     });
 
-    expect(screen.getByRole('button', { name: 'Athletics, rank 3 of 3' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Athletics, rank 3 of 3' }));
+    expect(
+      screen.getByRole('button', { name: rankName('Athletics', 3, 3, EXPERTISE) }),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: rankName('Athletics', 3, 3, EXPERTISE) }));
 
     expect(store.getPendingDelta()).toEqual({ skills: { athleticsRank: 0 } });
   });
@@ -396,7 +477,9 @@ describe('the skill list piece', () => {
   it('Edge: a maximum leaf sets the rank ceiling', () => {
     renderPreset(<SkillList piece={skillList([athletics], 'charges.limit')} />);
 
-    expect(screen.getByRole('button', { name: 'Athletics, rank 2 of 4' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: rankName('Athletics', 2, 4, EXPERTISE) }),
+    ).toBeInTheDocument();
   });
 
   it('Edge: a missing maximum leaf draws the row without rank control', () => {
@@ -488,6 +571,8 @@ describe('the score pieces in the config adapter', () => {
     expect(screen.getByTestId('compose-ability-grid')).toBeInTheDocument();
     expect(screen.getByTestId('compose-save-list')).toBeInTheDocument();
     expect(screen.getByTestId('compose-skill-list')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Athletics, rank 2 of 3' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: rankName('Athletics', 2, 3, EXPERTISE) }),
+    ).toBeInTheDocument();
   });
 });

@@ -47,6 +47,29 @@ describe('the identity header piece', () => {
     expect(screen.queryByRole('button', { name: 'Subtitle' })).not.toBeInTheDocument();
   });
 
+  it('Happy path: the name and subtitle offer a pencil affordance without changing their names', () => {
+    renderPreset(<IdentityHeader header={identity} />);
+
+    for (const label of ['Name', 'Subtitle']) {
+      const control = screen.getByRole('button', { name: label });
+      expect(control).toHaveClass('lg-inline-edit--affordance');
+      expect(control).toHaveAccessibleName(label);
+      expect(control.querySelector('.lg-inline-edit__pencil')).toHaveAttribute(
+        'aria-hidden',
+        'true',
+      );
+    }
+  });
+
+  it('Happy path: the name affordance still opens the inline editor', async () => {
+    const user = userEvent.setup();
+    renderPreset(<IdentityHeader header={identity} />);
+
+    await user.click(screen.getByRole('button', { name: 'Name' }));
+
+    expect(screen.getByRole('textbox', { name: 'Name' })).toBeInTheDocument();
+  });
+
   it('Happy path: Enter commits the name through the edit store', async () => {
     const user = userEvent.setup();
     renderPreset(<IdentityHeader header={identity} />);

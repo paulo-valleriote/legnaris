@@ -457,7 +457,9 @@ Row are marked as non-d20 tests. Both Templates use only SRD terms in labels, ke
 
 `fifth_character_v1` plays through the composable config in
 `web/src/sheet/preset/compose/configs/fifth_character.ts`, registered in `PRESET_CONFIGS`. The
-identity header binds the name and the class subtitle; one stat-pill row carries class, subclass,
+identity header binds the name and the class subtitle; both stay editable, with no resting
+underline, a solid hover/focus underline, a pencil hint on the same hover/focus and a visible
+focus ring; one stat-pill row carries class, subclass,
 species, background and level, another carries armor class, initiative, speed, proficiency bonus
 and Passive Perception; the hit-point track binds `combat.hp.current`, `.max` and `.temp`; the
 ability grid, save list and 18-skill list bind their score/modifier, proficiency/total and
@@ -781,10 +783,14 @@ per-Template code. The eleven kinds are:
 - `abilityGrid` — one cell per bound `score`/`modifier` pair, the signed modifier rolled and the
   score edited through `InlineEdit`.
 - `saveList` — one row per bound `proficiency`/`total` pair, its flag a pressed toggle that
-  commits `0`/`1` and its signed total rolled.
+  commits `0`/`1` and its signed total rolled; the group header names the list and carries the
+  filled-dot `Proficient` legend, and the toggle's accessible name states `Proficient` or
+  `Not proficient`.
 - `skillList` — one row per bound `rank`/`total` pair plus an optional literal `ability` tag; the
   `0..max` rank is a pip control (a `max` leaf path or fixed number) that cycles and wraps, and
-  the signed total rolls.
+  the signed total rolls. Its header names the list and explains the filled-dot `Proficient` and
+  two-dot `Expertise` marks (expertise only when the ceiling is at least two), and the rank
+  control's accessible name states the same meaning.
 - `hitPoints` — the bound `current`, `max` and optional `temp` leaves, a meter and one amount
   entry; Damage lets the temp leaf absorb first and floors the current at zero, Heal clamps to the
   maximum and never lowers a current already at or above it (a zero maximum heals nothing), and a

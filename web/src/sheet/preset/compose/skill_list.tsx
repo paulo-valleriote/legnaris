@@ -1,10 +1,25 @@
-import { message, messageWith } from '../../../l10n/strings';
+import { message, messageWith, type MessageKey } from '../../../l10n/strings';
 import { usePresetCommit, usePresetLabel, usePresetValue } from '../preset_context';
 import { RollableValue } from '../rollable_value';
 import { numberValue } from '../values';
-import { formatSigned, nextRank, rankLimit, rankValue, rowDisplayName } from './scores_data';
+import { ProficiencyLegend } from './proficiency_legend';
+import {
+  formatSigned,
+  nextRank,
+  rankLimit,
+  rankProficiency,
+  rankValue,
+  rowDisplayName,
+  type RankProficiency,
+} from './scores_data';
 import type { PresetSkill, PresetSkillListPiece } from './types';
 import './compose.css';
+
+const proficiencyCopy: Record<RankProficiency, MessageKey> = {
+  none: 'sheet.play.proficiencyNotProficient',
+  proficient: 'sheet.play.proficiencyProficient',
+  expertise: 'sheet.play.proficiencyExpertise',
+};
 
 function SkillRow({
   skill,
@@ -25,6 +40,7 @@ function SkillRow({
   const limit = rankLimit(max);
   const current = rankValue(rank, limit);
   const marks = Array.from({ length: limit }, (_, index) => index + 1);
+  const state = message(proficiencyCopy[rankProficiency(current)]);
 
   return (
     <li className="lg-compose-skill" data-testid={`compose-skill-${skill.rank}`}>
@@ -36,6 +52,7 @@ function SkillRow({
             label: name,
             count: current,
             max: limit,
+            state,
           })}
           onClick={() => {
             commitRank(nextRank(current, limit));
@@ -92,12 +109,22 @@ function SkillsBody({
   readonly section: string;
   readonly max: number;
 }) {
+  const limit = rankLimit(max);
+
   return (
-    <ul className="lg-compose-skills" data-testid="compose-skill-list">
-      {skills.map((skill) => (
-        <SkillRow key={skill.rank} skill={skill} section={section} max={max} />
-      ))}
-    </ul>
+    <div className="lg-compose-group">
+      <div className="lg-compose-group__header">
+        <h2 className="lg-compose-group__title">{message('sheet.play.skills')}</h2>
+        {limit === 0 ? null : (
+          <ProficiencyLegend expertise={limit >= 2} testId="compose-skills-legend" />
+        )}
+      </div>
+      <ul className="lg-compose-skills" data-testid="compose-skill-list">
+        {skills.map((skill) => (
+          <SkillRow key={skill.rank} skill={skill} section={section} max={max} />
+        ))}
+      </ul>
+    </div>
   );
 }
 

@@ -33,6 +33,7 @@ export function IdentityHeader({ header, level = 1 }: IdentityHeaderProps) {
           path={header.name}
           value={name}
           fallback={sheet.name}
+          showPencil
           onCommit={commitName}
         />
       </Heading>
@@ -43,6 +44,7 @@ export function IdentityHeader({ header, level = 1 }: IdentityHeaderProps) {
             label={subtitleLabel}
             path={header.subtitle}
             value={subtitle}
+            showPencil
             onCommit={commitSubtitle}
           />
         </p>
