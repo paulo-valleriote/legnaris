@@ -189,7 +189,7 @@ formats staged Go and web files and re-stages them. The spec lint scripts under
 The client is a React + Vite + TypeScript PWA; its platform — shell, routing,
 theme, tokens, copy, typed API client, offline behavior and security posture —
 is documented in [`context/web-client.md`](context/web-client.md). Visual values
-live in [`web/DESIGN.md`](web/DESIGN.md); working rules in
+live in [`DESIGN.md`](DESIGN.md); working rules in
 [`web/AGENTS.md`](web/AGENTS.md).
 
 | Script                 | What it does                                             |

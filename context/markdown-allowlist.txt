@@ -8,9 +8,10 @@ AGENTS.md
 context.md
 context/*.md
 README.md
+PRODUCT.md
 deploy/README.md
 GLOSSARY.md
-web/DESIGN.md
+DESIGN.md
 docs/legal/*.md
 web/src/legal/*.md
 .opencode/**
