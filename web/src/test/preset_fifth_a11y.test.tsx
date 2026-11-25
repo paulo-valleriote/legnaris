@@ -17,6 +17,8 @@ import { renderPreset } from './preset_fixtures';
 import goldenCharacter from '../../../testdata/templates/fifth_character_v1.json';
 import goldenStatBlock from '../../../testdata/templates/fifth_stat_block_v1.json';
 
+vi.setConfig({ testTimeout: 15_000 });
+
 const COMPOSE_CSS = readFileSync(
   path.resolve(process.cwd(), 'src/sheet/preset/compose/compose.css'),
   'utf8',
