@@ -34,7 +34,7 @@ Package-level working rules (not narrative) live in `AGENTS.md` files beside the
 `backend/internal/AGENTS.md`, `backend/internal/sheet/template/AGENTS.md`,
 `backend/internal/engine/AGENTS.md`, `backend/internal/dice/AGENTS.md`,
 `backend/shared/apperr/AGENTS.md`, `backend/shared/idgen/AGENTS.md`,
-`backend/shared/db/AGENTS.md` and `web/AGENTS.md`. Visual rules live in `web/DESIGN.md`;
+`backend/shared/db/AGENTS.md` and `web/AGENTS.md`. Visual rules live in `DESIGN.md`;
 operations in `deploy/README.md`; developer setup in the root `README.md`.
 
 ## File template
@@ -71,5 +71,5 @@ headings. Do not add, remove, rename or reorder them.
 - Keep entries current and short. Delete claims that stopped being true instead
   of rewriting around them; Git history and Jira carry the rationale that does
   not affect future readers.
-- Write in English. Visual values stay in [`web/DESIGN.md`](web/DESIGN.md); do
+- Write in English. Visual values stay in [`DESIGN.md`](DESIGN.md); do
   not restate them here.

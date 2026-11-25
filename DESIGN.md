@@ -6,7 +6,7 @@ disagreement is a defect. `web/AGENTS.md` keeps the development, security and ar
 and points here for anything visual.
 
 The rules are enforced by tests, not by memory: the token source is mirrored in
-`src/theme/tokens.ts`, the contrast pairs are asserted per theme, and a source scan keeps literal
+`web/src/theme/tokens.ts`, the contrast pairs are asserted per theme, and a source scan keeps literal
 colours and pixel values out of every component directory (`src/theme/` is the one sanctioned
 exception, because it is where the literals are declared).
 
@@ -29,7 +29,7 @@ exception, because it is where the literals are declared).
 
 ## Token architecture
 
-Three layers live in `src/theme/tokens.css` (mirrored in `src/theme/tokens.ts`):
+Three layers live in `src/theme/tokens.css` (mirrored in `web/src/theme/tokens.ts`):
 
 1. **Primitives** — raw scales with no role attached: the parchment, ink, charcoal, amber, danger
    and system ramps (`--lg-parchment-*`, `--lg-ink-*`, `--lg-charcoal-*`, `--lg-amber-*`,

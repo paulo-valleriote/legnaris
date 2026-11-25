@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webRoot = path.resolve(here, '../..');
-const designPath = path.resolve(webRoot, 'DESIGN.md');
+const designPath = path.resolve(webRoot, '..', 'DESIGN.md');
 const agentsPath = path.resolve(webRoot, 'AGENTS.md');
 
 function read(file: string): string {

@@ -141,7 +141,7 @@ Every user has exactly one Plan, Free by default.
   is confirmed by an emailed code and erases the account's personal data, except billing
   records kept for the fiscal retention period.
 - The name is Legnaris. Visual values and their accessibility contract live in
-  `web/DESIGN.md`: AA contrast in both themes, a visible focus ring and a keyboard path
+  `DESIGN.md`: AA contrast in both themes, a visible focus ring and a keyboard path
   through every surface. No separate voice guide exists.
 
 ## Code map
@@ -183,7 +183,7 @@ Every user has exactly one Plan, Free by default.
   owned Sheets; a Sheet is reopened from its URL, the single "Your sheet" view, or a
   Campaign link.
 - The interface is English only (the privacy policy is also Portuguese); broader
-  localisation and accessibility beyond the `web/DESIGN.md` baseline are undecided.
+  localisation and accessibility beyond the `DESIGN.md` baseline are undecided.
 - There is no offline editing or synchronisation, and no real-time collaboration. Drafts
   are per device and cover only pending edits; a GM's view polls once a minute and is
   labelled as possibly stale, and GMs never edit a Player's Sheet.

@@ -5,7 +5,7 @@ behaviour and security posture — is documented in
 [`../context/web-client.md`](../context/web-client.md). Visual rules — principles, token
 architecture, colour, typography, spacing/layout, radius/border/elevation, motion, component
 specifications, accessibility, per-screen patterns, enforcement and anti-patterns — live in
-**[DESIGN.md](./DESIGN.md)**, the sole written source of the visual values. Design values are made
+**[DESIGN.md](../DESIGN.md)**, the sole written source of the visual values. Design values are made
 **once**, there, not per screen.
 
 Shared primitives live in `src/ui/`; screens compose them instead of re-implementing controls.
