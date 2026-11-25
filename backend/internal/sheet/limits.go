@@ -67,13 +67,14 @@ type PlanUsage struct {
 }
 
 const (
-	MsgKindInvalid              = "sheet kind must be one of character, npc, enemy"
-	MsgTemplateKindRefused      = "template does not accept this sheet kind"
-	MsgTemplateStateRefused     = "template is not available in this environment"
-	MsgTemplateRetiredRefused   = "template is retired and cannot start new sheets"
-	MsgCampaignScopeRefused     = "campaign does not allow creating a sheet from this template"
-	MsgCampaignScopeUnavailable = "campaign scope could not be checked"
-	MsgLimitsNotConfigured      = "sheet limits are not configured"
+	MsgKindInvalid               = "sheet kind must be one of character, npc, enemy"
+	MsgTemplateKindRefused       = "template does not accept this sheet kind"
+	MsgTemplateStateRefused      = "template is not available in this environment"
+	MsgTemplateRetiredRefused    = "template is retired and cannot start new sheets"
+	MsgCampaignScopeRefused      = "campaign does not allow creating a sheet from this template"
+	MsgCampaignScopeUnavailable  = "campaign scope could not be checked"
+	MsgCatalogDefaultUnavailable = "catalog default could not be resolved"
+	MsgLimitsNotConfigured       = "sheet limits are not configured"
 )
 
 func requireKind(raw string) (plan.SheetKind, error) {

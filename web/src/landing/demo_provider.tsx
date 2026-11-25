@@ -18,7 +18,6 @@ import type { PresetContextValue } from '../sheet/preset/preset_context';
 import { PresetProvider } from '../sheet/preset/preset_context';
 import type { DemoDerivation } from './demo_store';
 import { createDemoEditStore } from './demo_store';
-import { MOMENT_DERIVATION, MOMENT_SHEET, MOMENT_TEMPLATE } from './moment_demo';
 
 type DemoPresetValue = Pick<PresetContextValue, 'store' | 'template' | 'sheet' | 'dice'>;
 
@@ -28,9 +27,9 @@ interface DemoRuntime {
 }
 
 export function createDemoRuntime(
-  template: TemplateDetail = MOMENT_TEMPLATE,
-  sheet: Sheet = MOMENT_SHEET,
-  derive: DemoDerivation = MOMENT_DERIVATION,
+  template: TemplateDetail,
+  sheet: Sheet,
+  derive: DemoDerivation,
 ): DemoRuntime {
   const store = createDemoEditStore(template, sheet, derive);
   const sections = buildSections(template.fields);
@@ -62,15 +61,15 @@ export function createDemoRuntime(
 export function DemoProvider({
   children,
   onInteract,
-  template = MOMENT_TEMPLATE,
-  sheet = MOMENT_SHEET,
-  derive = MOMENT_DERIVATION,
+  template,
+  sheet,
+  derive,
 }: {
   readonly children: ReactNode;
   readonly onInteract?: () => void;
-  readonly template?: TemplateDetail;
-  readonly sheet?: Sheet;
-  readonly derive?: DemoDerivation;
+  readonly template: TemplateDetail;
+  readonly sheet: Sheet;
+  readonly derive: DemoDerivation;
 }) {
   const [runtime] = useState(() => createDemoRuntime(template, sheet, derive));
   const onInteractRef = useRef(onInteract);

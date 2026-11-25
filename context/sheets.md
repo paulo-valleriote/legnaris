@@ -281,7 +281,7 @@ the variable hides Drafts, while `scripts/dev.sh` exports `development`.
 | --- | --- | --- | --- | --- |
 | `GET /templates` | listed | listed | omitted | omitted |
 | `GET /templates/:id`, `POST /templates/:id/preview` | yes | yes | 404 | yes |
-| `POST /sheets` | yes | yes | 400 | 400, or 201 with an active Campaign that includes it |
+| `POST /sheets` | yes | yes | 400 | 400, or 201 from the catalog default template that accepts the kind, or 201 with an active Campaign that includes it |
 | `POST /generations` | yes | yes | 400 | 400 |
 | Accept a succeeded generation job | yes | yes | 400 | yes |
 | Duplicate an existing NPC or enemy | yes | yes | 400 | yes |

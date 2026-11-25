@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { valueAtPath } from '../api/models/sheet';
 import { FIFTH_DEMO_SHEET, FIFTH_DEMO_TEMPLATE } from '../landing/fifth_demo_character';
-import { createDemoEditStore, NO_DERIVATION } from '../landing/demo_store';
+import { createDemoEditStore } from '../landing/demo_store';
 import { templateDerivation } from '../landing/template_derivation';
 import { pendingCount } from '../sheet/sheet_edit';
 
@@ -182,8 +182,8 @@ describe('the demo derive seam', () => {
     expect(store.getState().editedPaths).toEqual(new Set(['abilities.wisdom.score']));
   });
 
-  it('Edge: NO_DERIVATION keeps the stored saves.wisdom after an ability edit', () => {
-    const store = createDemoEditStore(FIFTH_DEMO_TEMPLATE, FIFTH_DEMO_SHEET, NO_DERIVATION);
+  it('Edge: an empty derivation keeps the stored saves.wisdom after an ability edit', () => {
+    const store = createDemoEditStore(FIFTH_DEMO_TEMPLATE, FIFTH_DEMO_SHEET, () => new Map());
 
     store.setPath('abilities.wisdom.score', 18);
 

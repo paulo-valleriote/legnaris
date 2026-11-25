@@ -126,6 +126,40 @@ func TestService_CreateStartSheetFallsBackToCatalogDefault(t *testing.T) {
 	}
 }
 
+func TestService_CreateStartSheetCatalogDefaultFailureIsInternal(t *testing.T) {
+	tmplSvc := templatemocks.NewMockService(t)
+	tmplSvc.EXPECT().
+		FetchTemplate(mock.Anything, &template.FetchTemplateByIDCommand{ID: retiredStartTemplateID}).
+		Return(&template.Template{
+			ID: retiredStartTemplateID, Name: "Fantasy Template", State: template.StateRetired,
+			Kinds: []plan.SheetKind{plan.KindCharacter},
+		}, nil).
+		Once()
+	tmplSvc.EXPECT().List(mock.Anything).Return(nil, assert.AnError).Once()
+
+	repo := mocks.NewMockRepository(t)
+	svc := sheet.NewService(repo, tmplSvc, startFallbackDAGs(t),
+		logger.NewLogger(slog.LevelError), events.NoOp{},
+		sheet.WithPlanLimits(planFor(t, ownerUserID, plan.Free), runInline(t)))
+
+	created, err := svc.Create(context.Background(), sheet.CreateSheetCommand{
+		TemplateID: retiredStartTemplateID,
+		Kind:       string(plan.KindCharacter),
+		SheetName:  "Hero",
+		OwnerID:    ownerUserID,
+	})
+
+	require.Error(t, err)
+	assert.Nil(t, created)
+	var appErr *apperr.Error
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, apperr.CodeInternal, appErr.Code)
+	assert.Equal(t, 500, appErr.HttpStatus())
+	assert.Equal(t, sheet.MsgCatalogDefaultUnavailable, appErr.Message)
+	repo.AssertNotCalled(t, "ReserveSlot")
+	repo.AssertNotCalled(t, "Create")
+}
+
 func TestService_CreateStartSheetKeepsARetiredCampaignTemplate(t *testing.T) {
 	resolved := template.Template{
 		ID: retiredStartTemplateID, Name: "Fantasy Template", State: template.StateRetired,

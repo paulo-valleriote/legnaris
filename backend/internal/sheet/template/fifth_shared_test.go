@@ -149,11 +149,34 @@ func TestFifthTemplates_Registered(t *testing.T) {
 
 func TestFifthTemplates_ActiveVisibility(t *testing.T) {
 	tests := []struct {
-		name   string
-		drafts bool
+		name       string
+		drafts     bool
+		templateID string
+		listed     bool
+		creatable  bool
 	}{
-		{name: "Happy path: an active template is listed and creatable outside development", drafts: false},
-		{name: "Happy path: an active template is listed and creatable in development", drafts: true},
+		{
+			name:       "Happy path: the 5E Character is listed and creatable outside development",
+			templateID: fifthCharacterID,
+			listed:     true,
+			creatable:  true,
+		},
+		{
+			name:       "Happy path: the 5E Stat Block is listed and creatable in development",
+			drafts:     true,
+			templateID: fifthStatBlockID,
+			listed:     true,
+			creatable:  true,
+		},
+		{
+			name:       "Edge: the retired fantasy Template is not listed and not creatable but available",
+			templateID: "fantasy_v1",
+		},
+		{
+			name:       "Edge: the retired fantasy Template stays hidden and uncreatable in development",
+			drafts:     true,
+			templateID: "fantasy_v1",
+		},
 	}
 
 	for _, tc := range tests {
@@ -162,13 +185,12 @@ func TestFifthTemplates_ActiveVisibility(t *testing.T) {
 			require.NoError(t, err)
 
 			listed := catalogIDs(registry.List())
-			for _, id := range []string{fifthCharacterID, fifthStatBlockID} {
-				assert.True(t, containsString(listed, id), "%s listed", id)
+			assert.Equal(t, tc.listed, containsString(listed, tc.templateID))
 
-				tmpl, ok := registry.FetchByID(id)
-				require.True(t, ok, "%s fetchable", id)
-				assert.True(t, tmpl.Creatable(tc.drafts), "%s creatable", id)
-			}
+			tmpl, ok := registry.FetchByID(tc.templateID)
+			require.True(t, ok)
+			assert.True(t, tmpl.Available(tc.drafts))
+			assert.Equal(t, tc.creatable, tmpl.Creatable(tc.drafts))
 		})
 	}
 }

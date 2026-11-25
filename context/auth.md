@@ -41,7 +41,7 @@ sequenceDiagram
 
 An address that already belongs to a verified account gets the same `201` shape with a challenge identity no code can redeem; the owner receives a code-free `account_exists` notice, paced to one per window. An unverified account is claimed instead: its username and password are replaced, its refresh tokens revoked, and a fresh verification code is sent.
 
-Registration started from the landing page carries `?start=fantasy` on `/sign-up`; the intent survives the credential and code steps. Once the gate is authenticated, it creates one Fantasy `character` sheet through `POST /sheets` and opens it; a failed creation, a missing or unknown intent, or any other sign-up entry point lands on the catalog. The intent is ignored on `/sign-in`. See [product](product.md) for the CTA contract.
+Registration started from the landing page carries `?start=fifth` on `/sign-up`; the intent survives the credential and code steps. Once the gate is authenticated, it creates one 5E Character (`fifth_character_v1`) sheet through `POST /sheets` and opens it; `start=fantasy` is an accepted alias for the same intent. A failed creation, a missing or unknown intent, or any other sign-up entry point lands on the catalog. The intent is ignored on `/sign-in`. See [product](product.md) for the CTA contract.
 
 ### Login → challenge → session
 

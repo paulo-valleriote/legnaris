@@ -124,7 +124,7 @@ describe('demo page', () => {
 
     expect(
       within(screen.getByRole('contentinfo')).getByRole('link', {
-        name: message('srd.title'),
+        name: message('landing.footer.srd'),
       }),
     ).toHaveAttribute('href', SRD_PATH);
   });

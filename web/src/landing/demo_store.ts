@@ -38,8 +38,6 @@ function cloneTree(value: unknown): unknown {
 
 export type DemoDerivation = (data: Record<string, unknown>) => ReadonlyMap<string, number>;
 
-export const NO_DERIVATION: DemoDerivation = () => new Map();
-
 function applyDerived(data: Record<string, unknown>, derive: DemoDerivation): void {
   for (const [path, value] of derive(data)) {
     setPathValue(data, path, value);
@@ -58,7 +56,7 @@ function withDerived(
 export function createDemoEditStore(
   template: TemplateDetail,
   sheet: Sheet,
-  derive: DemoDerivation = NO_DERIVATION,
+  derive: DemoDerivation,
 ): SheetEditStore {
   const editable = editableLeafPaths(template.fields);
   const seeded = withDerived(seedFromSheet(template.fields, sheet.data), derive);

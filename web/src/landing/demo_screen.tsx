@@ -87,7 +87,7 @@ export default function DemoScreen() {
 
       <footer className="lg-demo__footer" aria-label={message('landing.footerLabel')}>
         <Link className="lg-demo__footer-link" to={SRD_PATH}>
-          {message('srd.title')}
+          {message('landing.footer.srd')}
         </Link>
       </footer>
     </div>

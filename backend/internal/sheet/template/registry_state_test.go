@@ -24,9 +24,11 @@ func stateFixture(id string, state State) Template {
 }
 
 func stateFixtures() []Template {
+	active := stateFixture("active_v1", StateActive)
+	active.Default = true
 	return []Template{
 		stateFixture("draft_v1", StateDraft),
-		stateFixture("active_v1", StateActive),
+		active,
 		stateFixture("retired_v1", StateRetired),
 	}
 }
@@ -37,6 +39,66 @@ func catalogIDs(templates []Template) []string {
 		ids = append(ids, tmpl.ID)
 	}
 	return ids
+}
+
+func defaultStateFixture(id string, state State) Template {
+	tmpl := stateFixture(id, state)
+	tmpl.Default = true
+	return tmpl
+}
+
+func TestBuildRegistry_RequiresExactlyOneActiveDefault(t *testing.T) {
+	tests := []struct {
+		name       string
+		templates  []Template
+		wantErr    bool
+		wantPhrase string
+	}{
+		{
+			name:      "Happy path: one active default builds",
+			templates: []Template{defaultStateFixture("default_v1", StateActive), stateFixture("other_v1", StateActive)},
+		},
+		{
+			name:       "Error: no default fails boot",
+			templates:  []Template{stateFixture("active_v1", StateActive), stateFixture("other_v1", StateActive)},
+			wantErr:    true,
+			wantPhrase: "no template is marked",
+		},
+		{
+			name:       "Error: two defaults fail boot",
+			templates:  []Template{defaultStateFixture("first_v1", StateActive), defaultStateFixture("second_v1", StateActive)},
+			wantErr:    true,
+			wantPhrase: "exactly one is required",
+		},
+		{
+			name:       "Error: a draft default fails boot",
+			templates:  []Template{defaultStateFixture("draft_v1", StateDraft), stateFixture("active_v1", StateActive)},
+			wantErr:    true,
+			wantPhrase: "is not active",
+		},
+		{
+			name:       "Error: a retired default fails boot",
+			templates:  []Template{defaultStateFixture("retired_v1", StateRetired), stateFixture("active_v1", StateActive)},
+			wantErr:    true,
+			wantPhrase: "is not active",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			registry, err := buildRegistry(engine.NewFormulaEngine(), tc.templates)
+
+			if !tc.wantErr {
+				require.NoError(t, err)
+				assert.NotNil(t, registry)
+				return
+			}
+			require.Error(t, err)
+			var invalid *InvalidDefaultTemplateError
+			require.ErrorAs(t, err, &invalid)
+			assert.Contains(t, err.Error(), tc.wantPhrase)
+		})
+	}
 }
 
 func TestRegistry_LifecycleVisibility(t *testing.T) {
@@ -88,6 +150,7 @@ func TestRegistry_TemplateStatesByGameSystemIgnoresState(t *testing.T) {
 	draft.GameSystemID = GameSystemFifth
 	active := stateFixture("active_5e", StateActive)
 	active.GameSystemID = GameSystemFifth
+	active.Default = true
 	retired := stateFixture("retired_5e", StateRetired)
 	retired.GameSystemID = GameSystemFifth
 

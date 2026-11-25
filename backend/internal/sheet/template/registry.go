@@ -40,6 +40,7 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template, opts ...Regi
 		opt(registry)
 	}
 
+	defaultIDs := make([]string, 0, 1)
 	for _, tmpl := range templates {
 		stored := cloneTemplate(tmpl)
 		if !stored.State.Valid() {
@@ -84,9 +85,23 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template, opts ...Regi
 		registry.templates[stored.ID] = stored
 		registry.dags[stored.ID] = dag
 		registry.order = append(registry.order, stored.ID)
+		if stored.Default {
+			defaultIDs = append(defaultIDs, stored.ID)
+		}
+	}
+
+	if err := registry.validateDefault(defaultIDs); err != nil {
+		return nil, err
 	}
 
 	return registry, nil
+}
+
+func (r *Registry) validateDefault(defaultIDs []string) error {
+	if len(defaultIDs) != 1 || r.templates[defaultIDs[0]].State != StateActive {
+		return ErrInvalidDefaultTemplate(defaultIDs...)
+	}
+	return nil
 }
 
 func (r *Registry) DraftsAllowed() bool {

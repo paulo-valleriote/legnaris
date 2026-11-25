@@ -359,13 +359,14 @@ func TestBuildRegistry_GameSystem(t *testing.T) {
 			tmpl: Template{
 				ID:           "fifth_character_v1",
 				State:        StateActive,
+				Default:      true,
 				GameSystemID: GameSystemFifth,
 				Fields:       FieldGroup{},
 			},
 		},
 		{
 			name: "Edge: a template without a game system builds",
-			tmpl: Template{ID: "fantasy_v1", State: StateActive, Fields: FieldGroup{}},
+			tmpl: Template{ID: "fantasy_v1", State: StateActive, Default: true, Fields: FieldGroup{}},
 		},
 		{
 			name:    "Error: an unknown game system id fails boot",

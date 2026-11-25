@@ -18,6 +18,24 @@ func (e *InvalidTemplateStateError) Error() string {
 	return fmt.Sprintf("template '%s' has unknown lifecycle state '%s'", e.TemplateID, e.State)
 }
 
+type InvalidDefaultTemplateError struct {
+	TemplateIDs []string
+}
+
+func (e *InvalidDefaultTemplateError) Error() string {
+	switch len(e.TemplateIDs) {
+	case 0:
+		return "no template is marked as the catalog default"
+	case 1:
+		return fmt.Sprintf("default template '%s' is not active", e.TemplateIDs[0])
+	default:
+		return fmt.Sprintf(
+			"templates %v are marked as the catalog default; exactly one is required",
+			e.TemplateIDs,
+		)
+	}
+}
+
 type CycleError struct {
 	Nodes []string
 }
@@ -264,6 +282,10 @@ func NewFormulaCompileError(formula string, nodeID string, err error) error {
 
 func ErrInvalidTemplateState(id string, state State) error {
 	return &InvalidTemplateStateError{TemplateID: id, State: state}
+}
+
+func ErrInvalidDefaultTemplate(ids ...string) error {
+	return &InvalidDefaultTemplateError{TemplateIDs: slices.Clone(ids)}
 }
 
 func ErrCycleDetected(nodes []string) error {

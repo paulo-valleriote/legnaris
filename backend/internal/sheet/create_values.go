@@ -38,7 +38,11 @@ func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind 
 		return creationBase{}, translateTemplateErr(err)
 	}
 	if startFallback && campaignID == "" && tmpl.State == template.StateRetired {
-		if fallback := s.catalogDefault(ctx, kind); fallback != nil {
+		fallback, err := s.catalogDefault(ctx, kind)
+		if err != nil {
+			return creationBase{}, err
+		}
+		if fallback != nil {
 			tmpl = fallback
 		}
 	}
@@ -64,17 +68,17 @@ func (s *ServiceImpl) resolveNewSheet(ctx context.Context, ownerID string, kind 
 	return creationBase{kind: kind, tmpl: tmpl, dag: dag, limit: current.SheetLimit(kind)}, nil
 }
 
-func (s *ServiceImpl) catalogDefault(ctx context.Context, kind plan.SheetKind) *template.Template {
+func (s *ServiceImpl) catalogDefault(ctx context.Context, kind plan.SheetKind) (*template.Template, error) {
 	listed, err := s.templateService.List(ctx)
 	if err != nil {
-		return nil
+		return nil, apperr.NewError(apperr.CodeInternal, MsgCatalogDefaultUnavailable, err)
 	}
 	for i := range listed {
 		if listed[i].Default && listed[i].AcceptsKind(kind) {
-			return &listed[i]
+			return &listed[i], nil
 		}
 	}
-	return nil
+	return nil, nil
 }
 
 func (s *ServiceImpl) checkTemplateState(ctx context.Context, ownerID string, tmpl *template.Template, campaignID string, allowed templateGate) error {

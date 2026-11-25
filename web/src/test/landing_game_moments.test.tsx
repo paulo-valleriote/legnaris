@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { valueAtPath } from '../api/models/sheet';
+import type { FieldNode } from '../api/models/template';
 import { message, messageWith } from '../l10n/strings';
 import { createDemoEditStore } from '../landing/demo_store';
 import { FIFTH_DEMO_SHEET, FIFTH_DEMO_TEMPLATE } from '../landing/fifth_demo_character';
@@ -17,6 +18,31 @@ const landingDir = path.resolve(here, '../landing');
 
 function source(file: string): string {
   return readFileSync(path.resolve(landingDir, file), 'utf8');
+}
+
+function listTarget(target: string): { list: string; field: string } | undefined {
+  const segments = target.split('.');
+  let nodes: Record<string, FieldNode> = FIFTH_DEMO_TEMPLATE.fields;
+  const walked: string[] = [];
+  for (let index = 0; index < segments.length; index += 1) {
+    const segment = segments[index];
+    const node = nodes[segment];
+    if (node === undefined) {
+      return undefined;
+    }
+    if (node.kind === 'list') {
+      return {
+        list: [...walked, segment].join('.'),
+        field: segments.slice(index + 1).join('.'),
+      };
+    }
+    if (node.kind !== 'group') {
+      return undefined;
+    }
+    nodes = node.children;
+    walked.push(segment);
+  }
+  return undefined;
 }
 
 function AllMoments() {
@@ -199,9 +225,28 @@ describe('the long rest cascade', () => {
     const cascade = longRestCascade(FIFTH_DEMO_SHEET.data);
     const spellcasting = cascade.spellcasting as Record<string, unknown>;
 
-    expect(cascade.combat).toEqual({ hp: { current: 24, temp: 0 } });
+    expect(cascade.combat).toEqual({ hp: { current: 24 } });
     for (let level = 1; level <= 9; level += 1) {
       expect(spellcasting[`slot${level}`]).toEqual({ spent: 0 });
+    }
+  });
+
+  it('Happy path: it covers every long_rest reset target the template declares', () => {
+    const action = FIFTH_DEMO_TEMPLATE.actions?.find((entry) => entry.id === 'long_rest');
+    expect(action).toBeDefined();
+    const cascade = longRestCascade(FIFTH_DEMO_SHEET.data);
+
+    for (const assignment of action?.assignments ?? []) {
+      const list = listTarget(assignment.target);
+      if (list === undefined) {
+        expect(valueAtPath(cascade, assignment.target)).toBeDefined();
+        continue;
+      }
+      const records = valueAtPath(FIFTH_DEMO_SHEET.data, list.list) as Record<string, unknown>;
+      expect(Object.keys(records).length).toBeGreaterThan(0);
+      for (const id of Object.keys(records)) {
+        expect(valueAtPath(cascade, `${list.list}.${id}.${list.field}`)).toBeDefined();
+      }
     }
   });
 
@@ -221,7 +266,7 @@ describe('the long rest cascade', () => {
   it('Edge: a missing hit point maximum reads as zero', () => {
     const cascade = longRestCascade({});
 
-    expect(cascade.combat).toEqual({ hp: { current: 0, temp: 0 } });
+    expect(cascade.combat).toEqual({ hp: { current: 0 } });
   });
 
   it('Edge: the cascade leaves the given data untouched', () => {
