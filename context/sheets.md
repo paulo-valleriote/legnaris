@@ -457,7 +457,9 @@ Row are marked as non-d20 tests. Both Templates use only SRD terms in labels, ke
 
 `fifth_character_v1` plays through the composable config in
 `web/src/sheet/preset/compose/configs/fifth_character.ts`, registered in `PRESET_CONFIGS`. The
-identity header binds the name and the class subtitle; one stat-pill row carries class, subclass,
+identity header binds the name and the class subtitle; both stay editable, with no resting
+underline, a solid hover/focus underline, a pencil hint on the same hover/focus and a visible
+focus ring; one stat-pill row carries class, subclass,
 species, background and level, another carries armor class, initiative, speed, proficiency bonus
 and Passive Perception; the hit-point track binds `combat.hp.current`, `.max` and `.temp`; the
 ability grid, save list and 18-skill list bind their score/modifier, proficiency/total and
@@ -781,10 +783,14 @@ per-Template code. The eleven kinds are:
 - `abilityGrid` — one cell per bound `score`/`modifier` pair, the signed modifier rolled and the
   score edited through `InlineEdit`.
 - `saveList` — one row per bound `proficiency`/`total` pair, its flag a pressed toggle that
-  commits `0`/`1` and its signed total rolled.
+  commits `0`/`1` and its signed total rolled; the group header names the list and carries the
+  filled-dot `Proficient` legend, and the toggle's accessible name states `Proficient` or
+  `Not proficient`.
 - `skillList` — one row per bound `rank`/`total` pair plus an optional literal `ability` tag; the
   `0..max` rank is a pip control (a `max` leaf path or fixed number) that cycles and wraps, and
-  the signed total rolls.
+  the signed total rolls. Its header names the list and explains the filled-dot `Proficient` and
+  two-dot `Expertise` marks (expertise only when the ceiling is at least two), and the rank
+  control's accessible name states the same meaning.
 - `hitPoints` — the bound `current`, `max` and optional `temp` leaves, a meter and one amount
   entry; Damage lets the temp leaf absorb first and floors the current at zero, Heal clamps to the
   maximum and never lowers a current already at or above it (a zero maximum heals nothing), and a
@@ -1067,10 +1073,13 @@ API or auth call and resets on every mount; it supplies no reset binding, so no 
 
 Any Play-mode value edit also floats the pending-changes bar (`pending_card.tsx`, fed by the pure
 `pending_changes.ts`): the only save surface in Play, because the screen draws no footer there.
-It lists each changed field as `<label> <old> → <new>`, the `not saved yet` copy, a small visible
-`Table sync soon` chip and Discard, Preview and Save wired to the same edit store. The bar clears
-the phone home indicator (`viewport-fit=cover` plus `env(safe-area-inset-bottom)`) and the Play
-body reserves the bar's measured height, so the bar never covers the content it hides. Its actions
+It lists each changed field as `<label> <old> → <new>`, the `not saved yet` copy, and Discard,
+Preview and Save wired to the same edit store. The bar clears the phone home indicator
+(`viewport-fit=cover` plus `env(safe-area-inset-bottom)`); while it is shown it marks the Play root
+with `lg-preset--pending-card` and publishes `--lg-pending-card-space` (its measured height plus its
+distance from the viewport bottom), which the root turns into bottom padding, so the last content
+scrolls fully above it; hiding the bar removes both. On `/demo` the phone card also stacks above
+the sticky sign-up bar instead of covering it. Its actions
 are `--lg-size-control` tall on a phone, it slides in unless `prefers-reduced-motion` asks it not
 to, and one polite, debounced live region announces the change summary once typing settles instead
 of on every committed edit. Escape discards outside a text entry, a dialog or the dice panel;
@@ -1168,6 +1177,8 @@ reads as missing rather than being migrated. The draft holds only the pending ed
 the whole Dice block, never a credential. View state (collapsed Sections, pinned filter,
 explainer seen, settings open) lives in `localStorage` under `lg.sheet-view.<sheetId>`, record
 version 1, local to the viewer and never sent. Every local write and delete is best-effort.
+
+**Play feedback (roll labels, HP undo, desktop section nav).** The Dice panel names a field term by its Template schema label (`web/src/sheet/dice_label.ts`: own label, then parent label plus leaf, then a humanized path; never a dotted path) and hides zero-valued field terms; the total is unchanged and nothing is system-specific. The compose hit-point track keeps the last Damage or Heal as an undo entry (`aria-live` line with an Undo button, cleared after 8 s, on use, or by the next apply) and separates Heal from Damage with a divider. An undo that returns a value to the saved baseline removes that path from the pending set (both edit stores drop any written path whose value matches the saved one), so the pending card clears unless an earlier unsaved value or another change is still pending. The preset section chip row is now drawn on wide screens too, sticky at the top of the Play body; the 5E Character config places conditions under the ability grid.
 
 ## Code map
 

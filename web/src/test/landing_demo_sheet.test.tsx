@@ -107,6 +107,21 @@ describe('the landing 5E demo sheet', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it('Happy path: undo after damage clears the pending hit point change', async () => {
+    const user = userEvent.setup();
+    render(<FifthDemoSheet />);
+
+    await changeHitPoints(user, '5', 'damage');
+    expect(screen.getByTestId('sheet-pending-card')).toHaveTextContent(
+      'Current hit points 24 → 19',
+    );
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(screen.queryByTestId('sheet-pending-card')).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('Happy path: rolling a die opens the shared dice panel', async () => {
     const user = userEvent.setup();
     render(<FifthDemoSheet />);

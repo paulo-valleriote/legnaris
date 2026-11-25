@@ -2,6 +2,7 @@ import { message, messageWith } from '../../../l10n/strings';
 import { usePresetCommit, usePresetLabel, usePresetValue } from '../preset_context';
 import { RollableValue } from '../rollable_value';
 import { numberValue } from '../values';
+import { ProficiencyLegend } from './proficiency_legend';
 import { formatSigned, isProficient, nextProficiency, rowDisplayName } from './scores_data';
 import type { PresetSave, PresetSaveListPiece } from './types';
 import './compose.css';
@@ -11,14 +12,18 @@ function SaveRow({ save, section }: { readonly save: PresetSave; readonly sectio
   const proficiency = usePresetValue(save.proficiency);
   const label = rowDisplayName(usePresetLabel(save.total), save.total);
   const commitProficiency = usePresetCommit(save.proficiency);
+  const proficient = isProficient(proficiency);
+  const state = message(
+    proficient ? 'sheet.play.proficiencyProficient' : 'sheet.play.proficiencyNotProficient',
+  );
 
   return (
     <li className="lg-compose-save" data-testid={`compose-save-${save.total}`}>
       <button
         type="button"
         className="lg-compose-flag"
-        aria-pressed={isProficient(proficiency)}
-        aria-label={messageWith('sheet.play.proficiencyFor', { label })}
+        aria-pressed={proficient}
+        aria-label={messageWith('sheet.play.proficiencyForState', { label, state })}
         onClick={() => {
           commitProficiency(nextProficiency(proficiency));
         }}
@@ -46,10 +51,16 @@ export function SaveList({ piece }: { readonly piece: PresetSaveListPiece }) {
   }
 
   return (
-    <ul className="lg-compose-saves" data-testid="compose-save-list">
-      {piece.saves.map((save) => (
-        <SaveRow key={save.total} save={save} section={piece.section} />
-      ))}
-    </ul>
+    <div className="lg-compose-group">
+      <div className="lg-compose-group__header">
+        <h2 className="lg-compose-group__title">{message('sheet.play.saves')}</h2>
+        <ProficiencyLegend testId="compose-saves-legend" />
+      </div>
+      <ul className="lg-compose-saves" data-testid="compose-save-list">
+        {piece.saves.map((save) => (
+          <SaveRow key={save.total} save={save} section={piece.section} />
+        ))}
+      </ul>
+    </div>
   );
 }

@@ -15,14 +15,6 @@
   letter-spacing: var(--lg-tracking-display);
 }
 
-.lg-compose-header__title.lg-inline-edit {
-  border-bottom-color: transparent;
-}
-
-.lg-compose-header__title.lg-inline-edit:hover {
-  border-bottom-color: var(--lg-color-border-strong);
-}
-
 .lg-compose-header__subtitle {
   margin: 0;
   font-size: var(--lg-type-15);
@@ -33,6 +25,52 @@
 .lg-compose-header__subtitle-item {
   max-inline-size: 100%;
   overflow-wrap: anywhere;
+}
+
+.lg-inline-edit--affordance {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--lg-space-4);
+  max-inline-size: 100%;
+  border-bottom-style: solid;
+  border-bottom-color: transparent;
+}
+
+.lg-inline-edit--affordance:hover,
+.lg-inline-edit--affordance:focus-visible {
+  border-bottom-color: var(--lg-color-border-strong);
+}
+
+.lg-inline-edit--affordance:focus-visible,
+.lg-compose-header__title.lg-inline-edit:focus-visible,
+.lg-compose-header__subtitle-item.lg-inline-edit:focus-visible {
+  outline: var(--lg-focus-width) solid var(--lg-color-focus);
+  outline-offset: var(--lg-focus-offset);
+  border-radius: var(--lg-radius-sm);
+}
+
+.lg-inline-edit__text {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.lg-inline-edit__pencil {
+  flex: none;
+  inline-size: 0.7em;
+  block-size: 0.7em;
+  color: var(--lg-color-text-subtle);
+  opacity: 0;
+}
+
+.lg-inline-edit--affordance:hover .lg-inline-edit__pencil,
+.lg-inline-edit--affordance:focus-visible .lg-inline-edit__pencil {
+  opacity: 1;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .lg-inline-edit--affordance .lg-inline-edit__pencil {
+    opacity: 1;
+  }
 }
 
 .lg-compose-stats {
@@ -154,13 +192,11 @@
 .lg-compose-ability__name {
   inline-size: 100%;
   overflow: hidden;
-  font-size: var(--lg-type-12);
+  font-size: var(--lg-type-13);
   font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
-  letter-spacing: var(--lg-tracking-caps);
   text-align: center;
   text-overflow: ellipsis;
-  text-transform: uppercase;
   white-space: nowrap;
   color: var(--lg-color-text-muted);
 }
@@ -192,6 +228,61 @@
 
 .lg-compose-ability .lg-compose-ability__score:hover {
   color: var(--lg-color-text);
+}
+
+.lg-compose-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+  min-inline-size: 0;
+}
+
+.lg-compose-group__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--lg-space-4) var(--lg-space-12);
+  min-inline-size: 0;
+}
+
+.lg-compose-group__title {
+  margin: 0;
+  font-size: var(--lg-type-12);
+  font-weight: var(--lg-font-weight-semibold);
+  letter-spacing: var(--lg-tracking-caps);
+  text-transform: uppercase;
+  color: var(--lg-color-text-muted);
+}
+
+.lg-compose-legend {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lg-space-4) var(--lg-space-8);
+  margin: 0;
+  font-size: var(--lg-type-12);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-compose-legend__entry {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--lg-space-4);
+}
+
+.lg-compose-legend__marks {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--lg-space-2);
+}
+
+.lg-compose-legend__dot {
+  inline-size: var(--lg-space-8);
+  block-size: var(--lg-space-8);
+  border: var(--lg-size-hairline) solid var(--lg-color-accent);
+  border-radius: var(--lg-radius-pill);
+  background-color: var(--lg-color-accent);
 }
 
 .lg-compose-saves,
@@ -423,6 +514,29 @@
 .lg-compose-hp__amount {
   flex: 1 1 8rem;
   min-inline-size: 0;
+}
+
+.lg-compose-hp__divider {
+  align-self: center;
+  inline-size: var(--lg-size-hairline);
+  block-size: var(--lg-space-24);
+  background-color: var(--lg-color-border-strong);
+}
+
+.lg-compose-hp__heal.lg-button--secondary {
+  border-color: var(--lg-color-success);
+  color: var(--lg-color-success);
+}
+
+.lg-compose-hp__undo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lg-space-8);
+  margin: 0;
+  font-size: var(--lg-type-13);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-text-muted);
 }
 
 .lg-compose-conditions {

@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Sheet } from '../api/models/sheet';
-import { message } from '../l10n/strings';
+import { message, messageWith } from '../l10n/strings';
 import { configPathErrors } from '../sheet/preset/compose/config_paths';
 import { conditionIsOn, conditionLabelParts } from '../sheet/preset/compose/condition_label';
 import { Conditions } from '../sheet/preset/compose/conditions';
@@ -20,6 +20,7 @@ import type {
   PresetHitPointsPiece,
   PresetPiece,
 } from '../sheet/preset/compose/types';
+import { PendingChangesCard } from '../sheet/preset/pending_card';
 import { PresetPlayView } from '../sheet/preset/play_view';
 import { presetConfig, presetSheet, presetTemplateDetail, renderPreset } from './preset_fixtures';
 
@@ -68,8 +69,30 @@ function conditionsSheet(extra: Record<string, unknown>): Sheet {
   });
 }
 
+function undoRegion(): HTMLElement {
+  const region = document.querySelector<HTMLElement>('.lg-compose-hp__undo');
+  if (region === null) {
+    throw new Error('undo region missing');
+  }
+  return region;
+}
+
 function amountInput(): HTMLElement {
   return screen.getByRole('textbox', { name: message('sheet.play.amount') });
+}
+
+function pendingCard(): HTMLElement | null {
+  return screen.queryByTestId('sheet-pending-card');
+}
+
+function renderHitPointsWithPendingCard(hit: number, hitTemp = 0) {
+  return renderPreset(
+    <>
+      <HitPointsTrack piece={hitPoints()} />
+      <PendingChangesCard />
+    </>,
+    { sheet: vitalsSheet({ hit, hitTemp, hitMax: 24 }) },
+  );
 }
 
 describe('the hit point track piece', () => {
@@ -116,6 +139,198 @@ describe('the hit point track piece', () => {
     await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
 
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 14 } });
+  });
+
+  it('Happy path: undo after damage restores the current and the absorbed temp', async () => {
+    const user = userEvent.setup();
+    const { store } = renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+      sheet: vitalsSheet({ hit: 12, hitTemp: 3 }),
+    });
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    expect(store.getPendingDelta()).toEqual({ vitals: { hit: 10, hitTemp: 0 } });
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(store.getPendingDelta()).toEqual({});
+    expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('12');
+    expect(screen.getByRole('button', { name: 'Temporary Hit Points' })).toHaveTextContent('3');
+    expect(
+      screen.queryByRole('button', { name: message('sheet.play.hpUndo') }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('Happy path: undo after heal restores the previous current', async () => {
+    const user = userEvent.setup();
+    const { store } = renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+      sheet: vitalsSheet({ hit: 10 }),
+    });
+
+    await user.type(amountInput(), '4');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
+    expect(store.getPendingDelta()).toEqual({ vitals: { hit: 14 } });
+    expect(undoRegion()).toHaveTextContent(messageWith('sheet.play.healed', { count: 4 }));
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(store.getPendingDelta()).toEqual({});
+    expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('10');
+  });
+
+  it('Edge: a second apply replaces the undo target with the state before it', async () => {
+    const user = userEvent.setup();
+    const { store } = renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+      sheet: vitalsSheet({ hit: 12 }),
+    });
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.type(amountInput(), '3');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    expect(store.getPendingDelta()).toEqual({ vitals: { hit: 4 } });
+    expect(undoRegion()).toHaveTextContent(messageWith('sheet.play.tookDamage', { count: 3 }));
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(store.getPendingDelta()).toEqual({ vitals: { hit: 7 } });
+    expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('7');
+  });
+
+  it('Happy path: undo after damage clears the pending hit point change', async () => {
+    const user = userEvent.setup();
+    const { store } = renderHitPointsWithPendingCard(24);
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    expect(pendingCard()).toHaveTextContent('Hit Points 24 → 19');
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(pendingCard()).not.toBeInTheDocument();
+    expect([...store.getState().editedPaths]).toEqual([]);
+    expect(store.getPendingDelta()).toEqual({});
+  });
+
+  it('Edge: undo after damage that spent temporary hit points clears every change', async () => {
+    const user = userEvent.setup();
+    const { store } = renderHitPointsWithPendingCard(24, 5);
+
+    await user.type(amountInput(), '8');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    expect(pendingCard()).toHaveTextContent('Hit Points 24 → 21');
+    expect(pendingCard()).toHaveTextContent('Temporary Hit Points 5 → 0');
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(pendingCard()).not.toBeInTheDocument();
+    expect([...store.getState().editedPaths]).toEqual([]);
+    expect(store.getPendingDelta()).toEqual({});
+  });
+
+  it('Edge: undo restores an earlier unsaved hit point edit and keeps it pending', async () => {
+    const user = userEvent.setup();
+    const { store } = renderHitPointsWithPendingCard(24);
+    await user.click(screen.getByRole('button', { name: 'Hit Points' }));
+    const hitPointsInput = screen.getByRole('textbox', { name: 'Hit Points' });
+    await user.clear(hitPointsInput);
+    await user.type(hitPointsInput, '20{Enter}');
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    expect(pendingCard()).toHaveTextContent('Hit Points 24 → 15');
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(pendingCard()).toHaveTextContent('Hit Points 24 → 20');
+    expect(pendingCard()).not.toHaveTextContent('Hit Points 24 → 15');
+    expect([...store.getState().editedPaths]).toEqual(['vitals.hit']);
+    expect(store.getPendingDelta()).toEqual({ vitals: { hit: 20 } });
+  });
+
+  it('Edge: undo keeps an unrelated pending change in the card', async () => {
+    const user = userEvent.setup();
+    const { store } = renderHitPointsWithPendingCard(24);
+    act(() => {
+      store.setPath('identity.name', 'Brenna');
+    });
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(pendingCard()).toHaveTextContent('Name Nova → Brenna');
+    expect(pendingCard()).not.toHaveTextContent('Hit Points');
+    expect([...store.getState().editedPaths]).toEqual(['identity.name']);
+    expect(store.getPendingDelta()).toEqual({ identity: { name: 'Brenna' } });
+  });
+
+  it('Edge: the undo affordance clears after eight seconds', () => {
+    vi.useFakeTimers();
+    try {
+      renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+        sheet: vitalsSheet({ hit: 12 }),
+      });
+
+      fireEvent.change(amountInput(), { target: { value: '5' } });
+      fireEvent.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+      expect(
+        screen.getByRole('button', { name: message('sheet.play.hpUndo') }),
+      ).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(7999);
+      });
+      expect(
+        screen.getByRole('button', { name: message('sheet.play.hpUndo') }),
+      ).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(
+        screen.queryByRole('button', { name: message('sheet.play.hpUndo') }),
+      ).not.toBeInTheDocument();
+      expect(undoRegion()).toBeEmptyDOMElement();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    { label: 'zero', text: '0' },
+    { label: 'empty', text: '' },
+  ])('Edge: a $label amount offers no undo', async ({ text }) => {
+    const user = userEvent.setup();
+    const { store } = renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+      sheet: vitalsSheet({ hit: 12 }),
+    });
+
+    if (text !== '') {
+      await user.type(amountInput(), text);
+    }
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+
+    expect(store.getPendingDelta()).toEqual({});
+    expect(
+      screen.queryByRole('button', { name: message('sheet.play.hpUndo') }),
+    ).not.toBeInTheDocument();
+    expect(undoRegion()).toBeEmptyDOMElement();
+  });
+
+  it('Happy path: the status line names the change and the undo button is named Undo', async () => {
+    const user = userEvent.setup();
+    renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+      sheet: vitalsSheet({ hit: 12 }),
+    });
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+
+    const status = undoRegion();
+    expect(status).toHaveAttribute('aria-live', 'polite');
+    expect(status).toHaveTextContent(messageWith('sheet.play.tookDamage', { count: 5 }));
+    expect(within(status).getByRole('button', { name: 'Undo' })).toBeInTheDocument();
   });
 
   it('Edge: damage larger than temp plus current floors the current at zero', async () => {

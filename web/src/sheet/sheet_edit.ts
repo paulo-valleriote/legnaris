@@ -407,7 +407,11 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     const editedPaths = new Set(state.editedPaths);
     for (const [path, value] of effective) {
       setPathValue(data, path, value);
-      editedPaths.add(path);
+      if (Object.is(readPath(data, path), readPath(state.defaults, path))) {
+        editedPaths.delete(path);
+      } else {
+        editedPaths.add(path);
+      }
     }
 
     commit({

@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { RefObject } from 'react';
 import { fieldDisplayName, lastSegment } from '../../engine/field_grouping';
 import { message, messageWith } from '../../l10n/strings';
@@ -10,7 +18,16 @@ import { usePresetContext } from './preset_context';
 
 export const PENDING_ANNOUNCE_MS = 600;
 
-const SPACE_PROPERTY = '--lg-pending-card-space';
+export const PENDING_CARD_SPACE_CLASS = 'lg-preset--pending-card';
+export const PENDING_CARD_SPACE_PROPERTY = '--lg-pending-card-space';
+
+export const PENDING_CARD_SLACK = 12;
+
+export function reservedBottomSpace(height: number, inset: number): number {
+  const card = Number.isFinite(height) ? Math.max(0, height) : 0;
+  const floor = Number.isFinite(inset) ? Math.max(0, inset) : 0;
+  return card + floor + PENDING_CARD_SLACK;
+}
 
 function useDebouncedAnnouncement(summary: string): string {
   const [announced, setAnnounced] = useState('');
@@ -27,32 +44,39 @@ function useDebouncedAnnouncement(summary: string): string {
 }
 
 function useReservedBottomSpace(card: RefObject<HTMLElement | null>, active: boolean): void {
-  useEffect(() => {
-    if (!active) {
-      return undefined;
-    }
+  useLayoutEffect(() => {
     const element = card.current;
-    if (element === null) {
-      return undefined;
-    }
-    const preset = element.closest('.lg-preset');
-    if (!(preset instanceof HTMLElement)) {
+    const preset = element?.closest('.lg-preset');
+    if (!active || element === null || !(preset instanceof HTMLElement)) {
       return undefined;
     }
     const apply = () => {
-      preset.style.setProperty(SPACE_PROPERTY, `${element.getBoundingClientRect().height}px`);
+      const height = element.getBoundingClientRect().height;
+      const inset = Number.parseFloat(window.getComputedStyle(element).bottom);
+      preset.style.setProperty(
+        PENDING_CARD_SPACE_PROPERTY,
+        `${reservedBottomSpace(height, inset)}px`,
+      );
     };
+    const release = () => {
+      preset.classList.remove(PENDING_CARD_SPACE_CLASS);
+      preset.style.removeProperty(PENDING_CARD_SPACE_PROPERTY);
+    };
+    preset.classList.add(PENDING_CARD_SPACE_CLASS);
     apply();
+    window.addEventListener('resize', apply);
     if (typeof ResizeObserver === 'undefined') {
       return () => {
-        preset.style.removeProperty(SPACE_PROPERTY);
+        window.removeEventListener('resize', apply);
+        release();
       };
     }
     const observer = new ResizeObserver(apply);
     observer.observe(element);
     return () => {
+      window.removeEventListener('resize', apply);
       observer.disconnect();
-      preset.style.removeProperty(SPACE_PROPERTY);
+      release();
     };
   }, [card, active]);
 }
@@ -120,9 +144,6 @@ export function PendingChangesCard() {
         </ul>
         <p className="lg-pending-card__note">{message('sheet.pending.notSavedYet')}</p>
       </div>
-      <p className="lg-pending-card__sync" data-testid="sheet-pending-sync">
-        {message('sheet.pending.tableSync')}
-      </p>
       <div className="lg-pending-card__actions">
         <Button
           variant="ghost"

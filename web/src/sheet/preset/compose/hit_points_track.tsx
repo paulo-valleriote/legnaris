@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { sectionKeyOfRow } from '../../../engine/field_grouping';
-import { message } from '../../../l10n/strings';
+import { message, messageWith } from '../../../l10n/strings';
 import { Button } from '../../../ui/button';
 import { Field } from '../../../ui/field';
 import { InlineEdit } from '../../inline_edit';
@@ -31,6 +31,15 @@ interface HitPointsTrackBodyProps {
   readonly commitMax?: (value: number) => void;
 }
 
+interface HitPointsUndo {
+  readonly current: number;
+  readonly temp: number | undefined;
+  readonly amount: number;
+  readonly healed: boolean;
+}
+
+const UNDO_TIMEOUT_MS = 8000;
+
 function HitPointsTrackBody({
   piece,
   max,
@@ -47,23 +56,57 @@ function HitPointsTrackBody({
   const commitTemp = usePresetCommit(piece.temp ?? piece.current);
   const temp = piece.temp === undefined ? 0 : hitPointValue(tempValue);
   const [amountText, setAmountText] = useState('');
+  const [undo, setUndo] = useState<HitPointsUndo>();
   const percent = hitPointsPercent(current, max);
   const meterNow = max > 0 ? Math.min(max, current) : 0;
 
+  useEffect(() => {
+    if (undo === undefined) {
+      return;
+    }
+    const timer = window.setTimeout(() => setUndo(undefined), UNDO_TIMEOUT_MS);
+    return () => window.clearTimeout(timer);
+  }, [undo]);
+
   const apply = (heal: boolean) => {
     const amount = parseHitPointsAmount(amountText);
+    if (amount === undefined) {
+      return;
+    }
     const hitPoints = { current, max, temp };
     const next = heal ? applyHeal(hitPoints, amount) : applyDamage(hitPoints, amount);
     if (next === undefined) {
       return;
     }
-    if (piece.temp !== undefined && next.temp !== temp) {
+    const tempChanged = piece.temp !== undefined && next.temp !== temp;
+    if (tempChanged) {
       commitTemp(next.temp);
     }
-    if (next.current !== current) {
+    const currentChanged = next.current !== current;
+    if (currentChanged) {
       commitCurrent(next.current);
     }
     setAmountText('');
+    if (!tempChanged && !currentChanged) {
+      return;
+    }
+    setUndo({
+      current,
+      temp: piece.temp === undefined ? undefined : temp,
+      amount,
+      healed: heal,
+    });
+  };
+
+  const undoApply = () => {
+    if (undo === undefined) {
+      return;
+    }
+    commitCurrent(undo.current);
+    if (undo.temp !== undefined) {
+      commitTemp(undo.temp);
+    }
+    setUndo(undefined);
   };
 
   const commitParsed = (commit: (value: number) => void) => (text: string) => {
@@ -166,12 +209,31 @@ function HitPointsTrackBody({
           label={message('sheet.play.damage')}
           onClick={() => apply(false)}
         />
+        <span className="lg-compose-hp__divider" aria-hidden="true" />
         <Button
           variant="secondary"
           size="sm"
           label={message('sheet.play.heal')}
+          className="lg-compose-hp__heal"
           onClick={() => apply(true)}
         />
+      </div>
+      <div className="lg-compose-hp__undo" aria-live="polite">
+        {undo === undefined ? null : (
+          <>
+            <span>
+              {messageWith(undo.healed ? 'sheet.play.healed' : 'sheet.play.tookDamage', {
+                count: undo.amount,
+              })}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              label={message('sheet.play.hpUndo')}
+              onClick={undoApply}
+            />
+          </>
+        )}
       </div>
     </div>
   );

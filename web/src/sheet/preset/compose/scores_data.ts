@@ -38,6 +38,22 @@ export function nextProficiency(value: unknown): 0 | 1 {
   return isProficient(value) ? 0 : 1;
 }
 
+export type RankProficiency = 'none' | 'proficient' | 'expertise';
+
+export function rankProficiency(value: unknown): RankProficiency {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return 'none';
+  }
+  const rank = Math.trunc(value);
+  if (rank >= 2) {
+    return 'expertise';
+  }
+  if (rank >= 1) {
+    return 'proficient';
+  }
+  return 'none';
+}
+
 export function rankLimit(max: number): number {
   return Number.isFinite(max) ? Math.max(0, Math.trunc(max)) : 0;
 }

@@ -67,6 +67,7 @@ describe('sheet edit store', () => {
 
     expect(isPending(store.getState())).toBe(false);
     expect(store.getPendingDelta()).toEqual({});
+    expect(store.getState().editedPaths.size).toBe(0);
   });
 
   it('Edge: a derived (non-editable) path never enters the delta', () => {

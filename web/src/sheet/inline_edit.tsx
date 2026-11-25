@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import type { FieldSchema } from '../api/models/template';
 import { message, messageWith } from '../l10n/strings';
 import { Dialog } from '../ui/dialog';
+import { PencilIcon } from '../ui/icons';
 
 export const NARROW_QUERY = '(max-width: 40rem)';
 
@@ -33,6 +34,7 @@ export interface InlineEditProps {
   readonly path?: string;
   readonly display?: ReactNode;
   readonly editLabel?: string;
+  readonly showPencil?: boolean;
 }
 
 function isNumericInput(
@@ -53,6 +55,7 @@ export function InlineEdit({
   path,
   display,
   editLabel,
+  showPencil = false,
 }: InlineEditProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -85,6 +88,9 @@ export function InlineEdit({
   };
 
   const classes = ['lg-inline-edit', className]
+    .filter((entry): entry is string => !!entry)
+    .join(' ');
+  const editClasses = [classes, showPencil ? 'lg-inline-edit--affordance' : undefined]
     .filter((entry): entry is string => !!entry)
     .join(' ');
 
@@ -165,13 +171,20 @@ export function InlineEdit({
   return (
     <button
       type="button"
-      className={classes}
+      className={editClasses}
       aria-label={editLabel ?? label}
       data-edit-path={path}
       data-empty={value.trim() === '' && fallback === undefined ? '' : undefined}
       onClick={begin}
     >
-      {display ?? shown}
+      {showPencil ? (
+        <>
+          <span className="lg-inline-edit__text">{display ?? shown}</span>
+          <PencilIcon className="lg-inline-edit__pencil" />
+        </>
+      ) : (
+        (display ?? shown)
+      )}
     </button>
   );
 }

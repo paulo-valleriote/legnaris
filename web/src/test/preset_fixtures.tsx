@@ -8,6 +8,7 @@ import { parseTemplateDetail } from '../api/models/template';
 import { buildSections, rowKey } from '../engine/field_grouping';
 import { createMemorySheetStore } from '../library/sheet_store';
 import { createDiceStore } from '../sheet/dice_store';
+import { fieldLabelFromFields } from '../sheet/dice_label';
 import type { DiceContextValue } from '../sheet/dice_row';
 import { DiceProvider } from '../sheet/dice_row';
 import {
@@ -311,6 +312,7 @@ export function createPresetRuntime(
     rowKeys: new Set(sections.flatMap((section) => section.rows.map(rowKey))),
     sectionRows,
     notD20: templateDiceMarking(template.dice, template.fields),
+    labelForPath: fieldLabelFromFields(template.fields),
     savedValues: () => store.getState().data,
     draftValues: () => store.getPendingDelta(),
   };

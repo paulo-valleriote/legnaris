@@ -188,10 +188,10 @@ describe('the mobile Play section order', () => {
     expect(presetCss).toMatch(/\.lg-preset__section:empty\s*\{[^}]*display:\s*none/);
   });
 
-  it('Edge: 1440 keeps the three-column body without the mobile wrappers', async () => {
+  it('Edge: 1440 keeps the three-column body with stable section wrappers', async () => {
     await openFantasy(1440);
 
-    expect(document.querySelector('[data-preset-section]')).toBeNull();
+    expect(document.querySelectorAll('[data-preset-section]').length).toBeGreaterThan(0);
     const columns = [...document.querySelectorAll<HTMLElement>('.lg-preset__column')];
     expect(columns).toHaveLength(3);
     expect(columns[0].querySelector('.lg-preset-abilities')).not.toBeNull();
@@ -201,10 +201,10 @@ describe('the mobile Play section order', () => {
     expect(columns[2].querySelector('[data-testid="sheet-spells"]')).not.toBeNull();
   });
 
-  it('Edge: 1100 keeps the two-column arrangement without the mobile wrappers', async () => {
+  it('Edge: 1100 keeps the two-column arrangement and its section wrappers', async () => {
     await openFantasy(1100);
 
-    expect(document.querySelector('[data-preset-section]')).toBeNull();
+    expect(document.querySelectorAll('[data-preset-section]').length).toBeGreaterThan(0);
     expect(document.querySelectorAll('.lg-preset__column')).toHaveLength(3);
     expect(presetCss.slice(presetCss.indexOf('@media (max-width: 68.75rem)'))).toMatch(
       /grid-template-columns:\s*180px minmax\(0, 1fr\)/,

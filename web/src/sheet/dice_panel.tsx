@@ -3,12 +3,14 @@ import type { RollPart, RollResult } from '../dice/roll';
 import { message, messageWith } from '../l10n/strings';
 import { CloseIcon } from '../ui/icons';
 import type { RollEntry } from './dice_history';
+import { resolveRollPartLabel, type FieldLabelLookup } from './dice_label';
 import { diceErrorMessageKey } from './dice_view';
 import './dice.css';
 
 export interface DicePanelProps {
   readonly results: readonly RollEntry[];
   readonly onDismiss: () => void;
+  readonly labelForPath?: FieldLabelLookup;
 }
 
 function Rolls({ part }: { readonly part: RollPart }) {
@@ -51,13 +53,22 @@ function Rolls({ part }: { readonly part: RollPart }) {
   );
 }
 
-function Breakdown({ result }: { readonly result: RollResult }) {
+function Breakdown({
+  result,
+  labelForPath,
+}: {
+  readonly result: RollResult;
+  readonly labelForPath?: FieldLabelLookup;
+}) {
+  const visible = result.parts.filter((part) => part.path === undefined || part.value !== 0);
   return (
     <ul className="lg-dice-panel__parts">
-      {result.parts.map((part, index) => (
-        <li className="lg-dice-panel__part" key={`${index}-${part.label}`}>
+      {visible.map((part, index) => (
+        <li className="lg-dice-panel__part" key={`${index}-${part.path ?? part.label}`}>
           <span className="lg-dice-panel__sign">{part.sign === 1 ? '+' : '-'}</span>
-          <span className="lg-dice-panel__label">{part.label}</span>
+          <span className="lg-dice-panel__label">
+            {part.path === undefined ? part.label : resolveRollPartLabel(part.path, labelForPath)}
+          </span>
           <Rolls part={part} />
           <span className="lg-dice-panel__value">{part.value}</span>
         </li>
@@ -75,7 +86,13 @@ function modeKey(mode: RollEntry['mode']) {
   return mode === 'advantage' || mode === 'disadvantage' ? MODE_KEYS[mode] : undefined;
 }
 
-function Result({ entry }: { readonly entry: RollEntry }) {
+function Result({
+  entry,
+  labelForPath,
+}: {
+  readonly entry: RollEntry;
+  readonly labelForPath?: FieldLabelLookup;
+}) {
   const key = modeKey(entry.mode);
   if (entry.outcome.ok) {
     return (
@@ -92,7 +109,7 @@ function Result({ entry }: { readonly entry: RollEntry }) {
             {messageWith('dice.minimum', { minimum: entry.outcome.value.minimum })}
           </p>
         )}
-        <Breakdown result={entry.outcome.value} />
+        <Breakdown result={entry.outcome.value} labelForPath={labelForPath} />
       </>
     );
   }
@@ -190,7 +207,7 @@ function useFloatAboveFloor(panel: React.RefObject<HTMLDivElement | null>) {
   }, [panel]);
 }
 
-export function DicePanel({ results, onDismiss }: DicePanelProps) {
+export function DicePanel({ results, onDismiss, labelForPath }: DicePanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   useFloatAboveFloor(panel);
   useEffect(() => {
@@ -235,7 +252,7 @@ export function DicePanel({ results, onDismiss }: DicePanelProps) {
       <ol className="lg-dice-panel__history" aria-label={message('dice.history')}>
         {results.map((entry) => (
           <li className="lg-dice-panel__entry" key={entry.id}>
-            <Result entry={entry} />
+            <Result entry={entry} labelForPath={labelForPath} />
           </li>
         ))}
       </ol>

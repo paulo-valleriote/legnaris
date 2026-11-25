@@ -3,7 +3,7 @@ import { useNarrowViewport } from '../inline_edit';
 import { PendingChangesCard } from './pending_card';
 import { usePresetContext } from './preset_context';
 import { PresetSectionNav } from './section_nav';
-import type { PresetLayoutBlock, SheetPreset } from './types';
+import type { PresetLayoutBlock, PresetSectionNavTarget, SheetPreset } from './types';
 import './preset.css';
 
 function sectionComponents(preset: SheetPreset): ReadonlyMap<string, ComponentType> {
@@ -15,11 +15,13 @@ function SectionList({
   components,
   wrap,
   navAfter,
+  navTargets,
 }: {
   readonly keys: readonly string[];
   readonly components: ReadonlyMap<string, ComponentType>;
   readonly wrap: boolean;
   readonly navAfter?: string;
+  readonly navTargets?: readonly PresetSectionNavTarget[];
 }) {
   return (
     <>
@@ -34,7 +36,7 @@ function SectionList({
             ) : (
               <Component />
             )}
-            {navAfter === key && <PresetSectionNav after={key} />}
+            {navAfter === key && <PresetSectionNav skipKey={key} targets={navTargets} />}
           </Fragment>
         );
       })}
@@ -47,12 +49,14 @@ function LayoutBlock({
   components,
   wrap,
   navAfter,
+  navTargets,
   columnsClassName,
 }: {
   readonly block: PresetLayoutBlock;
   readonly components: ReadonlyMap<string, ComponentType>;
   readonly wrap: boolean;
   readonly navAfter?: string;
+  readonly navTargets?: readonly PresetSectionNavTarget[];
   readonly columnsClassName?: string;
 }) {
   if ('columns' in block) {
@@ -63,7 +67,13 @@ function LayoutBlock({
       <div className={className}>
         {block.columns.map((column, position) => (
           <div className="lg-preset__column" key={`column-${position}`}>
-            <SectionList keys={column} components={components} wrap={wrap} navAfter={navAfter} />
+            <SectionList
+              keys={column}
+              components={components}
+              wrap={wrap}
+              navAfter={navAfter}
+              navTargets={navTargets}
+            />
           </div>
         ))}
       </div>
@@ -72,7 +82,13 @@ function LayoutBlock({
 
   return (
     <div className="lg-preset__block">
-      <SectionList keys={block.sections} components={components} wrap={wrap} navAfter={navAfter} />
+      <SectionList
+        keys={block.sections}
+        components={components}
+        wrap={wrap}
+        navAfter={navAfter}
+        navTargets={navTargets}
+      />
     </div>
   );
 }
@@ -83,23 +99,38 @@ export function PresetPlayView({ preset }: { readonly preset: SheetPreset }) {
   const components = sectionComponents(preset);
   const statBlock = preset.statBlock?.when(sheet.kind) ? preset.statBlock : undefined;
   const layout = narrow && preset.narrowLayout !== undefined ? preset.narrowLayout : preset.layout;
-  const navAfter = narrow ? preset.sectionNav?.after : undefined;
+  const nav = preset.sectionNav;
+  const navTargets = nav?.targets;
+  const wrap = narrow || nav !== undefined;
+  const navAfter = narrow ? nav?.after : undefined;
+  const topNav = !narrow && nav !== undefined;
 
   return (
     <div className="lg-preset" data-testid="sheet-play">
       {statBlock !== undefined ? (
         <statBlock.Body />
       ) : layout === undefined ? (
-        preset.sections.map(({ key, Component }) => <Component key={key} />)
+        <>
+          {topNav && <PresetSectionNav targets={navTargets} />}
+          <SectionList
+            keys={preset.sections.map(({ key }) => key)}
+            components={components}
+            wrap={wrap}
+            navAfter={navAfter}
+            navTargets={navTargets}
+          />
+        </>
       ) : (
         <div className="lg-preset__body">
+          {topNav && <PresetSectionNav targets={navTargets} />}
           {layout.map((block, index) => (
             <LayoutBlock
               key={index}
               block={block}
               components={components}
-              wrap={narrow}
+              wrap={wrap}
               navAfter={navAfter}
+              navTargets={navTargets}
               columnsClassName={preset.columnsClassName}
             />
           ))}

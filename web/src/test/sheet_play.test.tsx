@@ -4,6 +4,10 @@ import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
 import {
+  PENDING_CARD_SPACE_CLASS,
+  PENDING_CARD_SPACE_PROPERTY,
+} from '../sheet/preset/pending_card';
+import {
   FANTASY_SHEET_ID,
   fantasyFieldTree,
   fantasySheetData,
@@ -288,11 +292,13 @@ describe('the inline edit control', () => {
 });
 
 describe('the pending changes card', () => {
-  it('Edge: a sheet with no edit draws no card and no table-sync slot', async () => {
+  it('Edge: a sheet with no edit draws no card and reserves no bottom space', async () => {
     await openFantasy();
 
+    const sheetRoot = screen.getByTestId('sheet-play');
     expect(pendingCard()).not.toBeInTheDocument();
-    expect(screen.queryByTestId('sheet-pending-sync')).not.toBeInTheDocument();
+    expect(sheetRoot).not.toHaveClass(PENDING_CARD_SPACE_CLASS);
+    expect(sheetRoot.style.getPropertyValue(PENDING_CARD_SPACE_PROPERTY)).toBe('');
   });
 
   it('Edge: the card is a named region with one separate polite announcement slot', async () => {
@@ -394,7 +400,7 @@ describe('the pending changes card', () => {
     expect(savedData(fake)).toBeUndefined();
   });
 
-  it('Happy path: two edits list each field with its old and new value and the table-sync placeholder', async () => {
+  it('Happy path: two edits list each field with its old and new value', async () => {
     const { user } = await openFantasy();
 
     await user.click(screen.getByRole('button', { name: 'Character name' }));
@@ -418,9 +424,6 @@ describe('the pending changes card', () => {
       }),
     ).toBeInTheDocument();
     expect(card).toHaveTextContent(message('sheet.pending.notSavedYet'));
-    expect(within(card).getByTestId('sheet-pending-sync')).toHaveTextContent(
-      message('sheet.pending.tableSync'),
-    );
   });
 
   it('Happy path: Discard restores the stored value and hides the card', async () => {
