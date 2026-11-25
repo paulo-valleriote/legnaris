@@ -294,7 +294,13 @@ export const fifthCharacterConfig: PresetConfig = {
       { label: 'preset.nav.abilities', sections: ['abilities'] },
       {
         label: 'preset.nav.combat',
-        sections: ['attacks', 'conditions', 'deathSavesSuccesses', 'deathSavesFailures'],
+        sections: [
+          'attacks',
+          'conditions',
+          'deathSavesSuccesses',
+          'deathSavesFailures',
+          'hitPoints',
+        ],
       },
       { label: 'preset.nav.items', sections: ['inventory'] },
       { label: 'preset.nav.spells', sections: ['spells', 'slot1', 'pactSlots'] },

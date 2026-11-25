@@ -21,10 +21,12 @@ export const PENDING_ANNOUNCE_MS = 600;
 export const PENDING_CARD_SPACE_CLASS = 'lg-preset--pending-card';
 export const PENDING_CARD_SPACE_PROPERTY = '--lg-pending-card-space';
 
+export const PENDING_CARD_SLACK = 12;
+
 export function reservedBottomSpace(height: number, inset: number): number {
   const card = Number.isFinite(height) ? Math.max(0, height) : 0;
   const floor = Number.isFinite(inset) ? Math.max(0, inset) : 0;
-  return card + floor;
+  return card + floor + PENDING_CARD_SLACK;
 }
 
 function useDebouncedAnnouncement(summary: string): string {

@@ -119,6 +119,7 @@
 @media (max-width: 39.99rem) {
   .lg-demo .lg-landing__bar {
     gap: var(--lg-space-8);
+    min-inline-size: 0;
   }
 
   .lg-demo .lg-landing__brand-name {
@@ -126,6 +127,7 @@
   }
 
   .lg-demo__actions {
+    min-inline-size: 0;
     flex-wrap: nowrap;
     gap: var(--lg-space-8);
   }
@@ -143,13 +145,17 @@
   .lg-demo__header-cta-compact {
     display: inline;
   }
-}
 
-@media (max-width: 39.99rem) {
   .lg-demo .lg-pending-card {
     bottom: calc(
       var(--lg-space-12) + var(--lg-size-control) +
         max(var(--lg-space-12), env(safe-area-inset-bottom, 0em)) + var(--lg-space-16)
     );
+  }
+}
+
+@media (max-width: 22.5rem) {
+  .lg-demo .lg-landing__brand-name {
+    display: none;
   }
 }

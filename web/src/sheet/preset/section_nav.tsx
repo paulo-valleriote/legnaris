@@ -16,6 +16,7 @@ import type { PresetSectionNavTarget } from './types';
 import './section_nav.css';
 
 const REACHED_LINE_OFFSET = 96;
+const REACHED_LINE_SLACK = 8;
 
 interface PresetSectionNavProps {
   readonly skipKey?: string;
@@ -85,7 +86,15 @@ export function PresetSectionNav({ skipKey, targets: configured }: PresetSection
         clientHeight: page.clientHeight,
         scrollHeight: page.scrollHeight,
       });
-      setActiveKey(currentSectionKey(positions, REACHED_LINE_OFFSET, ended));
+      const margin =
+        anchors.length === 0
+          ? 0
+          : parseFloat(getComputedStyle(anchors[0].anchor).scrollMarginBlockStart);
+      const line = Math.max(
+        REACHED_LINE_OFFSET,
+        (Number.isFinite(margin) ? margin : 0) + REACHED_LINE_SLACK,
+      );
+      setActiveKey(currentSectionKey(positions, line, ended));
     };
     update();
     window.addEventListener('scroll', update, { passive: true });

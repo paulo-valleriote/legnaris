@@ -67,6 +67,12 @@
   opacity: 1;
 }
 
+@media (hover: none), (pointer: coarse) {
+  .lg-inline-edit--affordance .lg-inline-edit__pencil {
+    opacity: 1;
+  }
+}
+
 .lg-compose-stats {
   display: flex;
   flex-wrap: wrap;
