@@ -1,6 +1,6 @@
 import type { Sheet } from '../api/models/sheet';
 import { parseTemplateDetail } from '../api/models/template';
-import characterGolden from '../../../testdata/templates/fifth_character_v1.json';
+import characterGolden from './fifth_character_template.json';
 
 export const FIFTH_DEMO_TEMPLATE_ID = 'fifth_character_v1';
 
