@@ -1,3 +1,4 @@
+import { editName } from './dice_names';
 import { describe, expect, it, vi } from 'vitest';
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -64,7 +65,7 @@ function savedData(fake: ReturnType<typeof createFakeTransport>) {
 }
 
 async function save(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
+  await user.click(screen.getByRole('button', { name: editName(message('sheet.pending.save')) }));
 }
 
 const hero = () => screen.getByTestId('sheet-play-hero');
@@ -82,10 +83,10 @@ describe('Play and Edit modes', { timeout: 15_000 }, () => {
     expect(screen.getByRole('textbox', { name: 'Level' })).toBeInTheDocument();
     expect(screen.queryByTestId('sheet-play-hero')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('sheet.mode.play') }),
+      screen.queryByRole('button', { name: editName(message('sheet.mode.play')) }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('sheet.mode.edit') }),
+      screen.queryByRole('button', { name: editName(message('sheet.mode.edit')) }),
     ).not.toBeInTheDocument();
   });
 
@@ -98,10 +99,10 @@ describe('Play and Edit modes', { timeout: 15_000 }, () => {
     expect(screen.queryByRole('textbox', { name: 'Character name' })).not.toBeInTheDocument();
     expect(screen.queryByTestId('section-strip')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('arrange.start') }),
+      screen.queryByRole('button', { name: editName(message('arrange.start')) }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('sheet.pinnedOnly') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pinnedOnly')) }),
     ).not.toBeInTheDocument();
   });
 
@@ -109,9 +110,9 @@ describe('Play and Edit modes', { timeout: 15_000 }, () => {
     const { fake, user } = await openFantasy();
     expect(fake.attempts).toBe(2);
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
     expect(screen.getByRole('textbox', { name: 'Character name' })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.play') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.play')) }));
 
     expect(fake.attempts).toBe(2);
     expect(hero()).toBeInTheDocument();
@@ -120,14 +121,18 @@ describe('Play and Edit modes', { timeout: 15_000 }, () => {
   it('Happy path: Edit shows the generic form with Arrange and the pinned filter, and Play returns the hero', async () => {
     const { user } = await openFantasy();
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
 
     expect(screen.getByRole('textbox', { name: 'Character name' })).toHaveValue('Aria');
-    expect(screen.getByRole('button', { name: message('arrange.start') })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('sheet.pinnedOnly') })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: editName(message('arrange.start')) }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: editName(message('sheet.pinnedOnly')) }),
+    ).toBeInTheDocument();
     expect(screen.queryByTestId('sheet-play-hero')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.play') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.play')) }));
     expect(hero()).toBeInTheDocument();
   });
 });
@@ -136,7 +141,7 @@ describe('the hero header', () => {
   it('Edge: an empty character name falls back to the sheet name, never to the empty-field copy', async () => {
     await openFantasy({ data: fantasySheetData({ characterName: '' }) });
 
-    const title = screen.getByRole('button', { name: 'Character name' });
+    const title = screen.getByRole('button', { name: editName('Character name') });
     expect(title).toHaveTextContent('Aragorn');
     expect(title).not.toHaveTextContent(
       messageWith('sheet.inlineAdd', { label: 'Character name' }),
@@ -148,13 +153,13 @@ describe('the hero header', () => {
       data: fantasySheetData({ ancestry: '', origin: '', playerName: '' }),
     });
 
-    expect(screen.getByRole('button', { name: 'Ancestry' })).toHaveTextContent(
+    expect(screen.getByRole('button', { name: editName('Ancestry') })).toHaveTextContent(
       messageWith('sheet.inlineAdd', { label: 'Ancestry' }),
     );
-    expect(screen.getByRole('button', { name: 'Origin' })).toHaveTextContent(
+    expect(screen.getByRole('button', { name: editName('Origin') })).toHaveTextContent(
       messageWith('sheet.inlineAdd', { label: 'Origin' }),
     );
-    expect(screen.getByRole('button', { name: 'Player name' })).toHaveTextContent(
+    expect(screen.getByRole('button', { name: editName('Player name') })).toHaveTextContent(
       messageWith('sheet.inlineAdd', { label: 'Player name' }),
     );
   });
@@ -165,16 +170,22 @@ describe('the hero header', () => {
       messageWith('sheet.play.level', { count: 20 }),
     );
     expect(
-      screen.getByRole('button', { name: messageWith('engine.increase', { label: 'Level' }) }),
+      screen.getByRole('button', {
+        name: messageWith('engine.increase', { label: 'Level' }),
+      }),
     ).toBeDisabled();
     expect(
-      screen.getByRole('button', { name: messageWith('engine.decrease', { label: 'Level' }) }),
+      screen.getByRole('button', {
+        name: messageWith('engine.decrease', { label: 'Level' }),
+      }),
     ).toBeEnabled();
 
     cleanup();
     await openFantasy({ data: fantasySheetData({ level: 1 }) });
     expect(
-      screen.getByRole('button', { name: messageWith('engine.decrease', { label: 'Level' }) }),
+      screen.getByRole('button', {
+        name: messageWith('engine.decrease', { label: 'Level' }),
+      }),
     ).toBeDisabled();
   });
 
@@ -188,14 +199,16 @@ describe('the hero header', () => {
     };
     const { fake, user } = await openFantasy({ template: { fields } });
 
-    await user.click(screen.getByRole('button', { name: 'Character name' }));
+    await user.click(screen.getByRole('button', { name: editName('Character name') }));
     const input = screen.getByRole('textbox', { name: 'Character name' });
     await user.clear(input);
     await user.type(input, 'Brenna{Enter}');
 
-    expect(screen.getByRole('button', { name: 'Character name' })).toHaveTextContent('Aria');
+    expect(screen.getByRole('button', { name: editName('Character name') })).toHaveTextContent(
+      'Aria',
+    );
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -203,9 +216,11 @@ describe('the hero header', () => {
   it('Happy path: the hero shows the character title, ancestry, origin, level, player and proficiency', async () => {
     await openFantasy();
 
-    expect(screen.getByRole('button', { name: 'Character name' })).toHaveTextContent('Aria');
-    expect(screen.getByRole('button', { name: 'Ancestry' })).toHaveTextContent('Elf');
-    expect(screen.getByRole('button', { name: 'Origin' })).toHaveTextContent('Wanderer');
+    expect(screen.getByRole('button', { name: editName('Character name') })).toHaveTextContent(
+      'Aria',
+    );
+    expect(screen.getByRole('button', { name: editName('Ancestry') })).toHaveTextContent('Elf');
+    expect(screen.getByRole('button', { name: editName('Origin') })).toHaveTextContent('Wanderer');
     expect(screen.getByTestId('sheet-play-level')).toHaveTextContent(
       messageWith('sheet.play.level', { count: 3 }),
     );
@@ -220,14 +235,16 @@ describe('the inline edit control', () => {
   it('Edge: Escape cancels the edit and leaves no pending change', async () => {
     const { fake, user } = await openFantasy();
 
-    await user.click(screen.getByRole('button', { name: 'Character name' }));
+    await user.click(screen.getByRole('button', { name: editName('Character name') }));
     const input = screen.getByRole('textbox', { name: 'Character name' });
     await user.clear(input);
     await user.type(input, 'Brenna{Escape}');
 
-    expect(screen.getByRole('button', { name: 'Character name' })).toHaveTextContent('Aria');
+    expect(screen.getByRole('button', { name: editName('Character name') })).toHaveTextContent(
+      'Aria',
+    );
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -235,25 +252,29 @@ describe('the inline edit control', () => {
   it('Edge: blur commits the typed value', async () => {
     const { user } = await openFantasy();
 
-    await user.click(screen.getByRole('button', { name: 'Ancestry' }));
+    await user.click(screen.getByRole('button', { name: editName('Ancestry') }));
     const input = screen.getByRole('textbox', { name: 'Ancestry' });
     await user.clear(input);
     await user.type(input, 'Half-elf');
     await user.tab();
 
-    expect(screen.getByRole('button', { name: 'Ancestry' })).toHaveTextContent('Half-elf');
-    expect(screen.getByRole('button', { name: message('sheet.pending.save') })).toBeEnabled();
+    expect(screen.getByRole('button', { name: editName('Ancestry') })).toHaveTextContent(
+      'Half-elf',
+    );
+    expect(
+      screen.getByRole('button', { name: editName(message('sheet.pending.save')) }),
+    ).toBeEnabled();
   });
 
   it('Edge: committing an empty value writes the empty value and shows the Add copy', async () => {
     const { fake, user } = await openFantasy();
 
-    await user.click(screen.getByRole('button', { name: 'Origin' }));
+    await user.click(screen.getByRole('button', { name: editName('Origin') }));
     const input = screen.getByRole('textbox', { name: 'Origin' });
     await user.clear(input);
     await user.keyboard('{Enter}');
 
-    expect(screen.getByRole('button', { name: 'Origin' })).toHaveTextContent(
+    expect(screen.getByRole('button', { name: editName('Origin') })).toHaveTextContent(
       messageWith('sheet.inlineAdd', { label: 'Origin' }),
     );
     await save(user);
@@ -263,13 +284,15 @@ describe('the inline edit control', () => {
   it('Happy path: Enter commits the title, which writes identity.characterName only', async () => {
     const { fake, user } = await openFantasy();
 
-    await user.click(screen.getByRole('button', { name: 'Character name' }));
+    await user.click(screen.getByRole('button', { name: editName('Character name') }));
     const input = screen.getByRole('textbox', { name: 'Character name' });
     expect(input).toHaveValue('Aria');
     await user.clear(input);
     await user.type(input, 'Brenna{Enter}');
 
-    expect(screen.getByRole('button', { name: 'Character name' })).toHaveTextContent('Brenna');
+    expect(screen.getByRole('button', { name: editName('Character name') })).toHaveTextContent(
+      'Brenna',
+    );
     await save(user);
     await waitFor(() =>
       expect(savedData(fake)).toEqual({ data: { identity: { characterName: 'Brenna' } } }),
@@ -280,7 +303,9 @@ describe('the inline edit control', () => {
     const { fake, user } = await openFantasy();
 
     await user.click(
-      screen.getByRole('button', { name: messageWith('engine.increase', { label: 'Level' }) }),
+      screen.getByRole('button', {
+        name: messageWith('engine.increase', { label: 'Level' }),
+      }),
     );
 
     expect(screen.getByTestId('sheet-play-level')).toHaveTextContent(
@@ -325,7 +350,7 @@ describe('the pending changes card', () => {
 
     expect(pendingCard()).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -334,11 +359,11 @@ describe('the pending changes card', () => {
     const { user } = await openFantasy();
     await user.click(levelStep('increase'));
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
     expect(pendingCard()).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeEnabled();
+    expect(screen.getByRole('button', { name: editName(message('sheet.save')) })).toBeEnabled();
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.play') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.play')) }));
     expect(pendingCard()).toBeInTheDocument();
     expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent('Level 3 → 4');
   });
@@ -346,7 +371,7 @@ describe('the pending changes card', () => {
   it('Edge: clearing a text field shows the empty value in the summary', async () => {
     const { user } = await openFantasy();
 
-    await user.click(screen.getByRole('button', { name: 'Origin' }));
+    await user.click(screen.getByRole('button', { name: editName('Origin') }));
     const input = screen.getByRole('textbox', { name: 'Origin' });
     await user.clear(input);
     await user.keyboard('{Enter}');
@@ -364,7 +389,7 @@ describe('the pending changes card', () => {
 
     await user.click(
       within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
-        name: message('sheet.pending.save'),
+        name: editName(message('sheet.pending.save')),
       }),
     );
 
@@ -375,7 +400,9 @@ describe('the pending changes card', () => {
     );
     expect(pendingCard()).toBeInTheDocument();
     expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent('Level 3 → 4');
-    expect(screen.getByRole('button', { name: message('sheet.pending.save') })).toBeEnabled();
+    expect(
+      screen.getByRole('button', { name: editName(message('sheet.pending.save')) }),
+    ).toBeEnabled();
   });
 
   it('Error: a failed preview keeps the card and shows the mapped error', async () => {
@@ -386,7 +413,7 @@ describe('the pending changes card', () => {
 
     await user.click(
       within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
-        name: message('sheet.pending.preview'),
+        name: editName(message('sheet.pending.preview')),
       }),
     );
 
@@ -403,7 +430,7 @@ describe('the pending changes card', () => {
   it('Happy path: two edits list each field with its old and new value', async () => {
     const { user } = await openFantasy();
 
-    await user.click(screen.getByRole('button', { name: 'Character name' }));
+    await user.click(screen.getByRole('button', { name: editName('Character name') }));
     const input = screen.getByRole('textbox', { name: 'Character name' });
     await user.clear(input);
     await user.type(input, 'Brenna{Enter}');
@@ -432,7 +459,7 @@ describe('the pending changes card', () => {
 
     await user.click(
       within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
-        name: message('sheet.pending.discard'),
+        name: editName(message('sheet.pending.discard')),
       }),
     );
 
@@ -441,7 +468,7 @@ describe('the pending changes card', () => {
       messageWith('sheet.play.level', { count: 3 }),
     );
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -452,7 +479,7 @@ describe('the pending changes card', () => {
 
     await user.click(
       within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
-        name: message('sheet.pending.save'),
+        name: editName(message('sheet.pending.save')),
       }),
     );
 
@@ -467,7 +494,7 @@ describe('the pending changes card', () => {
 
     await user.click(
       within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
-        name: message('sheet.pending.preview'),
+        name: editName(message('sheet.pending.preview')),
       }),
     );
 

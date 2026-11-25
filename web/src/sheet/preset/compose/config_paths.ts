@@ -53,6 +53,11 @@ function piecePaths(piece: PresetPiece): readonly string[] {
       );
     case 'pips':
       return typeof piece.max === 'string' ? [piece.count, piece.max] : [piece.count];
+    case 'spellSlots':
+      return [
+        ...piece.levels.flatMap((level) => [level.count, level.max]),
+        ...(piece.pact === undefined ? [] : [piece.pact.count, piece.pact.max]),
+      ];
     case 'abilityGrid':
       return piece.abilities.flatMap((ability) => [
         ability.score,

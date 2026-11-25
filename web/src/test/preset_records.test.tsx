@@ -170,6 +170,34 @@ describe('the record table piece', () => {
     expect(within(row).getByRole('textbox', { name: 'Uses' })).toHaveValue('2');
   });
 
+  it('Happy path: the table names its list in a visible heading', () => {
+    renderPreset(<RecordTable piece={recordTable(['name', 'uses'])} />, {
+      sheet: recordSheet({ [RECORD_A]: { name: 'Sword', uses: 2, position: 1 } }),
+    });
+
+    const table = screen.getByTestId('compose-record-table');
+    const heading = within(table).getByRole('heading', { level: 2 });
+    expect(heading).toHaveTextContent(table.getAttribute('aria-label') ?? '');
+  });
+
+  it('Edge: an empty list still shows its heading', () => {
+    renderPreset(<RecordTable piece={recordTable()} />, { sheet: recordSheet({}) });
+
+    expect(
+      within(screen.getByTestId('compose-record-table')).getByRole('heading', { level: 2 }),
+    ).toBeInTheDocument();
+  });
+
+  it('Happy path: columns share one grid template, text wider than numbers', () => {
+    renderPreset(<RecordTable piece={recordTable(['name', 'uses'])} />, {
+      sheet: recordSheet({ [RECORD_A]: { name: 'Sword', uses: 2, position: 1 } }),
+    });
+
+    expect(
+      screen.getByTestId('compose-record-table').style.getPropertyValue('--lg-record-template'),
+    ).toBe('minmax(0, 2fr) minmax(6.5rem, 1fr)');
+  });
+
   it('Happy path: one column header covers every Record in the run', () => {
     renderPreset(<RecordTable piece={recordTable(['name', 'uses'])} />, {
       sheet: recordSheet({
@@ -223,6 +251,19 @@ describe('the record table piece', () => {
       }),
     ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: addName() })).toBeInTheDocument();
+  });
+
+  it('Edge: an exclusive column gets a wider track so its choice is not clipped', () => {
+    renderPreset(<RecordTable piece={recordTable(['name', 'slot'])} />, {
+      template: exclusiveTemplate(),
+      sheet: recordSheet({
+        [RECORD_A]: { name: 'Sword', equipped: 1, stowed: 0, position: 1 },
+      }),
+    });
+
+    expect(
+      screen.getByTestId('compose-record-table').style.getPropertyValue('--lg-record-template'),
+    ).toBe('minmax(0, 2fr) minmax(8.5rem, 1.25fr)');
   });
 
   it('Happy path: an exclusive Record column selects one option through the store', async () => {

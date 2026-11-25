@@ -8,6 +8,7 @@ import { Pips } from './pips';
 import { RecordTable } from './record_table';
 import { ResetBar } from './reset_bar';
 import { RollModeBar } from './roll_mode_bar';
+import { SpellSlots } from './spell_slots';
 import { SaveList } from './save_list';
 import { SkillList } from './skill_list';
 import { StatPills } from './stat_pills';
@@ -24,19 +25,34 @@ import type {
   PresetRecordTablePiece,
   PresetResetBarPiece,
   PresetRollModePiece,
+  PresetSpellSlotsPiece,
   PresetStatPillsPiece,
   PresetTextFieldsPiece,
 } from './types';
 
 function headerComponent(config: PresetConfig): ComponentType<PresetHeaderProps> {
+  const trailingPiece = config.pieces.find((piece) => piece.key === config.header.trailing);
+  const Trailing = trailingPiece === undefined ? undefined : pieceComponent(trailingPiece);
   return function ConfigHeader({ level }: PresetHeaderProps) {
-    return <IdentityHeader header={config.header} level={level} />;
+    return (
+      <IdentityHeader
+        header={config.header}
+        level={level}
+        trailing={Trailing === undefined ? undefined : <Trailing />}
+      />
+    );
   };
 }
 
 function statPillsComponent(piece: PresetStatPillsPiece): ComponentType {
   return function StatPillsSection() {
     return <StatPills piece={piece} />;
+  };
+}
+
+function spellSlotsComponent(piece: PresetSpellSlotsPiece): ComponentType {
+  return function SpellSlotsSection() {
+    return <SpellSlots piece={piece} />;
   };
 }
 
@@ -106,6 +122,8 @@ function pieceComponent(piece: PresetPiece): ComponentType {
       return statPillsComponent(piece);
     case 'pips':
       return pipsComponent(piece);
+    case 'spellSlots':
+      return spellSlotsComponent(piece);
     case 'abilityGrid':
       return abilityGridComponent(piece);
     case 'saveList':
@@ -131,7 +149,9 @@ export function presetFromConfig(config: PresetConfig): SheetPreset {
   return {
     templateId: config.templateId,
     Header: headerComponent(config),
-    sections: config.pieces.map((piece) => ({ key: piece.key, Component: pieceComponent(piece) })),
+    sections: config.pieces
+      .filter((piece) => piece.key !== config.header.trailing)
+      .map((piece) => ({ key: piece.key, Component: pieceComponent(piece) })),
     ...(config.layout === undefined ? {} : { layout: config.layout }),
     ...(config.narrowLayout === undefined ? {} : { narrowLayout: config.narrowLayout }),
     ...(config.sectionNav === undefined ? {} : { sectionNav: config.sectionNav }),

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore } from 'react';
+import { useCallback, useMemo, useSyncExternalStore, type CSSProperties } from 'react';
 import { valueAtPath } from '../../../api/models/sheet';
 import type { FieldNode, FieldSchema } from '../../../api/models/template';
 import { EXCLUSIVE_NONE_VALUE, SheetExclusiveControl } from '../../../engine/exclusive_control';
@@ -18,6 +18,7 @@ import { CloseIcon, PlusIcon } from '../../../ui/icons';
 import { usePresetContext, usePresetValue } from '../preset_context';
 import { RollableValue } from '../rollable_value';
 import type { PresetRecordTablePiece } from './types';
+import { GroupTitle } from './group_title';
 import './compose.css';
 
 function sheetList(
@@ -92,6 +93,17 @@ function cellClass(column: ListColumn): string {
       ? ' lg-compose-record__cell--number'
       : ''
   }`;
+}
+
+function columnTrack(column: ListColumn): string {
+  if (column.kind !== 'field') {
+    return 'minmax(8.5rem, 1.25fr)';
+  }
+  return fieldColumnAlign(column.schema) === 'right' ? 'minmax(6.5rem, 1fr)' : 'minmax(0, 2fr)';
+}
+
+function recordTemplate(columns: readonly ListColumn[]): CSSProperties {
+  return { '--lg-record-template': columns.map(columnTrack).join(' ') } as CSSProperties;
 }
 
 function FieldCell({ path, schema }: { readonly path: string; readonly schema: FieldSchema }) {
@@ -255,7 +267,9 @@ export function RecordTable({ piece }: { readonly piece: PresetRecordTablePiece 
       role="group"
       aria-label={list.label}
       data-testid="compose-record-table"
+      style={recordTemplate(columns)}
     >
+      <GroupTitle>{list.label}</GroupTitle>
       {recordIDs.length === 0 ? (
         <p className="lg-compose-record__empty">{message('record.empty')}</p>
       ) : (

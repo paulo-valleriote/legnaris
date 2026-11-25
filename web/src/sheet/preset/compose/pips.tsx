@@ -7,6 +7,7 @@ import './compose.css';
 interface PipsBodyProps {
   readonly countPath: string;
   readonly max: number;
+  readonly label?: string;
 }
 
 function pipLimit(max: number): number {
@@ -24,8 +25,9 @@ function pipCount(value: unknown, limit: number): number {
   return Math.min(limit, Math.max(0, Math.trunc(count)));
 }
 
-function PipsBody({ countPath, max }: PipsBodyProps) {
-  const label = usePresetLabel(countPath);
+function PipsBody({ countPath, max, label: shownLabel }: PipsBodyProps) {
+  const fieldLabel = usePresetLabel(countPath);
+  const label = shownLabel ?? fieldLabel;
   const value = usePresetValue(countPath);
   const commit = usePresetCommit(countPath);
   const limit = pipLimit(max);
@@ -65,16 +67,18 @@ function PipsBody({ countPath, max }: PipsBodyProps) {
   );
 }
 
-function PipsWithMaxPath({
+export function PipsWithMaxPath({
   countPath,
   maxPath,
+  label,
 }: {
   readonly countPath: string;
   readonly maxPath: string;
+  readonly label?: string;
 }) {
   const max = numberValue(usePresetValue(maxPath)) ?? 0;
 
-  return <PipsBody countPath={countPath} max={max} />;
+  return <PipsBody countPath={countPath} max={max} label={label} />;
 }
 
 export function Pips({ piece }: { readonly piece: PresetPipsPiece }) {

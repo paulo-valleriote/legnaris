@@ -16,7 +16,7 @@ import {
 import type { FakeOutcome } from './fake_transport';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
-import { initiativeRollName } from './dice_names';
+import { initiativeRollName, editName } from './dice_names';
 
 const BASE_URL = 'http://api.test';
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -67,7 +67,7 @@ async function openBreakdown(user: User) {
 }
 
 function baseArmorButton() {
-  return within(breakdown()).getByRole('button', { name: 'Base armor class' });
+  return within(breakdown()).getByRole('button', { name: editName('Base armor class') });
 }
 
 async function editBaseArmor(user: User, text: string) {
@@ -91,13 +91,13 @@ function previewRequest(fake: ReturnType<typeof createFakeTransport>) {
 }
 
 async function save(user: User) {
-  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
+  await user.click(screen.getByRole('button', { name: editName(message('sheet.pending.save')) }));
 }
 
 async function preview(user: User) {
   await user.click(
     within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
-      name: message('sheet.pending.preview'),
+      name: editName(message('sheet.pending.preview')),
     }),
   );
 }
@@ -172,7 +172,7 @@ describe('the armor class breakdown', () => {
     expect(breakdownQuery()).not.toBeNull();
     expect(baseArmorButton()).toHaveTextContent('10');
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -199,7 +199,9 @@ describe('the armor class breakdown', () => {
     const { user } = await openFantasy();
     await openBreakdown(user);
 
-    await user.click(within(breakdown()).getByRole('button', { name: message('common.close') }));
+    await user.click(
+      within(breakdown()).getByRole('button', { name: editName(message('common.close')) }),
+    );
 
     expect(breakdownQuery()).toBeNull();
     expect(shield()).toHaveFocus();
@@ -211,14 +213,12 @@ describe('the armor class breakdown', () => {
     });
     await openBreakdown(user);
 
-    expect(within(breakdown()).getByRole('button', { name: 'Dexterity' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-    expect(within(breakdown()).getByRole('button', { name: 'Constitution' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    expect(
+      within(breakdown()).getByRole('button', { name: editName('Dexterity') }),
+    ).toHaveAttribute('aria-pressed', 'false');
+    expect(
+      within(breakdown()).getByRole('button', { name: editName('Constitution') }),
+    ).toHaveAttribute('aria-pressed', 'false');
     expect(within(breakdown()).getByTestId('sheet-ac-modifier')).toHaveTextContent(
       message('sheet.play.noValue'),
     );
@@ -230,25 +230,23 @@ describe('the armor class breakdown', () => {
     });
     await openBreakdown(user);
 
-    expect(within(breakdown()).getByRole('button', { name: 'Dexterity' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
-    expect(within(breakdown()).getByRole('button', { name: 'Constitution' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    expect(
+      within(breakdown()).getByRole('button', { name: editName('Dexterity') }),
+    ).toHaveAttribute('aria-pressed', 'false');
+    expect(
+      within(breakdown()).getByRole('button', { name: editName('Constitution') }),
+    ).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('Edge: clicking the active segment writes nothing', async () => {
     const { fake, user } = await openFantasy();
     await openBreakdown(user);
 
-    await user.click(within(breakdown()).getByRole('button', { name: 'Dexterity' }));
+    await user.click(within(breakdown()).getByRole('button', { name: editName('Dexterity') }));
 
     expect(screen.queryByTestId('sheet-pending-card')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -263,7 +261,7 @@ describe('the armor class breakdown', () => {
     expect(baseArmorButton()).toHaveTextContent('10');
     expect(acValue()).toHaveTextContent('12');
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -294,7 +292,7 @@ describe('the armor class breakdown', () => {
 
     expect(baseArmorButton()).toHaveTextContent('10');
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -306,11 +304,11 @@ describe('the armor class breakdown', () => {
     expect(panel).toHaveAttribute('role', 'dialog');
     expect(panel).toHaveAccessibleName('Armor class');
     expect(baseArmorButton()).toHaveTextContent('10');
-    expect(within(panel).getByRole('button', { name: 'Dexterity' })).toHaveAttribute(
+    expect(within(panel).getByRole('button', { name: editName('Dexterity') })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
-    expect(within(panel).getByRole('button', { name: 'Constitution' })).toHaveAttribute(
+    expect(within(panel).getByRole('button', { name: editName('Constitution') })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -329,17 +327,19 @@ describe('the armor class breakdown', () => {
 
     await user.tab();
     expect(
-      within(breakdown()).getByRole('button', { name: message('common.close') }),
+      within(breakdown()).getByRole('button', { name: editName(message('common.close')) }),
     ).toHaveFocus();
 
     await user.tab();
     expect(baseArmorButton()).toHaveFocus();
 
     await user.tab();
-    expect(within(breakdown()).getByRole('button', { name: 'Dexterity' })).toHaveFocus();
+    expect(within(breakdown()).getByRole('button', { name: editName('Dexterity') })).toHaveFocus();
 
     await user.tab();
-    expect(within(breakdown()).getByRole('button', { name: 'Constitution' })).toHaveFocus();
+    expect(
+      within(breakdown()).getByRole('button', { name: editName('Constitution') }),
+    ).toHaveFocus();
   });
 
   it('Happy path: a base armor edit goes to the pending delta and Save sends only that leaf', async () => {
@@ -365,16 +365,14 @@ describe('the armor class breakdown', () => {
     const { fake, user } = await openFantasy();
     await openBreakdown(user);
 
-    await user.click(within(breakdown()).getByRole('button', { name: 'Constitution' }));
+    await user.click(within(breakdown()).getByRole('button', { name: editName('Constitution') }));
 
-    expect(within(breakdown()).getByRole('button', { name: 'Constitution' })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-    expect(within(breakdown()).getByRole('button', { name: 'Dexterity' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    );
+    expect(
+      within(breakdown()).getByRole('button', { name: editName('Constitution') }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      within(breakdown()).getByRole('button', { name: editName('Dexterity') }),
+    ).toHaveAttribute('aria-pressed', 'false');
     expect(within(breakdown()).getByTestId('sheet-ac-modifier')).toHaveTextContent('+1');
 
     await save(user);
@@ -389,7 +387,7 @@ describe('the armor class breakdown', () => {
     });
     await openBreakdown(user);
 
-    await user.click(within(breakdown()).getByRole('button', { name: 'Constitution' }));
+    await user.click(within(breakdown()).getByRole('button', { name: editName('Constitution') }));
     await preview(user);
 
     await waitFor(() => expect(acValue()).toHaveTextContent('11'));
@@ -418,12 +416,12 @@ describe('the initiative and speed tiles', () => {
   it('Edge: a speed beyond the range clamps before it reaches the delta', async () => {
     const { fake, user } = await openFantasy();
 
-    await user.click(screen.getByRole('button', { name: 'Speed' }));
+    await user.click(screen.getByRole('button', { name: editName('Speed') }));
     const input = screen.getByRole('textbox', { name: 'Speed' });
     await user.clear(input);
     await user.type(input, '200{Enter}');
 
-    expect(screen.getByRole('button', { name: 'Speed' })).toHaveTextContent('120');
+    expect(screen.getByRole('button', { name: editName('Speed') })).toHaveTextContent('120');
     await save(user);
     await waitFor(() => expect(savedData(fake)).toEqual({ data: { combat: { speed: 120 } } }));
   });
@@ -434,7 +432,7 @@ describe('the initiative and speed tiles', () => {
     expect(screen.getByTestId('sheet-initiative')).toHaveTextContent('Initiative');
     expect(screen.getByRole('button', { name: initiativeRollName('+3') })).toHaveTextContent('+3');
     expect(screen.getByTestId('sheet-speed')).toHaveTextContent('Speed');
-    expect(screen.getByRole('button', { name: 'Speed' })).toHaveTextContent('30');
+    expect(screen.getByRole('button', { name: editName('Speed') })).toHaveTextContent('30');
   });
 
   it('Edge: a zero or negative initiative keeps the die and names the signed roll', async () => {
@@ -471,7 +469,7 @@ describe('the initiative and speed tiles', () => {
     const { user } = await openFantasy();
     expect(screen.getByTestId('sheet-initiative').querySelector('.lg-dice-icon')).not.toBeNull();
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
 
     expect(screen.queryByTestId('sheet-initiative')).toBeNull();
     expect(screen.getByRole('textbox', { name: 'Initiative' })).toBeInTheDocument();
@@ -483,7 +481,7 @@ describe('the initiative and speed tiles', () => {
     const tile = screen.getByTestId('sheet-initiative');
     expect(tile.querySelector('.lg-dice-icon')).toHaveAttribute('data-die-shape', 'd20');
     expect(
-      within(tile).getByRole('button', { name: message('sheet.play.editInitiative') }),
+      within(tile).getByRole('button', { name: editName(message('sheet.play.editInitiative')) }),
     ).toBeInTheDocument();
     expect(within(tile).getByRole('button', { name: initiativeRollName('+3') })).toHaveTextContent(
       '+3',
@@ -505,12 +503,12 @@ describe('the initiative and speed tiles', () => {
   it('Happy path: a speed edit goes to the pending delta and Save sends only that leaf', async () => {
     const { fake, user } = await openFantasy();
 
-    await user.click(screen.getByRole('button', { name: 'Speed' }));
+    await user.click(screen.getByRole('button', { name: editName('Speed') }));
     const input = screen.getByRole('textbox', { name: 'Speed' });
     await user.clear(input);
     await user.type(input, '35{Enter}');
 
-    expect(screen.getByRole('button', { name: 'Speed' })).toHaveTextContent('35');
+    expect(screen.getByRole('button', { name: editName('Speed') })).toHaveTextContent('35');
     expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent('Speed 30 → 35');
 
     await save(user);

@@ -13,7 +13,7 @@ import {
 import type { FakeOutcome } from './fake_transport';
 import { createFakeTransport, errorOutcome, successOutcome } from './fake_transport';
 import { renderApp } from './render';
-import { rollName } from './dice_names';
+import { rollName, editName } from './dice_names';
 
 const BASE_URL = 'http://api.test';
 
@@ -54,7 +54,7 @@ function rollButton(label: string) {
 }
 
 function scoreButton(label: string) {
-  return screen.getByRole('button', { name: label });
+  return screen.getByRole('button', { name: editName(label) });
 }
 
 async function editScore(user: ReturnType<typeof userEvent.setup>, label: string, text: string) {
@@ -69,7 +69,7 @@ async function editScore(user: ReturnType<typeof userEvent.setup>, label: string
 }
 
 async function save(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
+  await user.click(screen.getByRole('button', { name: editName(message('sheet.pending.save')) }));
 }
 
 describe('ability medallions', () => {
@@ -81,7 +81,9 @@ describe('ability medallions', () => {
 
     const strength = medallion('strength');
     expect(within(strength).getByText('Strength')).toBeInTheDocument();
-    expect(within(strength).getByRole('button', { name: 'Strength' })).toHaveTextContent('16');
+    expect(within(strength).getByRole('button', { name: editName('Strength') })).toHaveTextContent(
+      '16',
+    );
     expect(
       within(strength).getByRole('button', { name: rollName('Strength modifier') }),
     ).toHaveTextContent('+3');
@@ -89,14 +91,16 @@ describe('ability medallions', () => {
       within(medallion('wisdom')).getByRole('button', { name: rollName('Wisdom modifier') }),
     ).toHaveTextContent('−1');
     expect(
-      within(medallion('dexterity')).getByRole('button', { name: 'Dexterity' }),
+      within(medallion('dexterity')).getByRole('button', { name: editName('Dexterity') }),
     ).toHaveTextContent('14');
   });
 
   it('Edge: the modifier is not an editable control', async () => {
     const { user } = await openFantasy();
 
-    expect(screen.queryByRole('button', { name: 'Strength modifier' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: editName('Strength modifier') }),
+    ).not.toBeInTheDocument();
     await user.click(rollButton('Strength modifier') as HTMLElement);
 
     expect(screen.queryByRole('textbox', { name: 'Strength modifier' })).not.toBeInTheDocument();
@@ -123,7 +127,9 @@ describe('ability medallions', () => {
     const strength = medallion('strength');
     expect(rollButton('Strength modifier')).toBeNull();
     expect(strength).toHaveTextContent('+3');
-    expect(within(strength).getByRole('button', { name: 'Strength' })).toBeInTheDocument();
+    expect(
+      within(strength).getByRole('button', { name: editName('Strength') }),
+    ).toBeInTheDocument();
   });
 
   it('Error: a template that marks the score non-editable keeps the stored score and writes nothing', async () => {
@@ -140,7 +146,7 @@ describe('ability medallions', () => {
 
     expect(scoreButton('Strength')).toHaveTextContent('16');
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -153,7 +159,7 @@ describe('ability medallions', () => {
     await editScore(user, 'Strength', '12');
     await user.click(
       within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
-        name: message('sheet.pending.preview'),
+        name: editName(message('sheet.pending.preview')),
       }),
     );
 
@@ -199,7 +205,7 @@ describe('ability medallions', () => {
     await editScore(user, 'Strength', '12');
     await user.click(
       within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
-        name: message('sheet.pending.preview'),
+        name: editName(message('sheet.pending.preview')),
       }),
     );
 
@@ -251,7 +257,7 @@ describe('the score badge', () => {
 
     expect(scoreButton('Strength')).toHaveTextContent('16');
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -263,7 +269,7 @@ describe('the score badge', () => {
 
     expect(scoreButton('Strength')).toHaveTextContent('16');
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -288,7 +294,7 @@ describe('the score badge', () => {
 
     expect(scoreButton('Strength')).toHaveTextContent('16');
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -303,7 +309,7 @@ describe('the score badge', () => {
 
     expect(screen.queryByTestId('sheet-pending-card')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
   });
 });

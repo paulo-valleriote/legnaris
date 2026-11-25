@@ -1,3 +1,4 @@
+import { editName } from './dice_names';
 import { describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -101,9 +102,13 @@ describe('the hit point track piece', () => {
       sheet: vitalsSheet({ hit: 10, hitTemp: 3 }),
     });
 
-    expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('10');
-    expect(screen.getByRole('button', { name: 'Hit Points Max' })).toHaveTextContent('20');
-    expect(screen.getByRole('button', { name: 'Temporary Hit Points' })).toHaveTextContent('3');
+    expect(screen.getByRole('button', { name: editName('Hit Points') })).toHaveTextContent('10');
+    expect(screen.getByRole('button', { name: editName('Hit Points Max') })).toHaveTextContent(
+      '20',
+    );
+    expect(
+      screen.getByRole('button', { name: editName('Temporary Hit Points') }),
+    ).toHaveTextContent('3');
   });
 
   it('Happy path: the meter carries the current and maximum', () => {
@@ -124,7 +129,7 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '5');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
 
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 10, hitTemp: 0 } });
   });
@@ -136,7 +141,7 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '4');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.heal')) }));
 
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 14 } });
   });
@@ -148,16 +153,18 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '5');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 10, hitTemp: 0 } });
 
-    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.hpUndo')) }));
 
     expect(store.getPendingDelta()).toEqual({});
-    expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('12');
-    expect(screen.getByRole('button', { name: 'Temporary Hit Points' })).toHaveTextContent('3');
+    expect(screen.getByRole('button', { name: editName('Hit Points') })).toHaveTextContent('12');
     expect(
-      screen.queryByRole('button', { name: message('sheet.play.hpUndo') }),
+      screen.getByRole('button', { name: editName('Temporary Hit Points') }),
+    ).toHaveTextContent('3');
+    expect(
+      screen.queryByRole('button', { name: editName(message('sheet.play.hpUndo')) }),
     ).not.toBeInTheDocument();
   });
 
@@ -168,14 +175,14 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '4');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.heal')) }));
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 14 } });
     expect(undoRegion()).toHaveTextContent(messageWith('sheet.play.healed', { count: 4 }));
 
-    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.hpUndo')) }));
 
     expect(store.getPendingDelta()).toEqual({});
-    expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('10');
+    expect(screen.getByRole('button', { name: editName('Hit Points') })).toHaveTextContent('10');
   });
 
   it('Edge: a second apply replaces the undo target with the state before it', async () => {
@@ -185,16 +192,16 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '5');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
     await user.type(amountInput(), '3');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 4 } });
     expect(undoRegion()).toHaveTextContent(messageWith('sheet.play.tookDamage', { count: 3 }));
 
-    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.hpUndo')) }));
 
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 7 } });
-    expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('7');
+    expect(screen.getByRole('button', { name: editName('Hit Points') })).toHaveTextContent('7');
   });
 
   it('Happy path: undo after damage clears the pending hit point change', async () => {
@@ -202,10 +209,10 @@ describe('the hit point track piece', () => {
     const { store } = renderHitPointsWithPendingCard(24);
 
     await user.type(amountInput(), '5');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
     expect(pendingCard()).toHaveTextContent('Hit Points 24 → 19');
 
-    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.hpUndo')) }));
 
     expect(pendingCard()).not.toBeInTheDocument();
     expect([...store.getState().editedPaths]).toEqual([]);
@@ -217,11 +224,11 @@ describe('the hit point track piece', () => {
     const { store } = renderHitPointsWithPendingCard(24, 5);
 
     await user.type(amountInput(), '8');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
     expect(pendingCard()).toHaveTextContent('Hit Points 24 → 21');
     expect(pendingCard()).toHaveTextContent('Temporary Hit Points 5 → 0');
 
-    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.hpUndo')) }));
 
     expect(pendingCard()).not.toBeInTheDocument();
     expect([...store.getState().editedPaths]).toEqual([]);
@@ -231,16 +238,16 @@ describe('the hit point track piece', () => {
   it('Edge: undo restores an earlier unsaved hit point edit and keeps it pending', async () => {
     const user = userEvent.setup();
     const { store } = renderHitPointsWithPendingCard(24);
-    await user.click(screen.getByRole('button', { name: 'Hit Points' }));
+    await user.click(screen.getByRole('button', { name: editName('Hit Points') }));
     const hitPointsInput = screen.getByRole('textbox', { name: 'Hit Points' });
     await user.clear(hitPointsInput);
     await user.type(hitPointsInput, '20{Enter}');
 
     await user.type(amountInput(), '5');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
     expect(pendingCard()).toHaveTextContent('Hit Points 24 → 15');
 
-    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.hpUndo')) }));
 
     expect(pendingCard()).toHaveTextContent('Hit Points 24 → 20');
     expect(pendingCard()).not.toHaveTextContent('Hit Points 24 → 15');
@@ -256,8 +263,8 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '5');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
-    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.hpUndo')) }));
 
     expect(pendingCard()).toHaveTextContent('Name Nova → Brenna');
     expect(pendingCard()).not.toHaveTextContent('Hit Points');
@@ -273,23 +280,23 @@ describe('the hit point track piece', () => {
       });
 
       fireEvent.change(amountInput(), { target: { value: '5' } });
-      fireEvent.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+      fireEvent.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
       expect(
-        screen.getByRole('button', { name: message('sheet.play.hpUndo') }),
+        screen.getByRole('button', { name: editName(message('sheet.play.hpUndo')) }),
       ).toBeInTheDocument();
 
       act(() => {
         vi.advanceTimersByTime(7999);
       });
       expect(
-        screen.getByRole('button', { name: message('sheet.play.hpUndo') }),
+        screen.getByRole('button', { name: editName(message('sheet.play.hpUndo')) }),
       ).toBeInTheDocument();
 
       act(() => {
         vi.advanceTimersByTime(1);
       });
       expect(
-        screen.queryByRole('button', { name: message('sheet.play.hpUndo') }),
+        screen.queryByRole('button', { name: editName(message('sheet.play.hpUndo')) }),
       ).not.toBeInTheDocument();
       expect(undoRegion()).toBeEmptyDOMElement();
     } finally {
@@ -309,11 +316,11 @@ describe('the hit point track piece', () => {
     if (text !== '') {
       await user.type(amountInput(), text);
     }
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
 
     expect(store.getPendingDelta()).toEqual({});
     expect(
-      screen.queryByRole('button', { name: message('sheet.play.hpUndo') }),
+      screen.queryByRole('button', { name: editName(message('sheet.play.hpUndo')) }),
     ).not.toBeInTheDocument();
     expect(undoRegion()).toBeEmptyDOMElement();
   });
@@ -325,12 +332,12 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '5');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
 
     const status = undoRegion();
     expect(status).toHaveAttribute('aria-live', 'polite');
     expect(status).toHaveTextContent(messageWith('sheet.play.tookDamage', { count: 5 }));
-    expect(within(status).getByRole('button', { name: 'Undo' })).toBeInTheDocument();
+    expect(within(status).getByRole('button', { name: editName('Undo') })).toBeInTheDocument();
   });
 
   it('Edge: damage larger than temp plus current floors the current at zero', async () => {
@@ -340,7 +347,7 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '20');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
 
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 0, hitTemp: 0 } });
   });
@@ -352,7 +359,7 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '15');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.heal')) }));
 
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 20 } });
   });
@@ -364,7 +371,7 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '5');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.heal')) }));
 
     expect(store.getPendingDelta()).toEqual({});
   });
@@ -376,7 +383,7 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '5');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.heal')) }));
 
     expect(store.getPendingDelta()).toEqual({});
   });
@@ -388,7 +395,7 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '5');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.heal')) }));
 
     expect(store.getPendingDelta()).toEqual({});
   });
@@ -400,7 +407,7 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), '0');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
 
     expect(store.getPendingDelta()).toEqual({});
   });
@@ -411,7 +418,7 @@ describe('the hit point track piece', () => {
       sheet: vitalsSheet({ hit: 12 }),
     });
 
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
 
     expect(store.getPendingDelta()).toEqual({});
   });
@@ -423,10 +430,10 @@ describe('the hit point track piece', () => {
     });
 
     await user.type(amountInput(), 'abc');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
 
     expect(store.getPendingDelta()).toEqual({});
-    expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('12');
+    expect(screen.getByRole('button', { name: editName('Hit Points') })).toHaveTextContent('12');
   });
 
   it('Happy path: the amount plus Enter damages from the keyboard', async () => {
@@ -446,10 +453,12 @@ describe('the hit point track piece', () => {
       sheet: vitalsSheet({ hit: 12 }),
     });
 
-    expect(screen.queryByRole('button', { name: 'Temporary Hit Points' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: editName('Temporary Hit Points') }),
+    ).not.toBeInTheDocument();
 
     await user.type(amountInput(), '3');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
 
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 9 } });
   });
@@ -459,7 +468,7 @@ describe('the hit point track piece', () => {
       sheet: vitalsSheet({}),
     });
 
-    expect(screen.queryByRole('button', { name: 'Derived Max' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: editName('Derived Max') })).not.toBeInTheDocument();
     expect(screen.getByText('Derived Max')).toBeInTheDocument();
   });
 
@@ -477,7 +486,7 @@ describe('the hit point track piece', () => {
       sheet: vitalsSheet({ hit: 'lots' }),
     });
 
-    expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('0');
+    expect(screen.getByRole('button', { name: editName('Hit Points') })).toHaveTextContent('0');
   });
 });
 
@@ -495,35 +504,95 @@ describe('the pips piece', () => {
       <Pips piece={{ kind: 'pips', key: 'charges', count: 'charges.used', max: 4 }} />,
     );
 
-    expect(screen.getByRole('button', { name: 'Clear Charges Used to 0' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Set Charges Used to 2' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: editName('Clear Charges Used to 0') }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: editName('Set Charges Used to 2') }),
+    ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Clear Charges Used to 0' }));
+    await user.click(screen.getByRole('button', { name: editName('Clear Charges Used to 0') }));
 
     expect(store.getPendingDelta()).toEqual({ charges: { used: 0 } });
   });
 });
 
+function expandConditions() {
+  fireEvent.click(screen.getByTestId('compose-conditions-toggle'));
+}
+
 describe('the conditions piece', () => {
-  it('Happy path: each flag draws its original label and the rule text as its description', () => {
+  it('Edge: with nothing active the list collapses to a none line and a Show all toggle', () => {
     renderPreset(<Conditions piece={conditions()} />, { sheet: conditionsSheet({}) });
 
-    const blinded = screen.getByRole('button', { name: BLINDED_LABEL });
+    const toggle = screen.getByTestId('compose-conditions-toggle');
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(toggle).toHaveTextContent(message('preset.conditions.show'));
+    expect(screen.getByText(message('preset.conditions.none'))).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: editName(BLINDED_LABEL) })).toBeNull();
+  });
+
+  it('Happy path: collapsed, only the active conditions stay visible', () => {
+    renderPreset(<Conditions piece={conditions()} />, {
+      sheet: conditionsSheet({ status: { conditions: { blinded: 1, prone: 0 } } }),
+    });
+
+    expect(screen.getByRole('button', { name: editName(BLINDED_LABEL) })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.queryByRole('button', { name: editName('Prone') })).toBeNull();
+  });
+
+  it('Happy path: Show all reveals every condition and flips to Show active only', () => {
+    renderPreset(<Conditions piece={conditions()} />, { sheet: conditionsSheet({}) });
+    expandConditions();
+
+    const toggle = screen.getByTestId('compose-conditions-toggle');
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(toggle).toHaveTextContent(message('preset.conditions.hide'));
+    expect(screen.getByRole('button', { name: editName('Prone') })).toBeInTheDocument();
+    expect(screen.queryByText(message('preset.conditions.none'))).toBeNull();
+  });
+
+  it('Edge: a condition turned on while expanded stays visible after collapsing', async () => {
+    const user = userEvent.setup();
+    renderPreset(<Conditions piece={conditions()} />, { sheet: conditionsSheet({}) });
+    expandConditions();
+    await user.click(screen.getByRole('button', { name: editName('Prone') }));
+    expandConditions();
+
+    expect(screen.getByRole('button', { name: editName('Prone') })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    expect(screen.queryByRole('button', { name: editName(BLINDED_LABEL) })).toBeNull();
+  });
+
+  it('Happy path: each flag draws its original label and the rule text as its description', () => {
+    renderPreset(<Conditions piece={conditions()} />, { sheet: conditionsSheet({}) });
+    expandConditions();
+
+    const blinded = screen.getByRole('button', { name: editName(BLINDED_LABEL) });
     expect(blinded).toHaveTextContent('Blinded');
     expect(blinded).toHaveAccessibleDescription(BLINDED_RULE);
-    expect(screen.getByRole('button', { name: 'Prone' })).toHaveTextContent('Prone');
+    expect(screen.getByRole('button', { name: editName('Prone') })).toHaveTextContent('Prone');
   });
 
   it('Happy path: a stored flag reads pressed', () => {
     renderPreset(<Conditions piece={conditions()} />, {
       sheet: conditionsSheet({ status: { conditions: { blinded: 1, prone: 0 } } }),
     });
+    expandConditions();
 
-    expect(screen.getByRole('button', { name: BLINDED_LABEL })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: editName(BLINDED_LABEL) })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
-    expect(screen.getByRole('button', { name: 'Prone' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: editName('Prone') })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    );
   });
 
   it('Happy path: a toggle commits 1 and toggles back to 0', async () => {
@@ -531,11 +600,12 @@ describe('the conditions piece', () => {
     const { store } = renderPreset(<Conditions piece={conditions()} />, {
       sheet: conditionsSheet({}),
     });
+    expandConditions();
 
-    await user.click(screen.getByRole('button', { name: BLINDED_LABEL }));
+    await user.click(screen.getByRole('button', { name: editName(BLINDED_LABEL) }));
     expect(store.getPendingDelta()).toEqual({ status: { conditions: { blinded: 1 } } });
 
-    await user.click(screen.getByRole('button', { name: BLINDED_LABEL }));
+    await user.click(screen.getByRole('button', { name: editName(BLINDED_LABEL) }));
     expect(store.getPendingDelta()).toEqual({});
   });
 
@@ -544,8 +614,9 @@ describe('the conditions piece', () => {
     const { store } = renderPreset(<Conditions piece={conditions()} />, {
       sheet: conditionsSheet({ status: { conditions: { blinded: 1, prone: 0 } } }),
     });
+    expandConditions();
 
-    await user.click(screen.getByRole('button', { name: BLINDED_LABEL }));
+    await user.click(screen.getByRole('button', { name: editName(BLINDED_LABEL) }));
 
     expect(store.getPendingDelta()).toEqual({ status: { conditions: { blinded: 0 } } });
   });
@@ -555,8 +626,9 @@ describe('the conditions piece', () => {
     const { store } = renderPreset(<Conditions piece={conditions()} />, {
       sheet: conditionsSheet({}),
     });
+    expandConditions();
 
-    screen.getByRole('button', { name: BLINDED_LABEL }).focus();
+    screen.getByRole('button', { name: editName(BLINDED_LABEL) }).focus();
     await user.keyboard('{Enter}');
 
     expect(store.getPendingDelta()).toEqual({ status: { conditions: { blinded: 1 } } });
@@ -566,8 +638,9 @@ describe('the conditions piece', () => {
     renderPreset(<Conditions piece={conditions()} />, {
       sheet: conditionsSheet({ status: { conditions: { blinded: 'yes', prone: null } } }),
     });
+    expandConditions();
 
-    expect(screen.getByRole('button', { name: BLINDED_LABEL })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: editName(BLINDED_LABEL) })).toHaveAttribute(
       'aria-pressed',
       'false',
     );
@@ -575,8 +648,9 @@ describe('the conditions piece', () => {
 
   it('Edge: a label without rule text draws no description', () => {
     renderPreset(<Conditions piece={conditions()} />, { sheet: conditionsSheet({}) });
+    expandConditions();
 
-    expect(screen.getByRole('button', { name: 'Prone' })).toHaveAccessibleDescription('');
+    expect(screen.getByRole('button', { name: editName('Prone') })).toHaveAccessibleDescription('');
   });
 
   it('Edge: no bound flag and no exhaustion draws nothing', () => {
@@ -595,6 +669,7 @@ describe('the conditions piece exhaustion track', () => {
     renderPreset(<Conditions piece={conditions({ exhaustion })} />, {
       sheet: conditionsSheet({ exhaustion: { level: 2, penalty: -4 } }),
     });
+    expandConditions();
 
     const pips = screen.getAllByRole('button', { name: /Exhaustion level/ });
     expect(pips).toHaveLength(6);
@@ -608,6 +683,7 @@ describe('the conditions piece exhaustion track', () => {
     const { store } = renderPreset(<Conditions piece={conditions({ exhaustion })} />, {
       sheet: conditionsSheet({}),
     });
+    expandConditions();
 
     await user.click(screen.getAllByRole('button', { name: /Exhaustion level/ })[3]);
 
@@ -625,6 +701,8 @@ describe('the conditions piece exhaustion track', () => {
     renderPreset(<Conditions piece={conditions({ exhaustion })} />, {
       sheet: conditionsSheet({ exhaustion: { level: 6, penalty: -12 } }),
     });
+
+    expandConditions();
     const atMax = screen.getAllByRole('button', { name: /Exhaustion level/ });
     expect(atMax.every((pip) => pip.getAttribute('aria-pressed') === 'true')).toBe(true);
   });
@@ -634,6 +712,7 @@ describe('the conditions piece exhaustion track', () => {
       <Conditions piece={conditions({ exhaustion: { level: 'exhaustion.level', max: 6 } })} />,
       { sheet: conditionsSheet({}) },
     );
+    expandConditions();
 
     expect(screen.queryByText('Exhaustion penalty')).not.toBeInTheDocument();
   });
@@ -786,11 +865,14 @@ describe('the vitals pieces in the config contract', () => {
       </>,
       { sheet: vitalsSheet({ hitTemp: 3 }) },
     );
+    expandConditions();
 
     expect(
       screen.getByRole('meter', { name: message('sheet.play.hitPoints') }),
     ).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: BLINDED_LABEL })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Temporary Hit Points' })).toHaveTextContent('3');
+    expect(screen.getByRole('button', { name: editName(BLINDED_LABEL) })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: editName('Temporary Hit Points') }),
+    ).toHaveTextContent('3');
   });
 });

@@ -1,3 +1,4 @@
+import { editName } from './dice_names';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -139,7 +140,7 @@ describe('inline editing on a narrow screen', () => {
   it('Happy path: a text edit opens a bottom sheet and Enter commits the value', async () => {
     const { user } = await openFantasy(360);
 
-    await user.click(screen.getByRole('button', { name: 'Character name' }));
+    await user.click(screen.getByRole('button', { name: editName('Character name') }));
 
     const dialog = screen.getByRole('dialog', { name: 'Character name' });
     const input = within(dialog).getByRole('textbox', { name: 'Character name' });
@@ -150,8 +151,12 @@ describe('inline editing on a narrow screen', () => {
     await user.type(input, 'Brenna{Enter}');
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Character name' })).toHaveTextContent('Brenna');
-    expect(screen.getByRole('button', { name: message('sheet.pending.save') })).toBeEnabled();
+    expect(screen.getByRole('button', { name: editName('Character name') })).toHaveTextContent(
+      'Brenna',
+    );
+    expect(
+      screen.getByRole('button', { name: editName(message('sheet.pending.save')) }),
+    ).toBeEnabled();
   });
 
   it('Happy path: a numeric edit opens a bottom sheet with a numeric input and commits', async () => {
@@ -168,35 +173,37 @@ describe('inline editing on a narrow screen', () => {
     await user.type(input, '35{Enter}');
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Speed' })).toHaveTextContent('35');
+    expect(screen.getByRole('button', { name: editName('Speed') })).toHaveTextContent('35');
   });
 
   it('Edge: Escape on the bottom sheet cancels and keeps the stored value', async () => {
     const { user } = await openFantasy(360);
 
-    await user.click(screen.getByRole('button', { name: 'Ancestry' }));
+    await user.click(screen.getByRole('button', { name: editName('Ancestry') }));
     const input = screen.getByRole('textbox', { name: 'Ancestry' });
     await user.clear(input);
     await user.type(input, 'Half-elf{Escape}');
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Ancestry' })).toHaveTextContent('Elf');
+    expect(screen.getByRole('button', { name: editName('Ancestry') })).toHaveTextContent('Elf');
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
   });
 
   it('Edge: the close button on the bottom sheet cancels the edit', async () => {
     const { user } = await openFantasy(360);
 
-    await user.click(screen.getByRole('button', { name: 'Origin' }));
+    await user.click(screen.getByRole('button', { name: editName('Origin') }));
     const dialog = screen.getByRole('dialog', { name: 'Origin' });
-    await user.click(within(dialog).getByRole('button', { name: message('common.close') }));
+    await user.click(
+      within(dialog).getByRole('button', { name: editName(message('common.close')) }),
+    );
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Origin' })).toHaveTextContent('Wanderer');
+    expect(screen.getByRole('button', { name: editName('Origin') })).toHaveTextContent('Wanderer');
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
   });
 
@@ -206,7 +213,7 @@ describe('inline editing on a narrow screen', () => {
     const onCommit = vi.fn();
     render(<InlineEdit value="+2" label="Bonus" inputMode="numeric" onCommit={onCommit} />);
 
-    await user.click(screen.getByRole('button', { name: 'Bonus' }));
+    await user.click(screen.getByRole('button', { name: editName('Bonus') }));
     const input = screen.getByRole('spinbutton', { name: 'Bonus' });
     expect(input).toHaveValue(2);
 
@@ -218,7 +225,7 @@ describe('inline editing on a narrow screen', () => {
   it('Edge: a wide viewport keeps the input inline and opens no sheet', async () => {
     const { user } = await openFantasy(1280);
 
-    await user.click(screen.getByRole('button', { name: 'Character name' }));
+    await user.click(screen.getByRole('button', { name: editName('Character name') }));
 
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(screen.getByRole('textbox', { name: 'Character name' })).toBeInTheDocument();

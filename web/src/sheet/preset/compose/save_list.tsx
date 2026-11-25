@@ -5,6 +5,7 @@ import { numberValue } from '../values';
 import { ProficiencyLegend } from './proficiency_legend';
 import { formatSigned, isProficient, nextProficiency, rowDisplayName } from './scores_data';
 import type { PresetSave, PresetSaveListPiece } from './types';
+import { GroupTitle } from './group_title';
 import './compose.css';
 
 function SaveRow({ save, section }: { readonly save: PresetSave; readonly section: string }) {
@@ -53,7 +54,7 @@ export function SaveList({ piece }: { readonly piece: PresetSaveListPiece }) {
   return (
     <div className="lg-compose-group">
       <div className="lg-compose-group__header">
-        <h2 className="lg-compose-group__title">{message('sheet.play.saves')}</h2>
+        <GroupTitle>{message('sheet.play.saves')}</GroupTitle>
         <ProficiencyLegend testId="compose-saves-legend" />
       </div>
       <ul className="lg-compose-saves" data-testid="compose-save-list">

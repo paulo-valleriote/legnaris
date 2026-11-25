@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { Resolution } from '../../dice/resolve';
 import type { RollMode } from '../../dice/roll';
 import { messageWith } from '../../l10n/strings';
+import { nameWithVisibleText } from '../inline_edit';
 import { LONG_PRESS_MS, useRowRoll } from '../dice_row';
 import { diceSummary } from '../dice_view';
 import { opensRollModeMenu, RollModeDialog, rollModeFromClick } from '../roll_mode';
@@ -104,7 +105,10 @@ export function RollableValue({
         type="button"
         className={`${classes} lg-rollable--button`}
         data-rollable="true"
-        aria-label={accessibleName ?? rollAccessibleName(label, resolution)}
+        aria-label={nameWithVisibleText(
+          accessibleName ?? rollAccessibleName(label, resolution),
+          text,
+        )}
         aria-haspopup={offersMode ? 'dialog' : undefined}
         title={accessibleName}
         onPointerDown={offersMode ? startPress : undefined}

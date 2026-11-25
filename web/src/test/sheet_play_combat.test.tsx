@@ -1,3 +1,4 @@
+import { editName } from './dice_names';
 import { describe, expect, it, vi } from 'vitest';
 import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -100,10 +101,10 @@ describe('the combat strip', { timeout: 15_000 }, () => {
 
     expect(screen.getByTestId('sheet-combat-strip')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
     expect(screen.queryByTestId('sheet-combat-strip')).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.play') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.play')) }));
     expect(screen.getByTestId('sheet-combat-strip')).toBeInTheDocument();
   });
 });
@@ -174,15 +175,19 @@ describe('the hit points card', () => {
 
 describe('the quick hit point actions', () => {
   function quickDamage(count: number) {
-    return screen.getByRole('button', { name: messageWith('sheet.play.damageAmount', { count }) });
+    return screen.getByRole('button', {
+      name: messageWith('sheet.play.damageAmount', { count }),
+    });
   }
 
   function quickHeal(count: number) {
-    return screen.getByRole('button', { name: messageWith('sheet.play.healAmount', { count }) });
+    return screen.getByRole('button', {
+      name: messageWith('sheet.play.healAmount', { count }),
+    });
   }
 
   function quickTemp() {
-    return screen.getByRole('button', { name: message('sheet.play.addTemp') });
+    return screen.getByRole('button', { name: editName(message('sheet.play.addTemp')) });
   }
 
   it('Edge: minus five spends the temporary points first', async () => {
@@ -313,7 +318,7 @@ describe('damage and healing', () => {
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('10 / 20');
     expect(screen.queryByTestId('sheet-hp-pending')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savePending(fake)).toHaveLength(0);
     expect(screen.queryByTestId('sheet-pending-card')).not.toBeInTheDocument();
@@ -322,7 +327,7 @@ describe('damage and healing', () => {
   it('Edge: an inline current above the maximum clamps to the maximum', async () => {
     const { user } = await openHealth({ current: 10, max: 20, temp: 0 });
 
-    await user.click(screen.getByRole('button', { name: 'Current hit points' }));
+    await user.click(screen.getByRole('button', { name: editName('Current hit points') }));
     const current = screen.getByRole('textbox', { name: 'Current hit points' });
     await user.clear(current);
     await user.type(current, '40{Enter}');
@@ -336,7 +341,7 @@ describe('damage and healing', () => {
   it('Edge: lowering the maximum below the current value lowers the current value too', async () => {
     const { user } = await openHealth({ current: 10, max: 10, temp: 0 });
 
-    await user.click(screen.getByRole('button', { name: 'Hit points (maximum)' }));
+    await user.click(screen.getByRole('button', { name: editName('Hit points (maximum)') }));
     const maximum = screen.getByRole('textbox', { name: 'Hit points (maximum)' });
     await user.clear(maximum);
     await user.type(maximum, '6{Enter}');
@@ -385,7 +390,7 @@ describe('damage and healing', () => {
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('20 / 20');
     expect(screen.queryByTestId('sheet-hp-pending')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
   });
 
@@ -412,7 +417,7 @@ describe('damage and healing', () => {
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('10 / 20');
     expect(screen.queryByTestId('sheet-hp-pending')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(amountInput()).toHaveValue(0);
   });
@@ -438,7 +443,7 @@ describe('damage and healing', () => {
     expect(screen.queryByTestId('sheet-hp-change')).not.toBeInTheDocument();
     expect(screen.queryByTestId('sheet-pending-card')).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
   });
 
@@ -463,7 +468,7 @@ describe('damage and healing', () => {
     expect(screen.getByTestId('sheet-pending-card')).toHaveTextContent('Current hit points 10 → 6');
     expect(savePending(fake)).toHaveLength(0);
 
-    await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.pending.save')) }));
     await waitFor(() => expect(savedData(fake)).toEqual({ data: { combat: { hitPoints: 6 } } }));
   });
 
@@ -476,7 +481,7 @@ describe('damage and healing', () => {
     expect(screen.queryByTestId('sheet-hp-temp-value')).not.toBeInTheDocument();
     expect(screen.getByTestId('sheet-hp-temp-pending')).toBeInTheDocument();
     expect(screen.getByTestId('sheet-hp-temp-change')).toHaveTextContent('temp 5 → 0 (−5)');
-    await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.pending.save')) }));
     await waitFor(() =>
       expect(savedData(fake)).toEqual({
         data: { combat: { hitPoints: 7, hitPointsTemp: 0 } },
@@ -495,7 +500,7 @@ describe('damage and healing', () => {
     expect(screen.getByTestId('sheet-hp-pending')).toHaveAttribute('data-tone', 'heal');
     expect(savePending(fake)).toHaveLength(0);
 
-    await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.pending.save')) }));
     await waitFor(() => expect(savedData(fake)).toEqual({ data: { combat: { hitPoints: 20 } } }));
   });
 
@@ -503,7 +508,7 @@ describe('damage and healing', () => {
     const { user } = await openHealth();
 
     await apply(user, '4', 'damage');
-    await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.pending.save')) }));
 
     await waitFor(() => expect(screen.queryByTestId('sheet-pending-card')).not.toBeInTheDocument());
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('6 / 20');
@@ -516,7 +521,9 @@ describe('damage and healing', () => {
 
     await apply(user, '4', 'damage');
     const card = screen.getByTestId('sheet-pending-card');
-    await user.click(within(card).getByRole('button', { name: message('sheet.pending.discard') }));
+    await user.click(
+      within(card).getByRole('button', { name: editName(message('sheet.pending.discard')) }),
+    );
 
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('10 / 20');
     expect(screen.queryByTestId('sheet-hp-pending')).not.toBeInTheDocument();

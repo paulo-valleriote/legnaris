@@ -1,3 +1,4 @@
+import { editName } from './dice_names';
 import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -24,7 +25,7 @@ describe('the identity header piece', () => {
     renderPreset(<IdentityHeader header={identity} />);
 
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Nova');
-    expect(screen.getByRole('button', { name: 'Subtitle' })).toHaveTextContent('Scout');
+    expect(screen.getByRole('button', { name: editName('Subtitle') })).toHaveTextContent('Scout');
   });
 
   it('Happy path: level 2 draws an h2 for a subheading context', () => {
@@ -44,16 +45,16 @@ describe('the identity header piece', () => {
   it('Edge: an omitted subtitle Field draws no subtitle control', () => {
     renderPreset(<IdentityHeader header={{ name: 'identity.name' }} />);
 
-    expect(screen.queryByRole('button', { name: 'Subtitle' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: editName('Subtitle') })).not.toBeInTheDocument();
   });
 
-  it('Happy path: the name and subtitle offer a pencil affordance without changing their names', () => {
+  it('Happy path: the name and subtitle offer a pencil affordance and lead their names with the label', () => {
     renderPreset(<IdentityHeader header={identity} />);
 
     for (const label of ['Name', 'Subtitle']) {
-      const control = screen.getByRole('button', { name: label });
+      const control = screen.getByRole('button', { name: editName(label) });
       expect(control).toHaveClass('lg-inline-edit--affordance');
-      expect(control).toHaveAccessibleName(label);
+      expect(control).toHaveAccessibleName(editName(label));
       expect(control.querySelector('.lg-inline-edit__pencil')).toHaveAttribute(
         'aria-hidden',
         'true',
@@ -65,7 +66,7 @@ describe('the identity header piece', () => {
     const user = userEvent.setup();
     renderPreset(<IdentityHeader header={identity} />);
 
-    await user.click(screen.getByRole('button', { name: 'Name' }));
+    await user.click(screen.getByRole('button', { name: editName('Name') }));
 
     expect(screen.getByRole('textbox', { name: 'Name' })).toBeInTheDocument();
   });
@@ -74,7 +75,7 @@ describe('the identity header piece', () => {
     const user = userEvent.setup();
     renderPreset(<IdentityHeader header={identity} />);
 
-    await user.click(screen.getByRole('button', { name: 'Name' }));
+    await user.click(screen.getByRole('button', { name: editName('Name') }));
     const input = screen.getByRole('textbox', { name: 'Name' });
     await user.clear(input);
     await user.type(input, 'Rune{Enter}');
@@ -86,7 +87,7 @@ describe('the identity header piece', () => {
     const user = userEvent.setup();
     renderPreset(<IdentityHeader header={identity} />);
 
-    screen.getByRole('button', { name: 'Name' }).focus();
+    screen.getByRole('button', { name: editName('Name') }).focus();
     await user.keyboard('{Enter}');
     const input = screen.getByRole('textbox', { name: 'Name' });
     await user.clear(input);

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { parseSheet, valueAtPath } from '../api/models/sheet';
 import { message, messageWith } from '../l10n/strings';
@@ -248,6 +248,9 @@ describe.each(configs)(
 
     it('Happy path: every interactive element in Play is reachable by Tab', async () => {
       const { container } = renderConfig(config, template(), sheet());
+      container
+        .querySelectorAll<HTMLButtonElement>('[data-testid="compose-conditions-toggle"]')
+        .forEach((toggle) => act(() => toggle.click()));
 
       const expected = interactiveElements(container);
       const reached = await tabThrough(container);
@@ -377,6 +380,11 @@ describe.each(configs)(
       'Happy path: a condition chip toggles with Enter and Space',
       async () => {
         const { container } = renderConfig(config, template(), sheet());
+        act(() => {
+          container
+            .querySelector<HTMLButtonElement>('[data-testid="compose-conditions-toggle"]')
+            ?.click();
+        });
         const chip = container.querySelector<HTMLButtonElement>('button.lg-compose-condition');
 
         expect(chip).not.toBeNull();

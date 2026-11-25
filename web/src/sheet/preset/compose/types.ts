@@ -3,6 +3,7 @@ import type { PresetHeaderProps, PresetLayoutBlock, PresetSectionNav } from '../
 export interface PresetIdentityHeader {
   readonly name: string;
   readonly subtitle?: string;
+  readonly trailing?: string;
 }
 
 export interface PresetStatPill {
@@ -21,6 +22,19 @@ export interface PresetPipsPiece {
   readonly key: string;
   readonly count: string;
   readonly max: string | number;
+}
+
+export interface PresetSpellSlotLevel {
+  readonly level: number;
+  readonly count: string;
+  readonly max: string;
+}
+
+export interface PresetSpellSlotsPiece {
+  readonly kind: 'spellSlots';
+  readonly key: string;
+  readonly levels: readonly PresetSpellSlotLevel[];
+  readonly pact?: { readonly count: string; readonly max: string };
 }
 
 export interface PresetAbility {
@@ -120,6 +134,7 @@ export interface PresetTextFieldsPiece {
 export type PresetPiece =
   | PresetStatPillsPiece
   | PresetPipsPiece
+  | PresetSpellSlotsPiece
   | PresetAbilityGridPiece
   | PresetSaveListPiece
   | PresetSkillListPiece

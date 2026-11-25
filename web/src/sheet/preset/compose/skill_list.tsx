@@ -13,6 +13,7 @@ import {
   type RankProficiency,
 } from './scores_data';
 import type { PresetSkill, PresetSkillListPiece } from './types';
+import { GroupTitle } from './group_title';
 import './compose.css';
 
 const proficiencyCopy: Record<RankProficiency, MessageKey> = {
@@ -112,9 +113,9 @@ function SkillsBody({
   const limit = rankLimit(max);
 
   return (
-    <div className="lg-compose-group">
+    <div className="lg-compose-group lg-compose-group--ranked">
       <div className="lg-compose-group__header">
-        <h2 className="lg-compose-group__title">{message('sheet.play.skills')}</h2>
+        <GroupTitle>{message('sheet.play.skills')}</GroupTitle>
         {limit === 0 ? null : (
           <ProficiencyLegend expertise={limit >= 2} testId="compose-skills-legend" />
         )}

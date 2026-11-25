@@ -5,7 +5,7 @@ import type { ResetAction } from '../api/models/template';
 import { parseTemplateDetail } from '../api/models/template';
 import type { Sheet } from '../api/models/sheet';
 import { parseSheet, valueAtPath } from '../api/models/sheet';
-import { message } from '../l10n/strings';
+import { message, messageWith } from '../l10n/strings';
 import { presetFromConfig } from '../sheet/preset/compose/adapter';
 import { configPathErrors } from '../sheet/preset/compose/config_paths';
 import { fifthCharacterConfig } from '../sheet/preset/compose/configs/fifth_character';
@@ -26,8 +26,8 @@ function goldenTemplate() {
   return parseTemplateDetail(goldenCharacter.data);
 }
 
-function fifthSheet(): Sheet {
-  return parseSheet({
+function fifthSheet(spellcasting?: Record<string, unknown>): Sheet {
+  const sheet = parseSheet({
     id: '01a14236-21c9-7546-945e-40c46d1fcd71',
     template_id: TEMPLATE_ID,
     kind: 'character',
@@ -94,6 +94,15 @@ function fifthSheet(): Sheet {
     created_at: '2026-11-20T10:00:00Z',
     updated_at: '2026-11-20T10:00:00Z',
   });
+  return spellcasting === undefined ? sheet : { ...sheet, data: { ...sheet.data, spellcasting } };
+}
+
+function renderSlots(spellcasting?: Record<string, unknown>) {
+  const preset = presetFromConfig(fifthCharacterConfig);
+  return renderPreset(<PresetPlayView preset={preset} />, {
+    template: goldenTemplate(),
+    sheet: fifthSheet(spellcasting),
+  });
 }
 
 function resetBinding(
@@ -143,10 +152,18 @@ describe('the 5E Character preset config', () => {
           piece.kind === 'conditions' &&
           piece.exhaustion !== undefined &&
           limitOf(piece.exhaustion.max) > 0,
-      ).length;
+      ).length +
+      pieces
+        .flatMap((piece) =>
+          piece.kind === 'spellSlots'
+            ? [...piece.levels, ...(piece.pact === undefined ? [] : [piece.pact])]
+            : [],
+        )
+        .filter((slot) => limitOf(slot.max) > 0).length;
 
     expect(document.querySelectorAll('.lg-compose-pips')).toHaveLength(pipsCount);
     expect(screen.queryByText('Level 9 spell slots spent')).not.toBeInTheDocument();
+    expect(screen.queryByText(messageWith('sheet.play.level', { count: 9 }))).toBeNull();
     expect(document.querySelectorAll('[data-testid="compose-record-table"]')).toHaveLength(
       pieces.filter((piece) => piece.kind === 'recordTable').length,
     );
@@ -160,8 +177,24 @@ describe('the 5E Character preset config', () => {
     expect(screen.getByTestId('compose-conditions')).toBeInTheDocument();
     expect(screen.queryAllByTestId('compose-record-row')).toHaveLength(0);
     expect(screen.getByRole('group', { name: message('sheet.reset.group') })).toBeInTheDocument();
-    expect(screen.getByTestId('compose-roll-mode')).toBeInTheDocument();
+    expect(screen.queryByTestId('compose-roll-mode')).toBeNull();
     expect(document.querySelector('.lg-preset__columns--compose')).not.toBeNull();
+  });
+
+  it('Happy path: the header carries the roll-mode switch beside the name', () => {
+    const preset = presetFromConfig(fifthCharacterConfig);
+    renderPreset(<preset.Header />, { template: goldenTemplate(), sheet: fifthSheet() });
+
+    const header = document.querySelector('.lg-compose-header');
+    const trailing = header?.querySelector('.lg-compose-header__trailing');
+    expect(trailing?.querySelector('[data-testid="compose-roll-mode"]')).not.toBeNull();
+    expect(header?.querySelector('[data-testid="sheet-name"]')).not.toBeNull();
+  });
+
+  it('Edge: the header trailing piece is not drawn again as a Play section', () => {
+    const preset = presetFromConfig(fifthCharacterConfig);
+
+    expect(preset.sections.map((section) => section.key)).not.toContain('rollMode');
   });
 
   it('Happy path: the wide and narrow layouts place every section exactly once', () => {
@@ -196,7 +229,7 @@ describe('the 5E Character preset config', () => {
     expect(nav).toBe(document.querySelector('.lg-preset__body')?.firstElementChild);
   });
 
-  it('Happy path: the phone Play draws the grouped jump bar after vitals', () => {
+  it('Happy path: the phone Play draws the grouped jump bar after identity', () => {
     setViewportWidth(390);
     renderPlay();
 
@@ -213,8 +246,23 @@ describe('the 5E Character preset config', () => {
       message('preset.nav.resources'),
     ]);
     expect(nav.previousElementSibling).toBe(
-      document.querySelector('[data-preset-section="vitals"]'),
+      document.querySelector('[data-preset-section="identity"]'),
     );
+  });
+
+  it('Happy path: the phone Play opens on hit points, then death saves and hit dice', () => {
+    setViewportWidth(390);
+    renderPlay();
+
+    const order = Array.from(document.querySelectorAll('[data-preset-section]'))
+      .map((section) => section.getAttribute('data-preset-section'))
+      .slice(0, 4);
+    expect(order).toEqual([
+      'hitPoints',
+      'deathSavesSuccesses',
+      'deathSavesFailures',
+      'hitDicePrimary',
+    ]);
   });
 
   it('Happy path: every jump target resolves to a rendered section', () => {
@@ -242,8 +290,7 @@ describe('the 5E Character preset config', () => {
 
     const target = document.querySelector<HTMLElement>('[data-preset-section="attacks"]');
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'smooth' });
-    expect(document.activeElement).toBe(target);
-    expect(target).toHaveAttribute('tabindex', '-1');
+    expect(target?.contains(document.activeElement)).toBe(true);
   });
 
   it('Edge: on load the first chip is current, not Combat', () => {
@@ -251,12 +298,13 @@ describe('the 5E Character preset config', () => {
       abilities: 400,
       attacks: 1600,
       inventory: 2200,
+      features: 2500,
+      spellSlots: 2700,
       spells: 2800,
-      features: 3400,
     };
     const original = Element.prototype.getBoundingClientRect;
     Element.prototype.getBoundingClientRect = function rect(this: Element) {
-      const key = (this as HTMLElement).dataset?.presetSection ?? '';
+      const key = this.closest('[data-preset-section]')?.getAttribute('data-preset-section') ?? '';
       return { top: tops[key] ?? 0 } as DOMRect;
     };
     try {
@@ -278,6 +326,7 @@ describe('the 5E Character preset config', () => {
       abilities: -900,
       attacks: 140,
       inventory: 900,
+      spellSlots: 1450,
       spells: 1500,
       features: 2100,
     };
@@ -353,5 +402,56 @@ describe('the 5E Character preset config', () => {
 
     expect(run).toHaveBeenCalledTimes(1);
     expect(run).toHaveBeenCalledWith(expect.objectContaining({ id: 'long_rest' }), 'request-1');
+  });
+
+  describe('the 5E spell slots group', () => {
+    it('Happy path: titled rows per level with slots, the pact row and the higher-levels note', () => {
+      renderSlots();
+
+      const group = screen.getByTestId('compose-spell-slots');
+      expect(
+        within(group).getByRole('heading', { name: message('sheet.play.spellSlots') }),
+      ).toBeInTheDocument();
+      expect(
+        within(group).getByText(messageWith('sheet.play.level', { count: 1 })),
+      ).toBeInTheDocument();
+      expect(group.querySelectorAll('.lg-compose-pips')).toHaveLength(2);
+      expect(within(group).getByText(message('preset.slots.more'))).toBeInTheDocument();
+    });
+
+    it('Edge: levels without slots draw no row', () => {
+      renderSlots({ slot1: { total: 4, spent: 0 }, slot2: { total: 0, spent: 0 } });
+
+      const group = screen.getByTestId('compose-spell-slots');
+      expect(within(group).queryByText(messageWith('sheet.play.level', { count: 2 }))).toBeNull();
+    });
+
+    it('Edge: with the highest level filled the higher-levels note disappears', () => {
+      renderSlots({ slot1: { total: 4, spent: 0 }, slot9: { total: 1, spent: 0 } });
+
+      const group = screen.getByTestId('compose-spell-slots');
+      expect(
+        within(group).getByText(messageWith('sheet.play.level', { count: 9 })),
+      ).toBeInTheDocument();
+      expect(within(group).queryByText(message('preset.slots.more'))).toBeNull();
+    });
+
+    it('Edge: a sheet with no slots at all draws no pip row in the group', () => {
+      renderSlots({});
+
+      expect(
+        screen.getByTestId('compose-spell-slots').querySelectorAll('.lg-compose-pips'),
+      ).toHaveLength(0);
+    });
+
+    it('Happy path: tapping a level pip spends a slot through the edit store', async () => {
+      const user = userEvent.setup();
+      const { store } = renderSlots({ slot1: { total: 4, spent: 0 } });
+
+      const group = screen.getByTestId('compose-spell-slots');
+      await user.click(within(group).getAllByRole('button', { pressed: false })[0]);
+
+      expect(store.getPendingDelta()).toEqual({ spellcasting: { slot1: { spent: 1 } } });
+    });
   });
 });

@@ -57,6 +57,7 @@ function HitPointsTrackBody({
   const temp = piece.temp === undefined ? 0 : hitPointValue(tempValue);
   const [amountText, setAmountText] = useState('');
   const [undo, setUndo] = useState<HitPointsUndo>();
+  const amountReady = parseHitPointsAmount(amountText) !== undefined;
   const percent = hitPointsPercent(current, max);
   const meterNow = max > 0 ? Math.min(max, current) : 0;
 
@@ -118,61 +119,88 @@ function HitPointsTrackBody({
 
   return (
     <div className="lg-compose-hp" data-testid="compose-hit-points">
-      <p className="lg-compose-hp__numbers">
-        <span className="lg-compose-hp__value">
-          <InlineEdit
-            className="lg-compose-hp__number"
-            label={currentLabel}
-            path={piece.current}
-            value={String(current)}
-            inputMode="numeric"
-            onCommit={commitParsed(commitCurrent)}
-          />
-          <span className="lg-compose-hp__slash" aria-hidden="true">
-            {' / '}
+      <div className="lg-compose-hp__top">
+        <div className="lg-compose-hp__readout">
+          <span className="lg-compose-hp__title" aria-hidden="true">
+            {message('sheet.play.hitPoints')}
           </span>
-          {maxEditable && maxLabel !== undefined && commitMax !== undefined ? (
-            <InlineEdit
-              className="lg-compose-hp__number"
-              label={maxLabel}
-              path={maxPath}
-              value={String(max)}
-              inputMode="numeric"
-              onCommit={commitParsed(commitMax)}
-            />
-          ) : (
-            <span className="lg-compose-hp__max" data-testid="compose-hit-points-max">
-              {maxLabel === undefined ? null : (
-                <span className="lg-compose-hp__max-label">{maxLabel}</span>
-              )}
-              {maxPath === undefined || maxLabel === undefined ? (
-                <span className="lg-compose-hp__max-value">{String(max)}</span>
-              ) : (
-                <RollableValue
-                  className="lg-compose-hp__max-value"
-                  rowKey={maxPath}
-                  sectionKey={sectionKeyOfRow(maxPath)}
+          <p className="lg-compose-hp__numbers">
+            <span className="lg-compose-hp__value">
+              <InlineEdit
+                className="lg-compose-hp__number"
+                label={currentLabel}
+                path={piece.current}
+                value={String(current)}
+                inputMode="numeric"
+                onCommit={commitParsed(commitCurrent)}
+              />
+              <span className="lg-compose-hp__slash" aria-hidden="true">
+                {' / '}
+              </span>
+              {maxEditable && maxLabel !== undefined && commitMax !== undefined ? (
+                <InlineEdit
+                  className="lg-compose-hp__number lg-compose-hp__number--max"
                   label={maxLabel}
-                  text={String(max)}
+                  path={maxPath}
+                  value={String(max)}
+                  inputMode="numeric"
+                  onCommit={commitParsed(commitMax)}
                 />
+              ) : (
+                <span className="lg-compose-hp__max" data-testid="compose-hit-points-max">
+                  {maxLabel === undefined ? null : (
+                    <span className="lg-visually-hidden">{maxLabel}</span>
+                  )}
+                  {maxPath === undefined || maxLabel === undefined ? (
+                    <span className="lg-compose-hp__max-value">{String(max)}</span>
+                  ) : (
+                    <RollableValue
+                      className="lg-compose-hp__max-value"
+                      rowKey={maxPath}
+                      sectionKey={sectionKeyOfRow(maxPath)}
+                      label={maxLabel}
+                      text={String(max)}
+                    />
+                  )}
+                </span>
               )}
             </span>
-          )}
-        </span>
-        {piece.temp === undefined ? null : (
-          <span className="lg-compose-hp__temp">
-            <span className="lg-compose-hp__temp-label">{tempLabel}</span>
-            <InlineEdit
-              className="lg-compose-hp__number"
-              label={tempLabel}
-              path={piece.temp}
-              value={String(temp)}
+          </p>
+        </div>
+        <div className="lg-compose-hp__entry">
+          <div className="lg-compose-hp__amount">
+            <Field
+              label={message('sheet.play.amount')}
+              placeholder={message('sheet.play.amountPlaceholder')}
               inputMode="numeric"
-              onCommit={commitParsed(commitTemp)}
+              numeric
+              value={amountText}
+              onChange={setAmountText}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  apply(false);
+                }
+              }}
             />
-          </span>
-        )}
-      </p>
+          </div>
+          <Button
+            variant="danger"
+            size="sm"
+            label={message('sheet.play.damage')}
+            disabled={!amountReady}
+            onClick={() => apply(false)}
+          />
+          <Button
+            variant="secondary"
+            size="sm"
+            label={message('sheet.play.heal')}
+            className="lg-compose-hp__heal"
+            disabled={!amountReady}
+            onClick={() => apply(true)}
+          />
+        </div>
+      </div>
       <div
         className="lg-compose-hp__bar"
         role="meter"
@@ -187,53 +215,37 @@ function HitPointsTrackBody({
           aria-hidden="true"
         />
       </div>
-      <div className="lg-compose-hp__entry">
-        <div className="lg-compose-hp__amount">
-          <Field
-            label={message('sheet.play.amount')}
-            inputMode="numeric"
-            numeric
-            value={amountText}
-            onChange={setAmountText}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                apply(false);
-              }
-            }}
-          />
-        </div>
-        <Button
-          variant="danger"
-          size="sm"
-          label={message('sheet.play.damage')}
-          onClick={() => apply(false)}
-        />
-        <span className="lg-compose-hp__divider" aria-hidden="true" />
-        <Button
-          variant="secondary"
-          size="sm"
-          label={message('sheet.play.heal')}
-          className="lg-compose-hp__heal"
-          onClick={() => apply(true)}
-        />
-      </div>
-      <div className="lg-compose-hp__undo" aria-live="polite">
-        {undo === undefined ? null : (
-          <>
-            <span>
-              {messageWith(undo.healed ? 'sheet.play.healed' : 'sheet.play.tookDamage', {
-                count: undo.amount,
-              })}
-            </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              label={message('sheet.play.hpUndo')}
-              onClick={undoApply}
+      <div className="lg-compose-hp__foot">
+        {piece.temp === undefined ? null : (
+          <span className="lg-compose-hp__temp">
+            <span className="lg-compose-hp__temp-label">{tempLabel}</span>
+            <InlineEdit
+              className="lg-compose-hp__number"
+              label={tempLabel}
+              path={piece.temp}
+              value={String(temp)}
+              inputMode="numeric"
+              onCommit={commitParsed(commitTemp)}
             />
-          </>
+          </span>
         )}
+        <div className="lg-compose-hp__undo" aria-live="polite">
+          {undo === undefined ? null : (
+            <>
+              <span>
+                {messageWith(undo.healed ? 'sheet.play.healed' : 'sheet.play.tookDamage', {
+                  count: undo.amount,
+                })}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                label={message('sheet.play.hpUndo')}
+                onClick={undoApply}
+              />
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

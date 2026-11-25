@@ -48,10 +48,7 @@ export default function DemoScreen() {
               to={FIFTH_SIGN_UP_PATH}
               onClick={onCtaClick}
             >
-              <span className="lg-demo__header-cta-full">{message('landing.create')}</span>
-              <span className="lg-demo__header-cta-compact" data-testid="demo-header-cta-compact">
-                {message('demo.headerCtaCompact')}
-              </span>
+              {message('landing.demoCtaAction')}
             </Link>
           </nav>
         </div>
@@ -66,7 +63,19 @@ export default function DemoScreen() {
           data-testid="landing-demo-sheet"
         >
           <Suspense fallback={<DemoLoading />}>
-            <FifthDemoSheet onInteract={reportInteraction} />
+            <FifthDemoSheet
+              onInteract={reportInteraction}
+              pendingAction={
+                <Link
+                  className="lg-landing__cta lg-landing__cta--primary lg-demo__pending-cta"
+                  to={FIFTH_SIGN_UP_PATH}
+                  onClick={onCtaClick}
+                  data-testid="demo-pending-cta"
+                >
+                  {message('landing.demoCtaAction')}
+                </Link>
+              }
+            />
           </Suspense>
           <div
             className={`lg-landing__demo-cta lg-demo__end${interacted ? ' lg-demo__end--played' : ''}`}
@@ -96,7 +105,7 @@ export default function DemoScreen() {
           to={FIFTH_SIGN_UP_PATH}
           onClick={onCtaClick}
         >
-          {message('landing.create')}
+          {message('landing.demoCtaAction')}
         </Link>
       </div>
 
