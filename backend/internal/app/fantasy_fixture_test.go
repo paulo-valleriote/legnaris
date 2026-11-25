@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -39,7 +40,7 @@ func insertFantasyCampaign(t *testing.T, mdb *mongo.Database, ownerID string, pl
 		"name":         fantasyCampaignFixtureName,
 		"template_id":  "fantasy_v1",
 		"status":       string(campaign.StatusActive),
-		"invite_code":  "FANTASY1",
+		"invite_code":  fantasyInviteCode(campaignID),
 		"version":      int64(0),
 		"gm_count":     1,
 		"player_count": len(playerIDs),
@@ -63,4 +64,8 @@ func createFantasySheet(t *testing.T, h http.Handler, mdb *mongo.Database, token
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &created))
 	require.Equal(t, "fantasy_v1", created.Data.TemplateID)
 	return created.Data
+}
+
+func fantasyInviteCode(campaignID string) string {
+	return strings.ReplaceAll(campaignID, "-", "")[:24]
 }

@@ -22,7 +22,7 @@ func TestIntegration_FantasyV1Regression(t *testing.T) {
 
 	campaignID := insertFantasyCampaign(t, mdb, gmID)
 
-	rec := doAuthRequest(t, h, playerToken, http.MethodPost, "/campaigns/join", `{"code":"FANTASY1"}`)
+	rec := doAuthRequest(t, h, playerToken, http.MethodPost, "/campaigns/join", fmt.Sprintf(`{"code":%q}`, fantasyInviteCode(campaignID)))
 	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	var joined response.Success[campaign.View]

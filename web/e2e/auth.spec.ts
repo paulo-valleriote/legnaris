@@ -61,7 +61,7 @@ test.describe('auth surface, signed-in shell and own-sheet accessibility', () =>
       .getByRole('link', { name: message('landing.create') })
       .first()
       .click();
-    await expect(page).toHaveURL(/\/sign-up\?start=fantasy$/);
+    await expect(page).toHaveURL(/\/sign-up\?start=fifth$/);
     await expect(page.getByRole('textbox', { name: 'Username' })).toBeVisible();
   });
 
