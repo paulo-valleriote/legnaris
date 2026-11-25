@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DiceResult } from '../dice/errors';
@@ -21,7 +21,7 @@ function entry(
 
 const rolled = entry(1, 'Initiative', 14, [
   { sign: 1, label: '1d20', value: 11, rolls: [11] },
-  { sign: 1, label: 'attrs.dex', value: 3 },
+  { sign: 1, label: 'attrs.dex', path: 'attrs.dex', value: 3 },
 ]);
 
 function labels(): (string | null)[] {
@@ -38,7 +38,7 @@ describe('DicePanel', () => {
     expect(screen.getByText('14')).toBeTruthy();
     expect(screen.getByText('1d20')).toBeTruthy();
     expect(screen.getByText(messageWith('dice.rolls', { rolls: '11' }))).toBeTruthy();
-    expect(screen.getByText('attrs.dex')).toBeTruthy();
+    expect(screen.getByText('Dex')).toBeTruthy();
   });
 
   it('Happy path: a minimum that applied is shown with the result', () => {
@@ -279,5 +279,60 @@ describe('DicePanel', () => {
 
     expect(screen.getByText('-')).toBeTruthy();
     expect(screen.getByText('3')).toBeTruthy();
+  });
+});
+
+describe('DicePanel field labels', () => {
+  const labelForPath = (path: string) =>
+    path === 'abilities.wisdom.mod' ? 'Wisdom modifier' : undefined;
+
+  it('Happy path: a field part shows its schema label, never its path', () => {
+    const labelled = entry(1, 'Wisdom check', 14, [
+      { sign: 1, label: '1d20', value: 11, rolls: [11] },
+      { sign: 1, label: 'abilities.wisdom.mod', path: 'abilities.wisdom.mod', value: 3 },
+    ]);
+    render(<DicePanel results={[labelled]} onDismiss={() => {}} labelForPath={labelForPath} />);
+
+    expect(screen.getByText('Wisdom modifier')).toBeTruthy();
+    expect(screen.queryByText('abilities.wisdom.mod')).toBeNull();
+  });
+
+  it('Edge: a zero-value field part is hidden while dice and number constants stay', () => {
+    const zero = entry(1, 'Attack', 11, [
+      { sign: 1, label: '1d20', value: 11, rolls: [11] },
+      { sign: 1, label: 'exhaustion.penalty', path: 'exhaustion.penalty', value: 0 },
+      { sign: 1, label: 'Flat', value: 0 },
+    ]);
+    render(<DicePanel results={[zero]} onDismiss={() => {}} />);
+
+    expect(document.querySelectorAll('.lg-dice-panel__part')).toHaveLength(2);
+    expect(screen.getByText('1d20')).toBeTruthy();
+    expect(screen.getByText('Flat')).toBeTruthy();
+    expect(document.querySelector('.lg-dice-panel__total-value')?.textContent).toBe('11');
+  });
+
+  it('Edge: a hidden zero field changes neither the total nor the sign of a live term', () => {
+    const mixed = entry(1, 'Check', 8, [
+      { sign: 1, label: '1d20', value: 11, rolls: [11] },
+      { sign: 1, label: 'exhaustion.penalty', path: 'exhaustion.penalty', value: 0 },
+      { sign: -1, label: 'abilities.wisdom.mod', path: 'abilities.wisdom.mod', value: 3 },
+    ]);
+    render(<DicePanel results={[mixed]} onDismiss={() => {}} labelForPath={labelForPath} />);
+
+    expect(document.querySelector('.lg-dice-panel__total-value')?.textContent).toBe('8');
+    const part = screen.getByText('Wisdom modifier').closest('.lg-dice-panel__part');
+    expect(part).not.toBeNull();
+    expect(within(part as HTMLElement).getByText('-')).toBeTruthy();
+    expect(within(part as HTMLElement).getByText('3')).toBeTruthy();
+  });
+
+  it('Edge: a field with no resolver falls back to the humanized segments, never a path', () => {
+    const unlabelled = entry(1, 'Check', 3, [
+      { sign: 1, label: 'abilities.wisdom.mod', path: 'abilities.wisdom.mod', value: 3 },
+    ]);
+    render(<DicePanel results={[unlabelled]} onDismiss={() => {}} />);
+
+    expect(screen.getByText('Wisdom mod')).toBeTruthy();
+    expect(screen.queryByText('abilities.wisdom.mod')).toBeNull();
   });
 });

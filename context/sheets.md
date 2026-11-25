@@ -1340,3 +1340,7 @@ Web:
 - Template state is code with no admin surface, so moving a Template between `draft`, `active` and
   `retired` is a deploy. A Retired Template's Sheet is creatable only from inside an active Campaign
   that includes it, and that request stores no link.
+
+## Play feedback (roll labels, HP undo, desktop section nav)
+
+The Dice panel names a field term by its Template schema label (`web/src/sheet/dice_label.ts`: own label, then parent label plus leaf, then a humanized path; never a dotted path) and hides zero-valued field terms; the total is unchanged and nothing is system-specific. The compose hit-point track keeps the last Damage or Heal as an undo entry (`aria-live` line with an Undo button, cleared after 8 s, on use, or by the next apply) and separates Heal from Damage with a divider. The preset section chip row is now drawn on wide screens too, sticky at the top of the Play body; the 5E Character config places conditions under the ability grid.

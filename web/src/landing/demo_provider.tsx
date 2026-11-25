@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import type { Sheet } from '../api/models/sheet';
 import type { TemplateDetail } from '../api/models/template';
 import { buildSections, rowKey } from '../engine/field_grouping';
+import { fieldLabelFromFields } from '../sheet/dice_label';
 import { createDiceStore } from '../sheet/dice_store';
 import { DiceProvider } from '../sheet/dice_row';
 import type { DiceContextValue } from '../sheet/dice_row';
@@ -48,6 +49,7 @@ export function createDemoRuntime(
     rowKeys: new Set(sections.flatMap((section) => section.rows.map(rowKey))),
     sectionRows,
     notD20: templateDiceMarking(template.dice, template.fields),
+    labelForPath: fieldLabelFromFields(template.fields),
     savedValues: () => store.getState().data,
     draftValues: () => store.getPendingDelta(),
   };

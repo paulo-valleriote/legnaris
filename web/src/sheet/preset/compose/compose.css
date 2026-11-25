@@ -154,13 +154,11 @@
 .lg-compose-ability__name {
   inline-size: 100%;
   overflow: hidden;
-  font-size: var(--lg-type-12);
+  font-size: var(--lg-type-13);
   font-weight: var(--lg-font-weight-semibold);
   line-height: var(--lg-line-tight);
-  letter-spacing: var(--lg-tracking-caps);
   text-align: center;
   text-overflow: ellipsis;
-  text-transform: uppercase;
   white-space: nowrap;
   color: var(--lg-color-text-muted);
 }
@@ -423,6 +421,29 @@
 .lg-compose-hp__amount {
   flex: 1 1 8rem;
   min-inline-size: 0;
+}
+
+.lg-compose-hp__divider {
+  align-self: center;
+  inline-size: var(--lg-size-hairline);
+  block-size: var(--lg-space-24);
+  background-color: var(--lg-color-border-strong);
+}
+
+.lg-compose-hp__heal.lg-button--secondary {
+  border-color: var(--lg-color-success);
+  color: var(--lg-color-success);
+}
+
+.lg-compose-hp__undo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--lg-space-8);
+  margin: 0;
+  font-size: var(--lg-type-13);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-text-muted);
 }
 
 .lg-compose-conditions {

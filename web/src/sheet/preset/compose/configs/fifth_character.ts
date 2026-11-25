@@ -260,10 +260,9 @@ export const fifthCharacterConfig: PresetConfig = {
     { sections: ['identity', 'vitals', 'hitPoints'] },
     {
       columns: [
-        ['abilities'],
+        ['abilities', 'conditions'],
         ['saves', 'skills'],
         [
-          'conditions',
           'deathSavesSuccesses',
           'deathSavesFailures',
           'hitDicePrimary',
@@ -289,6 +288,25 @@ export const fifthCharacterConfig: PresetConfig = {
     { sections: ['attacks', 'inventory', 'features', 'spells', 'resources'] },
     { sections: ['rests', 'rollMode'] },
   ],
+  sectionNav: {
+    after: 'vitals',
+    targets: [
+      { label: 'preset.nav.abilities', sections: ['abilities'] },
+      {
+        label: 'preset.nav.combat',
+        sections: [
+          'hitPoints',
+          'attacks',
+          'conditions',
+          'deathSavesSuccesses',
+          'deathSavesFailures',
+        ],
+      },
+      { label: 'preset.nav.items', sections: ['inventory'] },
+      { label: 'preset.nav.spells', sections: ['spells', 'slot1', 'pactSlots'] },
+      { label: 'preset.nav.resources', sections: ['features', 'resources'] },
+    ],
+  },
   narrowLayout: [
     {
       sections: [

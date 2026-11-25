@@ -287,6 +287,10 @@
     top: 0;
     z-index: 9;
   }
+
+  .lg-preset:has(.lg-preset-nav) .lg-combat-strip {
+    top: calc(var(--lg-size-control) + var(--lg-space-16));
+  }
 }
 
 .lg-hp-card {

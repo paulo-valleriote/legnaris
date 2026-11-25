@@ -6,15 +6,31 @@ import {
   currentSectionKey,
   prefersReducedMotion,
   presentSections,
-  revealHeading,
-  sectionHeading,
+  presentTargets,
+  revealTarget,
+  sectionAnchor,
+  type PresetSectionGroup,
   type PresetSectionTarget,
 } from './section_nav_targets';
+import type { PresetSectionNavTarget } from './types';
 import './section_nav.css';
 
 const REACHED_LINE_OFFSET = 96;
 
-export function PresetSectionNav({ after }: { readonly after: string }) {
+interface PresetSectionNavProps {
+  readonly skipKey?: string;
+  readonly targets?: readonly PresetSectionNavTarget[];
+}
+
+function resolvedGroups(targets: readonly PresetSectionNavTarget[]): readonly PresetSectionGroup[] {
+  return targets.map((target, index) => ({
+    id: `${index}-${target.label}`,
+    label: message(target.label),
+    sections: target.sections,
+  }));
+}
+
+export function PresetSectionNav({ skipKey, targets: configured }: PresetSectionNavProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const [targets, setTargets] = useState<readonly PresetSectionTarget[]>([]);
   const [activeKey, setActiveKey] = useState<string | undefined>(undefined);
@@ -30,10 +46,14 @@ export function PresetSectionNav({ after }: { readonly after: string }) {
       return;
     }
     const scan = (): void => {
-      setTargets(presentSections(preset, after));
+      setTargets(
+        configured === undefined
+          ? presentSections(preset, skipKey ?? '')
+          : presentTargets(preset, resolvedGroups(configured), skipKey),
+      );
     };
     scan();
-  }, [after, root]);
+  }, [configured, root, skipKey]);
 
   useEffect(() => {
     const preset = root();
@@ -41,10 +61,24 @@ export function PresetSectionNav({ after }: { readonly after: string }) {
       return undefined;
     }
     const update = (): void => {
-      const positions = targets.flatMap(({ key }) => {
-        const heading = sectionHeading(preset, key);
-        return heading === undefined ? [] : [{ key, top: heading.getBoundingClientRect().top }];
+      const anchors = targets.flatMap(({ key, sectionKey }) => {
+        const anchor = sectionAnchor(preset, sectionKey);
+        return anchor === undefined ? [] : [{ key, anchor }];
       });
+      anchors.sort((left, right) => {
+        const relation = left.anchor.compareDocumentPosition(right.anchor);
+        if ((relation & Node.DOCUMENT_POSITION_FOLLOWING) !== 0) {
+          return -1;
+        }
+        if ((relation & Node.DOCUMENT_POSITION_PRECEDING) !== 0) {
+          return 1;
+        }
+        return 0;
+      });
+      const positions = anchors.map(({ key, anchor }) => ({
+        key,
+        top: anchor.getBoundingClientRect().top,
+      }));
       const page = document.documentElement;
       const ended = atScrollEnd({
         scrollTop: window.scrollY || page.scrollTop,
@@ -62,17 +96,17 @@ export function PresetSectionNav({ after }: { readonly after: string }) {
     };
   }, [root, targets]);
 
-  const jump = (key: string): void => {
+  const jump = (target: PresetSectionTarget): void => {
     const preset = root();
     if (preset === undefined) {
       return;
     }
-    const heading = sectionHeading(preset, key);
-    if (heading === undefined) {
+    const anchor = sectionAnchor(preset, target.sectionKey);
+    if (anchor === undefined) {
       return;
     }
-    setActiveKey(key);
-    revealHeading(heading, prefersReducedMotion());
+    setActiveKey(target.key);
+    revealTarget(anchor, prefersReducedMotion());
   };
 
   return (
@@ -92,7 +126,7 @@ export function PresetSectionNav({ after }: { readonly after: string }) {
                   className="lg-preset-nav__chip"
                   aria-current={target.key === activeKey ? 'location' : undefined}
                   aria-label={messageWith('sheet.sectionLink', { label: target.label })}
-                  onClick={() => jump(target.key)}
+                  onClick={() => jump(target)}
                 >
                   {target.label}
                 </button>

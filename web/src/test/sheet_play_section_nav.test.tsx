@@ -21,6 +21,10 @@ import {
   currentSectionKey,
   prefersReducedMotion,
   presentSections,
+  presentTargets,
+  sectionAnchor,
+  type PresetSectionGroup,
+  type PresetSectionTarget,
 } from '../sheet/preset/section_nav_targets';
 
 const BASE_URL = 'http://api.test';
@@ -210,8 +214,8 @@ afterEach(() => {
   Reflect.deleteProperty(window, 'scrollY');
 });
 
-describe('the phone Play section nav', { timeout: 15_000 }, () => {
-  it('Edge: a sheet without spells draws no spells chip and no nav on a desktop', async () => {
+describe('the Play section nav', { timeout: 15_000 }, () => {
+  it('Edge: a sheet without spells draws no spells chip on a phone or a desktop', async () => {
     const fields = fullFieldTree();
     delete fields.spells;
     delete fields.attacks;
@@ -224,7 +228,40 @@ describe('the phone Play section nav', { timeout: 15_000 }, () => {
     expect(chipLabels()).not.toContain('Table rules');
 
     setViewportWidth(1280);
-    await waitFor(() => expect(nav()).toBeNull());
+    await waitFor(() => expect(nav()).not.toBeNull());
+    expect(chipLabels().some((label) => label.includes('Spellcasting'))).toBe(false);
+    expect(chipLabels()).not.toContain('Attacks');
+    expect(chipLabels()).not.toContain('Table rules');
+  });
+
+  it('Happy path: the desktop nav is a sticky jump bar at the top of the body', async () => {
+    await openFantasy(1280);
+
+    const surface = nav();
+    expect(surface).not.toBeNull();
+    expect(surface?.parentElement?.classList.contains('lg-preset__body')).toBe(true);
+    expect(surface?.parentElement?.firstElementChild).toBe(surface);
+    expect(chipLabels()).toEqual([
+      'Stats',
+      'Saving throws',
+      'Skills',
+      'Attacks',
+      'Spellcasting',
+      'Table rules',
+    ]);
+  });
+
+  it('Edge: the desktop jump bar is token-only, sticky and scrolls its chips horizontally', async () => {
+    await openFantasy(1280);
+
+    expect(navCss).toMatch(
+      /@media \(min-width: 40\.01rem\)[\s\S]*?\.lg-preset-nav\s*\{[^}]*position:\s*sticky/,
+    );
+    expect(navCss).toMatch(/\.lg-preset-nav\s*\{[^}]*background-color:\s*var\(--lg-color-bg\)/);
+    expect(navCss).toMatch(/\.lg-preset-nav__list\s*\{[^}]*overflow-x:\s*auto/);
+    expect(navCss).toMatch(
+      /\[data-preset-section\][\s\S]*?scroll-margin-block-start:\s*calc\(var\(--lg-size-control\)/,
+    );
   });
 
   it('Happy path: the chips follow the layout order and sit right under the combat strip', async () => {
@@ -368,7 +405,9 @@ describe('the section nav helpers', () => {
     present.append(title);
     root.append(empty, headingless, present);
 
-    expect(presentSections(root, 'combat')).toEqual([{ key: 'attacks', label: 'Attacks' }]);
+    expect(presentSections(root, 'combat')).toEqual([
+      { key: 'attacks', label: 'Attacks', sectionKey: 'attacks' },
+    ]);
   });
 
   it('Edge: a browser without matchMedia reads as no reduced-motion preference', () => {
@@ -383,5 +422,95 @@ describe('the section nav helpers', () => {
         value: original,
       });
     }
+  });
+
+  function sectionWrappers(keys: readonly string[]): HTMLElement {
+    const root = document.createElement('div');
+    for (const key of keys) {
+      const wrapper = document.createElement('div');
+      wrapper.setAttribute('data-preset-section', key);
+      wrapper.append(document.createElement('p'));
+      root.append(wrapper);
+    }
+    return root;
+  }
+
+  function group(id: string, label: string, sections: readonly string[]): PresetSectionGroup {
+    return { id, label, sections };
+  }
+
+  const groupCases: ReadonlyArray<{
+    readonly name: string;
+    readonly present: readonly string[];
+    readonly groups: readonly PresetSectionGroup[];
+    readonly skipKey?: string;
+    readonly expected: readonly PresetSectionTarget[];
+  }> = [
+    {
+      name: 'Happy path: each group resolves to its first present section in group order',
+      present: ['abilities', 'hitPoints', 'inventory'],
+      groups: [
+        group('abilities', 'Abilities', ['abilities']),
+        group('combat', 'Combat', ['hitPoints', 'attacks']),
+        group('items', 'Items', ['inventory']),
+      ],
+      expected: [
+        { key: 'abilities', label: 'Abilities', sectionKey: 'abilities' },
+        { key: 'combat', label: 'Combat', sectionKey: 'hitPoints' },
+        { key: 'items', label: 'Items', sectionKey: 'inventory' },
+      ],
+    },
+    {
+      name: 'Edge: a group with no present section is skipped',
+      present: ['abilities'],
+      groups: [
+        group('abilities', 'Abilities', ['abilities']),
+        group('combat', 'Combat', ['hitPoints', 'attacks']),
+      ],
+      expected: [{ key: 'abilities', label: 'Abilities', sectionKey: 'abilities' }],
+    },
+    {
+      name: 'Edge: a section skipped above the bar falls through to the next present one',
+      present: ['hitPoints', 'attacks'],
+      skipKey: 'hitPoints',
+      groups: [group('combat', 'Combat', ['hitPoints', 'attacks'])],
+      expected: [{ key: 'combat', label: 'Combat', sectionKey: 'attacks' }],
+    },
+    {
+      name: 'Edge: no present section yields no targets',
+      present: [],
+      groups: [group('abilities', 'Abilities', ['abilities'])],
+      expected: [],
+    },
+  ];
+
+  it.each(groupCases)('$name', ({ present, groups, skipKey, expected }) => {
+    expect(presentTargets(sectionWrappers(present), groups, skipKey)).toEqual(expected);
+  });
+
+  it('Edge: a group whose only section renders nothing is skipped', () => {
+    const root = sectionWrappers([]);
+    const empty = document.createElement('div');
+    empty.setAttribute('data-preset-section', 'combat');
+    root.append(empty);
+
+    expect(presentTargets(root, [group('combat', 'Combat', ['combat'])], undefined)).toEqual([]);
+  });
+
+  it('Happy path: an anchor prefers its section heading and falls back to its wrapper', () => {
+    const root = document.createElement('div');
+    const headingSection = document.createElement('div');
+    headingSection.setAttribute('data-preset-section', 'attacks');
+    const heading = document.createElement('h2');
+    heading.textContent = 'Attacks';
+    headingSection.append(heading);
+    const plainSection = document.createElement('div');
+    plainSection.setAttribute('data-preset-section', 'rules');
+    plainSection.append(document.createElement('p'));
+    root.append(headingSection, plainSection);
+
+    expect(sectionAnchor(root, 'attacks')).toBe(heading);
+    expect(sectionAnchor(root, 'rules')).toBe(plainSection);
+    expect(sectionAnchor(root, 'missing')).toBeUndefined();
   });
 });

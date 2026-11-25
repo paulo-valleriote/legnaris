@@ -59,9 +59,12 @@ describe('evaluateExpression against the shared vectors', () => {
     }
     expect(result.ok).toBe(true);
     if (result.ok) {
+      const expected = (vector.parts ?? []).map((part) =>
+        Object.hasOwn(vector.values, part.label) ? { ...part, path: part.label } : part,
+      );
       expect(result.value.total).toBe(vector.total);
       expect(result.value.minimum).toBe(vector.minimum);
-      expect(result.value.parts).toEqual(vector.parts);
+      expect(result.value.parts).toEqual(expected);
       expect(roller.used()).toBe(vector.dice.length);
     }
   });
@@ -211,7 +214,7 @@ describe('rollExpression', () => {
       total: 9,
       parts: [
         { sign: 1, label: '2d6', value: 8, rolls: [3, 5] },
-        { sign: 1, label: 'combat.initiative', value: 2 },
+        { sign: 1, label: 'combat.initiative', path: 'combat.initiative', value: 2 },
         { sign: -1, label: '1', value: 1 },
       ],
     });
@@ -305,7 +308,7 @@ describe('performRoll (resolution and Roll together)', () => {
       total: 3,
       parts: [
         { sign: 1, label: '1d20', value: 1, rolls: [1] },
-        { sign: 1, label: 'combat.initiative', value: 2 },
+        { sign: 1, label: 'combat.initiative', path: 'combat.initiative', value: 2 },
       ],
     });
   });

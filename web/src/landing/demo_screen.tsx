@@ -39,9 +39,18 @@ export default function DemoScreen() {
             </span>
             <span className="lg-landing__brand-name">{message('app.name')}</span>
           </Link>
-          <Link className="lg-landing__cta lg-landing__cta--outline" to={LANDING_PATH}>
-            {message('demo.backHome')}
-          </Link>
+          <nav className="lg-demo__actions" aria-label={message('demo.actionsLabel')}>
+            <Link className="lg-landing__cta lg-landing__cta--outline" to={LANDING_PATH}>
+              {message('demo.backHome')}
+            </Link>
+            <Link
+              className="lg-landing__cta lg-landing__cta--primary lg-demo__header-cta"
+              to={FIFTH_SIGN_UP_PATH}
+              onClick={onCtaClick}
+            >
+              {message('landing.create')}
+            </Link>
+          </nav>
         </div>
         <h1 className="lg-demo__title">{message('demo.title')}</h1>
         <p className="lg-demo__lead">{message('demo.lead')}</p>
@@ -56,18 +65,21 @@ export default function DemoScreen() {
           <Suspense fallback={<DemoLoading />}>
             <FifthDemoSheet onInteract={reportInteraction} />
           </Suspense>
-          {interacted && (
-            <div className="lg-landing__demo-cta" data-testid="landing-demo-cta">
-              <p className="lg-landing__demo-cta-text">{message('landing.demoCtaText')}</p>
-              <Link
-                className="lg-landing__cta lg-landing__cta--primary"
-                to={FIFTH_SIGN_UP_PATH}
-                onClick={onCtaClick}
-              >
-                {message('landing.demoCtaAction')}
-              </Link>
-            </div>
-          )}
+          <div
+            className={`lg-landing__demo-cta lg-demo__end${interacted ? ' lg-demo__end--played' : ''}`}
+            data-testid="landing-demo-cta"
+          >
+            <p className="lg-demo__end-title">
+              {message(interacted ? 'landing.demoCtaText' : 'demo.endIdle')}
+            </p>
+            <Link
+              className="lg-landing__cta lg-landing__cta--primary"
+              to={FIFTH_SIGN_UP_PATH}
+              onClick={onCtaClick}
+            >
+              {message('landing.demoCtaAction')}
+            </Link>
+          </div>
         </section>
       </main>
 

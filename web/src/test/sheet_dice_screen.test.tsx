@@ -58,7 +58,7 @@ describe('sheet dice: rolling a Row', () => {
     expect(value).toBeGreaterThanOrEqual(4);
     expect(value).toBeLessThanOrEqual(23);
     expect(panels().length).toBe(1);
-    expect(panels()[0]?.textContent).toContain('alpha.two');
+    expect(panels()[0]?.textContent).toContain('Two');
   });
 
   it('Happy path: the Roll button shows the dice it throws and names them after the Row', async () => {

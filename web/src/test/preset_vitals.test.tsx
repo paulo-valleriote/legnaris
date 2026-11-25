@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Sheet } from '../api/models/sheet';
-import { message } from '../l10n/strings';
+import { message, messageWith } from '../l10n/strings';
 import { configPathErrors } from '../sheet/preset/compose/config_paths';
 import { conditionIsOn, conditionLabelParts } from '../sheet/preset/compose/condition_label';
 import { Conditions } from '../sheet/preset/compose/conditions';
@@ -68,6 +68,14 @@ function conditionsSheet(extra: Record<string, unknown>): Sheet {
   });
 }
 
+function undoRegion(): HTMLElement {
+  const region = document.querySelector<HTMLElement>('.lg-compose-hp__undo');
+  if (region === null) {
+    throw new Error('undo region missing');
+  }
+  return region;
+}
+
 function amountInput(): HTMLElement {
   return screen.getByRole('textbox', { name: message('sheet.play.amount') });
 }
@@ -116,6 +124,130 @@ describe('the hit point track piece', () => {
     await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
 
     expect(store.getPendingDelta()).toEqual({ vitals: { hit: 14 } });
+  });
+
+  it('Happy path: undo after damage restores the current and the absorbed temp', async () => {
+    const user = userEvent.setup();
+    const { store } = renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+      sheet: vitalsSheet({ hit: 12, hitTemp: 3 }),
+    });
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    expect(store.getPendingDelta()).toEqual({ vitals: { hit: 10, hitTemp: 0 } });
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(store.getPendingDelta()).toEqual({});
+    expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('12');
+    expect(screen.getByRole('button', { name: 'Temporary Hit Points' })).toHaveTextContent('3');
+    expect(
+      screen.queryByRole('button', { name: message('sheet.play.hpUndo') }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('Happy path: undo after heal restores the previous current', async () => {
+    const user = userEvent.setup();
+    const { store } = renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+      sheet: vitalsSheet({ hit: 10 }),
+    });
+
+    await user.type(amountInput(), '4');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
+    expect(store.getPendingDelta()).toEqual({ vitals: { hit: 14 } });
+    expect(undoRegion()).toHaveTextContent(messageWith('sheet.play.healed', { count: 4 }));
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(store.getPendingDelta()).toEqual({});
+    expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('10');
+  });
+
+  it('Edge: a second apply replaces the undo target with the state before it', async () => {
+    const user = userEvent.setup();
+    const { store } = renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+      sheet: vitalsSheet({ hit: 12 }),
+    });
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.type(amountInput(), '3');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    expect(store.getPendingDelta()).toEqual({ vitals: { hit: 4 } });
+    expect(undoRegion()).toHaveTextContent(messageWith('sheet.play.tookDamage', { count: 3 }));
+
+    await user.click(screen.getByRole('button', { name: message('sheet.play.hpUndo') }));
+
+    expect(store.getPendingDelta()).toEqual({ vitals: { hit: 7 } });
+    expect(screen.getByRole('button', { name: 'Hit Points' })).toHaveTextContent('7');
+  });
+
+  it('Edge: the undo affordance clears after eight seconds', () => {
+    vi.useFakeTimers();
+    try {
+      renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+        sheet: vitalsSheet({ hit: 12 }),
+      });
+
+      fireEvent.change(amountInput(), { target: { value: '5' } });
+      fireEvent.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+      expect(
+        screen.getByRole('button', { name: message('sheet.play.hpUndo') }),
+      ).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(7999);
+      });
+      expect(
+        screen.getByRole('button', { name: message('sheet.play.hpUndo') }),
+      ).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(
+        screen.queryByRole('button', { name: message('sheet.play.hpUndo') }),
+      ).not.toBeInTheDocument();
+      expect(undoRegion()).toBeEmptyDOMElement();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    { label: 'zero', text: '0' },
+    { label: 'empty', text: '' },
+  ])('Edge: a $label amount offers no undo', async ({ text }) => {
+    const user = userEvent.setup();
+    const { store } = renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+      sheet: vitalsSheet({ hit: 12 }),
+    });
+
+    if (text !== '') {
+      await user.type(amountInput(), text);
+    }
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+
+    expect(store.getPendingDelta()).toEqual({});
+    expect(
+      screen.queryByRole('button', { name: message('sheet.play.hpUndo') }),
+    ).not.toBeInTheDocument();
+    expect(undoRegion()).toBeEmptyDOMElement();
+  });
+
+  it('Happy path: the status line names the change and the undo button is named Undo', async () => {
+    const user = userEvent.setup();
+    renderPreset(<HitPointsTrack piece={hitPoints()} />, {
+      sheet: vitalsSheet({ hit: 12 }),
+    });
+
+    await user.type(amountInput(), '5');
+    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+
+    const status = undoRegion();
+    expect(status).toHaveAttribute('aria-live', 'polite');
+    expect(status).toHaveTextContent(messageWith('sheet.play.tookDamage', { count: 5 }));
+    expect(within(status).getByRole('button', { name: 'Undo' })).toBeInTheDocument();
   });
 
   it('Edge: damage larger than temp plus current floors the current at zero', async () => {

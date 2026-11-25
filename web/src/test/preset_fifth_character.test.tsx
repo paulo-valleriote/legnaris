@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ResetAction } from '../api/models/template';
@@ -12,10 +12,15 @@ import { fifthCharacterConfig } from '../sheet/preset/compose/configs/fifth_char
 import { PresetPlayView } from '../sheet/preset/play_view';
 import { PRESET_CONFIGS } from '../sheet/preset/registry';
 import { numberValue } from '../sheet/preset/values';
+import { setViewportWidth } from './match_media';
 import { renderPreset } from './preset_fixtures';
 import goldenCharacter from '../../../testdata/templates/fifth_character_v1.json';
 
 const TEMPLATE_ID = 'fifth_character_v1';
+
+afterEach(() => {
+  Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+});
 
 function goldenTemplate() {
   return parseTemplateDetail(goldenCharacter.data);
@@ -173,6 +178,74 @@ describe('the 5E Character preset config', () => {
     expect(placed(preset.narrowLayout ?? []).sort()).toEqual([...sectionKeys].sort());
   });
 
+  it('Happy path: the desktop Play draws the grouped jump bar at the top of the body', () => {
+    renderPlay();
+
+    const nav = screen.getByTestId('sheet-section-nav');
+    expect(
+      within(nav)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual([
+      message('preset.nav.abilities'),
+      message('preset.nav.combat'),
+      message('preset.nav.items'),
+      message('preset.nav.spells'),
+      message('preset.nav.resources'),
+    ]);
+    expect(nav).toBe(document.querySelector('.lg-preset__body')?.firstElementChild);
+  });
+
+  it('Happy path: the phone Play draws the grouped jump bar after vitals', () => {
+    setViewportWidth(390);
+    renderPlay();
+
+    const nav = screen.getByTestId('sheet-section-nav');
+    expect(
+      within(nav)
+        .getAllByRole('button')
+        .map((button) => button.textContent),
+    ).toEqual([
+      message('preset.nav.abilities'),
+      message('preset.nav.combat'),
+      message('preset.nav.items'),
+      message('preset.nav.spells'),
+      message('preset.nav.resources'),
+    ]);
+    expect(nav.previousElementSibling).toBe(
+      document.querySelector('[data-preset-section="vitals"]'),
+    );
+  });
+
+  it('Happy path: every jump target resolves to a rendered section', () => {
+    renderPlay();
+
+    const targets = fifthCharacterConfig.sectionNav?.targets ?? [];
+    expect(targets.length).toBeGreaterThan(0);
+    for (const target of targets) {
+      const resolved = target.sections.some((key) => {
+        const section = document.querySelector(`[data-preset-section="${key}"]`);
+        return section !== null && section.childElementCount > 0;
+      });
+      expect(resolved).toBe(true);
+    }
+  });
+
+  it('Happy path: a grouped jump reveals and focuses its first present section', async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView =
+      scrollIntoView as unknown as typeof Element.prototype.scrollIntoView;
+    const user = userEvent.setup();
+    renderPlay();
+
+    await user.click(screen.getByRole('button', { name: /^Go to Combat/ }));
+
+    const target = document.querySelector<HTMLElement>('[data-preset-section="hitPoints"]');
+    expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'smooth' });
+    expect(document.activeElement).toBe(target);
+    expect(target).toHaveAttribute('tabindex', '-1');
+  });
+
   it('Happy path: a skill roll uses the Exhaustion penalised dice', async () => {
     const user = userEvent.setup();
     renderPlay();
@@ -181,7 +254,7 @@ describe('the 5E Character preset config', () => {
 
     const panel = document.querySelector('.lg-dice-panel');
     expect(panel).not.toBeNull();
-    expect(panel?.textContent).toContain('exhaustion.penalty');
+    expect(panel?.textContent).toContain('Exhaustion penalty');
   });
 
   it('Happy path: an ability, a save and the initiative pill roll from their bound Row', async () => {
@@ -197,9 +270,9 @@ describe('the 5E Character preset config', () => {
     await user.click(screen.getByRole('button', { name: /^Roll Initiative/ }));
 
     const panel = document.querySelector('.lg-dice-panel')?.textContent ?? '';
-    expect(panel).toContain('abilities.strength.mod');
-    expect(panel).toContain('saves.dexterity.total');
-    expect(panel).toContain('combat.initiative.total');
+    expect(panel).toContain('Strength modifier');
+    expect(panel).toContain('Dexterity save total');
+    expect(panel).toContain('Initiative');
   });
 
   it('Happy path: a long rest goes through the existing Reset path', async () => {

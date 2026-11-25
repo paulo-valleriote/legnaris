@@ -11,6 +11,7 @@ export interface RollPart {
   readonly sign: 1 | -1;
   readonly label: string;
   readonly value: number;
+  readonly path?: string;
   readonly rolls?: readonly number[];
   readonly discarded?: readonly number[];
 }
@@ -180,7 +181,7 @@ function evaluateTerm(term: Term, context: EvaluateContext): DiceResult<RollPart
       if (value === undefined) {
         return refuse('no_value', `"${path}" has no number to read`);
       }
-      return succeed({ sign, label: path, value: withoutNegativeZero(value) });
+      return succeed({ sign, label: path, path, value: withoutNegativeZero(value) });
     }
   }
 }

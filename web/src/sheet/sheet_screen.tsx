@@ -63,6 +63,7 @@ import {
   type DiceContextValue,
 } from './dice_row';
 import { FLOATING_FLOOR_ATTRIBUTE } from './dice_panel';
+import { fieldLabelFromFields } from './dice_label';
 import {
   checkExpression,
   checkSectionExpression,
@@ -544,6 +545,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   );
   const hasSettings = mainSections.length < sections.length;
   const diceSchema = useMemo(() => diceSchemaFromFields(template.fields), [template]);
+  const diceLabels = useMemo(() => fieldLabelFromFields(template.fields), [template]);
   const diceSectionRowKeys = useMemo(() => diceSectionRows(template.fields), [template]);
   const diceCheck = useCallback<DiceCheck>(
     (target, key, expression) =>
@@ -567,10 +569,20 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       sectionRows: diceSectionRowKeys,
       isRowKey: (key) => isTemplateRowKey(template.fields, key),
       notD20: templateDiceMarking(template.dice, template.fields),
+      labelForPath: diceLabels,
       savedValues: () => editStore.getState().defaults,
       draftValues: () => editStore.getPendingDelta(),
     }),
-    [diceStore, diceSchema, diceSectionRowKeys, diceCheck, template, sections, editStore],
+    [
+      diceStore,
+      diceSchema,
+      diceSectionRowKeys,
+      diceCheck,
+      template,
+      sections,
+      editStore,
+      diceLabels,
+    ],
   );
   const eyebrow = template.name.trim() === '' ? message('sheet.headerTitle') : template.name;
   const notice = template.gameSystem?.notice;

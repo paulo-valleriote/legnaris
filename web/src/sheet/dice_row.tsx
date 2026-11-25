@@ -39,6 +39,7 @@ import {
   type DiceMarking,
 } from './dice_view';
 import { DicePanel } from './dice_panel';
+import type { FieldLabelLookup } from './dice_label';
 import { rememberRoll, type RollEntry } from './dice_history';
 import { opensRollModeMenu, RollModeDialog, rollModeFromClick } from './roll_mode';
 import { DieIcon, dieShapeFor } from './die_icon';
@@ -55,6 +56,7 @@ export interface DiceContextValue {
   readonly sectionRows: ReadonlyMap<string, readonly string[]>;
   readonly isRowKey?: (key: string) => boolean;
   readonly notD20: DiceMarking;
+  readonly labelForPath?: FieldLabelLookup;
   readonly savedValues: () => Record<string, unknown>;
   readonly draftValues: () => Record<string, unknown>;
 }
@@ -171,7 +173,12 @@ export function DiceProvider({
           )}
         {rolls.length > 0 &&
           createPortal(
-            <DicePanel key={rolls[0].id} results={rolls} onDismiss={dismiss} />,
+            <DicePanel
+              key={rolls[0].id}
+              results={rolls}
+              onDismiss={dismiss}
+              labelForPath={value.labelForPath}
+            />,
             document.body,
           )}
       </DiceSessionContext.Provider>

@@ -77,10 +77,40 @@ describe('demo page', () => {
     expect(screen.queryByTestId('catalog')).not.toBeInTheDocument();
   });
 
-  it('Edge: the contextual CTA is absent until the visitor interacts with the demo', async () => {
+  it.each([
+    {
+      name: 'Edge: before any interaction the end CTA invites a passive reader',
+      roll: false,
+      key: 'demo.endIdle',
+    },
+    {
+      name: 'Happy path: after a roll the end CTA acknowledges the play',
+      roll: true,
+      key: 'landing.demoCtaText',
+    },
+  ] as const)('$name', async ({ roll, key }) => {
+    const user = userEvent.setup();
+    await visitDemo();
+    if (roll) {
+      await user.click(screen.getByRole('button', { name: rollName('Wisdom modifier') }));
+    }
+
+    const cta = screen.getByTestId('landing-demo-cta');
+    expect(cta).toHaveTextContent(message(key));
+    expect(cta.classList.contains('lg-demo__end--played')).toBe(roll);
+    expect(
+      within(cta).getByRole('link', { name: message('landing.demoCtaAction') }),
+    ).toHaveAttribute('href', FIFTH_SIGN_UP_PATH);
+  });
+
+  it('Happy path: the header offers sign-up next to the way back home', async () => {
     await visitDemo();
 
-    expect(screen.queryByTestId('landing-demo-cta')).not.toBeInTheDocument();
+    const actions = screen.getByRole('navigation', { name: message('demo.actionsLabel') });
+    expect(within(actions).getByRole('link', { name: message('landing.create') })).toHaveAttribute(
+      'href',
+      FIFTH_SIGN_UP_PATH,
+    );
   });
 
   it('Happy path: rolling a die reveals the sign-up CTA and keeps the demo state', async () => {
