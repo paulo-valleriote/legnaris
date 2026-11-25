@@ -240,10 +240,37 @@ describe('the 5E Character preset config', () => {
 
     await user.click(screen.getByRole('button', { name: /^Go to Combat/ }));
 
-    const target = document.querySelector<HTMLElement>('[data-preset-section="hitPoints"]');
+    const target = document.querySelector<HTMLElement>('[data-preset-section="attacks"]');
     expect(scrollIntoView).toHaveBeenCalledWith({ block: 'start', behavior: 'smooth' });
     expect(document.activeElement).toBe(target);
     expect(target).toHaveAttribute('tabindex', '-1');
+  });
+
+  it('Edge: on load the first chip is current, not Combat', () => {
+    const tops: Record<string, number> = {
+      abilities: 400,
+      attacks: 1600,
+      inventory: 2200,
+      spells: 2800,
+      features: 3400,
+    };
+    const original = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function rect(this: Element) {
+      const key = (this as HTMLElement).dataset?.presetSection ?? '';
+      return { top: tops[key] ?? 0 } as DOMRect;
+    };
+    try {
+      renderPlay();
+      const nav = screen.getByTestId('sheet-section-nav');
+      const current = within(nav)
+        .getAllByRole('button')
+        .filter((button) => button.getAttribute('aria-current') === 'location');
+      expect(current.map((button) => button.textContent)).toEqual([
+        message('preset.nav.abilities'),
+      ]);
+    } finally {
+      Element.prototype.getBoundingClientRect = original;
+    }
   });
 
   it('Happy path: a skill roll uses the Exhaustion penalised dice', async () => {
