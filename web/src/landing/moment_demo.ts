@@ -1,57 +1,32 @@
 import type { Sheet } from '../api/models/sheet';
-import type { FieldNode, TemplateDetail } from '../api/models/template';
+import { valueAtPath } from '../api/models/sheet';
+import type { TemplateDetail } from '../api/models/template';
+import type { DemoDerivation } from './demo_store';
+import { FIFTH_DEMO_SHEET, FIFTH_DEMO_TEMPLATE } from './fifth_demo_character';
+import { templateDerivation } from './template_derivation';
 
-const MOMENT_TEMPLATE_ID = 'landing_moments_v1';
+const SLOT_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
-const MOMENT_SHEET_ID = '00000000-0000-7000-8000-000000000430';
+export const MOMENT_TEMPLATE: TemplateDetail = FIFTH_DEMO_TEMPLATE;
 
-function numberLeaf(label: string, defaultValue: number): FieldNode {
+export const MOMENT_SHEET: Sheet = FIFTH_DEMO_SHEET;
+
+export const MOMENT_DERIVATION: DemoDerivation = templateDerivation(FIFTH_DEMO_TEMPLATE);
+
+function readNumber(data: Record<string, unknown>, path: string): number {
+  try {
+    const value = valueAtPath(data, path);
+    return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function longRestCascade(data: Record<string, unknown>): Record<string, unknown> {
+  const slots = Object.fromEntries(SLOT_LEVELS.map((level) => [`slot${level}`, { spent: 0 }]));
+
   return {
-    kind: 'leaf',
-    schema: { type: 'number', label, isEditable: true, defaultValue },
+    combat: { hp: { current: readNumber(data, 'combat.hp.max'), temp: 0 } },
+    spellcasting: slots,
   };
 }
-
-function group(label: string, children: Record<string, FieldNode>): FieldNode {
-  return { kind: 'group', label, children };
-}
-
-export const MOMENT_TEMPLATE: TemplateDetail = {
-  id: MOMENT_TEMPLATE_ID,
-  name: 'Landing moments demo',
-  default: false,
-  kinds: ['character'],
-  fields: {
-    identity: group('Identity', {
-      level: numberLeaf('Level', 3),
-      xp: numberLeaf('Experience points', 1400),
-    }),
-    combat: group('Combat', {
-      hitPoints: numberLeaf('Current hit points', 24),
-      hitPointsMax: numberLeaf('Hit point maximum', 30),
-      hitPointsTemp: numberLeaf('Temporary hit points', 0),
-    }),
-    spells: group('Spells', {
-      slot1: group('Level 1', {
-        total: numberLeaf('Level 1 spell slots', 2),
-        expended: numberLeaf('Level 1 spell slots spent', 0),
-      }),
-    }),
-  },
-  dice: { section: {}, row: {} },
-};
-
-export const MOMENT_SHEET: Sheet = {
-  id: MOMENT_SHEET_ID,
-  templateId: MOMENT_TEMPLATE_ID,
-  kind: 'character',
-  name: 'Landing moments',
-  data: {
-    identity: { level: 3, xp: 1400 },
-    combat: { hitPoints: 24, hitPointsMax: 30, hitPointsTemp: 0 },
-    spells: { slot1: { total: 2, expended: 0 } },
-  },
-  dice: { section: {}, row: {} },
-  createdAt: '2026-11-24T00:00:00.000Z',
-  updatedAt: '2026-11-24T00:00:00.000Z',
-};

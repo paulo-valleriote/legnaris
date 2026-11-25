@@ -43,21 +43,21 @@ describe('srd route (LGN-420)', () => {
     expect(screen.queryByText(/trademark/i)).not.toBeInTheDocument();
   });
 
-  it('Edge: only the demo footer links to the srd page', async () => {
-    for (const path of ['/', '/privacy']) {
+  it('Edge: the landing and the demo footer link to the srd page, and no other public page does', async () => {
+    for (const path of ['/', '/demo']) {
       const view = await visit(path);
       await screen.findByRole('heading', { level: 1 });
-      const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href') ?? '');
-      for (const href of hrefs) {
-        expect(new URL(href, 'http://legnaris.test').pathname).not.toBe(SRD_PATH);
-      }
+      const footer = screen.getByRole('contentinfo');
+      expect(footer.querySelector(`a[href="${SRD_PATH}"]`)).not.toBeNull();
       view.unmount();
     }
 
-    const demo = await visit('/demo');
+    const privacy = await visit('/privacy');
     await screen.findByRole('heading', { level: 1 });
-    const footer = screen.getByRole('contentinfo');
-    expect(footer.querySelector(`a[href="${SRD_PATH}"]`)).not.toBeNull();
-    demo.unmount();
+    const hrefs = screen.getAllByRole('link').map((link) => link.getAttribute('href') ?? '');
+    for (const href of hrefs) {
+      expect(new URL(href, 'http://legnaris.test').pathname).not.toBe(SRD_PATH);
+    }
+    privacy.unmount();
   });
 });

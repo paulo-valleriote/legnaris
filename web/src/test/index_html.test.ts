@@ -128,3 +128,15 @@ describe('served HTML theme colour', () => {
     expect(media).toEqual(['(prefers-color-scheme: light)', '(prefers-color-scheme: dark)']);
   });
 });
+
+describe('served HTML landing metadata', () => {
+  it('Happy path: the title and the description name the 5E character sheet', () => {
+    expect(html).toMatch(/<title>[^<]*5E character sheet[^<]*<\/title>/);
+    const description = namedMetas().find((meta) => meta.name === 'description');
+    expect(description?.content).toContain('5E character sheet');
+  });
+
+  it('Edge: the served page carries no publisher trademark', () => {
+    expect(html).not.toMatch(/Dungeons? & Dragons|D&D|Wizards/i);
+  });
+});

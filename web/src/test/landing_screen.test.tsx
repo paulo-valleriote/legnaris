@@ -2,8 +2,8 @@ import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { message } from '../l10n/strings';
-import { DEMO_PATH, PRIVACY_PATH } from '../app/routes';
+import { message, messages } from '../l10n/strings';
+import { DEMO_PATH, PRIVACY_PATH, SRD_PATH } from '../app/routes';
 import { signUpCtaPath } from '../landing/start_intent';
 import { renderApp } from './render';
 
@@ -41,6 +41,66 @@ describe('landing screen', () => {
     );
   });
 
+  it('Happy path: the 5E compatible badge sits above the unchanged hero title', async () => {
+    await visit('/');
+
+    const badge = screen.getByText(message('landing.badge'));
+    const title = screen.getByRole('heading', { level: 1, name: message('landing.heroTitle') });
+
+    expect(message('landing.heroTitle')).toBe(
+      'The living character sheet for players who have outgrown paper.',
+    );
+    expect(message('landing.badge')).toBe('5E compatible');
+    expect(badge).toBeVisible();
+    expect(badge.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('Happy path: the page presents the 5E positioning verbatim', async () => {
+    await visit('/');
+
+    expect(message('landing.heroLead')).toBe(
+      'Replace the printed fifth-edition sheet and the PDF: enter a value once and every modifier, save, skill and spell number recalculates in place while you play.',
+    );
+    expect(message('landing.momentsLead')).toBe(
+      'Take damage, spend a slot, take a long rest. The same sheet recalculates every number in place, mid-session.',
+    );
+    expect(message('landing.step1Body')).toBe(
+      'Pick 5E Character for your hero, or 5E Stat Block for the creatures you run.',
+    );
+    expect(message('landing.faq1Answer')).toBe(
+      'Fifth edition. Legnaris is 5E compatible: the 5E Character and 5E Stat Block templates follow the open SRD 5.2.1 rules and do the math for you. Other game systems join only when their rules are openly licensed.',
+    );
+    expect(screen.getByText(message('landing.heroLead'))).toBeVisible();
+    expect(screen.getByText(message('landing.step1Body'))).toBeVisible();
+  });
+
+  it('Happy path: the systems answer links the open SRD page', async () => {
+    const user = userEvent.setup();
+    await visit('/');
+
+    const question = screen.getByText(message('landing.faq1Question'));
+    const item = question.closest('details');
+    expect(item).not.toBeNull();
+
+    await user.click(question);
+
+    expect(item).toHaveTextContent(message('landing.faq1Answer'));
+    expect(within(item!).getByRole('link', { name: message('landing.faq1Link') })).toHaveAttribute(
+      'href',
+      SRD_PATH,
+    );
+  });
+
+  it('Edge: no publisher trademark appears in the landing copy', () => {
+    const copy = Object.entries(messages)
+      .filter(([key]) => key.startsWith('landing.'))
+      .map(([, text]) => text)
+      .join('\n');
+
+    expect(copy).not.toMatch(/Dungeons? & Dragons|D&D|Wizards/i);
+    expect(copy).not.toContain('no publisher content is included');
+  });
+
   it('Happy path: the page carries the landmarks', async () => {
     await visit('/');
 
@@ -76,6 +136,15 @@ describe('landing screen', () => {
     expect(
       within(footer).getByRole('link', { name: message('landing.footer.privacy') }),
     ).toHaveAttribute('href', PRIVACY_PATH);
+  });
+
+  it('Happy path: the footer links to the SRD attribution', async () => {
+    await visit('/');
+
+    const footer = screen.getByRole('contentinfo');
+    expect(
+      within(footer).getByRole('link', { name: message('landing.footer.srd') }),
+    ).toHaveAttribute('href', SRD_PATH);
   });
 
   it('Happy path: the browser chrome takes the stage colour while mounted and is restored after', async () => {

@@ -47,6 +47,13 @@
   color: var(--lg-color-stage-accent);
 }
 
+.lg-moment__stat {
+  margin: 0;
+  font-size: var(--lg-type-20);
+  font-weight: var(--lg-font-weight-semibold);
+  line-height: var(--lg-line-tight);
+}
+
 .lg-moment__actions {
   display: flex;
   flex-wrap: wrap;
@@ -63,6 +70,6 @@
 
 @media (min-width: 56rem) {
   .lg-moment-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }

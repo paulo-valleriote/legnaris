@@ -89,21 +89,21 @@ describe('the landing 5E demo sheet', () => {
       within(screen.getByTestId('compose-hit-points')).getByRole('button', {
         name: 'Current hit points',
       }),
-    ).toHaveTextContent('24');
+    ).toHaveTextContent('19');
 
     await changeHitPoints(user, '5', 'damage');
     expect(
       within(screen.getByTestId('compose-hit-points')).getByRole('button', {
         name: 'Current hit points',
       }),
-    ).toHaveTextContent('19');
+    ).toHaveTextContent('14');
 
     await changeHitPoints(user, '5', 'heal');
     expect(
       within(screen.getByTestId('compose-hit-points')).getByRole('button', {
         name: 'Current hit points',
       }),
-    ).toHaveTextContent('24');
+    ).toHaveTextContent('19');
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 

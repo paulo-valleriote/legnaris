@@ -4,8 +4,13 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { valueAtPath } from '../api/models/sheet';
 import { message, messageWith } from '../l10n/strings';
+import { createDemoEditStore } from '../landing/demo_store';
+import { FIFTH_DEMO_SHEET, FIFTH_DEMO_TEMPLATE } from '../landing/fifth_demo_character';
 import GameMoments, { HeroSheet } from '../landing/game_moments';
+import { longRestCascade } from '../landing/moment_demo';
+import { templateDerivation } from '../landing/template_derivation';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const landingDir = path.resolve(here, '../landing');
@@ -23,140 +28,146 @@ function AllMoments() {
   );
 }
 
-function xpCard() {
-  return screen.getByTestId('landing-moment-xp');
+function hero() {
+  return screen.getByTestId('landing-hero-sheet');
 }
 
-function hpCard() {
-  return screen.getByTestId('landing-moment-hp');
+function grid() {
+  return screen.getByTestId('landing-game-moments');
+}
+
+function heroHpCard() {
+  return within(hero()).getByTestId('landing-moment-hp');
+}
+
+function gridHpCard() {
+  return within(grid()).getByTestId('landing-moment-hp');
 }
 
 function slotCard() {
-  return screen.getByTestId('landing-moment-slot');
+  return within(grid()).getByTestId('landing-moment-slot');
+}
+
+function restCard() {
+  return within(grid()).getByTestId('landing-moment-rest');
+}
+
+function hitPointsMeter(card: HTMLElement) {
+  return within(card).getByRole('meter', { name: message('sheet.play.hitPoints') });
+}
+
+async function takeDamage(
+  user: ReturnType<typeof userEvent.setup>,
+  card: HTMLElement,
+  amount: number,
+) {
+  const field = within(card).getByLabelText(message('sheet.play.amount'));
+  await user.clear(field);
+  await user.type(field, String(amount));
+  await user.click(within(card).getByRole('button', { name: message('sheet.play.damage') }));
+}
+
+function slotGroup(card: HTMLElement, count: number) {
+  return within(card).getByRole('group', {
+    name: messageWith('preset.pips.group', {
+      label: 'Level 1 spell slots spent',
+      count,
+      max: 4,
+    }),
+  });
 }
 
 describe('the landing game moments', () => {
-  it('Happy path: the three moments mount the real Fantasy Play components', () => {
-    render(<AllMoments />);
+  it('Happy path: the moments section shows damage, a spent slot and a long rest', () => {
+    render(<GameMoments />);
 
-    expect(screen.getByTestId('sheet-xp')).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-hp-card')).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-spell-slots')).toBeInTheDocument();
+    expect(within(grid()).getByTestId('landing-moment-hp')).toBeInTheDocument();
+    expect(within(grid()).getByTestId('landing-moment-slot')).toBeInTheDocument();
+    expect(within(grid()).getByTestId('landing-moment-rest')).toBeInTheDocument();
+    expect(within(grid()).queryByTestId('landing-moment-xp')).not.toBeInTheDocument();
   });
 
-  it('Happy path: gaining experience fills the bar, then the next level is taken', async () => {
-    const user = userEvent.setup();
-    render(<AllMoments />);
+  it('Happy path: the moments draw the 5E demo character and its prepared values', () => {
+    render(<GameMoments />);
 
-    const bar = within(xpCard()).getByRole('progressbar', {
-      name: message('sheet.play.experience'),
-    });
-    expect(bar).toHaveAttribute('aria-valuenow', '1400');
-
-    await user.click(
-      within(xpCard()).getByRole('button', {
-        name: messageWith('landing.momentXpGain', { count: '1,300' }),
-      }),
-    );
-
-    expect(bar).toHaveAttribute('aria-valuenow', '2700');
-    expect(within(xpCard()).getByRole('status')).toHaveTextContent(
-      messageWith('landing.momentXpAnnounce', { count: '2,700' }),
-    );
-    expect(within(xpCard()).getByRole('status')).toHaveFocus();
-
-    await user.click(
-      within(xpCard()).getByRole('button', {
-        name: messageWith('landing.momentXpLevelUp', { count: 4 }),
-      }),
-    );
-
-    expect(within(xpCard()).getByTestId('landing-moment-xp-level')).toHaveTextContent(
-      messageWith('sheet.play.level', { count: 4 }),
-    );
-    expect(within(xpCard()).getByRole('status')).toHaveTextContent(
-      messageWith('landing.momentXpValue', { count: 4, total: '2,700' }),
-    );
+    expect(hitPointsMeter(gridHpCard())).toHaveAttribute('aria-valuenow', '24');
+    expect(hitPointsMeter(gridHpCard())).toHaveAttribute('aria-valuemax', '24');
+    expect(slotGroup(slotCard(), 1)).toBeInTheDocument();
   });
 
   it('Happy path: taking damage lowers the hit points and announces the total', async () => {
     const user = userEvent.setup();
-    render(<AllMoments />);
+    render(<GameMoments />);
 
-    await user.click(
-      within(hpCard()).getByRole('button', {
-        name: messageWith('sheet.play.damageAmount', { count: 5 }),
-      }),
-    );
-    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent(/19\s*\/\s*30/);
-    expect(within(hpCard()).getByRole('status')).toHaveTextContent(
-      messageWith('landing.momentHpAnnounce', { count: 19, total: 30 }),
-    );
+    await takeDamage(user, gridHpCard(), 5);
 
-    await user.click(
-      within(hpCard()).getByRole('button', {
-        name: messageWith('sheet.play.damageAmount', { count: 5 }),
-      }),
+    expect(hitPointsMeter(gridHpCard())).toHaveAttribute('aria-valuenow', '19');
+    expect(within(gridHpCard()).getByRole('status')).toHaveTextContent(
+      messageWith('landing.momentHpAnnounce', { count: 19, total: 24 }),
     );
-    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent(/14\s*\/\s*30/);
   });
 
-  it('Happy path: spending a focus slot updates the pips and the remaining count', async () => {
+  it('Happy path: spending a spell slot updates the pips and the remaining count', async () => {
     const user = userEvent.setup();
-    render(<AllMoments />);
+    render(<GameMoments />);
 
     await user.click(
       within(slotCard()).getByRole('button', { name: message('landing.momentSlotSpend') }),
     );
 
-    expect(screen.getByTestId('sheet-slot-1-remaining')).toHaveTextContent(
-      messageWith('sheet.play.slotsLeft', { remaining: 1, total: 2 }),
-    );
-    expect(
-      within(screen.getByTestId('sheet-slot-1')).getAllByRole('button', {
-        name: messageWith('sheet.play.slotRecover', { count: 1 }),
-      }),
-    ).toHaveLength(1);
+    expect(slotGroup(slotCard(), 2)).toBeInTheDocument();
     expect(within(slotCard()).getByRole('status')).toHaveTextContent(
-      messageWith('landing.momentSlotAnnounce', { count: 1 }),
+      messageWith('landing.momentSlotAnnounce', { count: 2 }),
     );
   });
 
-  it('Edge: a spent focus slot cannot be spent again', async () => {
+  it('Edge: the last slot cannot be spent twice', async () => {
     const user = userEvent.setup();
-    render(<AllMoments />);
+    render(<GameMoments />);
 
     const spend = within(slotCard()).getByRole('button', {
       name: message('landing.momentSlotSpend'),
     });
     await user.click(spend);
     await user.click(spend);
+    await user.click(spend);
 
-    expect(screen.getByTestId('sheet-slot-1-remaining')).toHaveTextContent(
-      messageWith('sheet.play.slotsLeft', { remaining: 0, total: 2 }),
-    );
+    expect(slotGroup(slotCard(), 4)).toBeInTheDocument();
     expect(spend).toBeDisabled();
-    expect(within(slotCard()).getByRole('status')).toHaveFocus();
+    expect(within(slotCard()).getByRole('status')).toHaveTextContent(
+      messageWith('landing.momentSlotAnnounce', { count: 0 }),
+    );
   });
 
-  it('Edge: an action draws no decorative bar above the stage', async () => {
+  it('Happy path: a long rest restores hit points and every spent spell slot', async () => {
     const user = userEvent.setup();
-    render(<AllMoments />);
+    render(<GameMoments />);
 
-    await user.click(
-      within(hpCard()).getByRole('button', {
-        name: messageWith('sheet.play.damageAmount', { count: 5 }),
-      }),
+    await takeDamage(user, gridHpCard(), 5);
+
+    expect(within(restCard()).getByTestId('landing-moment-rest-hp')).toHaveTextContent(
+      messageWith('landing.momentRestHp', { count: 19, total: 24 }),
     );
 
-    expect(hpCard().querySelector('.lg-moment__stage > [aria-hidden="true"]')).toBeNull();
-    expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent(/19\s*\/\s*30/);
+    await user.click(
+      within(restCard()).getByRole('button', { name: message('landing.momentRestAction') }),
+    );
+
+    expect(hitPointsMeter(gridHpCard())).toHaveAttribute('aria-valuenow', '24');
+    expect(within(restCard()).getByTestId('landing-moment-rest-hp')).toHaveTextContent(
+      messageWith('landing.momentRestHp', { count: 24, total: 24 }),
+    );
+    expect(slotGroup(restCard(), 0)).toBeInTheDocument();
+    expect(within(restCard()).getByRole('status')).toHaveTextContent(
+      messageWith('landing.momentRestAnnounce', { count: 24, total: 24, slots: 4 }),
+    );
+    expect(within(restCard()).getByRole('status')).toHaveFocus();
   });
 
   it('Happy path: every moment is a figure with its own name and live result', () => {
-    render(<AllMoments />);
+    render(<GameMoments />);
 
-    for (const card of [xpCard(), hpCard(), slotCard()]) {
+    for (const card of [gridHpCard(), slotCard(), restCard()]) {
       expect(card).toHaveAccessibleName();
       expect(within(card).getByRole('status')).toHaveAttribute('aria-live', 'polite');
     }
@@ -164,37 +175,62 @@ describe('the landing game moments', () => {
 });
 
 describe('the hero sheet and the moments grid', () => {
-  it('Happy path: the hero sheet holds the live hit points moment', () => {
+  it('Happy path: the hero sheet holds the live 5E hit points moment', () => {
     render(<HeroSheet />);
 
-    const hero = screen.getByTestId('landing-hero-sheet');
-    expect(within(hero).getByTestId('landing-moment-hp')).toBeInTheDocument();
-    expect(within(hero).getByTestId('sheet-hp-card')).toBeInTheDocument();
-  });
-
-  it('Edge: the moments grid no longer repeats the hit points moment', () => {
-    render(<GameMoments />);
-
-    const grid = screen.getByTestId('landing-game-moments');
-    expect(within(grid).queryByTestId('landing-moment-hp')).not.toBeInTheDocument();
-    expect(within(grid).getByTestId('landing-moment-xp')).toBeInTheDocument();
-    expect(within(grid).getByTestId('landing-moment-slot')).toBeInTheDocument();
+    expect(within(hero()).getByTestId('landing-moment-hp')).toBeInTheDocument();
+    expect(within(hero()).getByTestId('compose-hit-points')).toBeInTheDocument();
+    expect(hitPointsMeter(heroHpCard())).toHaveAttribute('aria-valuemax', '24');
   });
 
   it('Edge: the hero sheet and the grid keep separate demo state', async () => {
     const user = userEvent.setup();
     render(<AllMoments />);
 
-    await user.click(
-      within(hpCard()).getByRole('button', {
-        name: messageWith('sheet.play.damageAmount', { count: 5 }),
-      }),
+    await takeDamage(user, heroHpCard(), 5);
+
+    expect(hitPointsMeter(heroHpCard())).toHaveAttribute('aria-valuenow', '19');
+    expect(hitPointsMeter(gridHpCard())).toHaveAttribute('aria-valuenow', '24');
+  });
+});
+
+describe('the long rest cascade', () => {
+  it('Happy path: it restores hit points and clears every spell slot', () => {
+    const cascade = longRestCascade(FIFTH_DEMO_SHEET.data);
+    const spellcasting = cascade.spellcasting as Record<string, unknown>;
+
+    expect(cascade.combat).toEqual({ hp: { current: 24, temp: 0 } });
+    for (let level = 1; level <= 9; level += 1) {
+      expect(spellcasting[`slot${level}`]).toEqual({ spent: 0 });
+    }
+  });
+
+  it('Happy path: the demo store recalculates the remaining slots after a rest', () => {
+    const store = createDemoEditStore(
+      FIFTH_DEMO_TEMPLATE,
+      FIFTH_DEMO_SHEET,
+      templateDerivation(FIFTH_DEMO_TEMPLATE),
     );
 
-    expect(screen.getAllByTestId('sheet-hp-value')).toHaveLength(1);
-    expect(within(slotCard()).getByRole('status')).toHaveTextContent(
-      messageWith('landing.momentSlotAnnounce', { count: 2 }),
-    );
+    store.applyReset(longRestCascade(store.getState().data));
+
+    expect(valueAtPath(store.getState().data, 'spellcasting.slot1.spent')).toBe(0);
+    expect(valueAtPath(store.getState().data, 'spellcasting.slot1.remaining')).toBe(4);
+  });
+
+  it('Edge: a missing hit point maximum reads as zero', () => {
+    const cascade = longRestCascade({});
+
+    expect(cascade.combat).toEqual({ hp: { current: 0, temp: 0 } });
+  });
+
+  it('Edge: the cascade leaves the given data untouched', () => {
+    const data = FIFTH_DEMO_SHEET.data;
+    const before = JSON.stringify(data);
+
+    longRestCascade(data);
+
+    expect(JSON.stringify(data)).toBe(before);
   });
 });
 
@@ -207,13 +243,22 @@ describe('the landing game moments contract', () => {
     expect(landing).toMatch(/<Suspense[\s\S]*fallback=/);
   });
 
-  it('Edge: the moments module composes the real preset components through the demo provider', () => {
+  it('Happy path: the moments compose the real 5E preset parts over the prepared demo', () => {
     const moments = source('game_moments.tsx');
 
-    expect(moments).toContain("from '../sheet/preset/fantasy/xp_panel'");
-    expect(moments).toContain("from '../sheet/preset/fantasy/hp_card'");
-    expect(moments).toContain("from '../sheet/preset/fantasy/spells'");
+    expect(moments).toContain("from '../sheet/preset/compose/hit_points_track'");
+    expect(moments).toContain("from '../sheet/preset/compose/pips'");
+    expect(moments).toContain("from './moment_demo'");
     expect(moments).toContain("from './demo_provider'");
+    expect(moments).not.toContain('sheet/preset/fantasy');
+  });
+
+  it('Edge: the moment demo is the prepared 5E character, not a synthetic template', () => {
+    const demo = source('moment_demo.ts');
+
+    expect(demo).toContain("from './fifth_demo_character'");
+    expect(demo).not.toContain('landing_moments_v1');
+    expect(demo).not.toContain('MOMENT_TEMPLATE_ID');
   });
 
   it('Edge: the cascade demo and the home ad slot are gone', () => {
