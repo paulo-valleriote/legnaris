@@ -1,3 +1,4 @@
+import { editName } from './dice_names';
 import { describe, expect, it, vi } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -26,7 +27,7 @@ async function openFantasy() {
 }
 
 async function switchToEdit(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+  await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
 }
 
 describe('the Play preset review surface', () => {
@@ -35,10 +36,10 @@ describe('the Play preset review surface', () => {
 
     const group = screen.getByRole('group', { name: message('sheet.mode.group') });
     expect(
-      within(group).getByRole('button', { name: message('sheet.mode.play') }),
+      within(group).getByRole('button', { name: editName(message('sheet.mode.play')) }),
     ).toBeInTheDocument();
     expect(
-      within(group).getByRole('button', { name: message('sheet.mode.edit') }),
+      within(group).getByRole('button', { name: editName(message('sheet.mode.edit')) }),
     ).toBeInTheDocument();
   });
 
@@ -103,13 +104,13 @@ describe('the Play preset review surface', () => {
     });
     await screen.findByTestId('sheet-name');
 
-    await user.click(screen.getByRole('button', { name: 'Current hit points' }));
+    await user.click(screen.getByRole('button', { name: editName('Current hit points') }));
     const current = screen.getByRole('textbox', { name: 'Current hit points' });
     await user.clear(current);
     await user.type(current, '6{Enter}');
     await user.click(
       within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
-        name: message('sheet.pending.preview'),
+        name: editName(message('sheet.pending.preview')),
       }),
     );
 
@@ -124,7 +125,7 @@ describe('the Play preset review surface', () => {
       ),
     );
     expect(
-      screen.getByRole('button', { name: message('sheet.jumpToFirstName') }),
+      screen.getByRole('button', { name: editName(message('sheet.jumpToFirstName')) }),
     ).toBeInTheDocument();
   });
 });

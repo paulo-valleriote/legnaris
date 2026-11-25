@@ -1,3 +1,4 @@
+import { editName } from './dice_names';
 import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -18,15 +19,15 @@ describe('the text fields piece', () => {
   it('Happy path: each bound text leaf draws its original label and stored value', () => {
     renderPreset(<TextFields piece={fields(['identity.name', 'identity.subtitle'])} />);
 
-    expect(screen.getByRole('button', { name: 'Name' })).toHaveTextContent('Nova');
-    expect(screen.getByRole('button', { name: 'Subtitle' })).toHaveTextContent('Scout');
+    expect(screen.getByRole('button', { name: editName('Name') })).toHaveTextContent('Nova');
+    expect(screen.getByRole('button', { name: editName('Subtitle') })).toHaveTextContent('Scout');
   });
 
   it('Happy path: a text leaf is editable inline through the edit store', async () => {
     const user = userEvent.setup();
     const { store } = renderPreset(<TextFields piece={fields(['identity.name'])} />);
 
-    await user.click(screen.getByRole('button', { name: 'Name' }));
+    await user.click(screen.getByRole('button', { name: editName('Name') }));
     const input = screen.getByRole('textbox', { name: 'Name' });
     await user.clear(input);
     await user.type(input, 'Rune{Enter}');
@@ -45,7 +46,9 @@ describe('the text fields piece', () => {
       sheet: presetSheet({ data: { identity: { name: 'Nova', subtitle: '' } } }),
     });
 
-    expect(screen.getByRole('button', { name: 'Subtitle' })).toHaveTextContent('Add Subtitle');
+    expect(screen.getByRole('button', { name: editName('Subtitle') })).toHaveTextContent(
+      'Add Subtitle',
+    );
   });
 
   it('Happy path: the piece binds every listed leaf through configPathErrors', () => {

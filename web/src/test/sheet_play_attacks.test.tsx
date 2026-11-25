@@ -1,3 +1,4 @@
+import { editName } from './dice_names';
 import { describe, expect, it } from 'vitest';
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -153,7 +154,7 @@ async function editValue(
   label: string,
   text: string,
 ) {
-  await user.click(within(card).getByRole('button', { name: label }));
+  await user.click(within(card).getByRole('button', { name: editName(label) }));
   const input = within(card).getByRole('textbox', { name: label });
   await user.clear(input);
   if (text !== '') {
@@ -164,7 +165,7 @@ async function editValue(
 }
 
 async function save(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
+  await user.click(screen.getByRole('button', { name: editName(message('sheet.pending.save')) }));
 }
 
 describe('attack cards in play mode', { timeout: 15000 }, () => {
@@ -285,9 +286,9 @@ describe('attack notes', { timeout: 15000 }, () => {
 
     await editValue(user, card, 'Attack 1 notes', 'DC 14 Wis');
 
-    expect(within(card).getByRole('button', { name: 'Attack 1 notes' })).toHaveTextContent(
-      'DC 14 Wis',
-    );
+    expect(
+      within(card).getByRole('button', { name: editName('Attack 1 notes') }),
+    ).toHaveTextContent('DC 14 Wis');
 
     await save(user);
 
@@ -305,13 +306,13 @@ describe('attack notes', { timeout: 15000 }, () => {
       }),
     });
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
     const note = await screen.findByRole('textbox', { name: 'Attack 1 notes' });
     expect(note).toHaveValue('ranged · 150/600');
 
     await user.clear(note);
     await user.type(note, 'DC 14 Wis');
-    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.save')) }));
 
     await waitFor(() =>
       expect(savedData(fake)).toEqual({
@@ -323,10 +324,10 @@ describe('attack notes', { timeout: 15000 }, () => {
   it('Happy path: Edit mode exposes every empty attack slot so an attack can still be added there', async () => {
     const { fake, user } = await openAttacks();
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
     const name = await screen.findByRole('textbox', { name: 'Attack 3 name' });
     await user.type(name, 'Javelin');
-    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.save')) }));
 
     await waitFor(() =>
       expect(savedData(fake)).toEqual({
@@ -342,7 +343,7 @@ describe('attack notes', { timeout: 15000 }, () => {
 
     const card = attackCard(1);
     expect(within(card).queryByTestId('sheet-attack-notes-1')).toBeNull();
-    expect(within(card).queryByRole('button', { name: 'Attack 1 notes' })).toBeNull();
+    expect(within(card).queryByRole('button', { name: editName('Attack 1 notes') })).toBeNull();
     expect(within(card).queryByText('Add Attack 1 notes')).toBeNull();
   });
 
@@ -375,9 +376,15 @@ describe('attack editing', { timeout: 15000 }, () => {
     await editValue(user, card, 'Attack 1 bonus', '7');
     await editValue(user, card, 'Attack 1 damage', '1d6 + 2');
 
-    expect(within(card).getByRole('button', { name: 'Attack 1 name' })).toHaveTextContent('Sting');
-    expect(within(card).getByRole('button', { name: 'Attack 1 bonus' })).toBeInTheDocument();
-    expect(within(card).getByRole('button', { name: 'Attack 1 damage' })).toBeInTheDocument();
+    expect(within(card).getByRole('button', { name: editName('Attack 1 name') })).toHaveTextContent(
+      'Sting',
+    );
+    expect(
+      within(card).getByRole('button', { name: editName('Attack 1 bonus') }),
+    ).toBeInTheDocument();
+    expect(
+      within(card).getByRole('button', { name: editName('Attack 1 damage') }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent(
       'Attack 1 name Longsword → Sting',
     );
@@ -403,9 +410,11 @@ describe('attack editing', { timeout: 15000 }, () => {
 
     await editValue(user, card, 'Attack 1 bonus', 'many');
 
-    expect(within(card).getByRole('button', { name: 'Attack 1 bonus' })).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      within(card).getByRole('button', { name: editName('Attack 1 bonus') }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
   });
 
@@ -435,9 +444,11 @@ describe('attack editing', { timeout: 15000 }, () => {
 
     await editValue(user, attackCard(1), 'Attack 1 name', 'Sting');
 
-    expect(screen.getByRole('button', { name: 'Attack 1 name' })).toHaveTextContent('Longsword');
+    expect(screen.getByRole('button', { name: editName('Attack 1 name') })).toHaveTextContent(
+      'Longsword',
+    );
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -544,7 +555,9 @@ describe('attack rolling', { timeout: 15000 }, () => {
     });
 
     await user.click(
-      within(attackCard(1)).getByRole('button', { name: damageRoll('Longsword', '1d8 + 3') }),
+      within(attackCard(1)).getByRole('button', {
+        name: damageRoll('Longsword', '1d8 + 3'),
+      }),
     );
 
     await waitFor(() => expect(document.querySelector('.lg-dice-panel')).not.toBeNull());

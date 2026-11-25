@@ -174,13 +174,6 @@ const conditionPaths = [
   'status.conditions.unconscious',
 ];
 
-const slotPieces: PresetPiece[] = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((level) => ({
-  kind: 'pips',
-  key: `slot${level}`,
-  count: `spellcasting.slot${level}.spent`,
-  max: `spellcasting.slot${level}.total`,
-}));
-
 const hitDicePieces: PresetPiece[] = ['d6', 'd8', 'd10', 'd12'].map((die) => ({
   kind: 'pips',
   key: `hitDice${die.toUpperCase()}`,
@@ -236,12 +229,15 @@ const pieces: readonly PresetPiece[] = [
     max: 'hitDice.primary.count',
   },
   ...hitDicePieces,
-  ...slotPieces,
   {
-    kind: 'pips',
-    key: 'pactSlots',
-    count: 'spellcasting.pact.used',
-    max: 'spellcasting.pact.count',
+    kind: 'spellSlots',
+    key: 'spellSlots',
+    levels: [1, 2, 3, 4, 5, 6, 7, 8, 9].map((level) => ({
+      level,
+      count: `spellcasting.slot${level}.spent`,
+      max: `spellcasting.slot${level}.total`,
+    })),
+    pact: { count: 'spellcasting.pact.used', max: 'spellcasting.pact.count' },
   },
   { kind: 'recordTable', key: 'attacks', list: 'attacks.list' },
   { kind: 'recordTable', key: 'inventory', list: 'inventory.items' },
@@ -254,15 +250,16 @@ const pieces: readonly PresetPiece[] = [
 
 export const fifthCharacterConfig: PresetConfig = {
   templateId: 'fifth_character_v1',
-  header: { name: 'identity.name', subtitle: 'identity.class' },
+  header: { name: 'identity.name', subtitle: 'identity.class', trailing: 'rollMode' },
   pieces,
   layout: [
-    { sections: ['identity', 'vitals', 'hitPoints'] },
+    { sections: ['identity', 'vitals'] },
     {
       columns: [
-        ['abilities', 'conditions'],
-        ['saves', 'skills'],
+        ['abilities', 'saves'],
+        ['skills'],
         [
+          'hitPoints',
           'deathSavesSuccesses',
           'deathSavesFailures',
           'hitDicePrimary',
@@ -270,26 +267,17 @@ export const fifthCharacterConfig: PresetConfig = {
           'hitDiceD8',
           'hitDiceD10',
           'hitDiceD12',
-        ],
-        [
-          'slot1',
-          'slot2',
-          'slot3',
-          'slot4',
-          'slot5',
-          'slot6',
-          'slot7',
-          'slot8',
-          'slot9',
-          'pactSlots',
+          'conditions',
         ],
       ],
     },
-    { sections: ['attacks', 'inventory', 'features', 'spells', 'resources'] },
-    { sections: ['rests', 'rollMode'] },
+    {
+      sections: ['attacks', 'inventory', 'features', 'spellSlots', 'spells', 'resources'],
+    },
+    { sections: ['rests'] },
   ],
   sectionNav: {
-    after: 'vitals',
+    after: 'identity',
     targets: [
       { label: 'preset.nav.abilities', sections: ['abilities'] },
       {
@@ -303,20 +291,14 @@ export const fifthCharacterConfig: PresetConfig = {
         ],
       },
       { label: 'preset.nav.items', sections: ['inventory'] },
-      { label: 'preset.nav.spells', sections: ['spells', 'slot1', 'pactSlots'] },
+      { label: 'preset.nav.spells', sections: ['spellSlots', 'spells'] },
       { label: 'preset.nav.resources', sections: ['features', 'resources'] },
     ],
   },
   narrowLayout: [
     {
       sections: [
-        'identity',
-        'vitals',
         'hitPoints',
-        'abilities',
-        'saves',
-        'skills',
-        'conditions',
         'deathSavesSuccesses',
         'deathSavesFailures',
         'hitDicePrimary',
@@ -324,23 +306,19 @@ export const fifthCharacterConfig: PresetConfig = {
         'hitDiceD8',
         'hitDiceD10',
         'hitDiceD12',
-        'slot1',
-        'slot2',
-        'slot3',
-        'slot4',
-        'slot5',
-        'slot6',
-        'slot7',
-        'slot8',
-        'slot9',
-        'pactSlots',
+        'vitals',
+        'identity',
+        'abilities',
+        'saves',
+        'skills',
+        'conditions',
         'attacks',
         'inventory',
         'features',
+        'spellSlots',
         'spells',
         'resources',
         'rests',
-        'rollMode',
       ],
     },
   ],

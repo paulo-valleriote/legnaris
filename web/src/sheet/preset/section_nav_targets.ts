@@ -19,7 +19,7 @@ export const PRESET_SELECTOR = '.lg-preset';
 
 export const PRESET_SECTION_SELECTOR = '[data-preset-section]';
 
-export const NAV_SECTION_SELECTOR = 'h2';
+export const NAV_SECTION_SELECTOR = 'h2, h3';
 
 const END_TOLERANCE = 2;
 

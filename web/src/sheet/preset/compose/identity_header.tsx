@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { InlineEdit } from '../../inline_edit';
 import {
   usePresetCommit,
@@ -12,9 +13,10 @@ import './compose.css';
 export interface IdentityHeaderProps {
   readonly header: PresetIdentityHeader;
   readonly level?: PresetHeaderLevel;
+  readonly trailing?: ReactNode;
 }
 
-export function IdentityHeader({ header, level = 1 }: IdentityHeaderProps) {
+export function IdentityHeader({ header, level = 1, trailing }: IdentityHeaderProps) {
   const { sheet } = usePresetContext();
   const name = textValue(usePresetValue(header.name));
   const subtitle = textValue(usePresetValue(header.subtitle ?? header.name));
@@ -26,28 +28,33 @@ export function IdentityHeader({ header, level = 1 }: IdentityHeaderProps) {
 
   return (
     <div className="lg-compose-header">
-      <Heading className="lg-compose-header__name" data-testid="sheet-name">
-        <InlineEdit
-          className="lg-compose-header__title"
-          label={nameLabel}
-          path={header.name}
-          value={name}
-          fallback={sheet.name}
-          showPencil
-          onCommit={commitName}
-        />
-      </Heading>
-      {header.subtitle === undefined ? null : (
-        <p className="lg-compose-header__subtitle">
+      <div className="lg-compose-header__identity">
+        <Heading className="lg-compose-header__name" data-testid="sheet-name">
           <InlineEdit
-            className="lg-compose-header__subtitle-item"
-            label={subtitleLabel}
-            path={header.subtitle}
-            value={subtitle}
+            className="lg-compose-header__title"
+            label={nameLabel}
+            path={header.name}
+            value={name}
+            fallback={sheet.name}
             showPencil
-            onCommit={commitSubtitle}
+            onCommit={commitName}
           />
-        </p>
+        </Heading>
+        {header.subtitle === undefined ? null : (
+          <p className="lg-compose-header__subtitle">
+            <InlineEdit
+              className="lg-compose-header__subtitle-item"
+              label={subtitleLabel}
+              path={header.subtitle}
+              value={subtitle}
+              showPencil
+              onCommit={commitSubtitle}
+            />
+          </p>
+        )}
+      </div>
+      {trailing === undefined ? null : (
+        <div className="lg-compose-header__trailing">{trailing}</div>
       )}
     </div>
   );

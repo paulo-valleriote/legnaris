@@ -29,6 +29,14 @@
   color: var(--lg-color-stage-text-muted);
 }
 
+.lg-moment__hint {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-medium);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-stage-accent);
+}
+
 .lg-moment__stage {
   position: relative;
   display: flex;

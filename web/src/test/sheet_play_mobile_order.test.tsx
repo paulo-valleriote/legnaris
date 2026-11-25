@@ -1,3 +1,4 @@
+import { editName } from './dice_names';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -236,15 +237,21 @@ describe('the one-line hero', () => {
 
     const line = document.querySelector('.lg-preset-hero__line');
     expect(line).not.toBeNull();
-    expect(screen.getByRole('button', { name: 'Ancestry' })).toHaveTextContent('Add Ancestry');
-    expect(screen.getByRole('button', { name: 'Origin' })).toHaveTextContent('Add Origin');
+    expect(screen.getByRole('button', { name: editName('Ancestry') })).toHaveTextContent(
+      'Add Ancestry',
+    );
+    expect(screen.getByRole('button', { name: editName('Origin') })).toHaveTextContent(
+      'Add Origin',
+    );
     expect(line?.querySelector('.lg-preset-hero__played')).not.toBeNull();
   });
 
   it('Edge: a long player name wraps without overflow', async () => {
     await openFantasy(390, { data: fullData({ playerName: LONG_PLAYER }) });
 
-    expect(screen.getByRole('button', { name: 'Player name' })).toHaveTextContent(LONG_PLAYER);
+    expect(screen.getByRole('button', { name: editName('Player name') })).toHaveTextContent(
+      LONG_PLAYER,
+    );
     expect(presetCss).toMatch(
       /\.lg-preset-hero__played\s*\{[^}]*min-width:\s*0[^}]*overflow-wrap:\s*anywhere/,
     );

@@ -108,7 +108,7 @@ describe('demo page', () => {
 
     const actions = screen.getByRole('navigation', { name: message('demo.actionsLabel') });
     const cta = within(actions).getByRole('link', {
-      name: new RegExp(message('landing.create')),
+      name: message('landing.demoCtaAction'),
     });
     expect(cta).toHaveAttribute('href', FIFTH_SIGN_UP_PATH);
     expect(cta).not.toHaveAttribute('aria-label');
@@ -118,12 +118,59 @@ describe('demo page', () => {
     );
   });
 
-  it('Edge: the header sign-up carries a compact label for narrow screens', async () => {
+  it('Edge: every demo sign-up link shares one label', async () => {
+    const user = userEvent.setup();
     await visitDemo();
+    await user.click(screen.getByRole('button', { name: rollName('Wisdom modifier') }));
 
-    const compact = screen.getByTestId('demo-header-cta-compact');
-    expect(compact).toHaveTextContent(message('demo.headerCtaCompact'));
-    expect(compact).not.toHaveAttribute('aria-hidden');
+    const links = screen
+      .getAllByRole('link', { hidden: true })
+      .filter((link) => link.getAttribute('href') === FIFTH_SIGN_UP_PATH);
+    expect(links).toHaveLength(3);
+    for (const link of links) {
+      expect(link).toHaveTextContent(message('landing.demoCtaAction'));
+    }
+    expect(screen.queryByText(message('landing.create'))).toBeNull();
+  });
+
+  it('Happy path: an edit turns the pending card into the sign-up step', async () => {
+    const user = userEvent.setup();
+    await visitDemo();
+    const card = screen.getByTestId('compose-hit-points');
+    await user.type(within(card).getByLabelText(message('sheet.play.amount')), '5');
+    await user.click(within(card).getByRole('button', { name: message('sheet.play.damage') }));
+
+    const pending = await screen.findByTestId('sheet-pending-card');
+    expect(pending).toHaveTextContent(message('demo.pendingNote'));
+    expect(within(pending).getByTestId('demo-pending-cta')).toHaveAttribute(
+      'href',
+      FIFTH_SIGN_UP_PATH,
+    );
+    expect(within(pending).getByTestId('demo-pending-cta')).toHaveTextContent(
+      message('landing.demoCtaAction'),
+    );
+    expect(
+      within(pending).getByRole('button', { name: message('sheet.pending.discard') }),
+    ).toBeEnabled();
+  });
+
+  it.each([
+    { name: 'Edge: the demo pending card offers no save', key: 'sheet.pending.save' },
+    { name: 'Edge: the demo pending card offers no preview', key: 'sheet.pending.preview' },
+    {
+      name: 'Edge: the demo pending card drops the not-saved note',
+      key: 'sheet.pending.notSavedYet',
+    },
+  ] as const)('$name', async ({ key }) => {
+    const user = userEvent.setup();
+    await visitDemo();
+    const card = screen.getByTestId('compose-hit-points');
+    await user.type(within(card).getByLabelText(message('sheet.play.amount')), '3');
+    await user.click(within(card).getByRole('button', { name: message('sheet.play.damage') }));
+
+    const pending = await screen.findByTestId('sheet-pending-card');
+    expect(within(pending).queryByText(message(key))).toBeNull();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('Happy path: rolling a die reveals the sign-up CTA and keeps the demo state', async () => {
@@ -157,7 +204,7 @@ describe('demo page', () => {
     expect(screen.getByTestId('landing-sticky-cta')).toHaveClass('lg-landing__sticky--shown');
     expect(
       within(screen.getByTestId('landing-sticky-cta')).getByRole('link', {
-        name: message('landing.create'),
+        name: message('landing.demoCtaAction'),
       }),
     ).toHaveAttribute('href', FIFTH_SIGN_UP_PATH);
   });

@@ -776,31 +776,47 @@ stable `key`, a `kind` and its Field-path bindings, and holds no React, no strin
 per-Template code. The eleven kinds are:
 
 - `statPills` — one labelled pill per bound leaf, passed through `RollableValue` (a Row without
-  dice stays plain text); an optional `row` names the Row whose dice the pill reads.
+  dice stays plain text); an optional `row` names the Row whose dice the pill reads. On a phone the
+  pills sit on a six-track grid, three per row, and a short last row splits its width evenly.
+- `spellSlots` — one titled group (`Spell slots`) holding a compact pip row per bound spell-slot
+  level (`Level N`, drawn only while its total is above zero) plus an optional pact row under its
+  schema label, and the note `Higher levels appear as you gain them.` while the highest bound level
+  has no slots; a sheet with no slot at all draws no row.
 - `pips` — the `count` leaf filled out of a `max` leaf path or a fixed number; each pip is a
   pressed toggle that commits through `usePresetCommit` and is named for what it does (a filled
   pip offers to clear to its own index minus one), and a zero maximum draws nothing.
-- `abilityGrid` — one cell per bound `score`/`modifier` pair, the signed modifier rolled and the
-  score edited through `InlineEdit`.
+- `abilityGrid` — one cell per bound `score`/`modifier` pair, the signed modifier rolled inside an
+  accent ring and the score edited through `InlineEdit` as small text with its pencil always shown,
+  so the roll target and the edit target never look alike.
 - `saveList` — one row per bound `proficiency`/`total` pair, its flag a pressed toggle that
   commits `0`/`1` and its signed total rolled; the group header names the list and carries the
   filled-dot `Proficient` legend, and the toggle's accessible name states `Proficient` or
   `Not proficient`.
 - `skillList` — one row per bound `rank`/`total` pair plus an optional literal `ability` tag; the
-  `0..max` rank is a pip control (a `max` leaf path or fixed number) that cycles and wraps, and
+  `0..max` rank is a segmented pill control (one segment per rank, filled in accent) (a `max` leaf path or fixed number) that cycles and wraps, and
   the signed total rolls. Its header names the list and explains the filled-dot `Proficient` and
   two-dot `Expertise` marks (expertise only when the ceiling is at least two), and the rank
   control's accessible name states the same meaning.
 - `hitPoints` — the bound `current`, `max` and optional `temp` leaves, a meter and one amount
   entry; Damage lets the temp leaf absorb first and floors the current at zero, Heal clamps to the
   maximum and never lowers a current already at or above it (a zero maximum heals nothing), and a
-  derived maximum stays read-only.
+  derived maximum stays read-only. Damage and Heal stay disabled until the amount parses as a
+  positive whole number. The card is compact (at most 36rem wide): a `Hit points` caption over the
+  large current value and the muted maximum (its schema label kept for screen readers only) sits on
+  one row with a 5rem amount field (visually unlabelled, `HP` placeholder) and Damage/Heal; the
+  meter follows, and under it the temporary hit points share a line with the Undo entry. At 360px
+  and below the amount row drops under the numbers.
 - `conditions` — numeric flags as toggle chips that commit `0`/`1` (the part before the first
-  colon stays the chip, the rest is its accessible description) plus an optional exhaustion track
+  colon stays the chip, the rest is its accessible description), under a `Conditions` heading
+  whose `Show all` / `Show active only` toggle (`aria-expanded`) starts collapsed: only active
+  chips render (inactive ones are `hidden`), with `No active conditions` when none is on plus an optional exhaustion track
   (`level`, a fixed or bound `max`, an optional derived `penalty`) that reuses the pips.
 - `recordTable` — a bound Record list's chosen `columns` as editable `SheetFieldControl` cells
   plus Add and Remove through the edit store's list operations (each guarded by the store method
-  it needs), one shared column header per run of Records with the per-cell labels returning only
+  it needs), a visible level-2 heading with the list label, one shared column header per run of
+  Records aligned to the cells by a grid template the table publishes as `--lg-record-template`
+  (text fields take two shares, selects 1.25 with an 8.5rem floor, numbers and toggles one with a
+  6.5rem floor) with the per-cell labels returning only
   on a phone, a `RollableValue` on the Record Row when the list declares Row default dice, and
   the shared empty and at-capacity copy. Every cell subscribes to its own path.
 - `resetBar` — `ResetActions` for its bound action ids over the provider's reset binding (the same
@@ -1062,6 +1078,25 @@ starts empty. A roll made with a mode names `Advantage` or `Disadvantage` beside
 every thrown d20 with the kept one in text colour and the dropped one struck through, and announces
 the newest as `<label> rolled <total> with advantage` (or `with disadvantage`).
 
+Every inline edit and rollable value keeps its label first and appends the visible value to its
+accessible name when the name does not already contain it as a whole token
+(`nameWithVisibleText` in `web/src/sheet/inline_edit.tsx`: `Strength, 12`, `Roll Initiative, d20,
+0`), so voice control can target what is on screen (WCAG 2.5.3). Compose group and table titles
+render through `GroupTitle`, at h2 by default and h3 under the `/demo` page's h2 character heading
+(`PresetProvider` `groupHeadingLevel`); the section nav anchors on either level. The temporary hit
+points value and each ability score keep a 28px hit area (44px on a coarse pointer).
+
+The 5E Character header names `rollMode` as its `trailing` piece: the adapter draws that piece at
+the far end of the identity header (wrapping under the name on a phone) as a pill segmented
+control, and leaves it out of the Play sections. Its `narrowLayout` opens on hit points, then the death-save and hit-dice pips, then
+the vitals and identity pills, with the section chip row after identity, so the phone's first
+screen carries a playable control. On wide screens the identity and vitals pills come first, then three columns in paper-sheet
+order: the ability grid (two cells per row from 64rem) with the saving throws, the skills, and a
+combat column with hit points, the death-save and hit-dice pips and the conditions. On every width the
+Spell slots group sits directly above the Spells table. Pips drawn as
+their own section are compact rows (label then marks, start-aligned, a hairline under each) and
+consecutive pip sections drop the column gap between them.
+
 The landing demo (`web/src/landing/fifth_demo_sheet.tsx`) reuses the same preset components and the
 `SheetEditStore` interface without the sheet screen: `demo_provider.tsx` builds the real Dice
 context, `demo_store.ts` keeps the sample in memory, and `template_derivation.ts` evaluates the
@@ -1070,6 +1105,9 @@ demo Template's own formulas after every write. The demo Template and Sheet come
 from the `fifth_character_v1` golden, so the sample derives the same values the server Template
 does. `fifth_demo_sheet.tsx` is a separate lazy module and `/demo` is its only route. It makes no
 API or auth call and resets on every mount; it supplies no reset binding, so no Reset bar is drawn.
+Given a `pendingAction`, it wraps the sheet in `PendingCardOverrideProvider`
+(`pending_card.tsx`): the pending card keeps Discard but replaces Preview and Save with that action
+and `not saved yet` with the override note, so the demo never offers a save it cannot keep.
 
 Any Play-mode value edit also floats the pending-changes bar (`pending_card.tsx`, fed by the pure
 `pending_changes.ts`): the only save surface in Play, because the screen draws no footer there.
@@ -1178,7 +1216,7 @@ the whole Dice block, never a credential. View state (collapsed Sections, pinned
 explainer seen, settings open) lives in `localStorage` under `lg.sheet-view.<sheetId>`, record
 version 1, local to the viewer and never sent. Every local write and delete is best-effort.
 
-**Play feedback (roll labels, HP undo, desktop section nav).** The Dice panel names a field term by its Template schema label (`web/src/sheet/dice_label.ts`: own label, then parent label plus leaf, then a humanized path; never a dotted path) and hides zero-valued field terms; the total is unchanged and nothing is system-specific. The compose hit-point track keeps the last Damage or Heal as an undo entry (`aria-live` line with an Undo button, cleared after 8 s, on use, or by the next apply) and separates Heal from Damage with a divider. An undo that returns a value to the saved baseline removes that path from the pending set (both edit stores drop any written path whose value matches the saved one), so the pending card clears unless an earlier unsaved value or another change is still pending. The preset section chip row is now drawn on wide screens too, sticky at the top of the Play body; the 5E Character config places conditions under the ability grid.
+**Play feedback (roll labels, HP undo, desktop section nav).** The Dice panel names a field term by its Template schema label (`web/src/sheet/dice_label.ts`: own label, then parent label plus leaf, then a humanized path; never a dotted path) and hides zero-valued field terms; the total is unchanged and nothing is system-specific. The compose hit-point track keeps the last Damage or Heal as an undo entry (`aria-live` line with an Undo button, cleared after 8 s, on use, or by the next apply) (the divider between Heal and Damage was later removed). An undo that returns a value to the saved baseline removes that path from the pending set (both edit stores drop any written path whose value matches the saved one), so the pending card clears unless an earlier unsaved value or another change is still pending. The preset section chip row is now drawn on wide screens too, sticky at the top of the Play body; the 5E Character config places conditions under the ability grid.
 
 ## Code map
 

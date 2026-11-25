@@ -1,3 +1,4 @@
+import { editName } from './dice_names';
 import { describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -159,7 +160,7 @@ describe('the ability grid piece', () => {
 
     const row = screen.getByTestId('compose-ability-abilities.might');
     expect(within(row).getByText('Might')).toBeInTheDocument();
-    expect(within(row).getByRole('button', { name: 'Might' })).toHaveTextContent('16');
+    expect(within(row).getByRole('button', { name: editName('Might') })).toHaveTextContent('16');
     expect(within(row).getByRole('button', { name: /Might Modifier/ })).toHaveTextContent('+3');
     expect(
       within(screen.getByTestId('compose-ability-abilities.agility')).getByRole('button', {
@@ -198,7 +199,7 @@ describe('the ability grid piece', () => {
     const user = userEvent.setup();
     const { store } = renderPreset(<AbilityGrid piece={abilityGrid([might])} />);
 
-    await user.click(screen.getByRole('button', { name: 'Might' }));
+    await user.click(screen.getByRole('button', { name: editName('Might') }));
     const input = screen.getByRole('textbox', { name: 'Might' });
     await user.clear(input);
     await user.type(input, '18{Enter}');
@@ -210,7 +211,7 @@ describe('the ability grid piece', () => {
     const user = userEvent.setup();
     const { store } = renderPreset(<AbilityGrid piece={abilityGrid([might])} />);
 
-    await user.click(screen.getByRole('button', { name: 'Might' }));
+    await user.click(screen.getByRole('button', { name: editName('Might') }));
     const input = screen.getByRole('textbox', { name: 'Might' });
     await user.clear(input);
     await user.type(input, 'eight{Enter}');
@@ -284,12 +285,14 @@ describe('the ability grid piece', () => {
     await user.keyboard('{Shift>}{F10}{/Shift}');
 
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByRole('button', { name: message('dice.mode.normal') })).toBeVisible();
     expect(
-      within(dialog).getByRole('button', { name: message('dice.mode.advantage') }),
+      within(dialog).getByRole('button', { name: editName(message('dice.mode.normal')) }),
     ).toBeVisible();
     expect(
-      within(dialog).getByRole('button', { name: message('dice.mode.disadvantage') }),
+      within(dialog).getByRole('button', { name: editName(message('dice.mode.advantage')) }),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole('button', { name: editName(message('dice.mode.disadvantage')) }),
     ).toBeVisible();
   });
 });

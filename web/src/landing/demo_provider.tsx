@@ -93,7 +93,7 @@ export function DemoProvider({
   }, [runtime]);
 
   return (
-    <PresetProvider {...runtime.preset}>
+    <PresetProvider {...runtime.preset} groupHeadingLevel={3}>
       <DiceProvider value={runtime.dice} onRoll={onInteract}>
         {children}
       </DiceProvider>

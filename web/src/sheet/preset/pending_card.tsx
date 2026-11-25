@@ -1,5 +1,7 @@
 import {
+  createContext,
   useCallback,
+  useContext,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -7,7 +9,7 @@ import {
   useState,
   useSyncExternalStore,
 } from 'react';
-import type { RefObject } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { fieldDisplayName, lastSegment } from '../../engine/field_grouping';
 import { message, messageWith } from '../../l10n/strings';
 import { Button } from '../../ui/button';
@@ -22,6 +24,15 @@ export const PENDING_CARD_SPACE_CLASS = 'lg-preset--pending-card';
 export const PENDING_CARD_SPACE_PROPERTY = '--lg-pending-card-space';
 
 export const PENDING_CARD_SLACK = 12;
+
+export interface PendingCardOverride {
+  readonly note: string;
+  readonly action: ReactNode;
+}
+
+const PendingCardOverrideContext = createContext<PendingCardOverride | undefined>(undefined);
+
+export const PendingCardOverrideProvider = PendingCardOverrideContext.Provider;
 
 export function reservedBottomSpace(height: number, inset: number): number {
   const card = Number.isFinite(height) ? Math.max(0, height) : 0;
@@ -86,6 +97,7 @@ export function PendingChangesCard() {
   const subscribe = useCallback((listener: () => void) => store.subscribe(listener), [store]);
   const state = useSyncExternalStore(subscribe, store.getState);
   const card = useRef<HTMLElement>(null);
+  const override = useContext(PendingCardOverrideContext);
   const changes = useMemo(
     () =>
       pendingChanges(state.defaults, state.data, state.editedPaths).map((change) => ({
@@ -142,7 +154,9 @@ export function PendingChangesCard() {
             </li>
           ))}
         </ul>
-        <p className="lg-pending-card__note">{message('sheet.pending.notSavedYet')}</p>
+        <p className="lg-pending-card__note">
+          {override?.note ?? message('sheet.pending.notSavedYet')}
+        </p>
       </div>
       <div className="lg-pending-card__actions">
         <Button
@@ -152,28 +166,34 @@ export function PendingChangesCard() {
           label={message('sheet.pending.discard')}
           onClick={() => store.discard()}
         />
-        <Button
-          variant="secondary"
-          size="sm"
-          disabled={!canPreview(state)}
-          loading={state.isPreviewing}
-          label={
-            state.isPreviewing ? message('sheet.previewing') : message('sheet.pending.preview')
-          }
-          onClick={() => {
-            void store.preview();
-          }}
-        />
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={!canSave(state)}
-          loading={state.isSaving}
-          label={state.isSaving ? message('sheet.saving') : message('sheet.pending.save')}
-          onClick={() => {
-            void store.save();
-          }}
-        />
+        {override === undefined ? (
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!canPreview(state)}
+              loading={state.isPreviewing}
+              label={
+                state.isPreviewing ? message('sheet.previewing') : message('sheet.pending.preview')
+              }
+              onClick={() => {
+                void store.preview();
+              }}
+            />
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={!canSave(state)}
+              loading={state.isSaving}
+              label={state.isSaving ? message('sheet.saving') : message('sheet.pending.save')}
+              onClick={() => {
+                void store.save();
+              }}
+            />
+          </>
+        ) : (
+          override.action
+        )}
       </div>
       {state.saveError !== undefined && (
         <p className="lg-pending-card__error" data-testid="sheet-pending-error">

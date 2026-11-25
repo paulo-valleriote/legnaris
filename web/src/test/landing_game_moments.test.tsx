@@ -9,7 +9,7 @@ import type { FieldNode } from '../api/models/template';
 import { message, messageWith } from '../l10n/strings';
 import { createDemoEditStore } from '../landing/demo_store';
 import { FIFTH_DEMO_SHEET, FIFTH_DEMO_TEMPLATE } from '../landing/fifth_demo_character';
-import GameMoments, { HeroSheet } from '../landing/game_moments';
+import GameMoments from '../landing/game_moments';
 import { longRestCascade } from '../landing/moment_demo';
 import { templateDerivation } from '../landing/template_derivation';
 
@@ -45,25 +45,8 @@ function listTarget(target: string): { list: string; field: string } | undefined
   return undefined;
 }
 
-function AllMoments() {
-  return (
-    <>
-      <HeroSheet />
-      <GameMoments />
-    </>
-  );
-}
-
-function hero() {
-  return screen.getByTestId('landing-hero-sheet');
-}
-
 function grid() {
   return screen.getByTestId('landing-game-moments');
-}
-
-function heroHpCard() {
-  return within(hero()).getByTestId('landing-moment-hp');
 }
 
 function gridHpCard() {
@@ -198,25 +181,60 @@ describe('the landing game moments', () => {
       expect(within(card).getByRole('status')).toHaveAttribute('aria-live', 'polite');
     }
   });
-});
 
-describe('the hero sheet and the moments grid', () => {
-  it('Happy path: the hero sheet holds the live 5E hit points moment', () => {
-    render(<HeroSheet />);
+  it.each([
+    ['Happy path: the hit points moment invites a try', gridHpCard, 'landing.momentHpHint'],
+    ['Happy path: the spell slot moment invites a try', slotCard, 'landing.momentSlotHint'],
+    ['Happy path: the long rest moment invites a try', restCard, 'landing.momentRestHint'],
+  ] as const)('%s', (_name, card, key) => {
+    render(<GameMoments />);
 
-    expect(within(hero()).getByTestId('landing-moment-hp')).toBeInTheDocument();
-    expect(within(hero()).getByTestId('compose-hit-points')).toBeInTheDocument();
-    expect(hitPointsMeter(heroHpCard())).toHaveAttribute('aria-valuemax', '24');
+    expect(within(card()).getByText(message(key))).toBeInTheDocument();
   });
 
-  it('Edge: the hero sheet and the grid keep separate demo state', async () => {
+  it('Edge: each moment hint is its own invitation', () => {
+    const hints = [
+      message('landing.momentHpHint'),
+      message('landing.momentSlotHint'),
+      message('landing.momentRestHint'),
+    ];
+
+    expect(new Set(hints).size).toBe(hints.length);
+    for (const hint of hints) {
+      expect(hint.trim()).not.toBe('');
+    }
+  });
+
+  it('Happy path: following the hit points hint takes 7 damage', async () => {
     const user = userEvent.setup();
-    render(<AllMoments />);
+    render(<GameMoments />);
 
-    await takeDamage(user, heroHpCard(), 5);
+    await takeDamage(user, gridHpCard(), 7);
 
-    expect(hitPointsMeter(heroHpCard())).toHaveAttribute('aria-valuenow', '19');
-    expect(hitPointsMeter(gridHpCard())).toHaveAttribute('aria-valuenow', '24');
+    expect(hitPointsMeter(gridHpCard())).toHaveAttribute('aria-valuenow', '17');
+  });
+});
+
+describe('the moments grid', () => {
+  it('Edge: the game moments module no longer exports a hero card', async () => {
+    const module: Record<string, unknown> = await import('../landing/game_moments');
+
+    expect(module.HeroSheet).toBeUndefined();
+  });
+
+  it('Happy path: the moments grid keeps its three titles at level 3', () => {
+    render(<GameMoments />);
+
+    for (const key of [
+      'landing.momentHpTitle',
+      'landing.momentSlotTitle',
+      'landing.momentRestTitle',
+    ] as const) {
+      expect(
+        within(grid()).getByRole('heading', { level: 3, name: message(key) }),
+      ).toBeInTheDocument();
+    }
+    expect(within(grid()).queryByRole('heading', { level: 2 })).not.toBeInTheDocument();
   });
 });
 

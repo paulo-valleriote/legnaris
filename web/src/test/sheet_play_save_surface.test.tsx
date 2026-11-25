@@ -1,3 +1,4 @@
+import { editName } from './dice_names';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -75,11 +76,15 @@ describe('the Play save surface', () => {
 
     expect(card()).not.toBeInTheDocument();
     expect(footer()).toBeNull();
-    expect(screen.queryByRole('button', { name: message('sheet.save') })).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: message('sheet.preview') }),
+      screen.queryByRole('button', { name: editName(message('sheet.save')) }),
     ).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: message('sheet.pending.save') })).toBeNull();
+    expect(
+      screen.queryByRole('button', { name: editName(message('sheet.preview')) }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
+    ).toBeNull();
   });
 
   it('Edge: Escape with nothing pending sends no request and changes nothing', async () => {
@@ -97,13 +102,15 @@ describe('the Play save surface', () => {
   it('Edge: Escape inside an inline edit cancels only that edit and keeps other pending changes', async () => {
     const { user } = await openFantasy();
     await user.click(levelStep('increase'));
-    await user.click(screen.getByRole('button', { name: 'Character name' }));
+    await user.click(screen.getByRole('button', { name: editName('Character name') }));
     const input = screen.getByRole('textbox', { name: 'Character name' });
     await user.clear(input);
     await user.type(input, 'Brenna{Escape}');
 
     expect(screen.queryByRole('textbox', { name: 'Character name' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Character name' })).toHaveTextContent('Aria');
+    expect(screen.getByRole('button', { name: editName('Character name') })).toHaveTextContent(
+      'Aria',
+    );
     expect(card()).toBeInTheDocument();
     expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent('Level 3 → 4');
   });
@@ -216,7 +223,7 @@ describe('the Play save surface', () => {
     expect(cardButton('preview')).toBeInTheDocument();
     expect(cardButton('save')).toBeEnabled();
     expect(
-      screen.queryByRole('button', { name: message('sheet.preview') }),
+      screen.queryByRole('button', { name: editName(message('sheet.preview')) }),
     ).not.toBeInTheDocument();
   });
 
@@ -247,12 +254,12 @@ describe('the Play save surface', () => {
     const { user } = await openFantasy();
     await user.click(levelStep('increase'));
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
 
     expect(footer()).not.toBeNull();
     expect(card()).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('sheet.save') })).toBeEnabled();
-    expect(screen.getByRole('button', { name: message('sheet.preview') })).toBeEnabled();
+    expect(screen.getByRole('button', { name: editName(message('sheet.save')) })).toBeEnabled();
+    expect(screen.getByRole('button', { name: editName(message('sheet.preview')) })).toBeEnabled();
   });
 
   it('Edge: the document declares viewport-fit=cover for the safe-area insets', () => {
@@ -268,9 +275,12 @@ describe('the Play save surface', () => {
     );
   });
 
-  it('Edge: on a phone the demo card stacks above the sticky sign-up bar', () => {
+  it('Edge: on a phone the demo card replaces the sticky sign-up bar at the bottom edge', () => {
     const phone = demoCss.slice(demoCss.indexOf('@media (max-width: 39.99rem)'));
-    expect(phone).toMatch(/\.lg-demo\s+\.lg-pending-card\s*\{[^}]*bottom:\s*calc\(/);
+    expect(phone).toMatch(/\.lg-demo\s+\.lg-pending-card\s*\{[^}]*bottom:\s*max\(/);
+    expect(demoCss).toMatch(
+      /\.lg-demo:has\(\.lg-pending-card\)\s+\.lg-landing__sticky\s*\{[^}]*display:\s*none/,
+    );
   });
 
   it('Edge: the bar actions are 44px tall on a phone and its slide-in respects reduced motion', () => {

@@ -16,7 +16,7 @@ import {
 import type { FakeOutcome } from './fake_transport';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
-import { rollName, initiativeRollName } from './dice_names';
+import { rollName, initiativeRollName, editName } from './dice_names';
 import { SHEET_ID, sheetPayload, templateDetailPayload } from './sheet_fixtures';
 
 const BASE_URL = 'http://api.test';
@@ -270,7 +270,7 @@ function savedData(fake: ReturnType<typeof createFakeTransport>) {
 }
 
 async function save(user: User) {
-  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
+  await user.click(screen.getByRole('button', { name: editName(message('sheet.pending.save')) }));
 }
 
 async function editValue(
@@ -280,7 +280,7 @@ async function editValue(
   text: string,
   trigger = label,
 ) {
-  await user.click(within(scope).getByRole('button', { name: trigger }));
+  await user.click(within(scope).getByRole('button', { name: editName(trigger) }));
   const input = within(scope).getByRole('textbox', { name: label });
   await user.clear(input);
   await user.type(input, `${text}{Enter}`);
@@ -380,8 +380,12 @@ describe('the stat block card', () => {
   it('Happy path: Duplicate and the Play/Edit toggle stay in the screen header', async () => {
     await openFantasy({ kind: 'enemy' });
 
-    expect(screen.getByRole('button', { name: message('sheet.duplicate') })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('sheet.mode.edit') })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: editName(message('sheet.duplicate')) }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -429,13 +433,13 @@ describe('the stat block body', () => {
     const { user } = await openFantasy({ kind: 'npc' });
 
     await user.type(screen.getByRole('spinbutton', { name: message('sheet.play.amount') }), '3');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.damage') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.damage')) }));
 
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('7 / 20');
     expect(screen.getByTestId('sheet-hp-pending')).toBeInTheDocument();
 
     await user.type(screen.getByRole('spinbutton', { name: message('sheet.play.amount') }), '2');
-    await user.click(screen.getByRole('button', { name: message('sheet.play.heal') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.play.heal')) }));
 
     expect(screen.getByTestId('sheet-hp-value')).toHaveTextContent('9 / 20');
   });
@@ -496,7 +500,7 @@ describe('the stat block body', () => {
       screen.getByTestId('sheet-stat-initiative').querySelector('.lg-dice-icon'),
     ).not.toBeNull();
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
 
     expect(screen.queryByTestId('sheet-stat-block')).toBeNull();
     expect(screen.getByRole('textbox', { name: 'Initiative' })).toBeInTheDocument();
@@ -508,7 +512,7 @@ describe('the stat block body', () => {
     const tile = screen.getByTestId('sheet-stat-initiative');
     expect(tile.querySelector('.lg-dice-icon')).toHaveAttribute('aria-hidden', 'true');
     expect(
-      within(tile).getByRole('button', { name: message('sheet.play.editInitiative') }),
+      within(tile).getByRole('button', { name: editName(message('sheet.play.editInitiative')) }),
     ).toBeInTheDocument();
   });
 });
@@ -551,7 +555,9 @@ describe('the stat block vitals band', () => {
       data: { combat: { hitPoints: 10, hitPointsMax: 20, hitPointsTemp: 0 } },
     });
 
-    await user.click(within(vitalsBand()).getByRole('button', { name: 'Current hit points' }));
+    await user.click(
+      within(vitalsBand()).getByRole('button', { name: editName('Current hit points') }),
+    );
     const input = within(vitalsBand()).getByRole('textbox', { name: 'Current hit points' });
     await user.clear(input);
     await user.type(input, '40{Enter}');
@@ -605,7 +611,7 @@ describe('the stat block vitals band', () => {
       '3',
     );
     await user.click(
-      within(vitalsBand()).getByRole('button', { name: message('sheet.play.damage') }),
+      within(vitalsBand()).getByRole('button', { name: editName(message('sheet.play.damage')) }),
     );
 
     expect(within(vitalsBand()).getByTestId('sheet-hp-value')).toHaveTextContent('7 / 20');
@@ -713,7 +719,7 @@ describe('the stat block prose lines', () => {
     expect(within(skill).getByText('Athletics')).toBeInTheDocument();
     expect(skill).toHaveTextContent('Athletics +5');
     expect(
-      within(skill).queryByRole('button', { name: 'Athletics bonus' }),
+      within(skill).queryByRole('button', { name: editName('Athletics bonus') }),
     ).not.toBeInTheDocument();
     expect(within(skill).queryByRole('textbox')).not.toBeInTheDocument();
   });
@@ -721,7 +727,7 @@ describe('the stat block prose lines', () => {
   it('Happy path: Edit mode still edits the base skill bonus', async () => {
     const { user } = await openFantasy({ kind: 'npc' });
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
 
     expect(screen.getByRole('textbox', { name: 'Athletics bonus' })).toBeInTheDocument();
   });
@@ -746,7 +752,10 @@ describe('the stat block attacks', () => {
     ).toHaveTextContent('+5');
     expect(
       within(card).getByRole('button', {
-        name: messageWith('sheet.play.damageRoll', { name: 'Longsword', value: '1d8 + 3' }),
+        name: messageWith('sheet.play.damageRoll', {
+          name: 'Longsword',
+          value: '1d8 + 3',
+        }),
       }),
     ).toHaveTextContent('1d8 + 3');
   });
@@ -779,7 +788,7 @@ describe('the stat block attacks', () => {
 
     expect(screen.queryByRole('button', { name: /Add attack/ })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
 
     expect(screen.getByRole('textbox', { name: 'Attack 2 name' })).toBeInTheDocument();
   });
@@ -839,7 +848,7 @@ describe('the compact stat block spellcasting', () => {
     await user.selectOptions(select, 'Intelligence');
 
     expect(select).toHaveValue('config.spellUsesIntelligence');
-    await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
+    await user.click(screen.getByRole('button', { name: editName(message('sheet.pending.save')) }));
     await waitFor(() => expect(savedData(fake)).toBeDefined());
     const config = (savedData(fake) as { data: { config: Record<string, number> } }).data.config;
     expect(config.spellUsesIntelligence).toBe(1);

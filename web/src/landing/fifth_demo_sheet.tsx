@@ -1,4 +1,6 @@
+import type { ReactNode } from 'react';
 import { message } from '../l10n/strings';
+import { PendingCardOverrideProvider } from '../sheet/preset/pending_card';
 import { presetFromConfig } from '../sheet/preset/compose/adapter';
 import { fifthCharacterConfig } from '../sheet/preset/compose/configs/fifth_character';
 import { PresetPlayView } from '../sheet/preset/play_view';
@@ -11,8 +13,13 @@ const fifthCharacterPreset = presetFromConfig(fifthCharacterConfig);
 
 const fifthCharacterDerivation = templateDerivation(FIFTH_DEMO_TEMPLATE);
 
-export default function FifthDemoSheet({ onInteract }: { readonly onInteract?: () => void }) {
-  return (
+interface FifthDemoSheetProps {
+  readonly onInteract?: () => void;
+  readonly pendingAction?: ReactNode;
+}
+
+export default function FifthDemoSheet({ onInteract, pendingAction }: FifthDemoSheetProps) {
+  const sheet = (
     <DemoProvider
       template={FIFTH_DEMO_TEMPLATE}
       sheet={FIFTH_DEMO_SHEET}
@@ -27,5 +34,15 @@ export default function FifthDemoSheet({ onInteract }: { readonly onInteract?: (
         </p>
       </div>
     </DemoProvider>
+  );
+  if (pendingAction === undefined) {
+    return sheet;
+  }
+  return (
+    <PendingCardOverrideProvider
+      value={{ note: message('demo.pendingNote'), action: pendingAction }}
+    >
+      {sheet}
+    </PendingCardOverrideProvider>
   );
 }

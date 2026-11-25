@@ -44,6 +44,7 @@ function AbilityCell({
         schema={scoreSchema}
         value={score === undefined ? '' : String(score)}
         inputMode="numeric"
+        showPencil
         onCommit={(text) => {
           const next = parseScore(text);
           if (next !== undefined) {

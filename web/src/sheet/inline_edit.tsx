@@ -37,6 +37,15 @@ export interface InlineEditProps {
   readonly showPencil?: boolean;
 }
 
+export function nameWithVisibleText(name: string, visible: string): string {
+  const text = visible.trim();
+  if (text === '') {
+    return name;
+  }
+  const escaped = text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[\\s,])${escaped}($|[\\s,])`).test(name) ? name : `${name}, ${text}`;
+}
+
 function isNumericInput(
   schema: FieldSchema | undefined,
   inputMode: 'text' | 'numeric' | undefined,
@@ -104,7 +113,7 @@ export function InlineEdit({
         <button
           type="button"
           className={classes}
-          aria-label={editLabel ?? label}
+          aria-label={nameWithVisibleText(editLabel ?? label, display === undefined ? shown : '')}
           data-edit-path={path}
           data-empty={value.trim() === '' && fallback === undefined ? '' : undefined}
           onClick={begin}
@@ -172,7 +181,7 @@ export function InlineEdit({
     <button
       type="button"
       className={editClasses}
-      aria-label={editLabel ?? label}
+      aria-label={nameWithVisibleText(editLabel ?? label, display === undefined ? shown : '')}
       data-edit-path={path}
       data-empty={value.trim() === '' && fallback === undefined ? '' : undefined}
       onClick={begin}

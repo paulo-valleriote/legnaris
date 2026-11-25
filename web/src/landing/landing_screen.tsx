@@ -5,6 +5,7 @@ import { useApiBaseUrl } from '../app/providers';
 import { DEMO_PATH, PRIVACY_PATH, SIGN_IN_PATH, SRD_PATH } from '../app/routes';
 import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
+import { CampaignPreview } from './campaign_preview';
 import { DerivationChain } from './derivation_chain';
 import { BrandMark } from '../shell/brand_mark';
 import { ChevronDownIcon } from '../ui/icons';
@@ -14,9 +15,6 @@ import { useStageThemeColor } from './use_stage_theme_color';
 import './landing.css';
 
 const GameMoments = lazy(() => import('./game_moments'));
-const HeroSheet = lazy(() =>
-  import('./game_moments').then((module) => ({ default: module.HeroSheet })),
-);
 
 function useOutOfView(target: RefObject<HTMLElement | null>): boolean {
   const [outOfView, setOutOfView] = useState(typeof IntersectionObserver !== 'function');
@@ -61,6 +59,12 @@ const STEPS: readonly Step[] = [
   { title: 'landing.step1Title', body: 'landing.step1Body' },
   { title: 'landing.step2Title', body: 'landing.step2Body' },
   { title: 'landing.step3Title', body: 'landing.step3Body' },
+];
+
+const GM_STEPS: readonly Step[] = [
+  { title: 'landing.gm1Title', body: 'landing.gm1Body' },
+  { title: 'landing.gm2Title', body: 'landing.gm2Body' },
+  { title: 'landing.gm3Title', body: 'landing.gm3Body' },
 ];
 
 const FAQ: readonly {
@@ -133,9 +137,7 @@ export function LandingScreen() {
               </Link>
             </div>
           </div>
-          <Suspense fallback={<MomentsLoading />}>
-            <HeroSheet />
-          </Suspense>
+          <DerivationChain />
         </div>
       </header>
 
@@ -174,15 +176,35 @@ export function LandingScreen() {
                   </li>
                 ))}
               </ol>
-              <DerivationChain />
             </div>
           </div>
         </section>
 
         <section
           className="lg-landing__section lg-landing__section--band"
-          aria-labelledby="faq-title"
+          aria-labelledby="gm-title"
+          data-testid="landing-gm"
         >
+          <div className="lg-landing__inner lg-landing__gm">
+            <h2 className="lg-landing__title" id="gm-title">
+              {message('landing.gmTitle')}
+            </h2>
+            <div className="lg-landing__gm-copy">
+              <p className="lg-landing__text lg-landing__gm-lead">{message('landing.gmLead')}</p>
+              <ol className="lg-landing__steps" aria-label={message('landing.gmStepsLabel')}>
+                {GM_STEPS.map((step) => (
+                  <li className="lg-landing__step-item" key={step.title}>
+                    <h3 className="lg-landing__step-title">{message(step.title)}</h3>
+                    <p className="lg-landing__text">{message(step.body)}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <CampaignPreview />
+          </div>
+        </section>
+
+        <section className="lg-landing__section" aria-labelledby="faq-title">
           <div className="lg-landing__inner lg-landing__split">
             <h2 className="lg-landing__title" id="faq-title">
               {message('landing.faqTitle')}

@@ -11,3 +11,10 @@ export function rollName(label: string): RegExp {
 export function initiativeRollName(value: string): string {
   return messageWith('sheet.play.initiativeRoll', { value });
 }
+
+export function editName(label: string | RegExp): RegExp {
+  if (label instanceof RegExp) {
+    return label;
+  }
+  return new RegExp(`^${escapeRegExp(label)}(, .+)?$`);
+}

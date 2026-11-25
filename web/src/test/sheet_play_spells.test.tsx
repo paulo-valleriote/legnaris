@@ -13,7 +13,7 @@ import {
 import type { FakeOutcome } from './fake_transport';
 import { createFakeTransport, errorOutcome, successOutcome } from './fake_transport';
 import { renderApp } from './render';
-import { rollName } from './dice_names';
+import { rollName, editName } from './dice_names';
 
 const BASE_URL = 'http://api.test';
 
@@ -227,7 +227,7 @@ function savedData(fake: ReturnType<typeof createFakeTransport>) {
 }
 
 async function save(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('button', { name: message('sheet.pending.save') }));
+  await user.click(screen.getByRole('button', { name: editName(message('sheet.pending.save')) }));
 }
 
 const spellPanel = () => screen.getByTestId('sheet-spells');
@@ -242,7 +242,7 @@ function hiddenLevelsNote() {
 
 function totalButton(level: number): HTMLElement {
   return within(screen.getByTestId(`sheet-slot-${level}`)).getByRole('button', {
-    name: `Level ${level} total`,
+    name: editName(`Level ${level} total`),
   });
 }
 
@@ -309,8 +309,12 @@ describe('the spellcasting panel', () => {
     expect(screen.getByTestId('sheet-spell-attack')).toHaveTextContent('+5');
     expect(screen.getByTestId('sheet-spell-save-dc')).toHaveTextContent('Spell save DC');
     expect(screen.getByTestId('sheet-spell-save-dc')).toHaveTextContent('13');
-    expect(screen.getByRole('button', { name: 'At-will spells' })).toHaveTextContent('Light');
-    expect(screen.getByRole('button', { name: 'Spell list' })).toHaveTextContent('Magic missile');
+    expect(screen.getByRole('button', { name: editName('At-will spells') })).toHaveTextContent(
+      'Light',
+    );
+    expect(screen.getByRole('button', { name: editName('Spell list') })).toHaveTextContent(
+      'Magic missile',
+    );
     expect(screen.getByTestId('sheet-slot-1')).toHaveTextContent(
       messageWith('sheet.play.slotsLeft', { remaining: 1, total: 2 }),
     );
@@ -374,7 +378,7 @@ describe('the spellcasting ability select', () => {
     await user.selectOptions(abilitySelect(), 'Wisdom');
 
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -405,7 +409,9 @@ describe('the spell slots', () => {
 
     const slot = within(screen.getByTestId('sheet-slot-1'));
     await user.click(
-      slot.getByRole('button', { name: messageWith('sheet.play.slotSpend', { count: 1 }) }),
+      slot.getByRole('button', {
+        name: messageWith('sheet.play.slotSpend', { count: 1 }),
+      }),
     );
 
     expect(screen.getByTestId('sheet-slot-1-remaining')).toHaveTextContent(
@@ -422,7 +428,9 @@ describe('the spell slots', () => {
 
     const slot = within(screen.getByTestId('sheet-slot-1'));
     await user.click(
-      slot.getByRole('button', { name: messageWith('sheet.play.slotRecover', { count: 1 }) }),
+      slot.getByRole('button', {
+        name: messageWith('sheet.play.slotRecover', { count: 1 }),
+      }),
     );
 
     expect(screen.getByTestId('sheet-slot-1-remaining')).toHaveTextContent(
@@ -446,7 +454,9 @@ describe('the spell slots', () => {
 
     expect(screen.getByTestId('sheet-slot-1')).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: messageWith('sheet.play.slotSpend', { count: 1 }) }),
+      screen.queryByRole('button', {
+        name: messageWith('sheet.play.slotSpend', { count: 1 }),
+      }),
     ).not.toBeInTheDocument();
   });
 
@@ -478,7 +488,7 @@ describe('the spell slots', () => {
 
     expect(totalButton(1)).toHaveTextContent('2');
     expect(
-      screen.queryByRole('button', { name: message('sheet.pending.save') }),
+      screen.queryByRole('button', { name: editName(message('sheet.pending.save')) }),
     ).not.toBeInTheDocument();
     expect(savedData(fake)).toBeUndefined();
   });
@@ -490,11 +500,13 @@ describe('the spell slots', () => {
 
     const slot = within(screen.getByTestId('sheet-slot-1'));
     await user.click(
-      slot.getByRole('button', { name: messageWith('sheet.play.slotSpend', { count: 1 }) }),
+      slot.getByRole('button', {
+        name: messageWith('sheet.play.slotSpend', { count: 1 }),
+      }),
     );
     await user.click(
       within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
-        name: message('sheet.pending.save'),
+        name: editName(message('sheet.pending.save')),
       }),
     );
 
@@ -514,7 +526,7 @@ describe('the at-will and prepared lists', () => {
   it('Happy path: the at-will list commits its text and writes one path', async () => {
     const { fake, user } = await openSpells();
 
-    await user.click(screen.getByRole('button', { name: 'At-will spells' }));
+    await user.click(screen.getByRole('button', { name: editName('At-will spells') }));
     const input = screen.getByRole('textbox', { name: 'At-will spells' });
     await user.clear(input);
     await user.type(input, 'Light, Mage Hand{Enter}');
@@ -532,7 +544,7 @@ describe('the table rules', () => {
 
     const rules = screen.getByTestId('sheet-table-rules');
     expect(
-      within(rules).getByRole('button', { name: message('sheet.play.rules') }),
+      within(rules).getByRole('button', { name: editName(message('sheet.play.rules')) }),
     ).toHaveAttribute('aria-expanded', 'false');
     expect(within(rules).queryByRole('textbox', { name: 'Ability modifier base' })).toBeNull();
   });
@@ -541,7 +553,9 @@ describe('the table rules', () => {
     const { user } = await openSpells();
 
     const rules = screen.getByTestId('sheet-table-rules');
-    const toggle = within(rules).getByRole('button', { name: message('sheet.play.rules') });
+    const toggle = within(rules).getByRole('button', {
+      name: editName(message('sheet.play.rules')),
+    });
     const chevron = rules.querySelector('.lg-rules__chevron');
     expect(chevron).not.toBeNull();
     expect(chevron).not.toHaveClass('lg-rules__chevron--open');
@@ -561,7 +575,9 @@ describe('the table rules', () => {
     const { fake, user } = await openSpells();
 
     const rules = screen.getByTestId('sheet-table-rules');
-    await user.click(within(rules).getByRole('button', { name: message('sheet.play.rules') }));
+    await user.click(
+      within(rules).getByRole('button', { name: editName(message('sheet.play.rules')) }),
+    );
 
     const modifierBase = within(rules).getByRole('textbox', { name: 'Ability modifier base' });
     expect(modifierBase).toHaveValue('10');
