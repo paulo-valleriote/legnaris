@@ -47,8 +47,18 @@ export default function DemoScreen() {
               className="lg-landing__cta lg-landing__cta--primary lg-demo__header-cta"
               to={FIFTH_SIGN_UP_PATH}
               onClick={onCtaClick}
+              aria-label={message('landing.create')}
             >
-              {message('landing.create')}
+              <span className="lg-demo__header-cta-full" aria-hidden="true">
+                {message('landing.create')}
+              </span>
+              <span
+                className="lg-demo__header-cta-compact"
+                aria-hidden="true"
+                data-testid="demo-header-cta-compact"
+              >
+                {message('demo.headerCtaCompact')}
+              </span>
             </Link>
           </nav>
         </div>

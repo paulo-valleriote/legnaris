@@ -82,6 +82,10 @@
   gap: var(--lg-space-12);
 }
 
+.lg-demo__header-cta-compact {
+  display: none;
+}
+
 .lg-demo__end {
   position: relative;
   overflow: hidden;
@@ -113,7 +117,30 @@
 }
 
 @media (max-width: 39.99rem) {
-  .lg-demo__header-cta {
+  .lg-demo .lg-landing__bar {
+    gap: var(--lg-space-8);
+  }
+
+  .lg-demo .lg-landing__brand-name {
+    font-size: var(--lg-type-15);
+  }
+
+  .lg-demo__actions {
+    flex-wrap: nowrap;
+    gap: var(--lg-space-8);
+  }
+
+  .lg-demo__actions .lg-landing__cta {
+    padding-inline: var(--lg-space-8);
+    font-size: var(--lg-type-13);
+    white-space: nowrap;
+  }
+
+  .lg-demo__header-cta-full {
     display: none;
+  }
+
+  .lg-demo__header-cta-compact {
+    display: inline;
   }
 }

@@ -633,6 +633,7 @@ export const messages = {
   'demo.title': 'The whole sheet, out of the page.',
   'demo.lead': 'Edit a value or roll a die. The real 5E character sheet, no account, no network.',
   'demo.backHome': 'Back to home',
+  'demo.headerCtaCompact': 'Sign up',
   'campaigns.title': 'Your campaigns',
   'campaigns.loading': 'Loading your campaigns',
   'campaigns.loadFailed': 'Your campaigns could not be loaded.',

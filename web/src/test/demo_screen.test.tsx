@@ -107,10 +107,21 @@ describe('demo page', () => {
     await visitDemo();
 
     const actions = screen.getByRole('navigation', { name: message('demo.actionsLabel') });
-    expect(within(actions).getByRole('link', { name: message('landing.create') })).toHaveAttribute(
+    const cta = within(actions).getByRole('link', { name: message('landing.create') });
+    expect(cta).toHaveAttribute('href', FIFTH_SIGN_UP_PATH);
+    expect(cta).toHaveAttribute('aria-label', message('landing.create'));
+    expect(within(actions).getByRole('link', { name: message('demo.backHome') })).toHaveAttribute(
       'href',
-      FIFTH_SIGN_UP_PATH,
+      LANDING_PATH,
     );
+  });
+
+  it('Edge: the header sign-up carries a compact label for narrow screens', async () => {
+    await visitDemo();
+
+    const compact = screen.getByTestId('demo-header-cta-compact');
+    expect(compact).toHaveTextContent(message('demo.headerCtaCompact'));
+    expect(compact).toHaveAttribute('aria-hidden', 'true');
   });
 
   it('Happy path: rolling a die reveals the sign-up CTA and keeps the demo state', async () => {
