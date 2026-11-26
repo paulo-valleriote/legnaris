@@ -250,6 +250,8 @@ export const messages = {
   'plans.current': 'Current plan: {plan}',
   'plans.currentComp': 'Current plan: {plan} (courtesy)',
   'plans.compNote': 'This plan was granted to you. There is no charge for it.',
+  'plans.compPeriodEnd': 'Access until {date}.',
+  'plans.compNoEnd': 'This plan has no end date.',
   'plans.freeDescription': 'The Free plan keeps your sheets. Upgrade at any time.',
   'plans.priceAmount': 'USD 6.79',
   'plans.pricePeriod': 'per month',

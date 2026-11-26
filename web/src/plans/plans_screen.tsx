@@ -184,11 +184,21 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
               {message('plans.cancelAtPeriodEnd')}
             </Notice>
           ) : null}
-          {usage.billing.currentPeriodEnd === null ? null : (
+          {usage.billing.currentPeriodEnd === null ? (
+            isComp ? (
+              <Notice tone="info" live="polite">
+                {message('plans.compNoEnd')}
+              </Notice>
+            ) : null
+          ) : (
             <Notice tone="info" live="polite">
-              {messageWith('plans.periodEnd', {
-                date: formatPeriodEnd(usage.billing.currentPeriodEnd),
-              })}
+              {isComp
+                ? messageWith('plans.compPeriodEnd', {
+                    date: formatPeriodEnd(usage.billing.currentPeriodEnd),
+                  })
+                : messageWith('plans.periodEnd', {
+                    date: formatPeriodEnd(usage.billing.currentPeriodEnd),
+                  })}
             </Notice>
           )}
           {isPaid || hasSubscription ? null : (

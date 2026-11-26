@@ -198,6 +198,28 @@ describe('plans screen: courtesy plan', () => {
     expect(screen.queryByText(message('plans.paidDescription'))).toBeNull();
   });
 
+  it('Happy path: a courtesy grant with an end date names the access end, not a renewing period', async () => {
+    const script = scriptedBilling({ plans: [json(COMP_ACTIVE)] });
+    renderApp('/plans', { client: script.client });
+
+    const date = new Intl.DateTimeFormat('en', { dateStyle: 'medium' }).format(
+      new Date(COMP_ACTIVE.current_period_end),
+    );
+    expect(
+      await screen.findByText(messageWith('plans.compPeriodEnd', { date })),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(messageWith('plans.periodEnd', { date }))).toBeNull();
+  });
+
+  it('Edge: a courtesy grant without an end date says it has none', async () => {
+    const script = scriptedBilling({
+      plans: [json({ ...COMP_ACTIVE, current_period_end: null })],
+    });
+    renderApp('/plans', { client: script.client });
+
+    expect(await screen.findByText(message('plans.compNoEnd'))).toBeInTheDocument();
+  });
+
   it('Edge: a card subscription keeps its price and payment copy', async () => {
     const script = scriptedBilling({ plans: [json(PAID_ACTIVE)] });
     renderApp('/plans', { client: script.client });
