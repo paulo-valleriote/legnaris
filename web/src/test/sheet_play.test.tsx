@@ -356,6 +356,23 @@ describe('the pending changes card', () => {
     expect(fake.requests.filter((request) => request.method === 'PATCH')).toHaveLength(1);
   });
 
+  it('Happy path: a completed save confirms and returns focus to the edit control', async () => {
+    const { fake, user } = await openFifth();
+    await setLevel(user, '6');
+
+    await user.click(
+      within(screen.getByTestId('sheet-pending-card')).getByRole('button', {
+        name: editName(message('sheet.pending.save')),
+      }),
+    );
+
+    const saved = await screen.findByTestId('sheet-pending-saved');
+    expect(saved).toHaveTextContent(message('sheet.saved'));
+    expect(screen.getByRole('button', { name: editName(message('sheet.editDone')) })).toHaveFocus();
+    expect(savedData(fake)).toEqual({ data: { identity: { level: 6 } } });
+    expect(pendingCard()).not.toBeInTheDocument();
+  });
+
   it('Happy path: Preview sends the delta and keeps the card unsaved', async () => {
     const { fake, user } = await openFifth();
     await setLevel(user, '6');
