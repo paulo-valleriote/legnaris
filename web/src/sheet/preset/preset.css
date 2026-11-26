@@ -238,25 +238,6 @@
   outline-offset: var(--lg-focus-offset);
 }
 
-.lg-pending-card__changes {
-  display: flex;
-  max-block-size: min(25dvh, var(--lg-space-128));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  flex-wrap: wrap;
-  gap: var(--lg-space-4) var(--lg-space-12);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--lg-type-13);
-  line-height: var(--lg-line-normal);
-}
-
-.lg-pending-card__changes:focus-visible {
-  outline: var(--lg-focus-width) solid var(--lg-color-focus);
-  outline-offset: var(--lg-focus-offset);
-}
-
 .lg-pending-card__change {
   color: var(--lg-color-text-muted);
 }
