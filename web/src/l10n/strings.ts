@@ -2,6 +2,8 @@ import type { SheetKind } from '../api/models/plan';
 
 export const messages = {
   'common.retry': 'Try again',
+  'common.save': 'Save',
+  'common.cancel': 'Cancel',
   'common.close': 'Close',
   'common.back': 'Back',
   'common.notNow': 'Not now',

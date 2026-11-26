@@ -1037,7 +1037,7 @@ Web:
   `section_nav.tsx` with `section_nav_targets.ts`; `compose/` — the data-only `PresetConfig`
   contract, its `presetFromConfig` adapter, the pure `configPathErrors` validation and the generic
   pieces; `inline_edit.tsx` — the reusable single-path inline editor (inline on a wide viewport, a
-  schema-typed bottom sheet on a phone).
+  schema-typed bottom sheet on a phone, with Cancel and Save actions beside Return and Escape).
 - `web/src/sheet/view_store.ts`, `sheet_view.tsx`, `section_index.tsx` — local view state,
   collapse/filter and section strip; `dice_store.ts`, `dice_row.tsx`, `dice_panel.tsx`,
   `dice_history.ts`, `dice_view.ts` — Dice choices over the edit store and the recent-roll
