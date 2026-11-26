@@ -38,6 +38,46 @@ describe('landing polish contract', () => {
     expect(wide).toMatch(/\.lg-landing__sticky\s*\{[^}]*display:\s*none/);
   });
 
+  it('Happy path: section titles sit one display step below the hero and the close', () => {
+    expect(tokensCss).toMatch(/--lg-type-display-sm:\s*clamp\(/);
+    expect(blockFor('.lg-landing__title {')).toContain('font-size: var(--lg-type-display-sm)');
+    expect(blockFor('.lg-landing__close-title {')).toContain(
+      'font-size: var(--lg-type-display-md)',
+    );
+    expect(blockFor('.lg-landing__lead {')).toContain('font-size: var(--lg-type-18)');
+  });
+
+  it('Edge: on a phone the photograph keeps the ruin in frame and fades into the stage', () => {
+    const phone = css.slice(css.indexOf('@media (max-width: 39.99rem)'));
+    const photo = phone.slice(phone.indexOf('.lg-landing__photo {'));
+    const block = photo.slice(0, photo.indexOf('}'));
+    expect(block).toContain('object-position: 90% 50%');
+    expect(block).toContain('mask-image');
+  });
+
+  it('Edge: the moments skeleton reserves three cards with the real card shell', () => {
+    expect(blockFor('.lg-landing__moment-shell {')).toContain('min-height');
+    const wide = css.slice(css.indexOf('@media (min-width: 56rem)'));
+    expect(wide).toMatch(
+      /\.lg-landing__moments-skeleton\s*\{[^}]*grid-template-columns:\s*repeat\(3/,
+    );
+  });
+
+  it('Happy path: the hero chain is a compact strip whose derived values sit side by side', () => {
+    expect(blockFor('\n.lg-chain {')).toContain('align-self: end');
+    expect(blockFor('.lg-chain__derived {')).toContain(
+      'grid-template-columns: repeat(3, minmax(0, 1fr))',
+    );
+    expect(blockFor('.lg-chain__step {')).toContain('width: var(--lg-size-control)');
+  });
+
+  it('Edge: the chain formulas leave the strip but stay readable to assistive technology', () => {
+    const formula = css.slice(css.lastIndexOf('.lg-chain__formula {'));
+    const block = formula.slice(0, formula.indexOf('}'));
+    expect(block).toContain('clip-path: inset(50%)');
+    expect(block).not.toContain('display: none');
+  });
+
   it('Edge: the mounted demo inherits the stage world through the landing remap', () => {
     expect(tokensCss).toMatch(/:root:has\(\.lg-shell\),\s*:root:has\(\.lg-landing\)/);
   });

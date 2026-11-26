@@ -276,7 +276,8 @@ export const designTokens: readonly DesignToken[] = [
     ['--lg-type-20', 'section title'],
     ['--lg-type-24', 'page title'],
     ['--lg-type-30', 'display title, no upper cap'],
-    ['--lg-type-display-md', 'landing section title, fluid'],
+    ['--lg-type-display-sm', 'landing section title, fluid'],
+    ['--lg-type-display-md', 'landing hero and closing title, fluid'],
     ['--lg-type-display-lg', 'landing hero title, fluid'],
   ]),
   ...group('primitive', 'weight', [

@@ -300,10 +300,13 @@ describe('the long rest cascade', () => {
 describe('the landing game moments contract', () => {
   it('Happy path: the static page loads the moments as their own chunk', () => {
     const landing = source('landing_screen.tsx');
+    const slot = source('moments_slot.tsx');
 
-    expect(landing).toContain("lazy(() => import('./game_moments'))");
+    expect(landing).toContain('<MomentsSlot />');
     expect(landing).not.toContain("from './game_moments'");
-    expect(landing).toMatch(/<Suspense[\s\S]*fallback=/);
+    expect(slot).toContain("import('./game_moments')");
+    expect(slot).not.toContain("from './game_moments'");
+    expect(slot).toMatch(/<Suspense[\s\S]*fallback=/);
   });
 
   it('Happy path: the moments compose the real 5E preset parts over the prepared demo', () => {

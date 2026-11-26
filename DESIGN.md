@@ -339,8 +339,9 @@ no display-scale heading.
   the theme, and carries no theme control. The accent is used for the primary action, the sigil's
   core and the derived values that just recalculated in the derivation chain; the step numerals
   are muted.
-- **Display type.** Geist 600 at `--lg-type-display-lg` (hero) and `--lg-type-display-md`
-  (section titles), `--lg-line-display` and `--lg-tracking-display`.
+- **Display type.** Geist 600 at `--lg-type-display-lg` (phone-to-tablet hero), `--lg-type-display-md`
+  (desktop hero and the closing title) and `--lg-type-display-sm` (section titles), `--lg-line-display`
+  and `--lg-tracking-display`. Section leads sit at `--lg-type-18`, one clear step above body text.
 - **Hero demo.** The static hero copy (one H1, the lead and the sign-up action) renders first;
   below it a `Suspense` fallback reserves the stage and the real Fantasy Play preset mounts as a
   lazy chunk over the same in-memory sample character. Its character name is the demo's heading at

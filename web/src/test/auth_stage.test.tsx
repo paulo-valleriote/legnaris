@@ -9,6 +9,7 @@ import { renderApp } from './render';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(here, '../../public');
 const stageSource = readFileSync(path.resolve(here, '../auth/auth_stage.tsx'), 'utf8');
+const authCss = readFileSync(path.resolve(here, '../auth/auth.css'), 'utf8');
 
 async function visit(path: string) {
   renderApp(path, { session: 'unauthenticated' });
@@ -53,5 +54,11 @@ describe('auth stage', () => {
       expect(existsSync(path.join(publicDir, image))).toBe(true);
     }
     expect(stageSource).not.toMatch(/https?:\/\//);
+  });
+  it('Edge: the photograph anchors its crop on the ruin, unmirrored, at every width', () => {
+    const start = authCss.indexOf('.lg-auth__photo {');
+    const block = authCss.slice(start, authCss.indexOf('}', start));
+    expect(block).toContain('object-position: 88% 40%');
+    expect(authCss).not.toMatch(/\.lg-auth__photo[^{]*\{[^}]*scaleX\(-1\)/);
   });
 });

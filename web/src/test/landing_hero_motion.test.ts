@@ -83,11 +83,12 @@ describe('the landing hero motion', () => {
       expect(delaySteps(animationFor(selector)), `${selector} delay`).toBeLessThanOrEqual(2);
     }
 
-    for (const selector of ['.lg-landing__bar', '.lg-landing__badge', '.lg-landing__hero-title']) {
+    for (const selector of ['.lg-landing__bar', '.lg-landing__hero-title']) {
       expect(delaySteps(animationFor(selector)), `${selector} starts at once`).toBe(0);
     }
     expect(delaySteps(animationFor('.lg-landing__hero-lead'))).toBe(1);
     expect(delaySteps(animationFor('.lg-landing__hero-body .lg-landing__actions'))).toBe(2);
+    expect(delaySteps(animationFor('.lg-landing__badge'))).toBe(2);
     expect(delaySteps(animationFor(HERO_SHEET_SELECTOR))).toBe(2);
   });
 
