@@ -100,6 +100,8 @@ function piecePaths(piece: PresetPiece): readonly string[] {
       return [piece.list, ...columnPaths(piece)];
     case 'resetBar':
       return piece.actions;
+    case 'xpBar':
+      return [piece.level, piece.xp];
     case 'rollMode':
     case 'diceFormulas':
       return [];

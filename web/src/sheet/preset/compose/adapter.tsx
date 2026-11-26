@@ -15,6 +15,7 @@ import { SaveList } from './save_list';
 import { SkillList } from './skill_list';
 import { StatPills } from './stat_pills';
 import { TextFields } from './text_fields';
+import { XpBar } from './xp_bar';
 import type {
   PresetAbilityGridPiece,
   PresetConfig,
@@ -31,6 +32,7 @@ import type {
   PresetSpellSlotsPiece,
   PresetStatPillsPiece,
   PresetTextFieldsPiece,
+  PresetXpBarPiece,
 } from './types';
 
 function headerComponent(config: PresetConfig): ComponentType<PresetHeaderProps> {
@@ -113,6 +115,12 @@ function rollModeComponent(piece: PresetRollModePiece): ComponentType {
   };
 }
 
+function xpBarComponent(piece: PresetXpBarPiece): ComponentType {
+  return function XpBarSection() {
+    return <XpBar piece={piece} />;
+  };
+}
+
 function textFieldsComponent(piece: PresetTextFieldsPiece): ComponentType {
   return function TextFieldsSection() {
     return <TextFields piece={piece} />;
@@ -149,6 +157,8 @@ function pieceComponent(piece: PresetPiece): ComponentType {
       return resetBarComponent(piece);
     case 'rollMode':
       return rollModeComponent(piece);
+    case 'xpBar':
+      return xpBarComponent(piece);
     case 'textFields':
       return textFieldsComponent(piece);
     case 'fields':

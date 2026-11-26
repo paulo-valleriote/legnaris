@@ -127,6 +127,13 @@ export interface PresetRollModePiece {
   readonly key: string;
 }
 
+export interface PresetXpBarPiece {
+  readonly kind: 'xpBar';
+  readonly key: string;
+  readonly level: string;
+  readonly xp: string;
+}
+
 export interface PresetTextField {
   readonly path: string;
 }
@@ -162,6 +169,7 @@ export type PresetPiece =
   | PresetRecordTablePiece
   | PresetResetBarPiece
   | PresetRollModePiece
+  | PresetXpBarPiece
   | PresetTextFieldsPiece
   | PresetFieldsPiece
   | PresetDiceFormulasPiece;

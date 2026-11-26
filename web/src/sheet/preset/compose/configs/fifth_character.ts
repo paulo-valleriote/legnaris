@@ -367,6 +367,7 @@ const pieces: readonly PresetPiece[] = [
   },
   { kind: 'resetBar', key: 'rests', actions: ['long_rest', 'short_rest'] },
   { kind: 'rollMode', key: 'rollMode' },
+  { kind: 'xpBar', key: 'xp', level: 'identity.level', xp: 'status.xp' },
   ...setupPieces,
 ];
 
@@ -375,7 +376,7 @@ export const fifthCharacterConfig: PresetConfig = {
   header: { name: 'identity.name', subtitle: 'identity.class', trailing: 'rollMode' },
   pieces,
   layout: [
-    { sections: ['identity'] },
+    { sections: ['identity', 'xp'] },
     {
       columns: [
         ['vitals', 'hitPoints'],
@@ -448,6 +449,7 @@ export const fifthCharacterConfig: PresetConfig = {
         'movementSetup',
         'hitPointsSetup',
         'identity',
+        'xp',
         'abilities',
         'saves',
         'savesSetup',

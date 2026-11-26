@@ -778,7 +778,7 @@ path and an optional subtitle Field path), an ordered `pieces` list and the same
 with `columnsClassName`, so the compose configs lay out with
 `repeat(auto-fit, minmax(20rem, 1fr))`. A piece carries a
 stable `key`, a `kind` and its Field-path bindings, and holds no React, no strings and no
-per-Template code. The thirteen kinds are:
+per-Template code. The fourteen kinds are:
 
 - `statPills` — one labelled pill per bound leaf, passed through `RollableValue` (a Row without
   dice stays plain text); an optional `row` names the Row whose dice the pill reads. On a phone the
@@ -831,6 +831,10 @@ per-Template code. The thirteen kinds are:
   `RollableValue` roll applies and consumes, then returns to Normal; a non-d20 roll, an explicit
   Shift/Alt click, a dialog choice or a `not_d20` Row leaves it alone. It writes nothing to the
   Sheet.
+- `xpBar` — the bound `level` and `xp` leaves as a progress bar between the level floor and the next
+  threshold, with the floor-to-threshold total, a Gain XP form, Set XP through `InlineEdit` while
+  editing, and `Level up to N?` at the threshold; level 20 fills the bar and offers no next level.
+  On a locked sheet Gain XP and Level up stay live, like the other play actions.
 - `fields` — a closed `details` disclosure of bound leaves drawn with the engine controls
   (`SheetFieldControl`, and one native select per exclusive group); derived leaves read as readouts
   and the title row may show one derived `summary` value. It is the home of every editable leaf no
