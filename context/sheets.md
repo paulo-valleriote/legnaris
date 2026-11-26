@@ -818,8 +818,9 @@ per-Template code. The thirteen kinds are:
   (`level`, a fixed or bound `max`, an optional derived `penalty`) that reuses the pips.
 - `recordTable` — a bound Record list's chosen `columns` as editable `SheetFieldControl` cells
   plus Add, Move up/down (focus follows the moved Record and a live region announces the position;
-  drawn only when the store can move and there are two or more Records) and Remove through the edit store's list operations (each guarded by the store method
-  it needs), a visible level-2 heading with the list label, one shared column header per run of
+  drawn only when the store can move and there are two or more Records) and an icon-only Remove
+  named for the Record through the edit store's list operations (each guarded by the store method it
+  needs), a visible level-2 heading with the list label, one shared column header per run of
   Records aligned to the cells by a grid template the table publishes as `--lg-record-template`
   (text fields take two shares, selects 1.25 with an 8.5rem floor, numbers and toggles one with a
   6.5rem floor) with the per-cell labels returning only

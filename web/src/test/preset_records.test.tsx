@@ -320,6 +320,17 @@ describe('the record table piece', () => {
     expect(orderedRecords('inventory', store.getState().data)).toHaveLength(1);
   });
 
+  it('Edge: the Remove control is icon-only and keeps its accessible name', () => {
+    renderPreset(<RecordTable piece={recordTable()} />, {
+      sheet: recordSheet({ [RECORD_A]: { name: 'Sword', uses: 2, position: 1 } }),
+    });
+
+    const name = messageWith('record.remove', { label: 'Inventory 1' });
+    const remove = screen.getByRole('button', { name });
+    expect(remove.textContent).toBe('');
+    expect(screen.queryByText(name)).toBeNull();
+  });
+
   it('Edge: removing the last Record empties the list', async () => {
     const user = userEvent.setup();
     const { store } = renderPreset(<RecordTable piece={recordTable()} />, {
