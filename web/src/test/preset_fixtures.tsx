@@ -323,12 +323,13 @@ export interface PresetRenderOptions {
   readonly template?: TemplateDetail;
   readonly sheet?: Sheet;
   readonly reset?: PresetResetBinding;
+  readonly editing?: boolean;
 }
 
 export function renderPreset(ui: ReactNode, options: PresetRenderOptions = {}) {
   const runtime = createPresetRuntime(options.template, options.sheet);
   const result = render(
-    <PresetProvider {...runtime.preset} reset={options.reset}>
+    <PresetProvider {...runtime.preset} reset={options.reset} editing={options.editing}>
       <DiceProvider value={runtime.dice}>{ui}</DiceProvider>
     </PresetProvider>,
   );

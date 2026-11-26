@@ -767,7 +767,10 @@ read-only. A preset sheet opens locked; the header `Edit sheet` / `Done editing`
 build values in place, without moving anything. While locked, current and temporary hit points,
 Damage and Heal, every pip track, conditions, the Record columns a piece lists as `playColumns`,
 rolls and rests stay live. The lock is screen state: it is never stored or sent, and pending edits
-survive it. The generic form has no lock. A Template id with a preset draws the preset body; every other
+survive it. While locked, a text or number build value is a read-only input with `aria-readonly`
+(focusable, selectable and copyable) drawn without the edit-mode box: no border or raised fill, and
+the text colour and placeholder stay the locked ones; a toggle stays disabled because a checkbox
+has no read-only state. The generic form has no lock. A Template id with a preset draws the preset body; every other
 Template (including the retired `fantasy_v1`) draws the generic form. The preset registry maps a
 template id to a header component and ordered section slots, so later gameplay surfaces are additions
 to the preset rather than branches in the screen.

@@ -405,14 +405,16 @@ describe('numeric input: select on focus', () => {
     expect(input.selectionStart).toBe(input.selectionEnd);
   });
 
-  it('Edge: an inert field takes no focus and selects nothing', async () => {
+  it('Edge: an inert field is read-only, takes focus and selects its value for copying', async () => {
     const { input } = setup(42, { inert: true }, false);
     await userEvent.click(input);
     await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)));
 
-    expect(input).toBeDisabled();
-    expect(input).not.toHaveFocus();
-    expect(input.selectionStart).toBe(input.selectionEnd);
+    expect(input).toHaveAttribute('readonly');
+    expect(input).not.toBeDisabled();
+    expect(input).toHaveFocus();
+    expect(input.selectionStart).toBe(0);
+    expect(input.selectionEnd).toBe(2);
   });
 
   it('Edge: a pending text is selected on refocus and replaced by the next key', async () => {

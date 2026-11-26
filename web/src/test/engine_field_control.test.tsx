@@ -103,7 +103,7 @@ describe('sheet field control', () => {
     expect(screen.getByRole('textbox', { name: 'Subclass' })).not.toHaveAttribute('maxlength');
   });
 
-  it('Edge: with no change handler the numeric input is inert', () => {
+  it('Edge: with no change handler the numeric input is read-only but focusable', () => {
     render(
       <SheetFieldControl
         path="stats.dexterity"
@@ -112,10 +112,13 @@ describe('sheet field control', () => {
       />,
     );
 
-    expect(screen.getByRole('textbox', { name: 'Dexterity' })).toBeDisabled();
+    const input = screen.getByRole('textbox', { name: 'Dexterity' });
+    expect(input).toHaveAttribute('readonly');
+    expect(input).toHaveAttribute('aria-readonly', 'true');
+    expect(input).not.toBeDisabled();
   });
 
-  it('Edge: with no change handler the text input is inert', () => {
+  it('Edge: with no change handler the text input is read-only but focusable', () => {
     render(
       <SheetFieldControl
         path="identity.name"
@@ -124,7 +127,10 @@ describe('sheet field control', () => {
       />,
     );
 
-    expect(screen.getByRole('textbox', { name: 'Name' })).toBeDisabled();
+    const input = screen.getByRole('textbox', { name: 'Name' });
+    expect(input).toHaveAttribute('readonly');
+    expect(input).toHaveAttribute('aria-readonly', 'true');
+    expect(input).not.toBeDisabled();
   });
 
   it('Edge: with no change handler the toggle is inert', () => {
@@ -495,7 +501,8 @@ describe('empty text field placeholder', () => {
       'placeholder',
       message('engine.notSet'),
     );
-    expect(screen.getByRole('textbox', { name: 'Title' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Title' })).toHaveAttribute('readonly');
+    expect(screen.getByRole('textbox', { name: 'Title' })).not.toBeDisabled();
     expect(screen.getByRole('textbox', { name: 'Title' })).toHaveAttribute(
       'placeholder',
       message('engine.notSet'),

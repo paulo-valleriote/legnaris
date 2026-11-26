@@ -218,10 +218,11 @@ describe('numeric input: negative and in-progress text', () => {
     expect(input).toHaveValue('-3');
   });
 
-  it('Edge: an inert field draws no sign toggle', () => {
+  it('Edge: an inert field draws no sign toggle and stays read-only', () => {
     render(<SheetFieldControl path="stats.dexterity" schema={NUMBER_SCHEMA} value={-3} />);
 
-    expect(screen.getByRole('textbox', { name: 'Dexterity' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Dexterity' })).toHaveAttribute('readonly');
+    expect(screen.getByRole('textbox', { name: 'Dexterity' })).not.toBeDisabled();
     expect(screen.queryByRole('button', { hidden: true })).not.toBeInTheDocument();
   });
 
