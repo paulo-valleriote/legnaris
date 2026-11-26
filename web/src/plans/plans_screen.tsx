@@ -124,7 +124,9 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
       className={`lg-plans__badge${isFree || isPaid ? '' : ' lg-plans__badge--standalone'}`}
       data-testid="plans-current"
     >
-      {messageWith('plans.current', { plan: planName(usage.plan) })}
+      {isComp
+        ? messageWith('plans.currentComp', { plan: planName(usage.plan) })
+        : messageWith('plans.current', { plan: planName(usage.plan) })}
     </p>
   );
 
@@ -157,15 +159,21 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
             {isPaid ? currentBadge : null}
           </header>
 
-          <div className="lg-plans__pricing">
-            <p className="lg-plans__price">
-              <span className="lg-plans__price-amount">{message('plans.priceAmount')}</span>
-              <span className="lg-plans__price-period">{message('plans.pricePeriod')}</span>
-            </p>
-            <p className="lg-plans__price-note">{message('plans.priceNote')}</p>
-          </div>
+          {isComp ? (
+            <p className="lg-plans__text">{message('plans.compNote')}</p>
+          ) : (
+            <>
+              <div className="lg-plans__pricing">
+                <p className="lg-plans__price">
+                  <span className="lg-plans__price-amount">{message('plans.priceAmount')}</span>
+                  <span className="lg-plans__price-period">{message('plans.pricePeriod')}</span>
+                </p>
+                <p className="lg-plans__price-note">{message('plans.priceNote')}</p>
+              </div>
 
-          <p className="lg-plans__text">{message('plans.paidDescription')}</p>
+              <p className="lg-plans__text">{message('plans.paidDescription')}</p>
+            </>
+          )}
 
           <ul className="lg-plans__advantages" aria-label={message('plans.paidAdvantages')}>
             <li className="lg-plans__advantage">{message('plans.paidNoAds')}</li>

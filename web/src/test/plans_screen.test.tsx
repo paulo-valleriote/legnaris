@@ -160,7 +160,7 @@ describe('plans screen: portal (LGN-215)', () => {
     renderApp('/plans', { client: script.client });
 
     expect(
-      await screen.findByText(messageWith('plans.current', { plan: message('account.planPaid') })),
+      await screen.findByRole('heading', { level: 2, name: message('account.planPaid') }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: message('plans.manage') })).toBeNull();
     expect(screen.queryByRole('button', { name: message('plans.subscribe') })).toBeNull();
@@ -179,6 +179,33 @@ describe('plans screen: portal (LGN-215)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(message('api.error.noSubscription'));
     expect(redirectTo).not.toHaveBeenCalled();
     expect(script.planReads()).toBe(2);
+  });
+});
+
+describe('plans screen: courtesy plan', () => {
+  it('Happy path: a courtesy plan is labelled as granted and carries no price', async () => {
+    const script = scriptedBilling({ plans: [json(COMP_ACTIVE)] });
+    renderApp('/plans', { client: script.client });
+
+    expect(
+      await screen.findByText(
+        messageWith('plans.currentComp', { plan: message('account.planPaid') }),
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(message('plans.compNote'))).toBeInTheDocument();
+    expect(screen.queryByText(message('plans.priceAmount'))).toBeNull();
+    expect(screen.queryByText(message('plans.priceNote'))).toBeNull();
+    expect(screen.queryByText(message('plans.paidDescription'))).toBeNull();
+  });
+
+  it('Edge: a card subscription keeps its price and payment copy', async () => {
+    const script = scriptedBilling({ plans: [json(PAID_ACTIVE)] });
+    renderApp('/plans', { client: script.client });
+
+    expect(await screen.findByText(message('plans.priceAmount'))).toBeInTheDocument();
+    expect(screen.getByText(message('plans.priceNote'))).toBeInTheDocument();
+    expect(screen.getByText(message('plans.paidDescription'))).toBeInTheDocument();
+    expect(screen.queryByText(message('plans.compNote'))).toBeNull();
   });
 });
 
