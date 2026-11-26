@@ -1,5 +1,6 @@
 import { InlineEdit } from '../../inline_edit';
 import {
+  usePresetContext,
   usePresetCommit,
   usePresetLabel,
   usePresetSchema,
@@ -14,6 +15,7 @@ function TextField({ field }: { readonly field: PresetTextField }) {
   const value = textValue(usePresetValue(field.path));
   const schema = usePresetSchema(field.path);
   const commit = usePresetCommit(field.path);
+  const { editing } = usePresetContext();
 
   return (
     <div className="lg-compose-text-field">
@@ -25,6 +27,7 @@ function TextField({ field }: { readonly field: PresetTextField }) {
         schema={schema}
         value={value}
         inputMode="text"
+        locked={!editing}
         onCommit={commit}
       />
     </div>

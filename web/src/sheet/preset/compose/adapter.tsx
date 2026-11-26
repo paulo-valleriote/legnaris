@@ -2,6 +2,8 @@ import type { ComponentType } from 'react';
 import type { PresetHeaderProps, SheetPreset } from '../types';
 import { AbilityGrid } from './ability_grid';
 import { Conditions } from './conditions';
+import { DiceFormulas } from './dice_formulas';
+import { FieldsGroup } from './fields_group';
 import { HitPointsTrack } from './hit_points_track';
 import { IdentityHeader } from './identity_header';
 import { Pips } from './pips';
@@ -16,6 +18,7 @@ import { TextFields } from './text_fields';
 import type {
   PresetAbilityGridPiece,
   PresetConfig,
+  PresetFieldsPiece,
   PresetPiece,
   PresetPipsPiece,
   PresetSaveListPiece,
@@ -116,6 +119,12 @@ function textFieldsComponent(piece: PresetTextFieldsPiece): ComponentType {
   };
 }
 
+function fieldsComponent(piece: PresetFieldsPiece): ComponentType {
+  return function FieldsSection() {
+    return <FieldsGroup piece={piece} />;
+  };
+}
+
 function pieceComponent(piece: PresetPiece): ComponentType {
   switch (piece.kind) {
     case 'statPills':
@@ -142,6 +151,10 @@ function pieceComponent(piece: PresetPiece): ComponentType {
       return rollModeComponent(piece);
     case 'textFields':
       return textFieldsComponent(piece);
+    case 'fields':
+      return fieldsComponent(piece);
+    case 'diceFormulas':
+      return DiceFormulas;
   }
 }
 

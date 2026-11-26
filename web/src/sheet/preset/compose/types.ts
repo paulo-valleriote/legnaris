@@ -1,3 +1,4 @@
+import type { MessageKey } from '../../../l10n/strings';
 import type { PresetHeaderProps, PresetLayoutBlock, PresetSectionNav } from '../types';
 
 export interface PresetIdentityHeader {
@@ -22,6 +23,9 @@ export interface PresetPipsPiece {
   readonly key: string;
   readonly count: string;
   readonly max: string | number;
+  readonly heading?: MessageKey;
+  readonly label?: MessageKey;
+  readonly critical?: boolean;
 }
 
 export interface PresetSpellSlotLevel {
@@ -84,6 +88,7 @@ export interface PresetHitPointsPiece {
   readonly current: string;
   readonly max: string | number;
   readonly temp?: string;
+  readonly downNotice?: MessageKey;
 }
 
 export interface PresetConditionFlag {
@@ -108,6 +113,7 @@ export interface PresetRecordTablePiece {
   readonly key: string;
   readonly list: string;
   readonly columns?: readonly string[];
+  readonly playColumns?: readonly string[];
 }
 
 export interface PresetResetBarPiece {
@@ -131,6 +137,19 @@ export interface PresetTextFieldsPiece {
   readonly fields: readonly PresetTextField[];
 }
 
+export interface PresetFieldsPiece {
+  readonly kind: 'fields';
+  readonly key: string;
+  readonly title: MessageKey;
+  readonly fields: readonly PresetTextField[];
+  readonly summary?: string;
+}
+
+export interface PresetDiceFormulasPiece {
+  readonly kind: 'diceFormulas';
+  readonly key: string;
+}
+
 export type PresetPiece =
   | PresetStatPillsPiece
   | PresetPipsPiece
@@ -143,7 +162,9 @@ export type PresetPiece =
   | PresetRecordTablePiece
   | PresetResetBarPiece
   | PresetRollModePiece
-  | PresetTextFieldsPiece;
+  | PresetTextFieldsPiece
+  | PresetFieldsPiece
+  | PresetDiceFormulasPiece;
 
 export type PresetPieceKind = PresetPiece['kind'];
 

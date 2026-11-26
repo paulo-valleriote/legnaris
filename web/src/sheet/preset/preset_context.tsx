@@ -34,14 +34,22 @@ export interface PresetContextValue {
   readonly setRollMode: (mode: RollMode) => void;
   readonly consumeRollMode: () => void;
   readonly groupHeadingLevel: 2 | 3;
+  readonly editing: boolean;
 }
 
 const PresetContext = createContext<PresetContextValue | null>(null);
 
 interface PresetProviderProps extends Omit<
   PresetContextValue,
-  'fields' | 'reset' | 'rollMode' | 'setRollMode' | 'consumeRollMode' | 'groupHeadingLevel'
+  | 'fields'
+  | 'reset'
+  | 'rollMode'
+  | 'setRollMode'
+  | 'consumeRollMode'
+  | 'groupHeadingLevel'
+  | 'editing'
 > {
+  readonly editing?: boolean;
   readonly reset?: PresetResetBinding;
   readonly groupHeadingLevel?: 2 | 3;
   readonly children: ReactNode;
@@ -54,6 +62,7 @@ export function PresetProvider({
   dice,
   reset,
   groupHeadingLevel = 2,
+  editing = true,
   children,
 }: PresetProviderProps) {
   const fields = useMemo(
@@ -79,8 +88,20 @@ export function PresetProvider({
       setRollMode,
       consumeRollMode,
       groupHeadingLevel,
+      editing,
     }),
-    [store, template, sheet, dice, fields, reset, rollMode, consumeRollMode, groupHeadingLevel],
+    [
+      store,
+      template,
+      sheet,
+      dice,
+      fields,
+      reset,
+      rollMode,
+      consumeRollMode,
+      groupHeadingLevel,
+      editing,
+    ],
   );
   return <PresetContext.Provider value={value}>{children}</PresetContext.Provider>;
 }

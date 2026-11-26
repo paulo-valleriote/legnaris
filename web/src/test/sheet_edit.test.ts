@@ -265,6 +265,82 @@ describe('sheet edit store', () => {
     expect(valueAtPath(state.data, 'derived.total')).toBe(5);
   });
 
+  it('Edge: a value reverted to its old value while saving stays pending and is sent again', async () => {
+    const deferred = createDeferredTransport();
+    const { store } = storeWith(deferred.transport);
+
+    store.setPath('identity.level', 4);
+    const saving = store.save();
+    store.setPath('identity.level', 3);
+
+    deferred.resolve(successOutcome({}));
+    await saving;
+
+    expect(isPending(store.getState())).toBe(true);
+    expect(store.getState().editedPaths.has('identity.level')).toBe(true);
+    expect(store.getPendingDelta()).toEqual({ identity: { level: 3 } });
+    expect(valueAtPath(store.getState().data, 'identity.level')).toBe(3);
+
+    const resaving = store.save();
+    deferred.resolve(successOutcome({}));
+    await resaving;
+
+    const bodies = deferred.requests.map(
+      (request) => JSON.parse(request.body ?? '{}') as Record<string, unknown>,
+    );
+    expect(bodies).toEqual([
+      { data: { identity: { level: 4 } } },
+      { data: { identity: { level: 3 } } },
+    ]);
+    expect(isPending(store.getState())).toBe(false);
+  });
+
+  it('Edge: a third value set while saving stays pending and the next save sends it', async () => {
+    const deferred = createDeferredTransport();
+    const { store } = storeWith(deferred.transport);
+
+    store.setPath('identity.level', 4);
+    const saving = store.save();
+    store.setPath('identity.level', 7);
+
+    deferred.resolve(successOutcome({}));
+    await saving;
+
+    expect(store.getState().editedPaths.has('identity.level')).toBe(true);
+    expect(store.getPendingDelta()).toEqual({ identity: { level: 7 } });
+
+    const resaving = store.save();
+    deferred.resolve(successOutcome({}));
+    await resaving;
+
+    const bodies = deferred.requests.map(
+      (request) => JSON.parse(request.body ?? '{}') as Record<string, unknown>,
+    );
+    expect(bodies[1]).toEqual({ data: { identity: { level: 7 } } });
+    expect(isPending(store.getState())).toBe(false);
+  });
+
+  it('Error: a failed save during flight keeps the sent and the later edits', async () => {
+    const deferred = createDeferredTransport();
+    const { store } = storeWith(deferred.transport);
+
+    store.setPath('identity.level', 4);
+    const saving = store.save();
+    store.setPath('identity.characterName', 'Boromir');
+
+    deferred.resolve(errorOutcome('INTERNAL_ERROR', 'boom', 500));
+    await saving;
+
+    const state = store.getState();
+    expect(isPending(state)).toBe(true);
+    expect(store.getPendingDelta()).toEqual({
+      identity: { level: 4, characterName: 'Boromir' },
+    });
+    expect(valueAtPath(state.data, 'identity.level')).toBe(4);
+    expect(valueAtPath(state.data, 'identity.characterName')).toBe('Boromir');
+    expect(state.saveError).toBe(failureMessage('serverError'));
+  });
+
   it('Happy path: setPath records the path and produces a fresh data tree', () => {
     const { store } = storeWith(createFakeTransport(successOutcome({})).transport);
     const before = dataOf(store);

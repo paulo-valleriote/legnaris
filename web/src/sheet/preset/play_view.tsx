@@ -94,10 +94,9 @@ function LayoutBlock({
 }
 
 export function PresetPlayView({ preset }: { readonly preset: SheetPreset }) {
-  const { sheet } = usePresetContext();
+  const { editing } = usePresetContext();
   const narrow = useNarrowViewport();
   const components = sectionComponents(preset);
-  const statBlock = preset.statBlock?.when(sheet.kind) ? preset.statBlock : undefined;
   const layout = narrow && preset.narrowLayout !== undefined ? preset.narrowLayout : preset.layout;
   const nav = preset.sectionNav;
   const navTargets = nav?.targets;
@@ -106,10 +105,8 @@ export function PresetPlayView({ preset }: { readonly preset: SheetPreset }) {
   const topNav = !narrow && nav !== undefined;
 
   return (
-    <div className="lg-preset" data-testid="sheet-play">
-      {statBlock !== undefined ? (
-        <statBlock.Body />
-      ) : layout === undefined ? (
+    <div className={`lg-preset${editing ? '' : ' lg-preset--locked'}`} data-testid="sheet-play">
+      {layout === undefined ? (
         <>
           {topNav && <PresetSectionNav targets={navTargets} />}
           <SectionList
@@ -136,7 +133,6 @@ export function PresetPlayView({ preset }: { readonly preset: SheetPreset }) {
           ))}
         </div>
       )}
-      {statBlock === undefined && preset.Vitals !== undefined && <preset.Vitals />}
       <PendingChangesCard />
     </div>
   );

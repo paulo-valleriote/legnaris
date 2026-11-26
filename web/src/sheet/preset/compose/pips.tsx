@@ -1,6 +1,7 @@
-import { messageWith } from '../../../l10n/strings';
+import { message, messageWith } from '../../../l10n/strings';
 import { usePresetCommit, usePresetLabel, usePresetValue } from '../preset_context';
 import { numberValue } from '../values';
+import { GroupTitle } from './group_title';
 import type { PresetPipsPiece } from './types';
 import './compose.css';
 
@@ -8,7 +9,10 @@ interface PipsBodyProps {
   readonly countPath: string;
   readonly max: number;
   readonly label?: string;
+  readonly decoration?: PipsDecoration;
 }
+
+type PipsDecoration = Pick<PresetPipsPiece, 'heading' | 'label' | 'critical'>;
 
 function pipLimit(max: number): number {
   if (!Number.isFinite(max)) {
@@ -25,7 +29,7 @@ function pipCount(value: unknown, limit: number): number {
   return Math.min(limit, Math.max(0, Math.trunc(count)));
 }
 
-function PipsBody({ countPath, max, label: shownLabel }: PipsBodyProps) {
+function PipsBody({ countPath, max, label: shownLabel, decoration }: PipsBodyProps) {
   const fieldLabel = usePresetLabel(countPath);
   const label = shownLabel ?? fieldLabel;
   const value = usePresetValue(countPath);
@@ -39,8 +43,15 @@ function PipsBody({ countPath, max, label: shownLabel }: PipsBodyProps) {
   }
 
   return (
-    <div className="lg-compose-pips">
-      <span className="lg-compose-pips__label">{label}</span>
+    <div className={`lg-compose-pips${decoration?.critical ? ' lg-compose-pips--critical' : ''}`}>
+      {decoration?.heading === undefined ? null : (
+        <div className="lg-compose-pips__heading">
+          <GroupTitle>{message(decoration.heading)}</GroupTitle>
+        </div>
+      )}
+      <span className="lg-compose-pips__label">
+        {decoration?.label === undefined ? label : message(decoration.label)}
+      </span>
       <div
         className="lg-compose-pips__row"
         role="group"
@@ -63,6 +74,9 @@ function PipsBody({ countPath, max, label: shownLabel }: PipsBodyProps) {
           </button>
         ))}
       </div>
+      <span className="lg-compose-pips__count" aria-hidden="true">
+        {messageWith('preset.pips.count', { count, max: limit })}
+      </span>
     </div>
   );
 }
@@ -71,19 +85,21 @@ export function PipsWithMaxPath({
   countPath,
   maxPath,
   label,
+  decoration,
 }: {
   readonly countPath: string;
   readonly maxPath: string;
   readonly label?: string;
+  readonly decoration?: PipsDecoration;
 }) {
   const max = numberValue(usePresetValue(maxPath)) ?? 0;
 
-  return <PipsBody countPath={countPath} max={max} label={label} />;
+  return <PipsBody countPath={countPath} max={max} label={label} decoration={decoration} />;
 }
 
 export function Pips({ piece }: { readonly piece: PresetPipsPiece }) {
   if (typeof piece.max === 'number') {
-    return <PipsBody countPath={piece.count} max={piece.max} />;
+    return <PipsBody countPath={piece.count} max={piece.max} decoration={piece} />;
   }
-  return <PipsWithMaxPath countPath={piece.count} maxPath={piece.max} />;
+  return <PipsWithMaxPath countPath={piece.count} maxPath={piece.max} decoration={piece} />;
 }

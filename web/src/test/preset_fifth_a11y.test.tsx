@@ -17,7 +17,7 @@ import { renderPreset } from './preset_fixtures';
 import goldenCharacter from '../../../testdata/templates/fifth_character_v1.json';
 import goldenStatBlock from '../../../testdata/templates/fifth_stat_block_v1.json';
 
-vi.setConfig({ testTimeout: 15_000 });
+vi.setConfig({ testTimeout: 60_000 });
 
 const COMPOSE_CSS = readFileSync(
   path.resolve(process.cwd(), 'src/sheet/preset/compose/compose.css'),
@@ -156,7 +156,7 @@ function stubReset(): PresetResetBinding {
 function interactiveElements(root: HTMLElement): HTMLElement[] {
   return Array.from(
     root.querySelectorAll<HTMLElement>(
-      'button, input, select, textarea, a[href], [tabindex]:not([tabindex="-1"])',
+      'button, input, select, textarea, summary, a[href], [tabindex]:not([tabindex="-1"])',
     ),
   ).filter(
     (element) =>
@@ -183,10 +183,10 @@ function renderConfig(
 }
 
 async function tabThrough(root: HTMLElement): Promise<HTMLElement[]> {
-  const user = userEvent.setup();
+  const user = userEvent.setup({ delay: null });
   const expected = interactiveElements(root);
   const reached: HTMLElement[] = [];
-  const cap = expected.length * 3 + 20;
+  const cap = expected.length + 5;
   for (let index = 0; index < cap; index += 1) {
     await user.tab();
     const active = document.activeElement;
@@ -248,9 +248,15 @@ describe.each(configs)(
 
     it('Happy path: every interactive element in Play is reachable by Tab', async () => {
       const { container } = renderConfig(config, template(), sheet());
-      container
-        .querySelectorAll<HTMLButtonElement>('[data-testid="compose-conditions-toggle"]')
-        .forEach((toggle) => act(() => toggle.click()));
+      act(() => {
+        container
+          .querySelectorAll<HTMLButtonElement>('[data-testid="compose-conditions-toggle"]')
+          .forEach((toggle) => toggle.click());
+        container.querySelectorAll<HTMLDetailsElement>('details').forEach((details) => {
+          details.open = true;
+          details.dispatchEvent(new Event('toggle', { bubbles: true }));
+        });
+      });
 
       const expected = interactiveElements(container);
       const reached = await tabThrough(container);

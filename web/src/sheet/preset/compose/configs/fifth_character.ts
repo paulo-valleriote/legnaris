@@ -181,17 +181,117 @@ const hitDicePieces: PresetPiece[] = ['d6', 'd8', 'd10', 'd12'].map((die) => ({
   max: `hitDice.${die}.extra`,
 }));
 
+const paths = (...list: string[]) => list.map((path) => ({ path }));
+
+const abilityKeys = ['Strength', 'Dexterity', 'Constitution', 'Intelligence', 'Wisdom', 'Charisma'];
+
+const setupPieces: readonly PresetPiece[] = [
+  {
+    kind: 'fields',
+    key: 'armorSetup',
+    title: 'preset.fields.armor',
+    summary: 'armor.armorClass',
+    fields: paths(
+      'armor.choiceNone',
+      'armor.choiceLight',
+      'armor.choiceMedium',
+      'armor.choiceHeavy',
+      'armor.choiceBarbarian',
+      'armor.choiceMonk',
+      'armor.base',
+      'armor.shield',
+      'armor.misc',
+    ),
+  },
+  {
+    kind: 'fields',
+    key: 'movementSetup',
+    title: 'preset.fields.movement',
+    fields: paths(
+      'combat.initiative.alert',
+      'combat.initiative.misc',
+      'combat.speed.base',
+      'combat.armorStrengthRequirement',
+    ),
+  },
+  {
+    kind: 'fields',
+    key: 'hitPointsSetup',
+    title: 'preset.fields.hitPoints',
+    summary: 'combat.hp.max',
+    fields: paths(
+      'combat.hp.base',
+      'combat.hp.perLevel',
+      'combat.hp.misc',
+      'hitDice.primary.size',
+      'hitDice.d6.extra',
+      'hitDice.d8.extra',
+      'hitDice.d10.extra',
+      'hitDice.d12.extra',
+    ),
+  },
+  {
+    kind: 'fields',
+    key: 'savesSetup',
+    title: 'preset.fields.saves',
+    fields: savingThrows.map((save) => ({ path: `${save.row}.misc` })),
+  },
+  {
+    kind: 'fields',
+    key: 'skillsSetup',
+    title: 'preset.fields.skills',
+    fields: [
+      ...skills.map((skill) => ({ path: `${skill.row}.misc` })),
+      ...paths('passive.choiceNone', 'passive.choiceAdvantage', 'passive.choiceDisadvantage'),
+    ],
+  },
+  {
+    kind: 'fields',
+    key: 'spellcastingSetup',
+    title: 'preset.fields.spellcasting',
+    fields: paths(
+      ...abilityKeys.map((ability) => `spellcasting.ability${ability}`),
+      'spellcasting.abilityMod',
+      'spellcasting.attack',
+      'spellcasting.saveDC',
+      'spellcasting.preparedLimit',
+      ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((level) => `spellcasting.slot${level}.total`),
+      'spellcasting.pact.count',
+      'spellcasting.pact.level',
+    ),
+  },
+  {
+    kind: 'fields',
+    key: 'coins',
+    title: 'preset.fields.coins',
+    fields: paths(
+      'coins.cp',
+      'coins.sp',
+      'coins.ep',
+      'coins.gp',
+      'coins.pp',
+      'inventory.totalWeight',
+      'combat.carryingCapacity',
+      'inventory.attuned',
+    ),
+  },
+  { kind: 'diceFormulas', key: 'diceFormulas' },
+];
+
 const pieces: readonly PresetPiece[] = [
   {
-    kind: 'statPills',
+    kind: 'fields',
     key: 'identity',
-    pills: [
-      { path: 'identity.class' },
-      { path: 'identity.subclass' },
-      { path: 'identity.species' },
-      { path: 'identity.background' },
-      { path: 'identity.level' },
-    ],
+    title: 'preset.fields.character',
+    fields: paths(
+      'identity.subclass',
+      'identity.species',
+      'identity.background',
+      'identity.level',
+      'identity.jackOfAllTrades',
+      'status.xp',
+      'status.heroicInspiration',
+    ),
   },
   {
     kind: 'statPills',
@@ -210,6 +310,7 @@ const pieces: readonly PresetPiece[] = [
     current: 'combat.hp.current',
     max: 'combat.hp.max',
     temp: 'combat.hp.temp',
+    downNotice: 'preset.hitPoints.downSaves',
   },
   { kind: 'abilityGrid', key: 'abilities', section: 'abilities', abilities: abilityScores },
   { kind: 'saveList', key: 'saves', section: 'saves', saves: savingThrows },
@@ -220,8 +321,23 @@ const pieces: readonly PresetPiece[] = [
     conditions: conditionPaths.map((path) => ({ path })),
     exhaustion: { level: 'exhaustion.level', max: 6, penalty: 'exhaustion.penalty' },
   },
-  { kind: 'pips', key: 'deathSavesSuccesses', count: 'status.deathSaves.successes', max: 3 },
-  { kind: 'pips', key: 'deathSavesFailures', count: 'status.deathSaves.failures', max: 3 },
+  {
+    kind: 'pips',
+    key: 'deathSavesSuccesses',
+    count: 'status.deathSaves.successes',
+    max: 3,
+    heading: 'preset.deathSaves.title',
+    label: 'preset.deathSaves.successes',
+    critical: true,
+  },
+  {
+    kind: 'pips',
+    key: 'deathSavesFailures',
+    count: 'status.deathSaves.failures',
+    max: 3,
+    label: 'preset.deathSaves.failures',
+    critical: true,
+  },
   {
     kind: 'pips',
     key: 'hitDicePrimary',
@@ -243,9 +359,15 @@ const pieces: readonly PresetPiece[] = [
   { kind: 'recordTable', key: 'inventory', list: 'inventory.items' },
   { kind: 'recordTable', key: 'features', list: 'features.list' },
   { kind: 'recordTable', key: 'spells', list: 'spells.list' },
-  { kind: 'recordTable', key: 'resources', list: 'resources.list' },
+  {
+    kind: 'recordTable',
+    key: 'resources',
+    list: 'resources.list',
+    playColumns: ['used'],
+  },
   { kind: 'resetBar', key: 'rests', actions: ['long_rest', 'short_rest'] },
   { kind: 'rollMode', key: 'rollMode' },
+  ...setupPieces,
 ];
 
 export const fifthCharacterConfig: PresetConfig = {
@@ -253,13 +375,11 @@ export const fifthCharacterConfig: PresetConfig = {
   header: { name: 'identity.name', subtitle: 'identity.class', trailing: 'rollMode' },
   pieces,
   layout: [
-    { sections: ['identity', 'vitals'] },
+    { sections: ['identity'] },
     {
       columns: [
-        ['abilities', 'saves'],
-        ['skills'],
+        ['vitals', 'hitPoints'],
         [
-          'hitPoints',
           'deathSavesSuccesses',
           'deathSavesFailures',
           'hitDicePrimary',
@@ -271,10 +391,26 @@ export const fifthCharacterConfig: PresetConfig = {
         ],
       ],
     },
+    { sections: ['armorSetup', 'movementSetup', 'hitPointsSetup'] },
     {
-      sections: ['attacks', 'inventory', 'features', 'spellSlots', 'spells', 'resources'],
+      columns: [
+        ['abilities', 'saves', 'savesSetup'],
+        ['skills', 'skillsSetup'],
+      ],
     },
-    { sections: ['rests'] },
+    {
+      sections: [
+        'attacks',
+        'inventory',
+        'coins',
+        'features',
+        'spellSlots',
+        'spellcastingSetup',
+        'spells',
+        'resources',
+      ],
+    },
+    { sections: ['rests', 'diceFormulas'] },
   ],
   sectionNav: {
     after: 'identity',
@@ -306,19 +442,27 @@ export const fifthCharacterConfig: PresetConfig = {
         'hitDiceD8',
         'hitDiceD10',
         'hitDiceD12',
+        'conditions',
         'vitals',
+        'armorSetup',
+        'movementSetup',
+        'hitPointsSetup',
         'identity',
         'abilities',
         'saves',
+        'savesSetup',
         'skills',
-        'conditions',
+        'skillsSetup',
         'attacks',
         'inventory',
+        'coins',
         'features',
         'spellSlots',
+        'spellcastingSetup',
         'spells',
         'resources',
         'rests',
+        'diceFormulas',
       ],
     },
   ],

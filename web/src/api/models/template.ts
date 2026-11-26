@@ -22,6 +22,7 @@ export interface FieldSchema {
   readonly optionLabel?: string;
   readonly columnLabel?: string;
   readonly flag?: boolean;
+  readonly maxLength?: number;
 }
 
 export interface LeafNode {
@@ -130,6 +131,9 @@ function parseFieldSchema(value: unknown): FieldSchema {
     optionLabel: optionalString(value, 'option_label'),
     columnLabel: optionalString(value, 'column_label'),
     flag: optionalBoolean(value, 'flag'),
+    ...(value['max_length'] === undefined || value['max_length'] === null
+      ? {}
+      : { maxLength: requireNumber(value, 'max_length') }),
   };
 }
 

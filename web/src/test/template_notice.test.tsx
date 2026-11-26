@@ -18,6 +18,7 @@ import {
   scripted,
 } from './campaign_helpers';
 import { fantasySheetPayload, fantasyTemplatePayload } from './fantasy_fixtures';
+import { fifthCharacterSheetPayload, fifthCharacterTemplatePayload } from './fifth_fixtures';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import {
   GENERATION_ID,
@@ -65,7 +66,7 @@ function noticeLink() {
 }
 
 describe('owner sheet template notice', () => {
-  it('Happy path: Play mode draws the template name with its notice link', async () => {
+  it('Happy path: a generic sheet draws the template name with its notice link', async () => {
     await openSheet(withNotice(fantasyTemplatePayload()), fantasySheetPayload());
 
     const line = screen.getByTestId('sheet-eyebrow');
@@ -77,10 +78,8 @@ describe('owner sheet template notice', () => {
     expect(link).toHaveFocus();
   });
 
-  it('Happy path: Edit mode keeps the template name and its notice link', async () => {
-    const { user } = await openSheet(withNotice(fantasyTemplatePayload()), fantasySheetPayload());
-
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+  it('Happy path: a preset sheet keeps the template name and its notice link', async () => {
+    await openSheet(withNotice(fifthCharacterTemplatePayload()), fifthCharacterSheetPayload());
 
     expect(screen.getByTestId('sheet-eyebrow')).toHaveTextContent(`5E Character · ${NOTICE_LABEL}`);
     expect(noticeLink()).toHaveAttribute('href', NOTICE_PATH);
@@ -93,13 +92,8 @@ describe('owner sheet template notice', () => {
     expect(screen.queryByRole('link', { name: NOTICE_LABEL })).not.toBeInTheDocument();
   });
 
-  it('Edge: the fantasy_v1 Play view stays unchanged with no template line and no link', async () => {
-    const { user } = await openSheet(fantasyTemplatePayload(), fantasySheetPayload());
-
-    expect(screen.queryByTestId('sheet-eyebrow')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: NOTICE_LABEL })).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
+  it('Edge: the fantasy_v1 generic view draws its name and no notice link', async () => {
+    await openSheet(fantasyTemplatePayload(), fantasySheetPayload());
 
     expect(screen.getByTestId('sheet-eyebrow')).toHaveTextContent('Fantasy Template');
     expect(screen.queryByRole('link', { name: NOTICE_LABEL })).not.toBeInTheDocument();

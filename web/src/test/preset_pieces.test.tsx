@@ -48,17 +48,14 @@ describe('the identity header piece', () => {
     expect(screen.queryByRole('button', { name: editName('Subtitle') })).not.toBeInTheDocument();
   });
 
-  it('Happy path: the name and subtitle offer a pencil affordance and lead their names with the label', () => {
+  it('Happy path: the name and subtitle draw bordered controls with no pencil icon', () => {
     renderPreset(<IdentityHeader header={identity} />);
 
     for (const label of ['Name', 'Subtitle']) {
       const control = screen.getByRole('button', { name: editName(label) });
-      expect(control).toHaveClass('lg-inline-edit--affordance');
+      expect(control).toHaveClass('lg-inline-edit');
       expect(control).toHaveAccessibleName(editName(label));
-      expect(control.querySelector('.lg-inline-edit__pencil')).toHaveAttribute(
-        'aria-hidden',
-        'true',
-      );
+      expect(control.querySelector('.lg-inline-edit__pencil')).toBeNull();
     }
   });
 

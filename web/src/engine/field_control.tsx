@@ -100,6 +100,7 @@ export function SheetFieldControl({
         className={`lg-field${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}
         aria-label={label}
         placeholder={message('engine.notSet')}
+        maxLength={schema.maxLength}
         value={formatFieldValue(value)}
         disabled={!interactive}
         onChange={(event) => onChanged?.(event.target.value)}
@@ -202,7 +203,6 @@ interface NumericControlProps {
 }
 
 type NumericText =
-  | { readonly kind: 'empty' }
   | { readonly kind: 'pending' }
   | { readonly kind: 'invalid' }
   | { readonly kind: 'number'; readonly value: number };
@@ -211,9 +211,6 @@ const PENDING_NUMERIC_TEXT = /^-?\.?$/;
 
 function resolveNumericText(raw: string): NumericText {
   const trimmed = raw.trim();
-  if (trimmed === '') {
-    return { kind: 'empty' };
-  }
   if (PENDING_NUMERIC_TEXT.test(trimmed)) {
     return { kind: 'pending' };
   }
@@ -303,9 +300,8 @@ function NumericControl({
     if (resolved.kind === 'pending') {
       return;
     }
-    const next = resolved.kind === 'empty' ? null : resolved.value;
-    lastEmitted.current = next;
-    onChanged?.(next);
+    lastEmitted.current = resolved.value;
+    onChanged?.(resolved.value);
   };
 
   const handleChange = (event: ChangeEvent<HTMLInputElement>) => {

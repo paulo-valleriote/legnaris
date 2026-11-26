@@ -30,6 +30,7 @@ import type { RecordListActions, RowActionsInfo } from '../engine/sheet_form';
 import { message, messageWith } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
+import { CheckIcon, PencilIcon } from '../ui/icons';
 import { EmptyState, ErrorState, LoadingState } from '../ui/state';
 import { TemplateName } from '../catalog/template_name';
 import { useApiClient, useSheetStore } from '../app/providers';
@@ -80,8 +81,6 @@ import { revealFirstRecalculated, revealSection, revealTop } from './reveal_row'
 import { SectionIndex } from './section_index';
 import { CollapseAllButton, PinnedEmpty, TemplateSettingsArea, useSheetView } from './sheet_view';
 import { isTemplateSettingsKey } from './view_store';
-import { SheetModeToggle } from './mode_toggle';
-import type { SheetMode } from './mode_toggle';
 import { PresetPlayView } from './preset/play_view';
 import { PresetProvider } from './preset/preset_context';
 import { presetFor } from './preset/registry';
@@ -97,20 +96,6 @@ function errorClass(kind: FailureKind | undefined): string {
 
 function useEditState(store: SheetEditStore): SheetEditState {
   return useSyncExternalStore(store.subscribe, store.getState);
-}
-
-function isTextEntry(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) {
-    return false;
-  }
-  if (target.isContentEditable) {
-    return true;
-  }
-  return target.matches('input, textarea, select');
-}
-
-function escapeBelongsToOverlay(): boolean {
-  return document.querySelector('[role="dialog"], .lg-dice-panel') !== null;
 }
 
 function rowMark(
@@ -234,18 +219,16 @@ function ConnectedExclusive({ store, group, controlId }: ConnectedExclusiveProps
 interface SheetFooterProps {
   readonly store: SheetEditStore;
   readonly reveal: RevealView;
-  readonly playing: boolean;
 }
 
 interface FooterStatusProps {
   readonly pending: boolean;
   readonly marks: PreviewMarks | undefined;
   readonly reveal: RevealView;
-  readonly jump: boolean;
   readonly children?: ReactNode;
 }
 
-function FooterStatus({ pending, marks, reveal, jump, children }: FooterStatusProps) {
+function FooterStatus({ pending, marks, reveal, children }: FooterStatusProps) {
   const count = marks === undefined ? undefined : recalculatedCount(marks);
   const summary = count === undefined ? '' : recalculatedSummary(count);
   const status = footerStatus(pending, count);
@@ -265,7 +248,7 @@ function FooterStatus({ pending, marks, reveal, jump, children }: FooterStatusPr
             >
               {status}
             </p>
-            {jump && count !== undefined && count > 0 && (
+            {count !== undefined && count > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -284,7 +267,7 @@ function FooterStatus({ pending, marks, reveal, jump, children }: FooterStatusPr
   );
 }
 
-function SheetFooter({ store, reveal, playing }: SheetFooterProps) {
+function SheetFooter({ store, reveal }: SheetFooterProps) {
   const state = useEditState(store);
   const [savedRevision, setSavedRevision] = useState<number | undefined>(undefined);
   const pending = isPending(state);
@@ -321,7 +304,7 @@ function SheetFooter({ store, reveal, playing }: SheetFooterProps) {
       className={`lg-sheet__footer ${quiet ? 'lg-sheet__footer--clean' : 'lg-sheet__footer--dirty'}`}
       {...{ [FLOATING_FLOOR_ATTRIBUTE]: '' }}
     >
-      <FooterStatus pending={pending} marks={state.previewMarks} reveal={reveal} jump={!playing}>
+      <FooterStatus pending={pending} marks={state.previewMarks} reveal={reveal}>
         {state.previewError !== undefined && (
           <p
             className={errorClass(state.previewErrorKind)}
@@ -528,8 +511,8 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     [client, storePort, sheetId, sheetData, sheetDice, template],
   );
   const preset = useMemo(() => presetFor(template), [template]);
-  const [mode, setMode] = useState<SheetMode>(() => (preset === undefined ? 'edit' : 'play'));
-  const playing = preset !== undefined && mode === 'play';
+  const generic = preset === undefined;
+  const [editing, setEditing] = useState(false);
   const sections = useMemo(() => buildSections(template.fields), [template]);
   const mainSections = useMemo(
     () => sections.filter((section) => !isTemplateSettingsKey(section.key)),
@@ -857,7 +840,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   );
 
   const resetActions = template.actions ?? [];
-  const showResetActions = !playing && !arranging && resetActions.length > 0;
+  const showResetActions = generic && !arranging && resetActions.length > 0;
 
   useEffect(() => {
     void editStore.restore();
@@ -873,8 +856,10 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   }, [editStore, storePort, sheet.id]);
 
   useEffect(() => {
-    void layoutStore.restore();
-  }, [layoutStore]);
+    if (generic) {
+      void layoutStore.restore();
+    }
+  }, [generic, layoutStore]);
 
   useEffect(() => {
     if (arranging && focusArrangeHint.current) {
@@ -896,41 +881,12 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
     onRefresh: requestRefresh,
   });
 
-  useEffect(() => {
-    if (!playing) {
-      return undefined;
-    }
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== 'Escape' || event.defaultPrevented || isTextEntry(event.target)) {
-        return;
-      }
-      if (escapeBelongsToOverlay()) {
-        return;
-      }
-      const state = editStore.getState();
-      if (!isPending(state) || isBusy(state)) {
-        return;
-      }
-      event.preventDefault();
-      editStore.discard();
-    };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [playing, editStore]);
-
-  const statBlockActive =
-    playing && preset !== undefined && preset.statBlock?.when(sheet.kind) === true;
-
   return (
-    <PresetProvider {...presetValue} reset={presetReset}>
+    <PresetProvider {...presetValue} reset={presetReset} editing={editing}>
       <header className="lg-sheet__header">
         <div className="lg-sheet__heading">
           <div className="lg-sheet__heading-text">
-            {statBlockActive ? (
-              notice === undefined ? null : (
-                templateLine
-              )
-            ) : playing && preset !== undefined ? (
+            {preset !== undefined ? (
               <>
                 <preset.Header />
                 {notice === undefined ? null : templateLine}
@@ -956,21 +912,23 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
                   onClick={requestDuplicate}
                 />
               )}
-              {!playing && hasCalculated && (
+              {!generic && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={editing ? <CheckIcon /> : <PencilIcon />}
+                  label={message(editing ? 'sheet.editDone' : 'sheet.edit')}
+                  onClick={() => setEditing((current) => !current)}
+                />
+              )}
+              {hasCalculated && (
                 <HelpToggle
                   open={helpOpen}
                   buttonRef={helpToggleRef}
                   onToggle={() => (helpOpen ? closeHelp() : setHelpOpen(true))}
                 />
               )}
-              {!playing && <ArrangeToggle store={layoutStore} onStart={startArranging} />}
-              {preset !== undefined && (
-                <SheetModeToggle
-                  mode={playing ? 'play' : 'edit'}
-                  disabled={arranging}
-                  onChange={setMode}
-                />
-              )}
+              {generic && <ArrangeToggle store={layoutStore} onStart={startArranging} />}
             </div>
           )}
         </div>
@@ -984,8 +942,9 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
             {message('arrange.hint')}
           </p>
         )}
-        {!playing && hasCalculated && helpOpen && (
+        {hasCalculated && helpOpen && (
           <HelpPanel
+            boxed={!generic}
             onDismiss={() => {
               closeHelp();
               focusHelpToggle();
@@ -1022,7 +981,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
         <div data-testid="sheet-empty-fields">
           <EmptyState message={message('sheet.emptyFields')} />
         </div>
-      ) : playing && preset !== undefined ? (
+      ) : preset !== undefined ? (
         <DiceProvider value={diceValue}>
           <PresetPlayView preset={preset} />
         </DiceProvider>
@@ -1090,9 +1049,9 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       )}
       {arranging ? (
         <ArrangeFooter store={layoutStore} />
-      ) : playing ? null : (
-        <SheetFooter store={editStore} reveal={view.reveal} playing={playing} />
-      )}
+      ) : generic ? (
+        <SheetFooter store={editStore} reveal={view.reveal} />
+      ) : null}
       {confirmation !== null && (
         <SheetConfirmation
           kind={confirmation.kind}

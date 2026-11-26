@@ -18,15 +18,6 @@
   }
 }
 
-@media (min-width: 68.75rem) {
-  .lg-preset:has(.lg-preset-nav):has(.lg-combat-strip) [data-preset-section],
-  .lg-preset:has(.lg-preset-nav):has(.lg-combat-strip) .lg-preset__section h2 {
-    scroll-margin-block-start: calc(
-      var(--lg-size-control) + var(--lg-space-96) + var(--lg-space-48)
-    );
-  }
-}
-
 .lg-preset-nav__nav {
   min-inline-size: 0;
 }
@@ -91,10 +82,6 @@
 @media (max-width: 40rem) {
   .lg-preset__section h2 {
     scroll-margin-block-start: calc(var(--lg-space-96) + env(safe-area-inset-top, 0px));
-  }
-
-  html:has(.lg-vitals-bar) .lg-preset__section h2 {
-    scroll-margin-block-start: 0;
   }
 
   .lg-preset__section h2:focus-visible {

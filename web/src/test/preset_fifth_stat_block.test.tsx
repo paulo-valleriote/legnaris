@@ -130,8 +130,12 @@ describe('the 5E Stat Block preset config', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Gray Ooze');
     expect(screen.getByText('Challenge rating')).toBeInTheDocument();
     expect(screen.getByText('Experience points')).toBeInTheDocument();
-    expect(screen.getByText('Armor class')).toBeInTheDocument();
-    expect(screen.getByText('Passive Perception')).toBeInTheDocument();
+    expect(screen.getAllByText('Armor class').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Passive Perception').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('compose-fields-identity')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-fields-combatSetup')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-fields-hitPointsSetup')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-dice-formulas')).toBeInTheDocument();
     expect(screen.getByTestId('compose-hit-points')).toBeInTheDocument();
     expect(screen.getByTestId('compose-ability-grid')).toBeInTheDocument();
     expect(screen.getByTestId('compose-save-list')).toBeInTheDocument();

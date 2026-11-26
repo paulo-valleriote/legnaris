@@ -47,6 +47,8 @@ import './dice.css';
 
 export const LONG_PRESS_MS = 500;
 
+export const DiceEditLockContext = createContext(false);
+
 export interface DiceContextValue {
   readonly store: DiceStore;
   readonly schema: DiceSchema;
@@ -371,9 +373,13 @@ export function DiceRowActions({ rowKey, sectionKey, label }: RowActionsInfo) {
   const [choosing, setChoosing] = useState(false);
   const { resolution, offersMode, hasD20Term, roll } = useRowRoll(rowKey, sectionKey, label);
   const isEditing = editing === editKeyOf('row', rowKey);
-  const showEdit = rowOffersEdit(resolution);
-  const edit = () =>
-    openEditor({ target: 'row', keyName: rowKey, label, current: resolution.expression ?? '' });
+  const locked = useContext(DiceEditLockContext);
+  const showEdit = !locked && rowOffersEdit(resolution);
+  const edit = () => {
+    if (!locked) {
+      openEditor({ target: 'row', keyName: rowKey, label, current: resolution.expression ?? '' });
+    }
+  };
   const rollWith = (mode: RollMode) => {
     setChoosing(false);
     roll(mode);
@@ -503,6 +509,7 @@ export function DiceSectionFrame({
   const pending = usePendingDiceKeys(dice.store).section.has(sectionKey);
   const { editing, openEditor } = useContext(DiceSessionContext);
   const isEditing = editing === editKeyOf('section', sectionKey);
+  const locked = useContext(DiceEditLockContext);
 
   const expression = sectionExpression(block, dice.defaults, sectionKey);
   const name = messageWith('dice.editSection', { label });
@@ -518,6 +525,7 @@ export function DiceSectionFrame({
         )}
         <button
           type="button"
+          disabled={locked}
           className="lg-dice-button lg-dice-button--icon lg-dice-section__button"
           aria-label={name}
           title={name}

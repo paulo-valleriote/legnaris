@@ -101,9 +101,15 @@ function piecePaths(piece: PresetPiece): readonly string[] {
     case 'resetBar':
       return piece.actions;
     case 'rollMode':
+    case 'diceFormulas':
       return [];
     case 'textFields':
       return piece.fields.map((field) => field.path);
+    case 'fields':
+      return [
+        ...piece.fields.map((field) => field.path),
+        ...(piece.summary === undefined ? [] : [piece.summary]),
+      ];
   }
 }
 

@@ -112,13 +112,11 @@ describe('reset actions on the generic form', () => {
       successOutcome(fantasySheetPayload()),
       successOutcome(fantasyTemplatePayload()),
     );
-    const user = userEvent.setup();
     renderApp(`/sheets/${FANTASY_SHEET_ID}`, {
       client: createApiClient({ baseUrl: BASE_URL, transport: fake.transport }),
     });
 
     await screen.findByTestId('sheet-name');
-    await user.click(screen.getByRole('button', { name: message('sheet.mode.edit') }));
 
     expect(screen.queryByTestId('sheet-reset-actions')).toBeNull();
     expect(screen.queryByRole('group', { name: message('sheet.reset.group') })).toBeNull();

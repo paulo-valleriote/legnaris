@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TemplateDetail } from '../api/models/template';
 import { presetFromConfig } from '../sheet/preset/compose/adapter';
-import { fantasyPreset } from '../sheet/preset/fantasy';
 import { presetFor } from '../sheet/preset/registry';
 import { PRESET_TEMPLATE_ID, presetConfig, presetTemplateDetail } from './preset_fixtures';
 
@@ -10,8 +9,8 @@ function templateWithId(id: string): TemplateDetail {
 }
 
 describe('the preset registry', () => {
-  it('Happy path: the fantasy Template still resolves to the frozen preset', () => {
-    expect(presetFor(templateWithId('fantasy_v1'))).toBe(fantasyPreset);
+  it('Edge: a Template without a registered config keeps the generic form', () => {
+    expect(presetFor(templateWithId('fantasy_v1'))).toBeUndefined();
   });
 
   it('Happy path: a registered config resolves by its Template id', () => {
@@ -25,10 +24,10 @@ describe('the preset registry', () => {
     );
   });
 
-  it('Edge: a config cannot replace the frozen fantasy preset', () => {
-    const override = presetConfig({ templateId: 'fantasy_v1' });
+  it('Edge: a config registered for another Template id does not leak', () => {
+    const other = presetConfig();
 
-    expect(presetFor(templateWithId('fantasy_v1'), [override])).toBe(fantasyPreset);
+    expect(presetFor(templateWithId('fantasy_v1'), [other])).toBeUndefined();
   });
 
   it('Edge: an unknown Template id returns undefined when no config is registered', () => {

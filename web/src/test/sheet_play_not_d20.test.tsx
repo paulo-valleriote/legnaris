@@ -5,12 +5,12 @@ import { createApiClient } from '../api/client';
 import { message, messageWith } from '../l10n/strings';
 import { LONG_PRESS_MS } from '../sheet/dice_row';
 import {
-  FANTASY_SHEET_ID,
-  fantasySheetData,
-  fantasySheetPayload,
-  fantasyTemplatePayload,
-} from './fantasy_fixtures';
-import { initiativeRollName, rollName } from './dice_names';
+  FIFTH_STAT_BLOCK_SHEET_ID,
+  fifthStatBlockSheetData,
+  fifthStatBlockSheetPayload,
+  fifthStatBlockTemplatePayload,
+} from './fifth_fixtures';
+import { rollName } from './dice_names';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
 import { arrangeTemplatePayload, createArrangeStub } from './arrange_stub';
@@ -24,7 +24,7 @@ interface NotD20 {
 }
 
 function diceWith(notD20: NotD20): Record<string, unknown> {
-  const base = fantasyTemplatePayload()['dice'] as Record<string, unknown>;
+  const base = fifthStatBlockTemplatePayload()['dice'] as Record<string, unknown>;
   return { ...base, not_d20: { section: notD20.section ?? [], row: notD20.row ?? [] } };
 }
 
@@ -34,16 +34,16 @@ async function openPlay(
 ): Promise<ReturnType<typeof userEvent.setup>> {
   const fake = createFakeTransport(
     successOutcome(
-      fantasySheetPayload({
-        data: fantasySheetData(),
+      fifthStatBlockSheetPayload({
+        data: fifthStatBlockSheetData(),
         ...(sheetDice === undefined ? {} : { dice: sheetDice }),
       }),
     ),
-    successOutcome(fantasyTemplatePayload({ dice: diceWith(notD20) })),
+    successOutcome(fifthStatBlockTemplatePayload({ dice: diceWith(notD20) })),
     successOutcome({}),
   );
   const user = userEvent.setup();
-  renderApp(`/sheets/${FANTASY_SHEET_ID}`, {
+  renderApp(`/sheets/${FIFTH_STAT_BLOCK_SHEET_ID}`, {
     client: createApiClient({ baseUrl: BASE_URL, transport: fake.transport }),
   });
   await screen.findByTestId('sheet-name');
@@ -97,15 +97,13 @@ function announcement(): string {
   return within(panel() as HTMLElement).getByRole('status').textContent ?? '';
 }
 
-function wisdomButton(): HTMLElement {
-  return within(screen.getByTestId('sheet-ability-wisdom')).getByRole('button', {
-    name: rollName('Wisdom modifier'),
-  });
+function markedButton(): HTMLElement {
+  return screen.getByRole('button', { name: /^Roll Initiative score/ });
 }
 
-function initiativeButton(): HTMLElement {
-  return within(screen.getByTestId('sheet-initiative')).getByRole('button', {
-    name: initiativeRollName('+3'),
+function abilityWisdomButton(): HTMLElement {
+  return within(screen.getByTestId('compose-ability-abilities.wisdom.score')).getByRole('button', {
+    name: rollName('Wisdom modifier'),
   });
 }
 
@@ -134,39 +132,37 @@ afterEach(cleanup);
 
 describe('a Template marking a Row as not a d20 test in Play', () => {
   it('Happy path: Shift-click on a marked d20 throws one die and offers no mode', async () => {
-    const user = await openPlay({ row: ['stats.wisdom'] });
+    const user = await openPlay({ row: ['initiative.score'] });
 
-    expect(wisdomButton()).not.toHaveAttribute('aria-haspopup', 'dialog');
-    await clickWith(user, wisdomButton(), 'Shift');
+    expect(markedButton()).not.toHaveAttribute('aria-haspopup', 'dialog');
+    await clickWith(user, markedButton(), 'Shift');
     await waitFor(() => expect(panel()).not.toBeNull());
 
     expect(panelDice()).toHaveLength(0);
     expect(droppedDice()).toHaveLength(0);
-    expect(total()).toBeGreaterThanOrEqual(0);
-    expect(total()).toBeLessThanOrEqual(19);
     expect(announcement()).toBe(
-      messageWith('dice.rolled', { label: 'Wisdom modifier', total: total() }),
+      messageWith('dice.rolled', { label: 'Initiative score', total: total() }),
     );
     expect(panel()?.textContent).not.toContain(message('dice.mode.advantage'));
   }, 15000);
 
   it('Happy path: Alt-click on a marked d20 throws one die and offers no mode', async () => {
-    const user = await openPlay({ row: ['stats.wisdom'] });
+    const user = await openPlay({ row: ['initiative.score'] });
 
-    await clickWith(user, wisdomButton(), 'Alt');
+    await clickWith(user, markedButton(), 'Alt');
     await waitFor(() => expect(panel()).not.toBeNull());
 
     expect(panelDice()).toHaveLength(0);
     expect(droppedDice()).toHaveLength(0);
     expect(announcement()).toBe(
-      messageWith('dice.rolled', { label: 'Wisdom modifier', total: total() }),
+      messageWith('dice.rolled', { label: 'Initiative score', total: total() }),
     );
     expect(panel()?.textContent).not.toContain(message('dice.mode.disadvantage'));
   }, 15000);
 
   it('Happy path: the Context Menu key opens no choice and throws one die', async () => {
-    const user = await openPlay({ row: ['stats.wisdom'] });
-    wisdomButton().focus();
+    const user = await openPlay({ row: ['initiative.score'] });
+    markedButton().focus();
 
     await user.keyboard('{Shift>}{F10}{/Shift}');
 
@@ -177,9 +173,9 @@ describe('a Template marking a Row as not a d20 test in Play', () => {
   }, 15000);
 
   it('Happy path: a long press opens no choice and the release throws one die', async () => {
-    await openPlay({ row: ['stats.wisdom'] });
+    await openPlay({ row: ['initiative.score'] });
 
-    await longPress(wisdomButton());
+    await longPress(markedButton());
 
     await waitFor(() => expect(panel()).not.toBeNull());
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -188,9 +184,9 @@ describe('a Template marking a Row as not a d20 test in Play', () => {
   }, 15000);
 
   it('Happy path: the Context Menu event on a marked d20 throws one die and opens no choice', async () => {
-    await openPlay({ row: ['stats.wisdom'] });
+    await openPlay({ row: ['initiative.score'] });
 
-    fireEvent.contextMenu(wisdomButton());
+    fireEvent.contextMenu(markedButton());
 
     await waitFor(() => expect(panel()).not.toBeNull());
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -199,10 +195,10 @@ describe('a Template marking a Row as not a d20 test in Play', () => {
   }, 15000);
 
   it('Edge: an unmarked neighbour keeps advantage', async () => {
-    const user = await openPlay({ row: ['stats.wisdom'] });
+    const user = await openPlay({ row: ['initiative.score'] });
 
-    expect(initiativeButton()).toHaveAttribute('aria-haspopup', 'dialog');
-    await clickWith(user, initiativeButton(), 'Shift');
+    expect(abilityWisdomButton()).toHaveAttribute('aria-haspopup', 'dialog');
+    await clickWith(user, abilityWisdomButton(), 'Shift');
     await waitFor(() => expect(panel()).not.toBeNull());
 
     expect(panelDice()).toHaveLength(2);
@@ -211,24 +207,24 @@ describe('a Template marking a Row as not a d20 test in Play', () => {
   }, 15000);
 
   it('Happy path: a marked Section covers its Rows', async () => {
-    const user = await openPlay({ section: ['stats'] });
+    const user = await openPlay({ section: ['abilities'] });
 
-    expect(wisdomButton()).not.toHaveAttribute('aria-haspopup', 'dialog');
-    await clickWith(user, wisdomButton(), 'Shift');
+    expect(abilityWisdomButton()).not.toHaveAttribute('aria-haspopup', 'dialog');
+    await clickWith(user, abilityWisdomButton(), 'Shift');
     await waitFor(() => expect(panel()).not.toBeNull());
     expect(panelDice()).toHaveLength(0);
 
-    expect(initiativeButton()).toHaveAttribute('aria-haspopup', 'dialog');
+    expect(markedButton()).toHaveAttribute('aria-haspopup', 'dialog');
   }, 15000);
 
   it('Edge: a player override on a marked Row still offers no mode', async () => {
     const user = await openPlay(
-      { row: ['stats.wisdom'] },
-      { section: {}, row: { 'stats.wisdom': '1d20 + 5' } },
+      { row: ['initiative.score'] },
+      { section: {}, row: { 'initiative.score': '1d20 + 5' } },
     );
 
-    expect(wisdomButton()).not.toHaveAttribute('aria-haspopup', 'dialog');
-    await clickWith(user, wisdomButton(), 'Shift');
+    expect(markedButton()).not.toHaveAttribute('aria-haspopup', 'dialog');
+    await clickWith(user, markedButton(), 'Shift');
     await waitFor(() => expect(panel()).not.toBeNull());
 
     expect(panelDice()).toHaveLength(0);

@@ -118,9 +118,13 @@ describe('the prepared 5E Character demo', () => {
     expect(screen.getByTestId('compose-hit-points')).toBeInTheDocument();
     expect(screen.getAllByTestId('compose-record-table')).toHaveLength(5);
     expect(screen.getAllByText('Cleric').length).toBeGreaterThan(0);
-    expect(screen.getByText('Life Domain')).toBeInTheDocument();
-    expect(screen.getByText('Human')).toBeInTheDocument();
-    expect(screen.getByText('Acolyte')).toBeInTheDocument();
+    expect(
+      within(
+        document.querySelector<HTMLElement>('[data-field-path="identity.subclass"]') as HTMLElement,
+      ).getByDisplayValue('Life Domain'),
+    ).toBeInTheDocument();
+    expect(screen.getAllByDisplayValue('Human').length).toBeGreaterThan(0);
+    expect(screen.getAllByDisplayValue('Acolyte').length).toBeGreaterThan(0);
     expect(screen.getByTestId('landing-fifth-demo-note')).toHaveTextContent(
       message('landing.fifthDemoNote'),
     );

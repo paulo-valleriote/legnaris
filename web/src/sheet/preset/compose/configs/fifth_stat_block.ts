@@ -23,14 +23,22 @@ const skills = [
   { name: 'survival', ability: 'WIS' },
 ];
 
+const paths = (...list: string[]) => list.map((path) => ({ path }));
+
 export const fifthStatBlockConfig: PresetConfig = {
   templateId: 'fifth_stat_block_v1',
   header: { name: 'identity.name' },
   pieces: [
     {
-      kind: 'statPills',
+      kind: 'fields',
       key: 'identity',
-      pills: [{ path: 'identity.challengeRating' }, { path: 'experience.xp' }],
+      title: 'preset.fields.profile',
+      fields: paths(
+        'identity.challengeRating',
+        'experience.zero',
+        'experience.inLair',
+        'experience.xp',
+      ),
     },
     {
       kind: 'statPills',
@@ -53,6 +61,7 @@ export const fifthStatBlockConfig: PresetConfig = {
       current: 'hitPoints.current',
       max: 'hitPoints.maximum',
       temp: 'hitPoints.temp',
+      downNotice: 'preset.hitPoints.down',
     },
     {
       kind: 'abilityGrid',
@@ -107,12 +116,7 @@ export const fifthStatBlockConfig: PresetConfig = {
       ],
     },
     { kind: 'recordTable', key: 'traits', list: 'traits', columns: ['name', 'text'] },
-    {
-      kind: 'recordTable',
-      key: 'actions',
-      list: 'actions',
-      columns: ['name', 'toHit', 'damage', 'notes'],
-    },
+    { kind: 'recordTable', key: 'actions', list: 'actions' },
     {
       kind: 'recordTable',
       key: 'bonusActions',
@@ -126,17 +130,81 @@ export const fifthStatBlockConfig: PresetConfig = {
       list: 'legendaryActions',
       columns: ['name', 'text'],
     },
-    {
-      kind: 'recordTable',
-      key: 'resources',
-      list: 'resources',
-      columns: ['name', 'max', 'remaining', 'recharge'],
-    },
+    { kind: 'recordTable', key: 'resources', list: 'resources', playColumns: ['used'] },
     { kind: 'rollMode', key: 'rollMode' },
+    {
+      kind: 'fields',
+      key: 'combatSetup',
+      title: 'preset.fields.armor',
+      summary: 'armor.armorClass',
+      fields: paths(
+        'armor.choiceNone',
+        'armor.choiceLight',
+        'armor.choiceMedium',
+        'armor.choiceHeavy',
+        'armor.choiceBarbarian',
+        'armor.choiceMonk',
+        'armor.choiceNatural',
+        'armor.base',
+        'armor.shield',
+        'armor.misc',
+      ),
+    },
+    {
+      kind: 'fields',
+      key: 'movementSetup',
+      title: 'preset.fields.movement',
+      fields: paths(
+        'initiative.modifier',
+        'speed.walk',
+        'speed.fly',
+        'speed.swim',
+        'speed.climb',
+        'speed.burrow',
+      ),
+    },
+    {
+      kind: 'fields',
+      key: 'hitPointsSetup',
+      title: 'preset.fields.hitPoints',
+      summary: 'hitPoints.maximum',
+      fields: paths('hitPoints.count', 'hitPoints.size'),
+    },
+    {
+      kind: 'fields',
+      key: 'savesSetup',
+      title: 'preset.fields.saves',
+      fields: abilities.map((ability) => ({ path: `saves.${ability}.misc` })),
+    },
+    {
+      kind: 'fields',
+      key: 'skillsSetup',
+      title: 'preset.fields.skills',
+      fields: [
+        ...skills.map((skill) => ({ path: `skills.${skill.name}.misc` })),
+        ...paths('passive.choiceNone', 'passive.choiceAdvantage', 'passive.choiceDisadvantage'),
+      ],
+    },
+    { kind: 'diceFormulas', key: 'diceFormulas' },
   ],
   layout: [
-    { sections: ['identity', 'combat', 'hitPoints', 'conditions'] },
-    { columns: [['abilities', 'saves'], ['skills']] },
+    {
+      sections: [
+        'identity',
+        'combat',
+        'combatSetup',
+        'movementSetup',
+        'hitPoints',
+        'hitPointsSetup',
+        'conditions',
+      ],
+    },
+    {
+      columns: [
+        ['abilities', 'saves', 'savesSetup'],
+        ['skills', 'skillsSetup'],
+      ],
+    },
     {
       sections: [
         'details',
@@ -147,6 +215,7 @@ export const fifthStatBlockConfig: PresetConfig = {
         'legendaryActions',
         'resources',
         'rollMode',
+        'diceFormulas',
       ],
     },
   ],
@@ -155,10 +224,15 @@ export const fifthStatBlockConfig: PresetConfig = {
       sections: [
         'identity',
         'combat',
+        'combatSetup',
+        'movementSetup',
         'hitPoints',
+        'hitPointsSetup',
         'abilities',
         'saves',
+        'savesSetup',
         'skills',
+        'skillsSetup',
         'conditions',
         'details',
         'traits',
@@ -168,6 +242,7 @@ export const fifthStatBlockConfig: PresetConfig = {
         'legendaryActions',
         'resources',
         'rollMode',
+        'diceFormulas',
       ],
     },
   ],
