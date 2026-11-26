@@ -27,6 +27,7 @@ function planUsage(
     activeGenerationId: null,
     billing: {
       subscriptionStatus,
+      subscriptionProvider: null,
       currentPeriodEnd: null,
       cancelAtPeriodEnd: false,
       paymentIssue: false,

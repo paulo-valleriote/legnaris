@@ -104,7 +104,7 @@ sequenceDiagram
 
 A failed renewal arrives as `past_due`; the Plan drops to Free immediately, a successful card retry restores `active`, and exhausted retries end as `canceled`. A refund is offered only while active, within seven days of the first paid date, once per user ever, and with an empty or failed refund state. Refund and charge webhooks are ignored: the queue's state transitions are the refund record.
 
-The Plans screen reads `/me/plan`: Subscribe and Manage post to checkout or portal and then redirect the whole page; a return from checkout confirms the change by polling `/me/plan` (see above); the refund dialog polls `/me/plan` every five seconds while the state is `requested`; the shell shows a payment-issue banner when `payment_issue` is true.
+The Plans screen reads `/me/plan`: Subscribe and Manage post to checkout or portal and then redirect the whole page; a return from checkout confirms the change by polling `/me/plan` (see above); the refund dialog polls `/me/plan` every five seconds while the state is `requested`; the shell shows a payment-issue banner when `payment_issue` is true. A courtesy (`comp`) subscription has the paid Plan but no provider customer, so the screen never offers Manage subscription for it; `subscription_provider` in `/me/plan` is what tells the two apart.
 
 Account deletion settles billing first: live provider subscriptions are canceled now, provider customers are scrubbed of personal data, and subscription rows are marked `canceled` with an expiry five years out.
 
@@ -123,7 +123,7 @@ All routes except the webhook require an authenticated, non-deleting user and th
 | `POST /billing/cancel` | `202` `status: cancel_requested`; `404 NO_SUBSCRIPTION` without an active provider subscription. |
 | `POST /billing/refund` | `202` `status: requested`; `409 REFUND_NOT_ELIGIBLE` with `details.reason`. |
 | `POST /billing/webhook` | `200` empty body for a stored, duplicate or ignored event; `Stripe-Signature` header; 64 KiB body cap. |
-| `GET /me/plan` | Plan view; with a subscription it adds `subscription_status`, `current_period_end`, `cancel_at_period_end`, `payment_issue`, `refund_eligible`, `refund_state`. |
+| `GET /me/plan` | Plan view; with a subscription it adds `subscription_status`, `subscription_provider` (`stripe` or `comp`), `current_period_end`, `cancel_at_period_end`, `payment_issue`, `refund_eligible`, `refund_state`. |
 
 ### Webhook events
 

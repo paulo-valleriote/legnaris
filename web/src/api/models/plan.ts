@@ -14,6 +14,7 @@ export type RefundState = (typeof REFUND_STATES)[number];
 
 export interface BillingStatus {
   readonly subscriptionStatus: SubscriptionStatus | null;
+  readonly subscriptionProvider: string | null;
   readonly currentPeriodEnd: string | null;
   readonly cancelAtPeriodEnd: boolean;
   readonly paymentIssue: boolean;
@@ -91,6 +92,7 @@ function decodeOwnedCampaigns(data: Record<string, unknown>): { ownedCampaigns?:
 function decodeBilling(data: Record<string, unknown>): BillingStatus {
   return {
     subscriptionStatus: decodeEnum(data, 'subscription_status', SUBSCRIPTION_STATUSES),
+    subscriptionProvider: optionalString(data, 'subscription_provider') ?? null,
     currentPeriodEnd: decodePeriodEnd(data),
     cancelAtPeriodEnd: decodeFlag(data, 'cancel_at_period_end'),
     paymentIssue: decodeFlag(data, 'payment_issue'),

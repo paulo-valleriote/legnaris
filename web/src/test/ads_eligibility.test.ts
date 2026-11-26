@@ -9,6 +9,7 @@ const CONFIG: AdsConfig = { client: CLIENT, slots: { catalog: '1', campaigns: '2
 
 const BILLING: BillingStatus = {
   subscriptionStatus: null,
+  subscriptionProvider: null,
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,
   paymentIssue: false,

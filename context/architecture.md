@@ -161,6 +161,10 @@ and `failed_total`, labelled by queue, are the operational contract.
   `{"error": {"code", "message", "details?"}}`. Request bodies are capped at
   1 MiB, unknown fields and trailing data are rejected, and malformed JSON is
   `INVALID_JSON` rather than a controller-specific error.
+- **Plan projection** — the plan controller projects the billing summary into
+  `GET /me/plan`, including `subscription_provider`, so the client can tell a
+  provider-managed subscription from a courtesy grant without reading a
+  provider customer id.
 - **Errors** — services and controllers produce `apperr.Error` with a settled
   `Code`, a user-facing message and either no cause or a lower-layer typed
   error. The handler maps the code to the status, defaults an unmapped code to

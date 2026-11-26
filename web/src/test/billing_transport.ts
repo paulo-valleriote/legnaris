@@ -21,6 +21,7 @@ export const PAID_ACTIVE = {
   ...FREE_NEVER_SUBSCRIBED,
   plan: 'paid',
   subscription_status: 'active',
+  subscription_provider: 'stripe',
   current_period_end: '2026-12-16T00:00:00Z',
   cancel_at_period_end: false,
 };

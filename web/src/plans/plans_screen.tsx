@@ -70,6 +70,8 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
   const isFree = usage.plan === 'free';
   const isPaid = usage.plan === 'paid';
   const hasSubscription = usage.billing.subscriptionStatus !== null;
+  const isComp = usage.billing.subscriptionProvider === 'comp';
+  const hasManageableSubscription = hasSubscription && !isComp;
 
   const reloadPlan = () => queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY });
 
@@ -115,7 +117,7 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
   }, [refundPending, resetRefund]);
 
   const opening = checkout.isPending || checkout.isSuccess;
-  const showActions = !isPaid || hasSubscription;
+  const showActions = !isPaid || hasManageableSubscription;
 
   const currentBadge = (
     <p
@@ -195,7 +197,7 @@ function PlansBody({ usage }: { usage: PlanUsage }) {
                   onClick={() => checkout.mutate()}
                 />
               )}
-              {hasSubscription ? (
+              {hasManageableSubscription ? (
                 <Button
                   variant="secondary"
                   label={message('plans.manage')}

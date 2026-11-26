@@ -6,6 +6,7 @@ import (
 )
 
 type Summary struct {
+	Provider          string
 	Status            Status
 	CurrentPeriodEnd  *time.Time
 	CancelAtPeriodEnd bool
@@ -38,6 +39,7 @@ func (r *StatusReader) Summary(ctx context.Context, userID string) (Summary, err
 		}
 	}
 	return Summary{
+		Provider:          chosen.Provider,
 		Status:            chosen.Status,
 		CurrentPeriodEnd:  chosen.CurrentPeriodEnd,
 		CancelAtPeriodEnd: chosen.CancelAtPeriodEnd,

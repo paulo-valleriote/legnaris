@@ -50,6 +50,16 @@ func TestStatusReader_Summary(t *testing.T) {
 		})
 	}
 
+	t.Run("Happy path: the summary carries the provider of the chosen subscription", func(t *testing.T) {
+		ledger := billingtest.NewLedger()
+		s := sub("a", billing.StatusActive, base)
+		s.Provider = billing.ProviderStripe
+		ledger.SeedSubscription(s)
+		got, err := billing.NewStatusReader(ledger).Summary(context.Background(), consumerUserID)
+		require.NoError(t, err)
+		assert.Equal(t, billing.ProviderStripe, got.Provider)
+	})
+
 	t.Run("Happy path: the summary carries the period end and the cancellation flag", func(t *testing.T) {
 		ledger := billingtest.NewLedger()
 		s := sub("a", billing.StatusActive, base)

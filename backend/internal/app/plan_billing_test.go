@@ -25,13 +25,14 @@ func TestApplyBillingSummary(t *testing.T) {
 			want:    map[string]any{},
 		},
 		{
-			name:    "Happy path: an active subscription exposes status, period end and cancellation",
-			summary: billing.Summary{Status: billing.StatusActive, CurrentPeriodEnd: &end, CancelAtPeriodEnd: true},
+			name:    "Happy path: an active subscription exposes status, provider, period end and cancellation",
+			summary: billing.Summary{Provider: billing.ProviderStripe, Status: billing.StatusActive, CurrentPeriodEnd: &end, CancelAtPeriodEnd: true},
 			want: map[string]any{
-				"subscription_status":  "active",
-				"current_period_end":   "2026-12-16T10:00:00Z",
-				"cancel_at_period_end": true,
-				"payment_issue":        false,
+				"subscription_status":   "active",
+				"subscription_provider": "stripe",
+				"current_period_end":    "2026-12-16T10:00:00Z",
+				"cancel_at_period_end":  true,
+				"payment_issue":         false,
 			},
 		},
 		{
@@ -53,7 +54,7 @@ func TestApplyBillingSummary(t *testing.T) {
 			require.NoError(t, err)
 			var got map[string]any
 			require.NoError(t, json.Unmarshal(raw, &got))
-			for _, key := range []string{"subscription_status", "current_period_end", "cancel_at_period_end", "payment_issue"} {
+			for _, key := range []string{"subscription_status", "subscription_provider", "current_period_end", "cancel_at_period_end", "payment_issue"} {
 				want, wanted := tc.want[key]
 				value, present := got[key]
 				if !wanted {

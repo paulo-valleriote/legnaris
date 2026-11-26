@@ -45,20 +45,21 @@ type planGenerationsView struct {
 }
 
 type planView struct {
-	Plan               string                   `json:"plan"`
-	Generations        *planGenerationsView     `json:"generations,omitempty"`
-	Sheets             map[string]planSheetView `json:"sheets,omitempty"`
-	OwnedCampaigns     *planOwnedCampaignsView  `json:"owned_campaigns,omitempty"`
-	LLMConsentRequired bool                     `json:"llm_consent_required"`
-	ActiveGenerationID *string                  `json:"active_generation_id"`
-	LLMConsentAt       *time.Time               `json:"llm_consent_at"`
-	LLMConsentVersion  *string                  `json:"llm_consent_version"`
-	SubscriptionStatus *string                  `json:"subscription_status,omitempty"`
-	CurrentPeriodEnd   *time.Time               `json:"current_period_end,omitempty"`
-	CancelAtPeriodEnd  *bool                    `json:"cancel_at_period_end,omitempty"`
-	PaymentIssue       *bool                    `json:"payment_issue,omitempty"`
-	RefundEligible     *bool                    `json:"refund_eligible,omitempty"`
-	RefundState        *string                  `json:"refund_state,omitempty"`
+	Plan                 string                   `json:"plan"`
+	Generations          *planGenerationsView     `json:"generations,omitempty"`
+	Sheets               map[string]planSheetView `json:"sheets,omitempty"`
+	OwnedCampaigns       *planOwnedCampaignsView  `json:"owned_campaigns,omitempty"`
+	LLMConsentRequired   bool                     `json:"llm_consent_required"`
+	ActiveGenerationID   *string                  `json:"active_generation_id"`
+	LLMConsentAt         *time.Time               `json:"llm_consent_at"`
+	LLMConsentVersion    *string                  `json:"llm_consent_version"`
+	SubscriptionStatus   *string                  `json:"subscription_status,omitempty"`
+	SubscriptionProvider *string                  `json:"subscription_provider,omitempty"`
+	CurrentPeriodEnd     *time.Time               `json:"current_period_end,omitempty"`
+	CancelAtPeriodEnd    *bool                    `json:"cancel_at_period_end,omitempty"`
+	PaymentIssue         *bool                    `json:"payment_issue,omitempty"`
+	RefundEligible       *bool                    `json:"refund_eligible,omitempty"`
+	RefundState          *string                  `json:"refund_state,omitempty"`
 }
 
 type BillingSummarizer interface {
@@ -70,9 +71,13 @@ func applyBillingSummary(view *planView, summary billing.Summary) {
 		return
 	}
 	status := string(summary.Status)
+	provider := summary.Provider
 	cancelAtEnd := summary.CancelAtPeriodEnd
 	issue := summary.PaymentIssue
 	view.SubscriptionStatus = &status
+	if provider != "" {
+		view.SubscriptionProvider = &provider
+	}
 	view.CurrentPeriodEnd = summary.CurrentPeriodEnd
 	view.CancelAtPeriodEnd = &cancelAtEnd
 	view.PaymentIssue = &issue

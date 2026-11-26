@@ -34,6 +34,11 @@ const ELIGIBLE = {
   refund_eligible: true,
 };
 
+const COMP_ACTIVE = {
+  ...PAID_ACTIVE,
+  subscription_provider: 'comp',
+};
+
 function deferredRoute() {
   let settle: (response: { status: number; body: string }) => void = () => undefined;
   const pending = new Promise<{ status: number; body: string }>((resolve) => {
@@ -147,6 +152,17 @@ describe('plans screen: portal (LGN-215)', () => {
 
     expect(script.posts('/billing/portal')).toHaveLength(1);
     expect(redirectTo).toHaveBeenCalledWith(PORTAL_URL);
+    expect(screen.queryByRole('button', { name: message('plans.subscribe') })).toBeNull();
+  });
+
+  it('Edge: a courtesy subscription has no Manage subscription action', async () => {
+    const script = scriptedBilling({ plans: [json(COMP_ACTIVE)] });
+    renderApp('/plans', { client: script.client });
+
+    expect(
+      await screen.findByText(messageWith('plans.current', { plan: message('account.planPaid') })),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: message('plans.manage') })).toBeNull();
     expect(screen.queryByRole('button', { name: message('plans.subscribe') })).toBeNull();
   });
 

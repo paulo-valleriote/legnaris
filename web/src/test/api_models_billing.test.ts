@@ -46,6 +46,7 @@ describe('plan billing status (LGN-215)', () => {
       ...PLAN_BASE,
       plan: 'paid',
       subscription_status: 'active',
+      subscription_provider: 'stripe',
       current_period_end: '2026-12-01T00:00:00Z',
       cancel_at_period_end: true,
       payment_issue: false,
@@ -55,6 +56,7 @@ describe('plan billing status (LGN-215)', () => {
 
     expect(usage.billing).toEqual({
       subscriptionStatus: 'active',
+      subscriptionProvider: 'stripe',
       currentPeriodEnd: '2026-12-01T00:00:00Z',
       cancelAtPeriodEnd: true,
       paymentIssue: false,
@@ -68,6 +70,7 @@ describe('plan billing status (LGN-215)', () => {
 
     expect(usage.billing).toEqual({
       subscriptionStatus: null,
+      subscriptionProvider: null,
       currentPeriodEnd: null,
       cancelAtPeriodEnd: false,
       paymentIssue: false,
@@ -101,6 +104,17 @@ describe('plan billing status (LGN-215)', () => {
     },
   );
 
+  it('Edge: a courtesy subscription keeps its provider so the screen can tell it apart', () => {
+    const usage = parsePlanUsage({
+      ...PLAN_BASE,
+      plan: 'paid',
+      subscription_status: 'active',
+      subscription_provider: 'comp',
+    });
+
+    expect(usage.billing.subscriptionProvider).toBe('comp');
+  });
+
   it.each(['requested', 'refunded', 'canceled', 'failed'])(
     'Edge: the refund state "%s" is accepted',
     (state) => {
@@ -115,6 +129,7 @@ describe('plan billing status (LGN-215)', () => {
     { name: 'a non-boolean payment issue', field: { payment_issue: 'yes' } },
     { name: 'a non-boolean refund eligibility', field: { refund_eligible: 1 } },
     { name: 'a non-boolean cancel flag', field: { cancel_at_period_end: 'true' } },
+    { name: 'a provider that is not a string', field: { subscription_provider: 1 } },
     { name: 'a period end that is not a timestamp', field: { current_period_end: 'soon' } },
     { name: 'a period end that is not a string', field: { current_period_end: 5 } },
   ])('Error: $name is refused as an unreadable plan', ({ field }) => {

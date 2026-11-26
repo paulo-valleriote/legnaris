@@ -18,6 +18,7 @@ const CONFIG: AdsConfig = {
 
 const BILLING: BillingStatus = {
   subscriptionStatus: null,
+  subscriptionProvider: null,
   currentPeriodEnd: null,
   cancelAtPeriodEnd: false,
   paymentIssue: false,
