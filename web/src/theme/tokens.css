@@ -21,6 +21,7 @@
   --lg-type-20: 20px;
   --lg-type-24: 24px;
   --lg-type-30: 30px;
+  --lg-type-display-sm: clamp(2rem, 1.5rem + 2vw, 3rem);
   --lg-type-display-md: clamp(2.25rem, 1.4rem + 3.6vw, 4rem);
   --lg-type-display-lg: clamp(2.75rem, 1.2rem + 6vw, 5.75rem);
 

@@ -41,18 +41,66 @@ describe('landing screen', () => {
     );
   });
 
-  it('Happy path: the 5E compatible badge sits above the unchanged hero title', async () => {
+  it('Happy path: the 5E compatible note follows the hero actions, never above the title', async () => {
     await visit('/');
 
     const badge = screen.getByText(message('landing.badge'));
     const title = screen.getByRole('heading', { level: 1, name: message('landing.heroTitle') });
+    const demo = within(screen.getByRole('banner')).getByRole('link', {
+      name: message('landing.tryDemo'),
+    });
 
     expect(message('landing.heroTitle')).toBe(
       'The living character sheet for players who have outgrown paper.',
     );
     expect(message('landing.badge')).toBe('5E compatible');
     expect(badge).toBeVisible();
-    expect(badge.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(badge.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+    expect(badge.compareDocumentPosition(demo) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+  });
+
+  it('Happy path: the sections run moments, campaign, questions, then the close with the three steps', async () => {
+    await visit('/');
+
+    const headings = within(screen.getByRole('main'))
+      .getAllByRole('heading', { level: 2 })
+      .map((heading) => heading.textContent);
+    expect(headings).toEqual([
+      message('landing.momentsTitle'),
+      message('landing.gmTitle'),
+      message('landing.faqTitle'),
+    ]);
+
+    const footer = screen.getByRole('contentinfo');
+    const how = within(footer).getByTestId('landing-how');
+    const steps = within(how).getByRole('list', { name: message('landing.howStepsLabel') });
+    expect(within(how).getByRole('heading', { name: message('landing.howTitle') })).toBeVisible();
+    expect(within(steps).getAllByRole('listitem')).toHaveLength(3);
+    expect(
+      within(footer).getByRole('heading', { level: 2, name: message('landing.closeTitle') }),
+    ).toBeInTheDocument();
+  });
+
+  it('Edge: the close offers one action, sign-up, and leaves sign-in to the top bar', async () => {
+    await visit('/');
+
+    const footer = screen.getByRole('contentinfo');
+    expect(within(footer).getByRole('link', { name: message('landing.create') })).toHaveAttribute(
+      'href',
+      FIFTH_SIGN_UP_PATH,
+    );
+    expect(
+      within(footer).queryByRole('link', { name: message('auth.submitLogin') }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: message('auth.submitLogin') })).toHaveLength(1);
+  });
+
+  it('Edge: the moments section continues the hero ground and only the campaign takes the band', async () => {
+    await visit('/');
+
+    const moments = screen.getByRole('region', { name: message('landing.momentsTitle') });
+    expect(moments).not.toHaveClass('lg-landing__section--band');
+    expect(screen.getByTestId('landing-gm')).toHaveClass('lg-landing__section--band');
   });
 
   it('Happy path: the page presents the 5E positioning verbatim', async () => {

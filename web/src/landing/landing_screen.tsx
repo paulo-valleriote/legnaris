@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import { Link } from 'react-router-dom';
 import { useApiBaseUrl } from '../app/providers';
@@ -7,14 +7,13 @@ import { message, messageWith } from '../l10n/strings';
 import type { MessageKey } from '../l10n/strings';
 import { CampaignPreview } from './campaign_preview';
 import { DerivationChain } from './derivation_chain';
+import { MomentsSlot } from './moments_slot';
 import { BrandMark } from '../shell/brand_mark';
 import { ChevronDownIcon } from '../ui/icons';
 import { reportCtaClick, reportHomeVisit } from './funnel_beacon';
 import { signUpCtaPath } from './start_intent';
 import { useStageThemeColor } from './use_stage_theme_color';
 import './landing.css';
-
-const GameMoments = lazy(() => import('./game_moments'));
 
 function useOutOfView(target: RefObject<HTMLElement | null>): boolean {
   const [outOfView, setOutOfView] = useState(typeof IntersectionObserver !== 'function');
@@ -41,14 +40,6 @@ const HERO_SRCSET = ['/images/hero-lava-1280.webp 1280w', '/images/hero-lava-192
 );
 
 const FIFTH_SIGN_UP_PATH = signUpCtaPath('fifth');
-
-function MomentsLoading() {
-  return (
-    <div className="lg-landing__demo-loading" data-testid="landing-moments-loading">
-      {message('landing.momentsLoading')}
-    </div>
-  );
-}
 
 interface Step {
   readonly title: MessageKey;
@@ -121,7 +112,6 @@ export function LandingScreen() {
 
         <div className="lg-landing__hero-body">
           <div className="lg-landing__hero-copy">
-            <p className="lg-landing__badge">{message('landing.badge')}</p>
             <h1 className="lg-landing__hero-title">{message('landing.heroTitle')}</h1>
             <p className="lg-landing__hero-lead">{message('landing.heroLead')}</p>
             <div className="lg-landing__actions" ref={heroActions}>
@@ -136,47 +126,25 @@ export function LandingScreen() {
                 {message('landing.create')}
               </Link>
             </div>
+            <p className="lg-landing__badge">{message('landing.badge')}</p>
           </div>
           <DerivationChain />
         </div>
       </header>
 
       <main>
-        <section
-          className="lg-landing__section lg-landing__section--band"
-          aria-labelledby="moments-title"
-        >
+        <section className="lg-landing__section" aria-labelledby="moments-title">
           <div className="lg-landing__inner">
             <h2 className="lg-landing__title" id="moments-title">
               {message('landing.momentsTitle')}
             </h2>
-            <p className="lg-landing__text lg-landing__moments-lead">
+            <p className="lg-landing__text lg-landing__lead lg-landing__moments-lead">
               {message('landing.momentsLead')}
             </p>
-            <Suspense fallback={<MomentsLoading />}>
-              <GameMoments />
-            </Suspense>
+            <MomentsSlot />
             <p className="lg-landing__text lg-landing__moments-note">
               {message('landing.momentNote')}
             </p>
-          </div>
-        </section>
-
-        <section className="lg-landing__section" aria-labelledby="how-title">
-          <div className="lg-landing__inner">
-            <div className="lg-landing__how">
-              <h2 className="lg-landing__title" id="how-title">
-                {message('landing.howTitle')}
-              </h2>
-              <ol className="lg-landing__steps" aria-label={message('landing.howStepsLabel')}>
-                {STEPS.map((step) => (
-                  <li className="lg-landing__step-item" key={step.title}>
-                    <h3 className="lg-landing__step-title">{message(step.title)}</h3>
-                    <p className="lg-landing__text">{message(step.body)}</p>
-                  </li>
-                ))}
-              </ol>
-            </div>
           </div>
         </section>
 
@@ -190,7 +158,9 @@ export function LandingScreen() {
               {message('landing.gmTitle')}
             </h2>
             <div className="lg-landing__gm-copy">
-              <p className="lg-landing__text lg-landing__gm-lead">{message('landing.gmLead')}</p>
+              <p className="lg-landing__text lg-landing__lead lg-landing__gm-lead">
+                {message('landing.gmLead')}
+              </p>
               <ol className="lg-landing__steps" aria-label={message('landing.gmStepsLabel')}>
                 {GM_STEPS.map((step) => (
                   <li className="lg-landing__step-item" key={step.title}>
@@ -258,6 +228,19 @@ export function LandingScreen() {
           <h2 className="lg-landing__title lg-landing__close-title">
             {message('landing.closeTitle')}
           </h2>
+          <div className="lg-landing__how" data-testid="landing-how">
+            <h3 className="lg-landing__how-title" id="how-title">
+              {message('landing.howTitle')}
+            </h3>
+            <ol className="lg-landing__steps" aria-label={message('landing.howStepsLabel')}>
+              {STEPS.map((step) => (
+                <li className="lg-landing__step-item" key={step.title}>
+                  <h4 className="lg-landing__step-title">{message(step.title)}</h4>
+                  <p className="lg-landing__text">{message(step.body)}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
           <div className="lg-landing__actions">
             <Link
               className="lg-landing__cta lg-landing__cta--primary"
@@ -265,9 +248,6 @@ export function LandingScreen() {
               onClick={onCtaClick}
             >
               {message('landing.create')}
-            </Link>
-            <Link className="lg-landing__cta lg-landing__cta--outline" to={SIGN_IN_PATH}>
-              {message('auth.submitLogin')}
             </Link>
           </div>
         </div>

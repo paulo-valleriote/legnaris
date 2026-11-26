@@ -577,6 +577,8 @@ export const messages = {
   'landing.momentsLead':
     'Take damage, spend a slot, take a long rest. The same sheet recalculates every number in place, mid-session.',
   'landing.momentsLoading': 'Loading the game moments…',
+  'landing.momentsFailed': 'The game moments did not load. Check your connection and try again.',
+  'landing.momentsRetry': 'Try again',
   'landing.momentHpTitle': 'Hit points under damage',
   'landing.momentHpBody':
     'Type an amount and take the damage. The bar, the total and the note move together.',
@@ -599,7 +601,7 @@ export const messages = {
   'landing.chainRaise': 'Raise Strength',
   'landing.chainLowerGlyph': '−',
   'landing.chainRaiseGlyph': '+',
-  'landing.chainHint': 'The only value you type. Try it.',
+  'landing.chainHint': 'Every number below follows from this score.',
   'landing.chainModifier': 'Strength modifier',
   'landing.chainModifierFormula': '(Strength − 10) ÷ 2',
   'landing.chainAttack': 'Attack roll',

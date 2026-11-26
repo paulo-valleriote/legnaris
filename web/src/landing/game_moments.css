@@ -27,6 +27,7 @@
   font-size: var(--lg-type-15);
   line-height: var(--lg-line-normal);
   color: var(--lg-color-stage-text-muted);
+  text-wrap: pretty;
 }
 
 .lg-moment__hint {
@@ -80,4 +81,10 @@
   .lg-moment-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
+}
+
+.lg-moment__stage .lg-compose-hp {
+  padding: 0;
+  border: 0;
+  background-color: transparent;
 }
