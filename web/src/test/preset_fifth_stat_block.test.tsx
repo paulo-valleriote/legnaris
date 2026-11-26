@@ -223,12 +223,12 @@ describe('the 5E Stat Block preset config', () => {
     expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
   });
 
-  it('Happy path: an action Record rolls its to-hit', async () => {
+  it('Happy path: an action Record rolls its to-hit from the action name', async () => {
     const user = userEvent.setup();
     play();
 
     const actions = screen.getByRole('group', { name: 'Actions' });
-    const roll = within(actions).getByRole('button', { name: /^Roll/ });
+    const roll = within(actions).getByRole('button', { name: /^Attack roll, / });
     await user.click(roll);
 
     expect(document.querySelector('.lg-dice-panel')).not.toBeNull();

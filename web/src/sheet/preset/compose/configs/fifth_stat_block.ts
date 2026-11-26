@@ -116,7 +116,14 @@ export const fifthStatBlockConfig: PresetConfig = {
       ],
     },
     { kind: 'recordTable', key: 'traits', list: 'traits', columns: ['name', 'text'] },
-    { kind: 'recordTable', key: 'actions', list: 'actions' },
+    {
+      kind: 'recordTable',
+      key: 'actions',
+      list: 'actions',
+      nameColumn: 'name',
+      rollColumn: 'toHit',
+      damageColumn: 'damage',
+    },
     {
       kind: 'recordTable',
       key: 'bonusActions',
