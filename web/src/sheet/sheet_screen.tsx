@@ -914,6 +914,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
               )}
               {!generic && (
                 <Button
+                  id="sheet-edit-toggle"
                   variant="ghost"
                   size="sm"
                   icon={editing ? <CheckIcon /> : <PencilIcon />}

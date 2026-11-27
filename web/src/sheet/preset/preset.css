@@ -167,6 +167,17 @@
   animation: lg-pending-card-in var(--lg-motion-240) var(--lg-ease-out);
 }
 
+.lg-pending-card--saved {
+  padding: var(--lg-space-8) var(--lg-space-12);
+}
+
+.lg-pending-card__saved {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-medium);
+  color: var(--lg-color-success);
+}
+
 .lg-pending-card__row {
   display: flex;
   flex-wrap: wrap;
@@ -231,25 +242,6 @@
 
 .lg-pending-card__changes[hidden] {
   display: none;
-}
-
-.lg-pending-card__changes:focus-visible {
-  outline: var(--lg-focus-width) solid var(--lg-color-focus);
-  outline-offset: var(--lg-focus-offset);
-}
-
-.lg-pending-card__changes {
-  display: flex;
-  max-block-size: min(25dvh, var(--lg-space-128));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  flex-wrap: wrap;
-  gap: var(--lg-space-4) var(--lg-space-12);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: var(--lg-type-13);
-  line-height: var(--lg-line-normal);
 }
 
 .lg-pending-card__changes:focus-visible {
