@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"legnaris/backend/internal/campaign"
 	"legnaris/backend/internal/campaign/campaigntest"
+	"legnaris/backend/internal/plan"
+	"legnaris/backend/internal/sheet"
 	"legnaris/backend/shared/apperr"
 )
 
@@ -65,6 +67,7 @@ func TestJoinByCode(t *testing.T) {
 		setup        func(h *harness, stored campaign.Campaign)
 		wantCode     apperr.Code
 		wantJoin     bool
+		idempotent   bool
 	}{
 		{
 			name:     "Happy path: a valid code joins the campaign as a player when no password is set",
@@ -188,13 +191,13 @@ func TestJoinByCode(t *testing.T) {
 			wantCode: apperr.CodeInvalidInvite,
 		},
 		{
-			name:     "Edge: an existing member cannot join again with the code",
-			stored:   open,
-			asUser:   existing,
-			cmd:      campaign.JoinCommand{Code: testInviteCode},
-			resolve:  true,
-			setup:    func(h *harness, stored campaign.Campaign) { h.loadOnce(stored) },
-			wantCode: apperr.CodeConflict,
+			name:       "Edge: an existing member joins idempotently with no new event",
+			stored:     open,
+			asUser:     existing,
+			cmd:        campaign.JoinCommand{Code: testInviteCode},
+			resolve:    true,
+			wantJoin:   true,
+			idempotent: true,
 		},
 		{
 			name:     "Edge: a full campaign refuses the join",
@@ -257,6 +260,11 @@ func TestJoinByCode(t *testing.T) {
 			assert.Equal(t, campaign.RolePlayer, view.ViewerRole)
 			assert.Empty(t, view.InviteCode, "a joining player must not see the invite code")
 			assert.Nil(t, view.PasswordSet)
+			if tc.idempotent {
+				assert.Nil(t, h.saved)
+				assert.Empty(t, h.events, "an idempotent join must not publish")
+				return
+			}
 			require.Len(t, h.events, 1)
 			assert.Equal(t, campaign.EventMemberJoined, h.events[0].Type)
 		})
@@ -566,4 +574,259 @@ func deletingCopy(c campaign.Campaign) campaign.Campaign {
 
 func boolPtr(b bool) *bool {
 	return &b
+}
+
+func TestPreviewInvite(t *testing.T) {
+	open := withInvite(campaigntest.Build(t, 1, 2), testInviteCode)
+	protected := withPassword(t, open, "correct horse")
+	existing := campaigntest.MembersWithRole(open, campaign.RolePlayer)[0]
+	deleting := campaigntest.Copy(open)
+	deleting.Status = campaign.StatusDeleting
+
+	tests := []struct {
+		name         string
+		stored       campaign.Campaign
+		cmd          campaign.PreviewInviteCommand
+		asUser       string
+		resolve      bool
+		limiterAllow *bool
+		setup        func(h *harness)
+		wantCode     apperr.Code
+		wantFull     bool
+	}{
+		{
+			name:     "Happy path: an open invite previews the campaign and GM",
+			stored:   open,
+			cmd:      campaign.PreviewInviteCommand{Code: testInviteCode},
+			resolve:  true,
+			wantFull: true,
+		},
+		{
+			name:     "Edge: an existing member is reported",
+			stored:   open,
+			cmd:      campaign.PreviewInviteCommand{Code: testInviteCode},
+			asUser:   existing,
+			resolve:  true,
+			wantFull: true,
+		},
+		{
+			name:     "Happy path: a protected invite previews with the correct password",
+			stored:   protected,
+			cmd:      campaign.PreviewInviteCommand{Code: testInviteCode, Password: "correct horse"},
+			resolve:  true,
+			wantFull: true,
+		},
+		{
+			name:     "Edge: a protected invite without a password reveals only that a password is required",
+			stored:   protected,
+			cmd:      campaign.PreviewInviteCommand{Code: testInviteCode},
+			resolve:  true,
+			wantCode: apperr.CodePasswordRequired,
+		},
+		{
+			name:     "Edge: a wrong password is indistinguishable from an unknown invite",
+			stored:   protected,
+			cmd:      campaign.PreviewInviteCommand{Code: testInviteCode, Password: "wrong horse"},
+			resolve:  true,
+			wantCode: apperr.CodeInvalidInvite,
+		},
+		{
+			name:     "Edge: an empty code is an invalid request",
+			cmd:      campaign.PreviewInviteCommand{Code: ""},
+			wantCode: apperr.CodeInvalidRequest,
+		},
+		{
+			name:     "Edge: a malformed code is an invalid invite",
+			cmd:      campaign.PreviewInviteCommand{Code: "short"},
+			wantCode: apperr.CodeInvalidInvite,
+		},
+		{
+			name:     "Edge: an unknown or rotated code is an invalid invite",
+			cmd:      campaign.PreviewInviteCommand{Code: testInviteCode},
+			wantCode: apperr.CodeInvalidInvite,
+			setup: func(h *harness) {
+				h.repo.EXPECT().FetchByInviteCode(mock.Anything, testInviteCode).Return(nil, campaign.ErrNotFound).Once()
+			},
+		},
+		{
+			name:     "Edge: a deleting campaign is an invalid invite",
+			stored:   deleting,
+			cmd:      campaign.PreviewInviteCommand{Code: testInviteCode},
+			resolve:  true,
+			wantCode: apperr.CodeInvalidInvite,
+		},
+		{
+			name:     "Edge: an oversized password is refused before any lookup",
+			cmd:      campaign.PreviewInviteCommand{Code: testInviteCode, Password: strings.Repeat("p", 513)},
+			wantCode: apperr.CodeInvalidRequest,
+		},
+		{
+			name:         "Error: a resolved invite over the per-campaign limit is rate limited",
+			stored:       open,
+			cmd:          campaign.PreviewInviteCommand{Code: testInviteCode},
+			resolve:      true,
+			limiterAllow: boolPtr(false),
+			wantCode:     apperr.CodeRateLimited,
+		},
+		{
+			name:     "Error: a failed code lookup is internal",
+			cmd:      campaign.PreviewInviteCommand{Code: testInviteCode},
+			wantCode: apperr.CodeInternal,
+			setup: func(h *harness) {
+				h.repo.EXPECT().FetchByInviteCode(mock.Anything, testInviteCode).Return(nil, errors.New("db down")).Once()
+			},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.withUsernames("GM Name", nil)
+			if tc.resolve {
+				h.resolveCode(tc.cmd.Code, tc.stored)
+			}
+			if tc.resolve && tc.stored.Active() {
+				allowed := true
+				if tc.limiterAllow != nil {
+					allowed = *tc.limiterAllow
+				}
+				h.allowJoins(allowed, time.Minute)
+			}
+			if tc.setup != nil {
+				tc.setup(h)
+			}
+			cmd := tc.cmd
+			cmd.UserID = tc.asUser
+			if cmd.UserID == "" {
+				cmd.UserID = campaigntest.NewID(t)
+			}
+			preview, err := h.service().PreviewInvite(context.Background(), cmd)
+			if tc.wantCode != "" {
+				requireAppErr(t, err, tc.wantCode)
+				assert.Empty(t, preview.Name, "an error preview must not leak the campaign name")
+				assert.Empty(t, preview.GMUsername, "an error preview must not leak the GM")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, open.Name, preview.Name)
+			assert.Equal(t, "GM Name", preview.GMUsername)
+			assert.Equal(t, "dnd5e", preview.ScopeName)
+			assert.Equal(t, []string{"dnd5e"}, preview.TemplateIDs)
+			assert.Equal(t, tc.stored.PasswordHash != "", preview.PasswordRequired)
+			assert.Equal(t, tc.stored.PlayerCount, preview.PlayerCount)
+			assert.Equal(t, tc.asUser == existing, preview.AlreadyMember)
+		})
+	}
+}
+
+func TestJoinByCode_WithSheet(t *testing.T) {
+	open := withInvite(campaigntest.Build(t, 0, 0), testInviteCode)
+	other := withInvite(campaigntest.Build(t, 0, 0), "ZZZZZZZZZZZZZZZZZZZZZZZZ")
+	userID := campaigntest.NewID(t)
+
+	tests := []struct {
+		name    string
+		sheet   func(t *testing.T) sheet.Sheet
+		setup   func(h *harness, sh sheet.Sheet)
+		wantErr apperr.Code
+	}{
+		{
+			name: "Happy path: join and link the chosen sheet atomically",
+			sheet: func(t *testing.T) sheet.Sheet {
+				return sheetOf(t, userID, open.TemplateID, plan.KindCharacter, nil)
+			},
+			setup: func(h *harness, sh sheet.Sheet) {
+				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(&sh, nil).Once()
+				h.sheets.EXPECT().UnlinkOwnerCampaign(mock.Anything, userID, open.ID).Return(int64(0), nil).Once()
+				h.sheets.EXPECT().LinkCampaign(mock.Anything, sh.ID, (*string)(nil), open.ID).Return(true, nil).Once()
+				h.linked = []sheet.Sheet{sh}
+			},
+		},
+		{
+			name: "Error: a different template rolls the join back",
+			sheet: func(t *testing.T) sheet.Sheet {
+				return sheetOf(t, userID, "another_template", plan.KindCharacter, nil)
+			},
+			setup: func(h *harness, sh sheet.Sheet) {
+				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(&sh, nil).Once()
+			},
+			wantErr: apperr.CodeTemplateMismatch,
+		},
+		{
+			name: "Error: a sheet owned by someone else is not found and rolls the join back",
+			sheet: func(t *testing.T) sheet.Sheet {
+				return sheetOf(t, campaigntest.NewID(t), open.TemplateID, plan.KindCharacter, nil)
+			},
+			setup: func(h *harness, sh sheet.Sheet) {
+				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(&sh, nil).Once()
+			},
+			wantErr: apperr.CodeNotFound,
+		},
+		{
+			name: "Error: a sheet already linked to another active campaign is refused",
+			sheet: func(t *testing.T) sheet.Sheet {
+				return sheetOf(t, userID, open.TemplateID, plan.KindCharacter, strPtr(other.ID))
+			},
+			setup: func(h *harness, sh sheet.Sheet) {
+				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(&sh, nil).Once()
+				h.loadOther(other)
+			},
+			wantErr: apperr.CodeSheetAlreadyLinked,
+		},
+		{
+			name: "Error: a lost compare-and-set rolls the join back",
+			sheet: func(t *testing.T) sheet.Sheet {
+				return sheetOf(t, userID, open.TemplateID, plan.KindCharacter, nil)
+			},
+			setup: func(h *harness, sh sheet.Sheet) {
+				h.sheets.EXPECT().FetchByID(mock.Anything, sh.ID).Return(&sh, nil).Once()
+				h.sheets.EXPECT().UnlinkOwnerCampaign(mock.Anything, userID, open.ID).Return(int64(0), nil).Once()
+				h.sheets.EXPECT().LinkCampaign(mock.Anything, sh.ID, (*string)(nil), open.ID).Return(false, nil).Once()
+			},
+			wantErr: apperr.CodeSheetAlreadyLinked,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			h.withUsernames("GM Name", nil)
+			h.resolveCode(testInviteCode, open)
+			h.allowJoins(true, time.Minute)
+			h.loadOnce(open)
+			sh := tc.sheet(t)
+			tc.setup(h, sh)
+			if tc.wantErr == "" {
+				h.expectSave(1, nil)
+			}
+
+			view, err := h.service().JoinByCode(context.Background(), campaign.JoinCommand{
+				UserID: userID, Code: testInviteCode, SheetID: sh.ID,
+			})
+			if tc.wantErr != "" {
+				requireAppErr(t, err, tc.wantErr)
+				assert.Nil(t, h.saved, "a failed link must roll the join back")
+				assert.Empty(t, h.events, "a failed link must publish nothing")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, campaign.RolePlayer, view.ViewerRole)
+			require.NotNil(t, h.saved)
+			assert.Contains(t, h.saved.Members, campaign.Member{UserID: userID, Role: campaign.RolePlayer, JoinedAt: campaigntest.Now()})
+			require.Len(t, h.events, 2)
+			assert.Equal(t, campaign.EventMemberJoined, h.events[0].Type)
+			assert.Equal(t, campaign.EventSheetLinked, h.events[1].Type)
+			assert.Equal(t, map[string]any{"sheet_id": sh.ID}, h.events[1].Data)
+		})
+	}
+}
+
+func TestJoinByCode_RejectsMalformedSheetID(t *testing.T) {
+	h := newHarness(t)
+	h.withUsernames("", nil)
+	_, err := h.service().JoinByCode(context.Background(), campaign.JoinCommand{
+		UserID: campaigntest.NewID(t), Code: testInviteCode, SheetID: "not-a-uuid",
+	})
+	requireAppErr(t, err, apperr.CodeInvalidRequest)
+	assert.Nil(t, h.saved)
+	assert.Empty(t, h.events)
 }
