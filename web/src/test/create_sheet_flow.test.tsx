@@ -132,6 +132,31 @@ describe('sheet creation flow', () => {
     expect(screen.queryByTestId('sheet-screen')).not.toBeInTheDocument();
   });
 
+  it('Error: SHEET_NAME_INVALID from the API shows the name-required copy and keeps the dialog open', async () => {
+    const fake = createFakeTransport(
+      successOutcome(CATALOG),
+      successOutcome(templateDetailPayload()),
+      errorOutcome('SHEET_NAME_INVALID', 'name invalid', 422),
+    );
+    const user = userEvent.setup();
+    renderApp('/', {
+      client: clientWith(withPlanUsage(fake.transport)),
+      queryClient: appQueryClient(),
+    });
+    await user.click(await screen.findByRole('button', { name: ENTRY_NAME }));
+    await screen.findByTestId('detail-name');
+
+    await user.type(screen.getByLabelText(message('sheet.nameLabel')), 'Aragorn');
+    await user.click(screen.getByRole('button', { name: message('sheet.create') }));
+
+    expect(await screen.findByTestId('create-error')).toHaveTextContent(
+      message('sheet.nameRequired'),
+    );
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByLabelText(message('sheet.nameLabel'))).toHaveValue('Aragorn');
+    expect(postRequests(fake.requests)).toHaveLength(1);
+  });
+
   it('Happy path: a non-empty trimmed name issues one POST carrying the template and name, then opens the created sheet without a sheet GET', async () => {
     const fake = createFakeTransport(
       successOutcome(CATALOG),

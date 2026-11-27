@@ -197,6 +197,33 @@ describe('generate flow (LGN-196)', () => {
     });
   });
 
+  it('Error: SHEET_NAME_INVALID on accept shows the name-required copy and keeps the review open', async () => {
+    const fake = renderGenerate({
+      'POST /generations': ok({ id: GENERATION_ID }, 202),
+      [`GET /generations/${GENERATION_ID}`]: ok({
+        id: GENERATION_ID,
+        status: 'succeeded',
+        kind: 'character',
+        template_id: TEMPLATE_ID,
+        values: { stats: { strength: 12 } },
+        created_at: '2026-11-14T10:00:00Z',
+      }),
+      [`POST /generations/${GENERATION_ID}/accept`]: fail('SHEET_NAME_INVALID', 422),
+    });
+    const user = userEvent.setup();
+    await screen.findByLabelText('Describe your character');
+    fireEvent.change(conceptField(), { target: { value: VALID_CONCEPT } });
+    await user.click(generateButton());
+
+    const sheetName = await screen.findByLabelText('Sheet name');
+    await user.type(sheetName, 'Aragorn');
+    await user.click(screen.getByRole('button', { name: 'Save to my sheets' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(message('sheet.nameRequired'));
+    expect(countOf(fake.requests, 'POST', `/generations/${GENERATION_ID}/accept`)).toBe(1);
+    expect(screen.getByRole('button', { name: 'Save to my sheets' })).toBeEnabled();
+  });
+
   it('Edge: a generation that failed shows its failure copy and offers to try again', async () => {
     renderGenerate({
       'POST /generations': ok({ id: GENERATION_ID }, 202),

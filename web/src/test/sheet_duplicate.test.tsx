@@ -91,6 +91,19 @@ describe('sheet actions: Duplicate an NPC or Enemy (LGN-219)', () => {
     expect(screen.getByRole('button', { name: message('sheet.duplicate') })).toBeEnabled();
   });
 
+  it('Error: SHEET_NAME_INVALID shows the name-required copy and keeps the sheet open', async () => {
+    const script = scripted(sheetRoutes('npc', () => fail('SHEET_NAME_INVALID', 422)));
+    const user = userEvent.setup();
+    renderApp(SHEET, { client: clientFor(script.transport) });
+
+    await screen.findByTestId('sheet-name');
+    await user.click(screen.getByRole('button', { name: message('sheet.duplicate') }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(message('sheet.nameRequired'));
+    expect(screen.getByTestId('sheet-name')).toHaveTextContent('Aragorn');
+    expect(screen.getByRole('button', { name: message('sheet.duplicate') })).toBeEnabled();
+  });
+
   it('Edge: unsaved edits ask before duplicating, and keeping them sends nothing', async () => {
     const script = scripted(sheetRoutes('npc'));
     const user = userEvent.setup();
