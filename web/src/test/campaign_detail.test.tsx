@@ -222,6 +222,7 @@ describe('campaign screen: character link (LGN-218)', () => {
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     await screen.findByText('tomas');
+    await user.selectOptions(await screen.findByLabelText(message('campaign.linkLabel')), SHEET_ID);
     await user.click(screen.getByRole('button', { name: message('campaign.link') }));
 
     expect(await screen.findByText(message('campaign.linked'))).toBeInTheDocument();
@@ -286,6 +287,10 @@ describe('campaign screen: character link (LGN-218)', () => {
       renderApp(DETAIL, { client: clientFor(script.transport) });
 
       await screen.findByText('tomas');
+      await user.selectOptions(
+        await screen.findByLabelText(message('campaign.linkLabel')),
+        SHEET_ID,
+      );
       await user.click(screen.getByRole('button', { name: message('campaign.link') }));
 
       expect(await screen.findByRole('alert')).toHaveTextContent(message(key));
@@ -356,7 +361,7 @@ describe("campaign screen: the player's linked character", () => {
     });
     expect(link).toHaveAttribute('href', `/sheets/${SHEET_ID}`);
     const card = link.closest('li') as HTMLElement;
-    expect(within(card).getByText(message('campaign.linkedCharacterNote'))).toBeInTheDocument();
+    expect(within(card).getByText(/Updated Nov 17, 2026/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: message('campaign.unlink') })).toBeInTheDocument();
     expect(screen.queryByRole('combobox', { name: message('campaign.linkLabel') })).toBeNull();
     expect(screen.queryByRole('button', { name: message('campaign.replace') })).toBeNull();
@@ -366,10 +371,13 @@ describe("campaign screen: the player's linked character", () => {
     const script = scripted(linkedRoutes([ownedSheet()]));
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
+    const select = await screen.findByRole('combobox', { name: message('campaign.linkLabel') });
+    expect(select).toHaveValue('');
+    expect(within(select).getByRole('option', { name: 'Brenna' })).toBeInTheDocument();
     expect(
-      await screen.findByRole('combobox', { name: message('campaign.linkLabel') }),
-    ).toHaveValue(SHEET_ID);
-    expect(screen.getByRole('button', { name: message('campaign.link') })).toBeInTheDocument();
+      within(select).getByRole('option', { name: message('campaign.chooseSheet') }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('campaign.link') })).toBeDisabled();
     expect(screen.queryByRole('button', { name: message('campaign.unlink') })).toBeNull();
     expect(
       screen.queryByRole('link', {
@@ -385,14 +393,62 @@ describe("campaign screen: the player's linked character", () => {
         ownedSheet({ id: OTHER_SHEET_ID, name: 'Rowan' }),
       ]),
     );
+    const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     const select = await screen.findByRole('combobox', { name: message('campaign.linkLabel') });
-    expect(select).toHaveValue(OTHER_SHEET_ID);
+    expect(select).toHaveValue('');
     expect(within(select).queryByRole('option', { name: 'Brenna' })).toBeNull();
     expect(within(select).getByRole('option', { name: 'Rowan' })).toBeInTheDocument();
     expect(screen.getByText(message('campaign.linkHint'))).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: message('campaign.replace') })).toBeInTheDocument();
+    const replace = screen.getByRole('button', { name: message('campaign.replace') });
+    expect(replace).toBeDisabled();
+    await user.selectOptions(select, OTHER_SHEET_ID);
+    expect(replace).toBeEnabled();
+  });
+
+  it('Happy path: replacing the character links the chosen sheet and shows it', async () => {
+    let replaced = false;
+    const script = scripted([
+      ...detailRoutes(playerView(), [
+        {
+          method: 'PUT',
+          path: `${DETAIL}/character`,
+          respond: () => {
+            replaced = true;
+            return ok(playerView());
+          },
+        },
+      ]).filter((route) => route.path !== '/sheets/owned'),
+      {
+        method: 'GET',
+        path: '/sheets/owned',
+        respond: () =>
+          ok([
+            ownedSheet(replaced ? {} : { campaign_id: CAMPAIGN_ID }),
+            ownedSheet({
+              id: OTHER_SHEET_ID,
+              name: 'Rowan',
+              campaign_id: replaced ? CAMPAIGN_ID : undefined,
+            }),
+          ]),
+      },
+    ]);
+    const user = userEvent.setup();
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    const select = await screen.findByRole('combobox', { name: message('campaign.linkLabel') });
+    await user.selectOptions(select, OTHER_SHEET_ID);
+    await user.click(screen.getByRole('button', { name: message('campaign.replace') }));
+
+    expect(
+      await screen.findByRole('link', {
+        name: messageWith('campaign.openCharacter', { name: 'Rowan' }),
+      }),
+    ).toBeInTheDocument();
+    expect(JSON.parse(script.calls('PUT', `${DETAIL}/character`)[0]?.request.body ?? '')).toEqual({
+      sheet_id: OTHER_SHEET_ID,
+    });
   });
 
   it('Happy path: a link refreshes the owned list and the card appears without a reload', async () => {
@@ -418,6 +474,7 @@ describe("campaign screen: the player's linked character", () => {
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     await screen.findByText('tomas');
+    await user.selectOptions(await screen.findByLabelText(message('campaign.linkLabel')), SHEET_ID);
     await user.click(screen.getByRole('button', { name: message('campaign.link') }));
 
     expect(

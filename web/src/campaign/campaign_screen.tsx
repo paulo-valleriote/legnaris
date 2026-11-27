@@ -126,9 +126,10 @@ function LinkCharacterForm({
   const sheets = owned.data ?? [];
   const linked = linkedCharacterSheet(sheets, campaign.id);
   const eligible = owned.data === undefined ? [] : linkableSheetIds(owned.data, campaign);
-  const selected = eligible.includes(choice) ? choice : (eligible[0] ?? '');
+  const selected = eligible.includes(choice) ? choice : '';
   const names = new Map(sheets.map((sheet) => [sheet.id, sheet.name]));
   const showLink = eligible.length > 0 || linked === undefined;
+  const updated = linked === undefined ? undefined : updatedText(linked.updatedAt);
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -154,7 +155,9 @@ function LinkCharacterForm({
                 <ChevronRightIcon />
               </span>
             </Link>
-            <span className="lg-campaign__meta">{message('campaign.linkedCharacterNote')}</span>
+            {updated === undefined ? null : (
+              <span className="lg-campaign__card-foot">{updated}</span>
+            )}
           </li>
         </ul>
       )}
@@ -169,7 +172,10 @@ function LinkCharacterForm({
             value={selected}
             disabled={disabled || pending}
             hint={linked === undefined ? undefined : message('campaign.linkHint')}
-            options={eligible.map((id) => ({ value: id, label: names.get(id) ?? id }))}
+            options={[
+              { value: '', label: message('campaign.chooseSheet') },
+              ...eligible.map((id) => ({ value: id, label: names.get(id) ?? id })),
+            ]}
             onChange={setChoice}
           />
         )}
