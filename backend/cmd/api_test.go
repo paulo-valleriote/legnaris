@@ -4,6 +4,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -16,10 +17,23 @@ import (
 
 const testWait = 5 * time.Second
 
+type closeSignalListener struct {
+	net.Listener
+	once   sync.Once
+	closed chan struct{}
+}
+
+func (l *closeSignalListener) Close() error {
+	err := l.Listener.Close()
+	l.once.Do(func() { close(l.closed) })
+	return err
+}
+
 type serveHandle struct {
 	url    string
 	cancel context.CancelFunc
 	result chan error
+	closed <-chan struct{}
 }
 
 func startServe(t *testing.T, handler http.Handler, timeout time.Duration) *serveHandle {
@@ -30,9 +44,15 @@ func startServe(t *testing.T, handler http.Handler, timeout time.Duration) *serv
 
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
+	signaled := &closeSignalListener{Listener: ln, closed: make(chan struct{})}
 
-	h := &serveHandle{url: "http://" + ln.Addr().String(), cancel: cancel, result: make(chan error, 1)}
-	go func() { h.result <- serve(ctx, handler, ln, timeout) }()
+	h := &serveHandle{
+		url:    "http://" + ln.Addr().String(),
+		cancel: cancel,
+		result: make(chan error, 1),
+		closed: signaled.closed,
+	}
+	go func() { h.result <- serve(ctx, handler, signaled, timeout) }()
 	return h
 }
 
@@ -44,6 +64,15 @@ func (h *serveHandle) wait(t *testing.T) error {
 	case <-time.After(testWait):
 		t.Fatal("serve did not return in time")
 		return nil
+	}
+}
+
+func (h *serveHandle) waitClosed(t *testing.T) {
+	t.Helper()
+	select {
+	case <-h.closed:
+	case <-time.After(testWait):
+		t.Fatal("the listener did not close in time")
 	}
 }
 
@@ -137,10 +166,10 @@ func TestServe(t *testing.T) {
 		<-started
 
 		h.cancel()
-		require.Eventually(t, func() bool {
-			_, err := get(t, h.url)
-			return err != nil
-		}, testWait, 10*time.Millisecond)
+		h.waitClosed(t)
+
+		_, err := get(t, h.url)
+		require.Error(t, err)
 
 		close(release)
 		assert.NoError(t, h.wait(t))
