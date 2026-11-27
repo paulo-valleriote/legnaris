@@ -88,7 +88,7 @@ describe('the mobile preset section order', () => {
     expect(document.querySelectorAll('[data-preset-section]').length).toBeGreaterThan(0);
     const columns = [...document.querySelectorAll<HTMLElement>('.lg-preset__column')];
     expect(columns).toHaveLength(4);
-    expect(sectionOrder().slice(0, 3)).toEqual(['identity', 'vitals', 'hitPoints']);
+    expect(sectionOrder().slice(0, 4)).toEqual(['identity', 'xp', 'vitals', 'hitPoints']);
     expect(sectionOrder().indexOf('hitPointsSetup')).toBeGreaterThan(
       sectionOrder().indexOf('conditions'),
     );
