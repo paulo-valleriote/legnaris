@@ -238,7 +238,7 @@ func TestRevealEvents_CarryNoSheetNameOrValues(t *testing.T) {
 	owner := campaigntest.OwnerID(base)
 	sh := npcSheet(t, owner, base.TemplateID, plan.KindNPC)
 	sh.Name = "Secret Wyrm"
-	sh.Data = map[string]any{"stats": map[string]any{"hp": 999.0}}
+	sh.Data = map[string]any{"stats": map[string]any{"hp": "sheet-secret-zzz"}}
 
 	h := newHarness(t)
 	version := base.Version
@@ -280,7 +280,7 @@ func TestRevealEvents_CarryNoSheetNameOrValues(t *testing.T) {
 		}, ev.Data)
 		rendered := fmt.Sprint(ev.Data)
 		assert.NotContains(t, rendered, sh.Name)
-		assert.NotContains(t, rendered, "999")
+		assert.NotContains(t, rendered, "sheet-secret-zzz")
 		assert.NotContains(t, ev.Data, "name")
 		assert.NotContains(t, ev.Data, "data")
 	}
