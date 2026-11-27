@@ -515,8 +515,7 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
       if (current === undefined) {
         return;
       }
-      const raw =
-        saved.delta === undefined ? null : valueAtPath(saved.delta, 'identity.name');
+      const raw = saved.delta === undefined ? null : valueAtPath(saved.delta, 'identity.name');
       const nextName = typeof raw === 'string' && raw.trim() !== '' ? raw.trim() : current.name;
       const updated: Sheet = { ...current, name: nextName, data: saved.data, dice: saved.dice };
       queryClient.setQueryData(sheetKey(sheetId), updated);
