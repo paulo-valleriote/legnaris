@@ -535,10 +535,11 @@ never exposed.
 | `DELETE /sheets/:id`                | —                                               | 204                            |
 
 Every JSON success is wrapped in `{"data": ...}`. A malformed id is 400; a missing sheet and a
-foreign sheet are both 404. Creating reserves a per-owner, per-kind plan slot and inserts in one
-transaction; deleting releases it. Free plans allow 1 character, 2 NPCs and 2 enemies; paid plans
-allow 10/50/50. Duplicating a character is 422 `SHEET_KIND_MISMATCH`; exceeding the plan on create
-is 409 `SHEET_LIMIT_REACHED` and on duplicate 403 `PLAN_LIMIT_REACHED`.
+foreign sheet are both 404. Creating a Sheet stores the name trimmed; an empty or whitespace-only
+name is 422 `SHEET_NAME_INVALID`. Creating reserves a per-owner, per-kind plan slot and inserts in
+one transaction; deleting releases it. Free plans allow 1 character, 2 NPCs and 2 enemies; paid
+plans allow 10/50/50. Duplicating a character is 422 `SHEET_KIND_MISMATCH`; exceeding the plan on
+create is 409 `SHEET_LIMIT_REACHED` and on duplicate 403 `PLAN_LIMIT_REACHED`.
 
 ### PATCH and preview
 
@@ -718,6 +719,7 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 | `SHEET_LIMIT_REACHED` | 409    | create would exceed the plan; details carry `kind` and `limit`                                                                                                                                                                                                                                                                                                                                                                        |
 | `PLAN_LIMIT_REACHED`  | 403    | duplicate would exceed the plan                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `SHEET_KIND_MISMATCH` | 422    | duplicate of a character sheet                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `SHEET_NAME_INVALID`  | 422    | blank or whitespace-only name on Sheet create or generation accept                                                                                                                                                                                                                                                                                                                                                                   |
 | `RATE_LIMITED`        | 429    | shared per-user budget (`USER_RATE_LIMIT_*`, 80 per minute)                                                                                                                                                                                                                                                                                                                                                                           |
 
 ### Record lists in the generic form
