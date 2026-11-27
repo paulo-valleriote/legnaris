@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet/sheeterr"
@@ -25,8 +26,47 @@ const (
 	duplicateNameSuffix      = " (copy)"
 )
 
-func duplicateSheetName(stored string) string {
-	base := strings.TrimSpace(stored)
+func (s *ServiceImpl) duplicateTemplate(ctx context.Context, stored *Sheet) (*template.Template, error) {
+	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: stored.TemplateID})
+	if err != nil {
+		return nil, translateTemplateErr(err)
+	}
+	if !tmpl.Available(s.draftsAllowed) {
+		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateStateRefused, nil)
+	}
+	return tmpl, nil
+}
+
+func duplicateName(tmpl *template.Template, data map[string]any, stored string) (string, error) {
+	base := tmpl.SuggestName(data)
+	if base == "" {
+		base = strings.TrimSpace(stored)
+	}
+	name := fitDuplicateName(tmpl, base)
+	if tmpl.NameLeaf == "" {
+		return name, nil
+	}
+	if err := template.Path(strings.Split(tmpl.NameLeaf, ".")).Set(data, name); err != nil {
+		return "", apperr.NewError(apperr.CodeInternal, "failed to copy sheet name", err)
+	}
+	return name, nil
+}
+
+func fitDuplicateName(tmpl *template.Template, base string) string {
+	if base == "" {
+		return "(copy)"
+	}
+	maxLength := tmpl.NameMaxLength()
+	if maxLength > 0 {
+		allowed := maxLength - utf8.RuneCountInString(duplicateNameSuffix)
+		if allowed < 0 {
+			allowed = 0
+		}
+		runes := []rune(base)
+		if len(runes) > allowed {
+			base = string(runes[:allowed])
+		}
+	}
 	if base == "" {
 		return "(copy)"
 	}
@@ -50,12 +90,9 @@ func (s *ServiceImpl) Duplicate(ctx context.Context, cmd DuplicateSheetCommand) 
 	if stored.Kind != plan.KindNPC && stored.Kind != plan.KindEnemy {
 		return nil, apperr.NewError(apperr.CodeSheetKindMismatch, MsgDuplicateKindMismatch, nil)
 	}
-	tmpl, err := s.templateService.FetchTemplate(ctx, &template.FetchTemplateByIDCommand{ID: stored.TemplateID})
+	tmpl, err := s.duplicateTemplate(ctx, stored)
 	if err != nil {
-		return nil, translateTemplateErr(err)
-	}
-	if !tmpl.Available(s.draftsAllowed) {
-		return nil, apperr.NewError(apperr.CodeInvalidRequest, MsgTemplateStateRefused, nil)
+		return nil, err
 	}
 	if !s.planLimitsEnabled() {
 		return nil, apperr.NewError(apperr.CodeInternal, MsgLimitsNotConfigured, nil)
@@ -70,13 +107,18 @@ func (s *ServiceImpl) Duplicate(ctx context.Context, cmd DuplicateSheetCommand) 
 		return nil, apperr.NewError(apperr.CodeInternal, "failed to generate sheet id", err)
 	}
 	now := time.Now()
+	data := maputils.DeepCopy(stored.Data)
+	name, err := duplicateName(tmpl, data, stored.Name)
+	if err != nil {
+		return nil, err
+	}
 	copied := Sheet{
 		ID:         sheetID,
 		TemplateID: stored.TemplateID,
 		OwnerID:    stored.OwnerID,
 		Kind:       stored.Kind,
-		Name:       duplicateSheetName(stored.Name),
-		Data:       maputils.DeepCopy(stored.Data),
+		Name:       name,
+		Data:       data,
 		Layout:     stored.Layout.Clone(),
 		Dice:       stored.Dice.Clone(),
 		CreatedAt:  now,

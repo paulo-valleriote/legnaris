@@ -25,8 +25,6 @@ import { usePresetContext } from './preset_context';
 
 export const PENDING_ANNOUNCE_MS = 600;
 
-export const PENDING_SAVED_MS = 2000;
-
 export const PENDING_CARD_SPACE_CLASS = 'lg-preset--pending-card';
 export const PENDING_CARD_SPACE_PROPERTY = '--lg-pending-card-space';
 
@@ -149,30 +147,19 @@ export function PendingChangesCard() {
   const pending = isPending(state);
   const announcement = useDebouncedAnnouncement(summary);
   const [expanded, setExpanded] = useState(false);
-  const [saved, setSaved] = useState(false);
   const listId = useId();
-  useReservedBottomSpace(card, pending || saved);
-
-  useEffect(() => {
-    if (!saved) {
-      return undefined;
-    }
-    const timer = setTimeout(() => setSaved(false), PENDING_SAVED_MS);
-    return () => clearTimeout(timer);
-  }, [saved]);
+  useReservedBottomSpace(card, pending || state.justSaved);
 
   const runSave = useCallback(async () => {
-    setSaved(false);
     await store.save();
     const after = store.getState();
     if (after.saveError === undefined && !isPending(after)) {
-      setSaved(true);
       document.getElementById('sheet-edit-toggle')?.focus();
     }
   }, [store]);
 
   if (!pending) {
-    return saved ? (
+    return state.justSaved ? (
       <section
         ref={card}
         className="lg-pending-card lg-pending-card--saved"

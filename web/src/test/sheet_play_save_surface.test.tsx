@@ -273,6 +273,18 @@ describe('the preset save surface', () => {
     await waitFor(() => expect(card()).not.toBeInTheDocument());
   });
 
+  it('Happy path: Ctrl+S shows the same Saved confirmation as the card Save button', async () => {
+    const { user } = await openFifth();
+    await setLevel(user, '6');
+
+    await user.keyboard('{Control>}s{/Control}');
+
+    const saved = await screen.findByTestId('sheet-pending-saved');
+    expect(saved).toHaveTextContent(message('sheet.saved'));
+    expect(within(saved).getByRole('status')).toHaveAttribute('aria-live', 'polite');
+    expect(levelInput()).toHaveFocus();
+  });
+
   it('Edge: the change list starts closed and the count names how many are pending', async () => {
     const { user } = await openFifth();
 

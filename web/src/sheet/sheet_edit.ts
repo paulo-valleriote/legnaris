@@ -40,6 +40,8 @@ export const THROTTLE_MAX = 3;
 
 export const THROTTLE_WINDOW_MS = 60_000;
 
+export const SAVED_CONFIRMATION_MS = 2000;
+
 export interface RollingWindow {
   record(): void;
   isBlocked(): boolean;
@@ -81,6 +83,7 @@ export interface SheetEditState {
   readonly data: Record<string, unknown>;
   readonly editedPaths: ReadonlySet<string>;
   readonly isSaving: boolean;
+  readonly justSaved: boolean;
   readonly saveError: string | undefined;
   readonly saveErrorKind?: FailureKind;
   readonly revision: number;
@@ -341,6 +344,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     savedDice: seededDice,
     dice: seededDice,
     isSaving: false,
+    justSaved: false,
     saveError: undefined,
     revision: 0,
     previewedRevision: undefined,
@@ -355,6 +359,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
   const pathListeners = new Map<string, Set<() => void>>();
   const marksListeners = new Set<() => void>();
   let throttleCancel: (() => void) | undefined;
+  let savedCancel: (() => void) | undefined;
 
   const commit = (next: SheetEditState): void => {
     const previous = state;
@@ -398,6 +403,21 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     );
   };
 
+  const clearSaved = (): void => {
+    savedCancel?.();
+    savedCancel = undefined;
+  };
+
+  const confirmSaved = (): void => {
+    clearSaved();
+    savedCancel = schedule(() => {
+      savedCancel = undefined;
+      if (state.justSaved) {
+        commit({ ...state, justSaved: false });
+      }
+    }, SAVED_CONFIRMATION_MS);
+  };
+
   const applyWrites = (writes: ReadonlyMap<string, unknown>): void => {
     const effective = new Map<string, unknown>();
     for (const [path, value] of writes) {
@@ -410,6 +430,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       return;
     }
 
+    clearSaved();
     const data = cloneTree(state.data) as Record<string, unknown>;
     const editedPaths = new Set(state.editedPaths);
     for (const [path, value] of effective) {
@@ -425,6 +446,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       ...state,
       data,
       editedPaths,
+      justSaved: false,
       revision: state.revision + 1,
       previewMarks: undefined,
     });
@@ -520,9 +542,11 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         return;
       }
       const next = withDiceEntry(current, key, expression);
+      clearSaved();
       commit({
         ...state,
         dice: target === 'row' ? { ...state.dice, row: next } : { ...state.dice, section: next },
+        justSaved: false,
       });
     },
 
@@ -580,11 +604,13 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     },
 
     applyReset: (cascade) => {
+      clearSaved();
       const defaults = mergeCascade(state.defaults, cascade);
       commit({
         ...state,
         data: mergeCascade(state.data, cascade),
         defaults,
+        justSaved: false,
         revision: state.revision + 1,
         previewedRevision: undefined,
         previewMarks: undefined,
@@ -603,10 +629,12 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       const fresh = await deps.client.getSheet(seed.sheet.id);
       const seeded = seedFromSheet(seed.template.fields, fresh.data);
       const dice = pruneStaleChoices(fresh.dice ?? EMPTY_DICE, diceRules);
+      clearSaved();
       commit({
         ...state,
         defaults: seeded,
         data: seeded,
+        justSaved: false,
         editedPaths: new Set<string>(),
         savedDice: dice,
         dice,
@@ -633,7 +661,14 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
       const sentPaths = [...state.editedPaths];
       saveWindow.record();
       scheduleThrottle();
-      commit({ ...state, isSaving: true, saveError: undefined, saveErrorKind: undefined });
+      clearSaved();
+      commit({
+        ...state,
+        isSaving: true,
+        justSaved: false,
+        saveError: undefined,
+        saveErrorKind: undefined,
+      });
 
       try {
         const cascade = await withConflictRetry(
@@ -657,11 +692,13 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
           editedPaths,
           savedDice,
           isSaving: false,
+          justSaved: true,
           saveError: undefined,
           saveErrorKind: undefined,
           previewMarks: undefined,
         });
         deps.onSaved?.({ data: defaults, dice: savedDice, delta });
+        confirmSaved();
         await bestEffort(() => deps.store.deleteDraft(seed.sheet.id));
       } catch (error) {
         const copy = await offlineCopy(error, 'save');
@@ -688,9 +725,11 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
 
       previewWindow.record();
       scheduleThrottle();
+      clearSaved();
       commit({
         ...state,
         isPreviewing: true,
+        justSaved: false,
         previewError: undefined,
         previewErrorKind: undefined,
       });
@@ -722,9 +761,11 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     },
 
     discard: () => {
+      clearSaved();
       commit({
         ...state,
         data: cloneTree(state.defaults) as Record<string, unknown>,
+        justSaved: false,
         editedPaths: new Set<string>(),
         dice: state.savedDice,
         revision: state.revision + 1,
@@ -761,6 +802,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         commit({
           ...state,
           dice: pruneStaleChoices(draft.dice, diceRules),
+          justSaved: false,
         });
       }
     },
@@ -768,6 +810,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     dispose: () => {
       throttleCancel?.();
       throttleCancel = undefined;
+      clearSaved();
     },
   };
 }

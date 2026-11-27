@@ -146,6 +146,10 @@
       "status": 422
     },
     {
+      "code": "SHEET_NAME_TOO_LONG",
+      "status": 422
+    },
+    {
       "code": "TEMPLATE_MISMATCH",
       "status": 422
     },

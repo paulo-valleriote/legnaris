@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"legnaris/backend/internal/events"
 	"legnaris/backend/internal/plan"
@@ -205,6 +206,10 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 	if err != nil {
 		return nil, err
 	}
+	name, err = nameForSheet(base.tmpl, initialData, name)
+	if err != nil {
+		return nil, err
+	}
 	limit := base.limit
 
 	sheetID, err := idgen.New()
@@ -294,6 +299,7 @@ type preparedSave struct {
 	delta      map[string]any
 	merged     map[string]any
 	cascade    map[string]any
+	name       string
 }
 
 func (s *ServiceImpl) recalculate(ctx context.Context, ref sheetRef, data map[string]any) (*preparedSave, error) {
@@ -323,7 +329,48 @@ func (s *ServiceImpl) recalculate(ctx context.Context, ref sheetRef, data map[st
 		delta:      recordAwareDelta(calculation.Normalized, calculation.RecordUpdates),
 		merged:     calculation.Merged,
 		cascade:    calculation.Cascade,
+		name:       sheetNameFromData(dag, calculation.Merged, storedSheet.Name),
 	}, nil
+}
+
+func sheetNameFromData(dag *template.DAG, data map[string]any, fallback string) string {
+	if name := dag.NameFrom(data); name != "" && name != fallback {
+		return name
+	}
+	return ""
+}
+
+func nameForSheet(tmpl *template.Template, data map[string]any, fallback string) (string, error) {
+	name := tmpl.SuggestName(data)
+	if name == "" {
+		if tmpl.NameLeaf == "" {
+			return fallback, nil
+		}
+		name = fallback
+	}
+	if err := validateSheetNameLength(tmpl, name); err != nil {
+		return "", err
+	}
+	if err := setSheetNameLeaf(tmpl, data, name); err != nil {
+		return "", err
+	}
+	return name, nil
+}
+
+func validateSheetNameLength(tmpl *template.Template, name string) error {
+	maxLength := tmpl.NameMaxLength()
+	if maxLength > 0 && utf8.RuneCountInString(name) > maxLength {
+		return apperr.NewError(apperr.CodeSheetNameTooLong, MsgSheetNameTooLong, nil).
+			WithDetails(map[string]any{"max_length": maxLength})
+	}
+	return nil
+}
+
+func setSheetNameLeaf(tmpl *template.Template, data map[string]any, name string) error {
+	if err := template.Path(strings.Split(tmpl.NameLeaf, ".")).Set(data, name); err != nil {
+		return apperr.NewError(apperr.CodeInternal, "failed to seed sheet name", err)
+	}
+	return nil
 }
 
 func recordAwareDelta(static map[string]any, records []template.RecordUpdate) map[string]any {
@@ -366,6 +413,9 @@ func (s *ServiceImpl) PartialUpdate(ctx context.Context, cmd PartialUpdateSheetC
 	}
 
 	dbUpdates := map[string]any{"updated_at": time.Now()}
+	if cmd.hasDelta() && result.name != "" {
+		dbUpdates["name"] = result.name
+	}
 	if cmd.hasDelta() {
 		dbUpdates["data"] = result.merged
 	}

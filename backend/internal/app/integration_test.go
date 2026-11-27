@@ -446,7 +446,7 @@ func TestIntegration_Sheets_CreateFetchPatch(t *testing.T) {
 
 	identity, ok := created.Data["identity"].(map[string]any)
 	require.True(t, ok)
-	assert.Empty(t, identity["characterName"])
+	assert.Equal(t, "Test Sheet", identity["characterName"])
 
 	skillsData, ok := created.Data["skills"].(map[string]any)
 	require.True(t, ok)

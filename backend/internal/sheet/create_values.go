@@ -158,6 +158,11 @@ func (s *ServiceImpl) CreateWithValues(ctx context.Context, cmd CreateWithValues
 		return nil, err
 	}
 
+	name, err = nameForSheet(base.tmpl, data, name)
+	if err != nil {
+		return nil, err
+	}
+
 	sheetID, err := idgen.New()
 	if err != nil {
 		return nil, apperr.NewError(apperr.CodeInternal, "failed to generate sheet id", err)

@@ -171,6 +171,7 @@ describe('sheet footer, save and Ctrl+S', () => {
       expect(fake.requests.filter((request) => request.method === 'PATCH')).toHaveLength(1);
     });
     expect(screen.queryByText(message('sheet.pendingEdits'))).not.toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: message('sheet.saved') })).toBeInTheDocument();
   });
 });
 
