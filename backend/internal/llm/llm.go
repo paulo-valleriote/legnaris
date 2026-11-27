@@ -31,6 +31,7 @@ type Response struct {
 	Output       json.RawMessage
 	Usage        Usage
 	FinishReason string
+	Model        string
 }
 
 type generationIDKey struct{}

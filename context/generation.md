@@ -112,7 +112,7 @@ API errors: `INVALID_REQUEST` and `INVALID_JSON` 400; `UNAUTHORIZED` 401; `LLM_C
 
 ### Persisted shapes and indexes
 
-- `generations` — UUID v7 id, `user_id`, `template_id`, `kind`, sanitized `concept`, `status`, `active_user_id`, `attempts`, `lease_until`, `publish_lease_until`, `publish_attempts`, `reap_attempts`, `values`, `error_code`, `sheet_id`, `quota {kind, day_utc}`, `created_at`, `expires_at`. A sparse unique index on `active_user_id` enforces one open job per user; a TTL index on `expires_at` removes the document 24 h after creation.
+- `generations` — UUID v7 id, `user_id`, `template_id`, `kind`, sanitized `concept`, `status`, `active_user_id`, `attempts`, `lease_until`, `publish_lease_until`, `publish_attempts`, `reap_attempts`, `values`, `error_code`, `sheet_id`, `prompt_version`, `model`, `quota {kind, day_utc}`, `created_at`, `expires_at`. `prompt_version` is `vN+<12 hex of sha256(system prompt)>`; `model` is the model reported by the provider for the settling attempt. Both are internal and never appear in the user view. A sparse unique index on `active_user_id` enforces one open job per user; a TTL index on `expires_at` removes the document 24 h after creation; the sparse compound `{sheet_id, created_at}` index supports `MongoStore.ListBySheet(sheetID, from, to)`, the internal per-sheet/per-period query. Documents written before these fields read with empty strings.
 - `generation_cap` — one row per UTC day with `count`, expiring after 48 h; the cap is reserved atomically before the insert and is never refunded.
 - `generation_usage` — `{user_id, day_utc, count}` for the paid daily quota, unique per user and day, expiring after 48 h. `users` carries `llm_consent_at` and `llm_consent_version`.
 
@@ -187,6 +187,17 @@ array assembles as an empty list `{}`. A class/subclass or invariant mismatch is
 problem like any other; invalid output is retried twice with the problems sent back. Transient
 transport failures get one retry after 500 ms, and an open circuit breaker fails fast. A terminal
 failure stores its code and refunds the quota.
+
+The worker records a `prompt_version` and the actual `model` on every settled generation. The
+version is `v<N>+<first 12 hex of sha256(system prompt)>`, where `N` is `PromptVersionNumber` in
+`prompt.go` and the hash covers the assembled system prompt (preamble, Game system brief, guidance
+and field list), never the player's concept. A text change therefore changes the hash even when
+`N` was not bumped; bump `N` deliberately when the change is semantic. The model comes from the
+provider response of the settling attempt (the successful one, or the last invalid one), not from
+configuration, so a gateway fallback is visible. Queued/publish-failed and old documents may have
+empty values. `MongoStore.ListBySheet(sheetID, from, to)` returns the non-user-facing documents for
+a Sheet and period; the compound sparse index `{sheet_id, created_at}` backs it. `GET
+/generations/{id}` and the rest of the user surface never expose either field.
 
 ### Template metadata
 

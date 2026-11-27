@@ -148,7 +148,9 @@ so Drafts stay hidden.
   delivery queues in the `legnaris` vhost with an application account that
   cannot open the console and a separate operator account that can. Redis is
   memory-only with `noeviction` and the limiters fall back to per-process
-  counting when it is unreachable.
+  counting when it is unreachable. `backend/shared/db` ensures the indexes at
+  boot, including the sparse `generations {sheet_id, created_at}` index used by
+  the internal per-sheet/per-period generation query.
 - **Runtime configuration.** Processes read the environment through
   `backend/shared/env`; keys and defaults are in `.env.example`,
   `deploy/.env.example` and the owning context files. Production receives the

@@ -1,6 +1,8 @@
 package generation
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"maps"
 	"slices"
@@ -14,6 +16,13 @@ const (
 	conceptOpen  = "<concept>"
 	conceptClose = "</concept>"
 )
+
+const PromptVersionNumber = 1
+
+func PromptVersion(systemPrompt string) string {
+	sum := sha256.Sum256([]byte(systemPrompt))
+	return fmt.Sprintf("v%d+%s", PromptVersionNumber, hex.EncodeToString(sum[:])[:12])
+}
 
 const systemPreamble = `You fill in the values of %s.
 Reply with one JSON object that matches the provided schema and nothing else.

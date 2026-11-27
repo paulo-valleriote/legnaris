@@ -33,6 +33,7 @@ const (
 	generationsActiveUserUnique     = "generations_active_user_id_unique"
 	generationsExpiresAtTTL         = "generations_expires_at_ttl"
 	generationsStatusCreatedAt      = "generations_status_created_at"
+	generationsSheetCreatedAt       = "generations_sheet_id_created_at"
 	generationCapExpiresAtTTL       = "generation_cap_expires_at_ttl"
 	subscriptionsUserLiveUnique     = "subscriptions_user_live_unique"
 	subscriptionsUserIDField        = "user_id"
@@ -263,6 +264,10 @@ func ensureGenerationIndexes(ctx context.Context, database *mongo.Database) erro
 		{
 			Keys:    bson.D{{Key: statusField, Value: 1}, {Key: createdAtField, Value: 1}},
 			Options: options.Index().SetName(generationsStatusCreatedAt),
+		},
+		{
+			Keys:    bson.D{{Key: sheetIDField, Value: 1}, {Key: createdAtField, Value: 1}},
+			Options: options.Index().SetSparse(true).SetName(generationsSheetCreatedAt),
 		},
 	}); err != nil {
 		return fmt.Errorf("create generations indexes: %w", err)

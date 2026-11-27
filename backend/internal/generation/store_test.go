@@ -267,3 +267,60 @@ func TestMongoStore_OldestQueued(t *testing.T) {
 		})
 	}
 }
+
+func TestMongoStore_ListBySheet(t *testing.T) {
+	sheet := "0190a1b2-0000-7000-8000-0000000000aa"
+	start := time.Date(2026, 11, 14, 10, 0, 0, 0, time.UTC)
+	early := queuedDoc(jobA, userID, start.Add(-time.Hour))
+	early.SheetID = sheet
+	inside := queuedDoc(jobB, otherUser, start)
+	inside.SheetID = sheet
+	late := queuedDoc(jobC, userID, start.Add(time.Hour))
+	late.SheetID = sheet
+	other := queuedDoc("0190a1b2-0000-7000-8000-0000000000d4", userID, start)
+	other.SheetID = "0190a1b2-0000-7000-8000-0000000000bb"
+
+	s, _ := newStore(t)
+	for _, doc := range []generation.Document{early, inside, late, other} {
+		doc.ActiveUserID = ""
+		require.NoError(t, s.Insert(context.Background(), doc))
+	}
+
+	found, err := s.ListBySheet(context.Background(), sheet, start, start.Add(time.Hour))
+	require.NoError(t, err)
+	require.Len(t, found, 2)
+	assert.Equal(t, jobB, found[0].ID)
+	assert.Equal(t, jobC, found[1].ID)
+}
+
+func TestMongoStore_ListBySheetRejectsMissingSheet(t *testing.T) {
+	s, _ := newStore(t)
+	_, err := s.ListBySheet(context.Background(), "", time.Time{}, time.Time{})
+	require.Error(t, err)
+}
+
+func TestMongoStore_CompleteRecordsMetadata(t *testing.T) {
+	s, mdb := newStore(t)
+	runningDoc(t, s, mdb, jobA, jobStart.Add(time.Minute))
+
+	landed, err := s.Complete(context.Background(), jobA, map[string]any{"name": "Aria"}, generation.Metadata{
+		PromptVersion: "v1+123456789abc",
+		Model:         "deepseek/deepseek-v4.1-flash",
+	})
+	require.NoError(t, err)
+	require.True(t, landed)
+
+	raw := readRaw(t, mdb, jobA)
+	assert.Equal(t, "v1+123456789abc", raw["prompt_version"])
+	assert.Equal(t, "deepseek/deepseek-v4.1-flash", raw["model"])
+}
+
+func TestMongoStore_OldDocumentsReadWithoutMetadata(t *testing.T) {
+	s, _ := newStore(t)
+	require.NoError(t, s.Insert(context.Background(), queuedDoc(jobA, userID, jobStart)))
+
+	doc, err := s.FindOwned(context.Background(), userID, jobA)
+	require.NoError(t, err)
+	assert.Empty(t, doc.PromptVersion)
+	assert.Empty(t, doc.Model)
+}

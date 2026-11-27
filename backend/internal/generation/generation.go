@@ -75,6 +75,8 @@ type Document struct {
 	Values            map[string]any `bson:"values,omitempty"`
 	ErrorCode         string         `bson:"error_code,omitempty"`
 	SheetID           string         `bson:"sheet_id,omitempty"`
+	PromptVersion     string         `bson:"prompt_version,omitempty"`
+	Model             string         `bson:"model,omitempty"`
 	Quota             Reservation    `bson:"quota"`
 	CreatedAt         time.Time      `bson:"created_at"`
 	ExpiresAt         time.Time      `bson:"expires_at"`
@@ -94,6 +96,11 @@ type View struct {
 type Message struct {
 	ID   string `json:"generation_id"`
 	Kind string `json:"kind"`
+}
+
+type Metadata struct {
+	PromptVersion string
+	Model         string
 }
 
 const (

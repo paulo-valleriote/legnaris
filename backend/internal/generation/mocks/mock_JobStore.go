@@ -90,9 +90,9 @@ func (_c *MockJobStore_ClaimQueued_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
-// Complete provides a mock function with given fields: ctx, id, values
-func (_m *MockJobStore) Complete(ctx context.Context, id string, values map[string]any) (bool, error) {
-	ret := _m.Called(ctx, id, values)
+// Complete provides a mock function with given fields: ctx, id, values, meta
+func (_m *MockJobStore) Complete(ctx context.Context, id string, values map[string]any, meta generation.Metadata) (bool, error) {
+	ret := _m.Called(ctx, id, values, meta)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Complete")
@@ -100,17 +100,17 @@ func (_m *MockJobStore) Complete(ctx context.Context, id string, values map[stri
 
 	var r0 bool
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]any) (bool, error)); ok {
-		return rf(ctx, id, values)
+	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]any, generation.Metadata) (bool, error)); ok {
+		return rf(ctx, id, values, meta)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]any) bool); ok {
-		r0 = rf(ctx, id, values)
+	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]any, generation.Metadata) bool); ok {
+		r0 = rf(ctx, id, values, meta)
 	} else {
 		r0 = ret.Get(0).(bool)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, map[string]any) error); ok {
-		r1 = rf(ctx, id, values)
+	if rf, ok := ret.Get(1).(func(context.Context, string, map[string]any, generation.Metadata) error); ok {
+		r1 = rf(ctx, id, values, meta)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -127,13 +127,14 @@ type MockJobStore_Complete_Call struct {
 //   - ctx context.Context
 //   - id string
 //   - values map[string]any
-func (_e *MockJobStore_Expecter) Complete(ctx interface{}, id interface{}, values interface{}) *MockJobStore_Complete_Call {
-	return &MockJobStore_Complete_Call{Call: _e.mock.On("Complete", ctx, id, values)}
+//   - meta generation.Metadata
+func (_e *MockJobStore_Expecter) Complete(ctx interface{}, id interface{}, values interface{}, meta interface{}) *MockJobStore_Complete_Call {
+	return &MockJobStore_Complete_Call{Call: _e.mock.On("Complete", ctx, id, values, meta)}
 }
 
-func (_c *MockJobStore_Complete_Call) Run(run func(ctx context.Context, id string, values map[string]any)) *MockJobStore_Complete_Call {
+func (_c *MockJobStore_Complete_Call) Run(run func(ctx context.Context, id string, values map[string]any, meta generation.Metadata)) *MockJobStore_Complete_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(map[string]any))
+		run(args[0].(context.Context), args[1].(string), args[2].(map[string]any), args[3].(generation.Metadata))
 	})
 	return _c
 }
@@ -143,14 +144,14 @@ func (_c *MockJobStore_Complete_Call) Return(_a0 bool, _a1 error) *MockJobStore_
 	return _c
 }
 
-func (_c *MockJobStore_Complete_Call) RunAndReturn(run func(context.Context, string, map[string]any) (bool, error)) *MockJobStore_Complete_Call {
+func (_c *MockJobStore_Complete_Call) RunAndReturn(run func(context.Context, string, map[string]any, generation.Metadata) (bool, error)) *MockJobStore_Complete_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// FailRunning provides a mock function with given fields: ctx, id, code
-func (_m *MockJobStore) FailRunning(ctx context.Context, id string, code string) (generation.Document, bool, error) {
-	ret := _m.Called(ctx, id, code)
+// FailRunning provides a mock function with given fields: ctx, id, code, meta
+func (_m *MockJobStore) FailRunning(ctx context.Context, id string, code string, meta generation.Metadata) (generation.Document, bool, error) {
+	ret := _m.Called(ctx, id, code, meta)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FailRunning")
@@ -159,23 +160,23 @@ func (_m *MockJobStore) FailRunning(ctx context.Context, id string, code string)
 	var r0 generation.Document
 	var r1 bool
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) (generation.Document, bool, error)); ok {
-		return rf(ctx, id, code)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, generation.Metadata) (generation.Document, bool, error)); ok {
+		return rf(ctx, id, code, meta)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string) generation.Document); ok {
-		r0 = rf(ctx, id, code)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, generation.Metadata) generation.Document); ok {
+		r0 = rf(ctx, id, code, meta)
 	} else {
 		r0 = ret.Get(0).(generation.Document)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string) bool); ok {
-		r1 = rf(ctx, id, code)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, generation.Metadata) bool); ok {
+		r1 = rf(ctx, id, code, meta)
 	} else {
 		r1 = ret.Get(1).(bool)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, string, string) error); ok {
-		r2 = rf(ctx, id, code)
+	if rf, ok := ret.Get(2).(func(context.Context, string, string, generation.Metadata) error); ok {
+		r2 = rf(ctx, id, code, meta)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -192,13 +193,14 @@ type MockJobStore_FailRunning_Call struct {
 //   - ctx context.Context
 //   - id string
 //   - code string
-func (_e *MockJobStore_Expecter) FailRunning(ctx interface{}, id interface{}, code interface{}) *MockJobStore_FailRunning_Call {
-	return &MockJobStore_FailRunning_Call{Call: _e.mock.On("FailRunning", ctx, id, code)}
+//   - meta generation.Metadata
+func (_e *MockJobStore_Expecter) FailRunning(ctx interface{}, id interface{}, code interface{}, meta interface{}) *MockJobStore_FailRunning_Call {
+	return &MockJobStore_FailRunning_Call{Call: _e.mock.On("FailRunning", ctx, id, code, meta)}
 }
 
-func (_c *MockJobStore_FailRunning_Call) Run(run func(ctx context.Context, id string, code string)) *MockJobStore_FailRunning_Call {
+func (_c *MockJobStore_FailRunning_Call) Run(run func(ctx context.Context, id string, code string, meta generation.Metadata)) *MockJobStore_FailRunning_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(string))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(generation.Metadata))
 	})
 	return _c
 }
@@ -208,7 +210,68 @@ func (_c *MockJobStore_FailRunning_Call) Return(_a0 generation.Document, _a1 boo
 	return _c
 }
 
-func (_c *MockJobStore_FailRunning_Call) RunAndReturn(run func(context.Context, string, string) (generation.Document, bool, error)) *MockJobStore_FailRunning_Call {
+func (_c *MockJobStore_FailRunning_Call) RunAndReturn(run func(context.Context, string, string, generation.Metadata) (generation.Document, bool, error)) *MockJobStore_FailRunning_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListBySheet provides a mock function with given fields: ctx, sheetID, from, to
+func (_m *MockJobStore) ListBySheet(ctx context.Context, sheetID string, from time.Time, to time.Time) ([]generation.Document, error) {
+	ret := _m.Called(ctx, sheetID, from, to)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListBySheet")
+	}
+
+	var r0 []generation.Document
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time, time.Time) ([]generation.Document, error)); ok {
+		return rf(ctx, sheetID, from, to)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string, time.Time, time.Time) []generation.Document); ok {
+		r0 = rf(ctx, sheetID, from, to)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]generation.Document)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string, time.Time, time.Time) error); ok {
+		r1 = rf(ctx, sheetID, from, to)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockJobStore_ListBySheet_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListBySheet'
+type MockJobStore_ListBySheet_Call struct {
+	*mock.Call
+}
+
+// ListBySheet is a helper method to define mock.On call
+//   - ctx context.Context
+//   - sheetID string
+//   - from time.Time
+//   - to time.Time
+func (_e *MockJobStore_Expecter) ListBySheet(ctx interface{}, sheetID interface{}, from interface{}, to interface{}) *MockJobStore_ListBySheet_Call {
+	return &MockJobStore_ListBySheet_Call{Call: _e.mock.On("ListBySheet", ctx, sheetID, from, to)}
+}
+
+func (_c *MockJobStore_ListBySheet_Call) Run(run func(ctx context.Context, sheetID string, from time.Time, to time.Time)) *MockJobStore_ListBySheet_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(time.Time), args[3].(time.Time))
+	})
+	return _c
+}
+
+func (_c *MockJobStore_ListBySheet_Call) Return(_a0 []generation.Document, _a1 error) *MockJobStore_ListBySheet_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockJobStore_ListBySheet_Call) RunAndReturn(run func(context.Context, string, time.Time, time.Time) ([]generation.Document, error)) *MockJobStore_ListBySheet_Call {
 	_c.Call.Return(run)
 	return _c
 }

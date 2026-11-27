@@ -109,31 +109,32 @@ func (w *Worker) Process(ctx context.Context, id string) error {
 
 	jobCtx, cancel := context.WithTimeout(ctx, w.budget)
 	defer cancel()
-	values, code := w.generate(jobCtx, doc)
+	values, code, meta := w.generate(jobCtx, doc)
 
 	settleCtx, settle := context.WithTimeout(context.WithoutCancel(ctx), settleTimeout)
 	defer settle()
 	if code == "" {
-		return w.succeed(settleCtx, doc, values, claimedAt)
+		return w.succeed(settleCtx, doc, values, meta, claimedAt)
 	}
-	return w.fail(settleCtx, doc, code, claimedAt)
+	return w.fail(settleCtx, doc, code, meta, claimedAt)
 }
 
-func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, string) {
+func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, string, Metadata) {
 	ctx = llm.WithGenerationID(ctx, doc.ID)
 	tmpl, dag, code := w.resolve(doc.TemplateID)
 	if code != "" {
-		return nil, code
+		return nil, code, Metadata{}
 	}
 	kind := plan.SheetKind(documentKind(doc.Kind))
 	schema, err := OutputSchema(tmpl, kind)
 	if err != nil {
-		return nil, ErrorCodeTemplateUnavailable
+		return nil, ErrorCodeTemplateUnavailable, Metadata{}
 	}
 	system, err := SystemPrompt(tmpl, kind)
 	if err != nil {
-		return nil, ErrorCodeTemplateUnavailable
+		return nil, ErrorCodeTemplateUnavailable, Metadata{}
 	}
+	meta := Metadata{PromptVersion: PromptVersion(system)}
 
 	var problems []string
 	for attempt := 0; attempt <= MaxSchemaRetries; attempt++ {
@@ -145,11 +146,14 @@ func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, st
 		}
 		resp, code := w.call(ctx, req)
 		if code != "" {
-			return nil, code
+			return nil, code, meta
+		}
+		if resp.Model != "" {
+			meta.Model = resp.Model
 		}
 		values, err := parseAndAssemble(tmpl, dag, kind, resp.Output)
 		if err == nil {
-			return values, ""
+			return values, "", meta
 		}
 		var outputErr *OutputError
 		if !errors.As(err, &outputErr) {
@@ -160,7 +164,7 @@ func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, st
 				logger.Attribute{Key: attrFinishReason, Value: resp.FinishReason},
 				logger.Attribute{Key: attrOutputBytes, Value: strconv.Itoa(len(resp.Output))},
 				logger.Attribute{Key: attrErrorCode, Value: ErrorCodeTemplateUnavailable})
-			return nil, ErrorCodeTemplateUnavailable
+			return nil, ErrorCodeTemplateUnavailable, meta
 		}
 		problems = problemsOf(err)
 		w.logger.Info(ctx, "generation output rejected",
@@ -171,7 +175,7 @@ func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, st
 			logger.Attribute{Key: attrOutputBytes, Value: strconv.Itoa(len(resp.Output))},
 			logger.Attribute{Key: attrErrorCode, Value: ErrorCodeInvalidOutput})
 	}
-	return nil, ErrorCodeInvalidOutput
+	return nil, ErrorCodeInvalidOutput, meta
 }
 
 func (w *Worker) resolve(templateID string) (*template.Template, *template.DAG, string) {
@@ -257,8 +261,8 @@ func problemsOf(err error) []string {
 	return []string{"output does not match the schema"}
 }
 
-func (w *Worker) succeed(ctx context.Context, doc Document, values map[string]any, claimedAt time.Time) error {
-	landed, err := w.jobs.Complete(ctx, doc.ID, values)
+func (w *Worker) succeed(ctx context.Context, doc Document, values map[string]any, meta Metadata, claimedAt time.Time) error {
+	landed, err := w.jobs.Complete(ctx, doc.ID, values, meta)
 	if err != nil {
 		return fmt.Errorf("complete generation %s: %w", doc.ID, err)
 	}
@@ -271,9 +275,9 @@ func (w *Worker) succeed(ctx context.Context, doc Document, values map[string]an
 	return nil
 }
 
-func (w *Worker) fail(ctx context.Context, doc Document, code string, claimedAt time.Time) error {
+func (w *Worker) fail(ctx context.Context, doc Document, code string, meta Metadata, claimedAt time.Time) error {
 	err := w.tx.WithTransaction(ctx, func(txCtx context.Context) error {
-		before, settled, err := w.jobs.FailRunning(txCtx, doc.ID, code)
+		before, settled, err := w.jobs.FailRunning(txCtx, doc.ID, code, meta)
 		if err != nil {
 			return err
 		}

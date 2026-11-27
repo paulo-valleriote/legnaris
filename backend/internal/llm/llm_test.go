@@ -96,3 +96,8 @@ func TestGenerationID(t *testing.T) {
 		assert.Empty(t, llm.GenerationID(context.Background()))
 	})
 }
+
+func TestResponseCarriesModel(t *testing.T) {
+	response := llm.Response{Model: "deepseek/deepseek-v4.1-flash"}
+	assert.Equal(t, "deepseek/deepseek-v4.1-flash", response.Model)
+}

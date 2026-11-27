@@ -63,8 +63,9 @@ type CapObserver interface {
 
 type JobStore interface {
 	ClaimQueued(ctx context.Context, id string, now time.Time, lease time.Duration) (Document, bool, error)
-	Complete(ctx context.Context, id string, values map[string]any) (bool, error)
-	FailRunning(ctx context.Context, id, code string) (Document, bool, error)
+	Complete(ctx context.Context, id string, values map[string]any, meta Metadata) (bool, error)
+	FailRunning(ctx context.Context, id, code string, meta Metadata) (Document, bool, error)
+	ListBySheet(ctx context.Context, sheetID string, from, to time.Time) ([]Document, error)
 }
 
 type LeaseStore interface {

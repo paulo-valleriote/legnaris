@@ -105,7 +105,7 @@ func (f workerFixture) expectTerminalTx(code string, settled bool, reservation g
 	f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
 		RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }).Once()
 	before := generation.Document{ID: jobID, UserID: userID, Quota: reservation}
-	f.jobs.EXPECT().FailRunning(mock.Anything, jobID, code).Return(before, settled, nil).Once()
+	f.jobs.EXPECT().FailRunning(mock.Anything, jobID, code, mock.Anything).Return(before, settled, nil).Once()
 }
 
 func (f workerFixture) expectDailyRefund() {
@@ -113,7 +113,7 @@ func (f workerFixture) expectDailyRefund() {
 }
 
 func (f workerFixture) completeWith(landed bool) {
-	f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.Anything).Return(landed, nil).Once()
+	f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.Anything, mock.Anything).Return(landed, nil).Once()
 }
 
 func (f workerFixture) generateReturns(out string, err error) {
@@ -137,7 +137,7 @@ func TestWorkerProcess_Happy(t *testing.T) {
 		f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.MatchedBy(func(values map[string]any) bool {
 			stats := values["stats"].(map[string]any)
 			return stats["dexterity"] == 15.0 && values["identity"].(map[string]any)["name"] == "Aria"
-		})).Return(true, nil).Once()
+		}), mock.Anything).Return(true, nil).Once()
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
@@ -197,7 +197,7 @@ func TestWorkerProcess_Happy(t *testing.T) {
 			return values["identity"].(map[string]any)["playerName"] == "" &&
 				values["identity"].(map[string]any)["nickname"] == "" &&
 				values["config"].(map[string]any)["acUsesCon"] == 1.0
-		})).Return(true, nil).Once()
+		}), mock.Anything).Return(true, nil).Once()
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
@@ -266,7 +266,7 @@ func TestWorkerProcess_Edge(t *testing.T) {
 		f.expectTemplate(t)
 		f.expectClaim(dailyReservation)
 		f.generateReturns(validOutput, nil)
-		f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.Anything).Return(false, errors.New("write failed")).Once()
+		f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.Anything, mock.Anything).Return(false, errors.New("write failed")).Once()
 
 		require.Error(t, f.worker.Process(context.Background(), jobID))
 	})
@@ -278,7 +278,7 @@ func TestWorkerProcess_Edge(t *testing.T) {
 		f.generateReturns("", llm.ErrPermanent)
 		f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
 			RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }).Once()
-		f.jobs.EXPECT().FailRunning(mock.Anything, jobID, generation.ErrorCodeProviderFailed).
+		f.jobs.EXPECT().FailRunning(mock.Anything, jobID, generation.ErrorCodeProviderFailed, mock.Anything).
 			Return(generation.Document{}, false, errors.New("write failed")).Once()
 
 		require.Error(t, f.worker.Process(context.Background(), jobID))
@@ -525,7 +525,7 @@ func TestWorkerProcess_Transport(t *testing.T) {
 				Concept: secretConcept, Quota: dailyReservation}, true, nil).Once()
 		f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
 			RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }).Once()
-		f.jobs.EXPECT().FailRunning(mock.Anything, secondID, generation.ErrorCodeProviderUnavailable).
+		f.jobs.EXPECT().FailRunning(mock.Anything, secondID, generation.ErrorCodeProviderUnavailable, mock.Anything).
 			Return(generation.Document{ID: secondID, UserID: userID, Quota: dailyReservation}, true, nil).Once()
 		f.expectDailyRefund()
 
@@ -580,7 +580,7 @@ func TestWorkerProcess_Refunds(t *testing.T) {
 		f.generateReturns("", llm.ErrPermanent)
 		f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
 			RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }).Once()
-		f.jobs.EXPECT().FailRunning(mock.Anything, jobID, generation.ErrorCodeProviderFailed).
+		f.jobs.EXPECT().FailRunning(mock.Anything, jobID, generation.ErrorCodeProviderFailed, mock.Anything).
 			Return(generation.Document{ID: jobID, UserID: userID, Quota: dailyReservation}, true, nil).Once()
 		f.quota.EXPECT().RefundDaily(mock.Anything, userID, "2026-11-14").Return(errors.New("quota down")).Once()
 
@@ -594,7 +594,7 @@ func TestWorkerProcess_Refunds(t *testing.T) {
 		f.generateReturns("", llm.ErrPermanent)
 		f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
 			RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }).Once()
-		f.jobs.EXPECT().FailRunning(mock.Anything, jobID, generation.ErrorCodeProviderFailed).
+		f.jobs.EXPECT().FailRunning(mock.Anything, jobID, generation.ErrorCodeProviderFailed, mock.Anything).
 			Return(generation.Document{ID: jobID, UserID: userID, Quota: generation.Reservation{Kind: "mystery"}}, true, nil).Once()
 
 		require.Error(t, f.worker.Process(context.Background(), jobID))
@@ -782,5 +782,49 @@ func TestNewWorker(t *testing.T) {
 		w, err := generation.NewWorker(base(t))
 		require.NoError(t, err)
 		assert.NotNil(t, w)
+	})
+}
+
+func TestWorkerProcess_RecordsPromptVersionAndActualModel(t *testing.T) {
+	t.Run("Happy path: success records the prompt version and the model that answered", func(t *testing.T) {
+		f := newWorkerFixture(t, 5)
+		f.expectTemplate(t)
+		f.expectClaim(dailyReservation)
+		f.generateResponse(llm.Response{Output: json.RawMessage(validOutput), Model: "deepseek/deepseek-v4.1-flash"}, nil)
+		f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.Anything, mock.MatchedBy(func(meta generation.Metadata) bool {
+			return strings.HasPrefix(meta.PromptVersion, "v1+") && meta.Model == "deepseek/deepseek-v4.1-flash"
+		})).Return(true, nil).Once()
+
+		require.NoError(t, f.worker.Process(context.Background(), jobID))
+	})
+
+	t.Run("Edge: a schema retry records the model of the successful attempt", func(t *testing.T) {
+		f := newWorkerFixture(t, 5)
+		f.expectTemplate(t)
+		f.expectClaim(dailyReservation)
+		f.generateResponse(llm.Response{Output: json.RawMessage(invalidOutput), Model: "model/first-attempt"}, nil)
+		f.generateResponse(llm.Response{Output: json.RawMessage(validOutput), Model: "model/second-attempt"}, nil)
+		f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.Anything, mock.MatchedBy(func(meta generation.Metadata) bool {
+			return strings.HasPrefix(meta.PromptVersion, "v1+") && meta.Model == "model/second-attempt"
+		})).Return(true, nil).Once()
+
+		require.NoError(t, f.worker.Process(context.Background(), jobID))
+	})
+
+	t.Run("Error: an invalid output records the last model and prompt version on failure", func(t *testing.T) {
+		f := newWorkerFixture(t, 5)
+		f.expectTemplate(t)
+		f.expectClaim(dailyReservation)
+		f.generateResponse(llm.Response{Output: json.RawMessage(invalidOutput), Model: "model/invalid"}, nil)
+		f.generateResponse(llm.Response{Output: json.RawMessage(invalidOutput), Model: "model/invalid-again"}, nil)
+		f.generateResponse(llm.Response{Output: json.RawMessage(invalidOutput), Model: "model/invalid-final"}, nil)
+		f.tx.EXPECT().WithTransaction(mock.Anything, mock.Anything).
+			RunAndReturn(func(ctx context.Context, fn func(context.Context) error) error { return fn(ctx) }).Once()
+		f.jobs.EXPECT().FailRunning(mock.Anything, jobID, generation.ErrorCodeInvalidOutput, mock.MatchedBy(func(meta generation.Metadata) bool {
+			return strings.HasPrefix(meta.PromptVersion, "v1+") && meta.Model == "model/invalid-final"
+		})).Return(generation.Document{ID: jobID, UserID: userID, Quota: dailyReservation}, true, nil).Once()
+		f.expectDailyRefund()
+
+		require.NoError(t, f.worker.Process(context.Background(), jobID))
 	})
 }
