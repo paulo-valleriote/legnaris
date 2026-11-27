@@ -100,12 +100,19 @@ export interface SheetEditSeed {
   readonly sheet: Pick<Sheet, 'id' | 'data' | 'dice'>;
 }
 
+export interface SheetSaveSnapshot {
+  readonly data: Record<string, unknown>;
+  readonly dice: DiceBlock;
+  readonly delta: Record<string, unknown>;
+}
+
 export interface SheetEditDeps {
   readonly client: ApiClient;
   readonly store: SheetStore;
   readonly now?: () => number;
   readonly schedule?: (callback: () => void, delayMs: number) => () => void;
   readonly saveRetry?: SaveRetryDeps;
+  readonly onSaved?: (saved: SheetSaveSnapshot) => void;
 }
 
 export interface SheetEditStore {
@@ -640,17 +647,19 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
             editedPaths.add(path);
           }
         }
+        const savedDice = dice ?? current.savedDice;
         commit({
           ...current,
           data,
           defaults,
           editedPaths,
-          savedDice: dice ?? current.savedDice,
+          savedDice,
           isSaving: false,
           saveError: undefined,
           saveErrorKind: undefined,
           previewMarks: undefined,
         });
+        deps.onSaved?.({ data: defaults, dice: savedDice, delta });
         await bestEffort(() => deps.store.deleteDraft(seed.sheet.id));
       } catch (error) {
         const copy = await offlineCopy(error, 'save');

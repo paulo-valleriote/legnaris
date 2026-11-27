@@ -142,6 +142,7 @@ export const messages = {
   'generate.previewNote.enemy':
     "Generated values are a starting point. Check them against your game system's rules and adjust the details to fit your encounter.",
   'generate.sheetNameRequired': 'Give your sheet a name.',
+  'generate.nameFromCharacter': 'The generated character name is used as the sheet name.',
   'generate.accept': 'Save to my sheets',
   'generate.accepting': 'Saving…',
   'generate.regenerate': 'Regenerate',

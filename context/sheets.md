@@ -142,7 +142,11 @@ sequenceDiagram
 ```
 
 A new edit clears the preview marks. An offline save or preview writes the pending delta to the
-draft immediately; the normal cadence is 60 seconds.
+draft immediately; the normal cadence is 60 seconds. A save whose delta carries a non-empty
+`identity.name` also stores it as the Sheet's top-level name; the server keeps the previous name
+when the value is cleared. The screen writes name, data and Dice to the `['sheet', id]` cache,
+updates the local library record and invalidates the owned-sheet and campaign queries, so the
+library, the campaign list and the linked character refetch the new name.
 
 ### Rest → reset action
 

@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { PREVIEW_THROTTLE_MS } from '../generate/generation_flow';
+import { message } from '../l10n/strings';
 import {
   BASE_URL,
   GENERATION_ID,
@@ -55,6 +56,30 @@ async function reachReview(
 }
 
 describe('review step name prefill (LGN-196, LGN-233)', () => {
+  it('Happy path: a generated identity.name prevails over the typed Sheet name', async () => {
+    const { user, fake } = await reachReview({
+      [`GET /generations/${GENERATION_ID}`]: ok({
+        ...SUCCEEDED,
+        values: { identity: { name: 'Brenna' } },
+        suggested_name: 'Suggested',
+      }),
+      [`POST /generations/${GENERATION_ID}/accept`]: ok({ sheet_id: 'sheet-9' }, 201),
+    });
+
+    const name = screen.getByLabelText('Sheet name');
+    expect(name).toHaveValue('Brenna');
+    expect(name).toHaveAttribute('readonly');
+    expect(screen.getByText(message('generate.nameFromCharacter'))).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Save to my sheets' }));
+
+    await waitFor(() =>
+      expect(fake.requests.filter((request) => request.url.endsWith('/accept'))).toHaveLength(1),
+    );
+    const accepted = fake.requests.find((request) => request.url.endsWith('/accept'));
+    expect(JSON.parse(accepted?.body ?? '{}').sheet_name).toBe('Brenna');
+  });
+
   it('Happy path: the Sheet name is prefilled from the server suggested name', async () => {
     await reachReview();
 
