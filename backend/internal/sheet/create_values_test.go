@@ -9,6 +9,7 @@ import (
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/mocks"
 	"legnaris/backend/internal/sheet/sheeterr"
+	templatemocks "legnaris/backend/internal/sheet/template/mocks"
 	"legnaris/backend/shared/apperr"
 
 	"github.com/stretchr/testify/assert"
@@ -102,4 +103,56 @@ func TestService_CreateWithValues(t *testing.T) {
 			assert.Equal(t, tc.wantStatus, appErr.HttpStatus())
 		})
 	}
+}
+
+func TestService_CreateWithValues_RejectsBlankSheetName(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+	}{
+		{name: "Error: an empty name is refused before the template is read", raw: ""},
+		{name: "Error: a whitespace-only name is refused before the template is read", raw: "   "},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := mocks.NewMockRepository(t)
+			svc := newLimitedService(repo, templatemocks.NewMockService(t), limitDAG(t), mocks.NewMockPlanSource(t), mocks.NewMockTransactionRunner(t))
+
+			created, err := svc.CreateWithValues(context.Background(), sheet.CreateWithValuesCommand{
+				TemplateID: limitTemplateID,
+				Kind:       string(plan.KindCharacter),
+				SheetName:  tc.raw,
+				OwnerID:    ownerUserID,
+			}, nil)
+
+			require.Error(t, err)
+			assert.Nil(t, created)
+			var appErr *apperr.Error
+			require.ErrorAs(t, err, &appErr)
+			assert.Equal(t, apperr.CodeSheetNameInvalid, appErr.Code)
+			assert.Equal(t, 422, appErr.HttpStatus())
+		})
+	}
+}
+
+func TestService_CreateWithValues_TrimsSheetName(t *testing.T) {
+	repo := mocks.NewMockRepository(t)
+	repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindCharacter, 1).Return(nil).Once()
+	repo.EXPECT().Create(mock.Anything, mock.MatchedBy(func(created *sheet.Sheet) bool {
+		return created.Name == "Hero"
+	})).Return(nil).Once()
+	svc := newLimitedService(repo, limitTemplateService(t, plan.KindCharacter), limitDAG(t), planFor(t, ownerUserID, plan.Free), runInline(t))
+
+	created, err := svc.CreateWithValues(context.Background(), sheet.CreateWithValuesCommand{
+		TemplateID: limitTemplateID,
+		Kind:       string(plan.KindCharacter),
+		SheetName:  "  Hero  ",
+		OwnerID:    ownerUserID,
+		Values:     map[string]any{},
+	}, nil)
+
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	assert.Equal(t, "Hero", created.Name)
 }

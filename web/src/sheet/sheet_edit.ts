@@ -103,12 +103,18 @@ export interface SheetEditSeed {
   readonly sheet: Pick<Sheet, 'id' | 'data' | 'dice'>;
 }
 
+export interface SheetSaveSnapshot {
+  readonly data: Record<string, unknown>;
+  readonly dice: DiceBlock;
+}
+
 export interface SheetEditDeps {
   readonly client: ApiClient;
   readonly store: SheetStore;
   readonly now?: () => number;
   readonly schedule?: (callback: () => void, delayMs: number) => () => void;
   readonly saveRetry?: SaveRetryDeps;
+  readonly onSaved?: (saved: SheetSaveSnapshot) => void;
 }
 
 export interface SheetEditStore {
@@ -598,11 +604,12 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
 
     applyReset: (cascade) => {
       clearSaved();
+      const defaults = mergeCascade(state.defaults, cascade);
       commit({
         ...state,
         data: mergeCascade(state.data, cascade),
+        defaults,
         justSaved: false,
-        defaults: mergeCascade(state.defaults, cascade),
         revision: state.revision + 1,
         previewedRevision: undefined,
         previewMarks: undefined,
@@ -611,6 +618,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         previewError: undefined,
         previewErrorKind: undefined,
       });
+      deps.onSaved?.({ data: defaults, dice: state.savedDice });
     },
 
     refresh: async () => {
@@ -675,18 +683,20 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
             editedPaths.add(path);
           }
         }
+        const savedDice = dice ?? current.savedDice;
         commit({
           ...current,
           data,
           defaults,
           editedPaths,
-          savedDice: dice ?? current.savedDice,
+          savedDice,
           isSaving: false,
           justSaved: true,
           saveError: undefined,
           saveErrorKind: undefined,
           previewMarks: undefined,
         });
+        deps.onSaved?.({ data: defaults, dice: savedDice });
         confirmSaved();
         await bestEffort(() => deps.store.deleteDraft(seed.sheet.id));
       } catch (error) {

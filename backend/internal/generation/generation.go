@@ -106,7 +106,6 @@ const (
 	MsgTemplateRetired     = "template is retired and cannot start new generations"
 	MsgIDInvalid           = "generation id must be a canonical UUID v7"
 	MsgNotFound            = "generation not found"
-	MsgNameRequired        = "sheet name is required"
 	MsgValuesRequired      = "sheet values are required"
 	MsgNotAcceptable       = "generation is not ready to accept"
 	MsgInProgress          = "a generation is already in progress"

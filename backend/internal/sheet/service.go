@@ -192,6 +192,11 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 		return nil, err
 	}
 
+	name, err := ValidateSheetName(cmd.SheetName)
+	if err != nil {
+		return nil, err
+	}
+
 	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID, cmd.CampaignID, (*template.Template).Creatable, true)
 	if err != nil {
 		return nil, err
@@ -212,7 +217,7 @@ func (s *ServiceImpl) Create(ctx context.Context, cmd CreateSheetCommand) (*Shee
 		TemplateID: base.tmpl.ID,
 		OwnerID:    cmd.OwnerID,
 		Kind:       kind,
-		Name:       cmd.SheetName,
+		Name:       name,
 		Data:       initialData,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
