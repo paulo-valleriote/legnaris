@@ -50,6 +50,32 @@ describe('the inline editor', () => {
     expect(screen.getByRole('textbox', { name: 'Name' })).toHaveAttribute('maxlength', '60');
   });
 
+  it('Happy path: the phone dialog offers Save and commits without a Return key', async () => {
+    setViewportWidth(390);
+    const onCommit = renderInHeading();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Name, Brenna' }));
+    const input = screen.getByRole('textbox', { name: 'Name' });
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Ysolde');
+    await userEvent.click(screen.getByRole('button', { name: message('common.save') }));
+
+    expect(onCommit).toHaveBeenCalledWith('Ysolde');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('Edge: Cancel closes the phone dialog and discards the draft', async () => {
+    setViewportWidth(390);
+    const onCommit = renderInHeading();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Name, Brenna' }));
+    await userEvent.type(screen.getByRole('textbox', { name: 'Name' }), 'x');
+    await userEvent.click(screen.getByRole('button', { name: message('common.cancel') }));
+
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
   it('Happy path: the portalled dialog still commits what was typed', async () => {
     setViewportWidth(390);
     const onCommit = renderInHeading();

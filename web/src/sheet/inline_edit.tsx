@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import type { FieldSchema } from '../api/models/template';
 import { createPortal } from 'react-dom';
 import { message, messageWith } from '../l10n/strings';
+import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
 
 export const NARROW_QUERY = '(max-width: 40rem)';
@@ -134,6 +135,20 @@ export function InlineEdit({
             onClose={() => finish(false)}
             initialFocusRef={inputRef}
             className="lg-inline-edit__sheet"
+            actions={
+              <>
+                <Button
+                  variant="secondary"
+                  label={message('common.cancel')}
+                  onClick={() => finish(false)}
+                />
+                <Button
+                  variant="primary"
+                  label={message('common.save')}
+                  onClick={() => finish(true)}
+                />
+              </>
+            }
           >
             <input
               ref={inputRef}
