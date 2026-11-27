@@ -739,7 +739,7 @@ export const messages = {
   'campaign.link': 'Link character',
   'campaign.replace': 'Replace character',
   'campaign.linkedCharacter': 'Linked character',
-  'campaign.chooseSheet': 'Choose a character sheet',
+  'campaign.chooseSheet': 'Choose one',
   'campaign.openCharacter': 'Open the character sheet of {name}',
   'campaign.unlink': 'Unlink my character',
   'campaign.linked': 'Your character is linked to this campaign.',
