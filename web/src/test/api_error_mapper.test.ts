@@ -47,6 +47,8 @@ const dedicated: ReadonlyArray<readonly [string, FailureKind]> = [
   ['SHEET_KIND_MISMATCH', 'sheetKindMismatch'],
   ['PLAN_LIMIT_REACHED', 'planLimitReached'],
   ['PASSWORD_REQUIRED', 'passwordRequired'],
+  ['SHEET_NAME_INVALID', 'invalidSheetName'],
+  ['SHEET_NAME_TOO_LONG', 'sheetNameTooLong'],
 ];
 
 const keyByKind: Record<FailureKind, MessageKey> = {
@@ -86,6 +88,8 @@ const keyByKind: Record<FailureKind, MessageKey> = {
   sheetKindMismatch: 'api.error.sheetKindMismatch',
   planLimitReached: 'api.error.planLimitReached',
   passwordRequired: 'api.error.passwordRequired',
+  invalidSheetName: 'sheet.nameRequired',
+  sheetNameTooLong: 'sheet.nameTooLong',
 };
 
 describe('backend code to failure kind', () => {
