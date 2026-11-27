@@ -35,7 +35,8 @@ export type FailureKind =
   | 'sheetKindMismatch'
   | 'planLimitReached'
   | 'passwordRequired'
-  | 'invalidSheetName';
+  | 'invalidSheetName'
+  | 'sheetNameTooLong';
 
 export interface DomainFailureInput {
   kind: FailureKind;
