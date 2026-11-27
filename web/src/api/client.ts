@@ -8,6 +8,7 @@ import type {
 import {
   parseCampaign,
   parseCampaignSheets,
+  parseJoinedCampaign,
   parseCampaignSummaries,
   parseNpcLink,
   parseNpcLinks,
@@ -19,8 +20,7 @@ import {
   parseGeneration,
 } from './models/generation';
 import { BILLING_PATHS, parseRedirectUrl } from './models/billing';
-import type { JoinedCampaign } from './models/campaign';
-import { parseJoinedCampaign } from './models/campaign';
+
 import type { DiceBlock } from './models/dice';
 import { diceBlockToWire } from './models/dice';
 import type { Layout } from './models/layout';
@@ -111,7 +111,7 @@ export interface ApiClient {
     sheetId: string,
     etag: string | undefined,
   ): Promise<CampaignSheetResult>;
-  joinCampaign(input: JoinCampaignInput): Promise<JoinedCampaign>;
+  joinCampaign(input: JoinCampaignInput): Promise<Campaign>;
   rotateInvite(campaignId: string): Promise<Campaign>;
   setCampaignPassword(campaignId: string, password: string): Promise<Campaign>;
   clearCampaignPassword(campaignId: string): Promise<Campaign>;

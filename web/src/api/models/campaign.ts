@@ -209,6 +209,14 @@ export function parseCampaign(payload: unknown): Campaign {
   };
 }
 
+export function parseJoinedCampaign(payload: unknown): Campaign {
+  const campaign = parseCampaign(payload);
+  if (campaign.id === '') {
+    throw drift('campaign answer is missing a string id');
+  }
+  return campaign;
+}
+
 export function parseCampaignSummaries(payload: unknown): CampaignSummary[] {
   if (!Array.isArray(payload)) {
     throw drift('campaign list is not an array');
@@ -267,27 +275,4 @@ export function parseNpcLinks(payload: unknown): NpcLink[] {
   }
 
   return payload.map(parseNpcLink);
-}
-
-export interface JoinedCampaign {
-  readonly id: string;
-  readonly name: string;
-}
-
-export function parseJoinedCampaign(data: unknown): JoinedCampaign {
-  if (!isPlainObject(data)) {
-    throw drift('campaign answer is not an object');
-  }
-
-  const id = data['id'];
-  if (typeof id !== 'string' || id === '') {
-    throw drift('campaign answer is missing a string id');
-  }
-
-  const name = data['name'];
-  if (typeof name !== 'string') {
-    throw drift('campaign answer is missing a string name');
-  }
-
-  return { id, name };
 }

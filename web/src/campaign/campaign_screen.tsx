@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { failureCopy, failureKind } from '../api/error_mapper';
 import type { Campaign, CampaignMember, NpcLink, NpcKind } from '../api/models/campaign';
 import type { SheetKind } from '../api/models/plan';
@@ -495,6 +495,10 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
   const client = useApiClient();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
+  const joinedNameValue = (location.state as { joinedName?: unknown } | null)?.joinedName;
+  const joinedName = typeof joinedNameValue === 'string' ? joinedNameValue : undefined;
+  const arrivalRef = useRef<HTMLDivElement>(null);
   const [pending, setPending] = useState<Pending>(null);
   const [notice, setNotice] = useState<string | undefined>(undefined);
   const [actionError, setActionError] = useState<string | undefined>(undefined);
@@ -505,6 +509,11 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [createTarget, setCreateTarget] = useState<CreateTarget | undefined>(undefined);
   const ownedCharacters = useOwnedCharacterSheets(campaign.viewerRole === 'player');
+  useEffect(() => {
+    if (joinedName !== undefined) {
+      arrivalRef.current?.focus();
+    }
+  }, [joinedName]);
   const selfMember = campaign.members.find((member) => isSelf(campaign, member));
   const hasCharacter =
     (selfMember !== undefined && selfMember.characterName !== '') ||
@@ -754,6 +763,14 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
           ) : undefined
         }
       />
+
+      {joinedName === undefined ? null : (
+        <div ref={arrivalRef} tabIndex={-1} data-testid="campaign-joined-notice">
+          <Notice tone="success" live="polite">
+            {messageWith('campaign.joinedNotice', { name: joinedName })}
+          </Notice>
+        </div>
+      )}
 
       {deleting ? (
         <Notice tone="warning" live="polite">
