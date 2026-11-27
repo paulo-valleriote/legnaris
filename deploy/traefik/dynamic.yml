@@ -116,6 +116,12 @@ http:
       service: web
       middlewares: ["root-to-web"]
 
+    root-www:
+      rule: 'Host(`www.{{ env "ROOT_DOMAIN" }}`)'
+      entryPoints: ['websecure']
+      service: web
+      middlewares: ["root-to-web"]
+
     # OAuth callback on the ops domain (no oauth middleware, else login loops).
     oauth2-proxy:
       rule: 'Host(`{{ env "OPS_DOMAIN" }}`) && PathPrefix(`/oauth2`)'

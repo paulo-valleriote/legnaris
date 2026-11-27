@@ -148,7 +148,7 @@ The campaign player's linked-character controls read `campaign.linkLabel` (now t
 
 | Path | What it owns |
 | --- | --- |
-| `web/index.html` | Document head, the `viewport-fit=cover` viewport that lets surfaces reach the phone safe-area insets, theme boot script, font preload, icons and manifest links; no inline script. |
+| `web/index.html` | Document head, the `viewport-fit=cover` viewport that lets surfaces reach the phone safe-area insets, theme boot script, font preload, icons and manifest links, and the `google-adsense-account` meta tag that lets AdSense verify the site without loading a script; no inline script. |
 | `web/public/theme-init.js` | Pre-paint theme resolution from `lg.theme` or the system preference. |
 | `web/public/manifest.webmanifest`, `web/public/icons/`, `web/public/images/` | Installability identity, icon set and local imagery. |
 | `web/src/main.tsx` | Trusted Types installation, runtime configuration load, root render, service-worker registration, startup failure. |
@@ -176,7 +176,7 @@ The campaign player's linked-character controls read `campaign.linkLabel` (now t
 | `web/src/types/trusted_types.d.ts` | Trusted Types declarations for TypeScript. |
 | `web/src/test/`, `web/e2e/` | Vitest and Playwright suites; tests are flat with feature prefixes. |
 | `web/config/security_headers.ts` | Development headers and the policy mirror asserted by tests. |
-| `web/nginx.conf`, `web/docker-entrypoint.d/40-runtime-config.sh`, `web/Dockerfile` | Static hosting, cache rules, SPA fallback, runtime `/config.json` and `/ads.txt`, and the container image. |
+| `web/nginx.conf`, `web/docker-entrypoint.d/40-runtime-config.sh`, `web/Dockerfile` | Static hosting, cache rules, SPA fallback, runtime `/config.json` and `/ads.txt`, the static `/robots.txt` (`web/public/robots.txt`, allows every crawler), and the container image. |
 | `deploy/traefik/dynamic.yml` | The production web router and its security-header middleware. |
 
 ## Tools & dependencies

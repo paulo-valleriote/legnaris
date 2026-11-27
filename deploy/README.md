@@ -116,7 +116,8 @@ managed), all pointing at the VPS IP. Leave every existing record untouched.
 | `ops-legnaris` | A | VPS IP | off |
 
 Traefik obtains the Let's Encrypt certificates over HTTP-01, so the names must
-resolve to the VPS before the first start.
+resolve to the VPS before the first start. The same applies to the apex and `www`
+names used by AdSense (`ROOT_DOMAIN`): point both at the VPS.
 
 ## 6. Configure `.env`
 
