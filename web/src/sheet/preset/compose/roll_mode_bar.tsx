@@ -6,7 +6,11 @@ import type { PresetRollModePiece } from './types';
 import './compose.css';
 
 export function RollModeBar({ piece }: { readonly piece: PresetRollModePiece }) {
-  const { rollMode, setRollMode } = usePresetContext();
+  const { rollMode, setRollMode, readOnly } = usePresetContext();
+
+  if (readOnly) {
+    return null;
+  }
 
   return (
     <div

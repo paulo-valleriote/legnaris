@@ -112,6 +112,18 @@ describe('served HTML icon links', () => {
   });
 });
 
+describe('served HTML AdSense account', () => {
+  it('Happy path: the page declares exactly one publisher account for site verification', () => {
+    const accounts = namedMetas().filter((meta) => meta.name === 'google-adsense-account');
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0].content).toMatch(/^ca-pub-\d{10,20}$/);
+  });
+
+  it('Edge: declaring the account loads no Google script on page load', () => {
+    expect(html).not.toMatch(/<script\b[^>]*(googlesyndication|adsbygoogle)/i);
+  });
+});
+
 describe('served HTML theme colour', () => {
   it('Happy path: both theme-color entries paint the stage ground the shell uses', () => {
     const metas = namedMetas().filter((meta) => meta.name === 'theme-color');

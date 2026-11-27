@@ -243,3 +243,108 @@ func TestCampaignRoutes_Password(t *testing.T) {
 		})
 	}
 }
+
+func TestCampaignRoutes_PreviewInvite(t *testing.T) {
+	preview := campaign.InvitePreview{
+		Name:          "Curse of Strahd",
+		GMUsername:    "gm",
+		ScopeName:     "dnd5e",
+		TemplateIDs:   []string{"dnd5e"},
+		PlayerCount:   2,
+		AlreadyMember: false,
+	}
+	tests := []struct {
+		name     string
+		method   string
+		path     string
+		body     string
+		setup    func(svc *campaignmocks.MockService)
+		wantCode int
+		errCode  string
+	}{
+		{
+			name:   "Happy path: GET previews the invite",
+			method: http.MethodGet,
+			path:   "/campaigns/invite/" + campaignInviteTestCode,
+			setup: func(svc *campaignmocks.MockService) {
+				svc.EXPECT().PreviewInvite(mock.Anything, campaign.PreviewInviteCommand{UserID: campaignTestUserID, Code: campaignInviteTestCode}).
+					Return(preview, nil).Once()
+			},
+			wantCode: http.StatusOK,
+		},
+		{
+			name:   "Happy path: POST previews a protected invite with the password",
+			method: http.MethodPost,
+			path:   "/campaigns/invite/" + campaignInviteTestCode + "/preview",
+			body:   `{"password":"correct horse"}`,
+			setup: func(svc *campaignmocks.MockService) {
+				svc.EXPECT().PreviewInvite(mock.Anything, campaign.PreviewInviteCommand{UserID: campaignTestUserID, Code: campaignInviteTestCode, Password: "correct horse"}).
+					Return(preview, nil).Once()
+			},
+			wantCode: http.StatusOK,
+		},
+		{
+			name:   "Happy path: POST with no body uses no password",
+			method: http.MethodPost,
+			path:   "/campaigns/invite/" + campaignInviteTestCode + "/preview",
+			setup: func(svc *campaignmocks.MockService) {
+				svc.EXPECT().PreviewInvite(mock.Anything, campaign.PreviewInviteCommand{UserID: campaignTestUserID, Code: campaignInviteTestCode}).
+					Return(preview, nil).Once()
+			},
+			wantCode: http.StatusOK,
+		},
+		{
+			name:   "Edge: a protected invite without a password is 403 PASSWORD_REQUIRED",
+			method: http.MethodGet,
+			path:   "/campaigns/invite/" + campaignInviteTestCode,
+			setup: func(svc *campaignmocks.MockService) {
+				svc.EXPECT().PreviewInvite(mock.Anything, mock.Anything).Return(campaign.InvitePreview{}, apperr.NewError(apperr.CodePasswordRequired, "password", nil)).Once()
+			},
+			wantCode: http.StatusForbidden,
+			errCode:  "PASSWORD_REQUIRED",
+		},
+		{
+			name:   "Error: an unknown code is 404 INVALID_INVITE",
+			method: http.MethodGet,
+			path:   "/campaigns/invite/" + campaignInviteTestCode,
+			setup: func(svc *campaignmocks.MockService) {
+				svc.EXPECT().PreviewInvite(mock.Anything, mock.Anything).Return(campaign.InvitePreview{}, apperr.NewError(apperr.CodeInvalidInvite, "invalid", nil)).Once()
+			},
+			wantCode: http.StatusNotFound,
+			errCode:  "INVALID_INVITE",
+		},
+		{
+			name:     "Edge: a client-supplied user id is rejected as an unknown field",
+			method:   http.MethodPost,
+			path:     "/campaigns/invite/" + campaignInviteTestCode + "/preview",
+			body:     `{"password":"x","user_id":"spoof"}`,
+			wantCode: http.StatusBadRequest,
+			errCode:  "INVALID_JSON",
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := campaignmocks.NewMockService(t)
+			if tc.setup != nil {
+				tc.setup(svc)
+			}
+			rec := doCampaignRequest(t, newInviteRouter(svc, passThroughMiddleware), tc.method, tc.path, tc.body)
+			assert.Equal(t, tc.wantCode, rec.Code)
+			if tc.errCode != "" {
+				assert.Equal(t, tc.errCode, campaignErrorCode(t, rec))
+			}
+		})
+	}
+}
+
+func TestCampaignRoutes_JoinWithSheet(t *testing.T) {
+	const sheetID = "01900000-0000-7000-8000-0000000000ee"
+	svc := campaignmocks.NewMockService(t)
+	svc.EXPECT().JoinByCode(mock.Anything, campaign.JoinCommand{
+		UserID: campaignTestUserID, Code: campaignInviteTestCode, SheetID: sheetID,
+	}).Return(campaign.View{ID: campaignTestID, ViewerRole: campaign.RolePlayer}, nil).Once()
+
+	rec := doCampaignRequest(t, newInviteRouter(svc, passThroughMiddleware), http.MethodPost,
+		"/campaigns/join", `{"code":"`+campaignInviteTestCode+`","sheet_id":"`+sheetID+`"}`)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}

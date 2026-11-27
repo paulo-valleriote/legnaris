@@ -16,6 +16,25 @@ type JoinCommand struct {
 	UserID   string `json:"-"`
 	Code     string `json:"code"`
 	Password string `json:"password"`
+	SheetID  string `json:"sheet_id"`
+}
+
+type PreviewInviteCommand struct {
+	UserID   string `json:"-"`
+	Code     string `json:"code"`
+	Password string `json:"password"`
+}
+
+type InvitePreview struct {
+	Name             string      `json:"name"`
+	GMUsername       string      `json:"gm_username"`
+	GameSystem       *GameSystem `json:"game_system,omitempty"`
+	TemplateID       string      `json:"template_id,omitempty"`
+	ScopeName        string      `json:"scope_name"`
+	TemplateIDs      []string    `json:"template_ids"`
+	PasswordRequired bool        `json:"password_required"`
+	PlayerCount      int         `json:"player_count"`
+	AlreadyMember    bool        `json:"already_member"`
 }
 
 type InviteCommand struct {
@@ -48,8 +67,13 @@ func (s *ServiceImpl) JoinByCode(ctx context.Context, cmd JoinCommand) (View, er
 	if len(cmd.Password) > maxJoinPasswordBytes {
 		return View{}, apperr.NewError(apperr.CodeInvalidRequest, MsgPasswordInvalid, nil)
 	}
+	if cmd.SheetID != "" {
+		if err := requireSheetID(cmd.SheetID); err != nil {
+			return View{}, err
+		}
+	}
 	now := s.now()
-	stored, err := s.resolveInvite(ctx, cmd)
+	stored, err := s.resolveInvite(ctx, cmd.Code, cmd.Password)
 	if err != nil {
 		return View{}, err
 	}
@@ -64,34 +88,101 @@ func (s *ServiceImpl) JoinByCode(ctx context.Context, cmd JoinCommand) (View, er
 			return View{}, invalidInvite()
 		}
 	}
-	out, err := Mutate(ctx, s.tx, s.repository, stored.ID, now, func(_ context.Context, c *Campaign) error {
-		if c.InviteCode != cmd.Code || c.PasswordHash != stored.PasswordHash {
-			return invalidInvite()
-		}
-		return addPlayer(c, cmd.UserID, now)
-	})
+	if _, ok := stored.MemberOf(cmd.UserID); ok {
+		return s.view(ctx, stored, cmd.UserID), nil
+	}
+	out, err := s.joinCampaign(ctx, stored, cmd, now)
 	if err != nil {
 		return View{}, mapJoinError(err)
 	}
 	PublishMemberJoined(s.publisher, out, cmd.UserID)
+	if cmd.SheetID != "" {
+		s.publishCampaignEvent(EventSheetLinked, cmd.UserID, out.ID, out.Version, map[string]any{
+			"sheet_id": cmd.SheetID,
+		})
+	}
 	return s.view(ctx, &out, cmd.UserID), nil
 }
 
-func (s *ServiceImpl) resolveInvite(ctx context.Context, cmd JoinCommand) (*Campaign, error) {
-	if !validInviteCode(cmd.Code) {
-		s.hasher.Verify(s.hasher.DummyHash(), cmd.Password)
+func (s *ServiceImpl) joinCampaign(ctx context.Context, stored *Campaign, cmd JoinCommand, now time.Time) (Campaign, error) {
+	return Mutate(ctx, s.tx, s.repository, stored.ID, now, func(txCtx context.Context, c *Campaign) error {
+		if c.InviteCode != cmd.Code || c.PasswordHash != stored.PasswordHash {
+			return invalidInvite()
+		}
+		if err := addPlayer(c, cmd.UserID, now); err != nil {
+			return err
+		}
+		if cmd.SheetID == "" {
+			return nil
+		}
+		_, err := s.claimSheet(txCtx, c, cmd.UserID, cmd.SheetID)
+		return err
+	})
+}
+
+func (s *ServiceImpl) PreviewInvite(ctx context.Context, cmd PreviewInviteCommand) (InvitePreview, error) {
+	if err := requireUser(cmd.UserID); err != nil {
+		return InvitePreview{}, err
+	}
+	if cmd.Code == "" {
+		return InvitePreview{}, apperr.NewError(apperr.CodeInvalidRequest, MsgInviteCodeMissing, nil)
+	}
+	if len(cmd.Password) > maxJoinPasswordBytes {
+		return InvitePreview{}, apperr.NewError(apperr.CodeInvalidRequest, MsgPasswordInvalid, nil)
+	}
+	now := s.now()
+	stored, err := s.resolveInvite(ctx, cmd.Code, cmd.Password)
+	if err != nil {
+		return InvitePreview{}, err
+	}
+	if allowed, _ := s.joinLimit.Allow(campaignJoinKey(stored.ID), now); !allowed {
+		return InvitePreview{}, apperr.NewError(apperr.CodeRateLimited, MsgRateLimited, nil)
+	}
+	if stored.PasswordHash != "" {
+		if cmd.Password == "" {
+			return InvitePreview{}, apperr.NewError(apperr.CodePasswordRequired, MsgPasswordRequired, nil)
+		}
+		if !s.hasher.Verify(stored.PasswordHash, cmd.Password) {
+			return InvitePreview{}, invalidInvite()
+		}
+	}
+	scope := s.scopeOf(ctx, stored)
+	ownerID := ""
+	for _, member := range stored.Members {
+		if member.Owner {
+			ownerID = member.UserID
+			break
+		}
+	}
+	_, alreadyMember := stored.MemberOf(cmd.UserID)
+	return InvitePreview{
+		Name:             stored.Name,
+		GMUsername:       s.usernameOf(ctx, ownerID),
+		GameSystem:       scope.GameSystem,
+		TemplateID:       stored.TemplateID,
+		ScopeName:        scope.Name,
+		TemplateIDs:      templateIDsOf(scope),
+		PasswordRequired: stored.PasswordHash != "",
+		PlayerCount:      stored.PlayerCount,
+		AlreadyMember:    alreadyMember,
+	}, nil
+}
+
+func (s *ServiceImpl) resolveInvite(ctx context.Context, code, password string) (*Campaign, error) {
+	if !validInviteCode(code) {
+		s.hasher.Verify(s.hasher.DummyHash(), password)
 		return nil, invalidInvite()
 	}
-	stored, err := s.repository.FetchByInviteCode(ctx, cmd.Code)
+	stored, err := s.repository.FetchByInviteCode(ctx, code)
 	if errors.Is(err, ErrNotFound) {
-		s.hasher.Verify(s.hasher.DummyHash(), cmd.Password)
+		s.hasher.Verify(s.hasher.DummyHash(), password)
 		return nil, invalidInvite()
 	}
 	if err != nil {
 		return nil, internalError(MsgCampaignRead, err)
 	}
 	if !stored.Active() {
-		s.hasher.Verify(s.hasher.DummyHash(), cmd.Password)
+		s.hasher.Verify(s.hasher.DummyHash(), password)
 		return nil, invalidInvite()
 	}
 	return stored, nil

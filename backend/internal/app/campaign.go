@@ -34,6 +34,8 @@ func (cc *CampaignController) RegisterRoutes(group *echo.Group, joinIPLimit echo
 	group.POST("", cc.Create)
 	group.GET("", cc.ListMine)
 	group.POST("/join", cc.Join, joinIPLimit)
+	group.GET("/invite/:code", cc.PreviewInvite, joinIPLimit)
+	group.POST("/invite/:code/preview", cc.PreviewInviteWithPassword, joinIPLimit)
 	group.GET("/:id", cc.Fetch)
 	group.POST("/:id/leave", cc.Leave)
 	group.DELETE("/:id", cc.Delete)
@@ -66,6 +68,41 @@ func (cc *CampaignController) Join(c *echo.Context) error {
 		return err
 	}
 	return response.OK(c, view)
+}
+
+func (cc *CampaignController) PreviewInvite(c *echo.Context) error {
+	userID, _ := auth.UserID(c)
+	preview, err := cc.service.PreviewInvite(c.Request().Context(), campaign.PreviewInviteCommand{
+		UserID: userID,
+		Code:   c.Param("code"),
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, preview)
+}
+
+type previewInviteRequest struct {
+	Password string `json:"password"`
+}
+
+func (cc *CampaignController) PreviewInviteWithPassword(c *echo.Context) error {
+	var body previewInviteRequest
+	if c.Request().ContentLength != 0 {
+		if err := json.Decode(c, &body); err != nil {
+			return decodeError(err)
+		}
+	}
+	userID, _ := auth.UserID(c)
+	preview, err := cc.service.PreviewInvite(c.Request().Context(), campaign.PreviewInviteCommand{
+		UserID:   userID,
+		Code:     c.Param("code"),
+		Password: body.Password,
+	})
+	if err != nil {
+		return err
+	}
+	return response.OK(c, preview)
 }
 
 func (cc *CampaignController) RotateInvite(c *echo.Context) error {
