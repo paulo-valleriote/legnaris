@@ -41,6 +41,7 @@ import {
   seedCreatedSheet,
   updateSheetLayout,
 } from '../catalog/queries';
+import { CAMPAIGNS_QUERY_KEY, campaignKey } from '../campaign/campaign_queries';
 import { startDraftCadence } from '../library/draft_backup';
 import { cacheSheet, discardDraft, discardLayoutDraft } from '../library/sheet_library';
 import { registerLeaveGuard, requestLeave } from '../shell/leave_guard';
@@ -499,11 +500,25 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   const [committedLayout] = useState(sheet.layout);
   const rememberSaved = useCallback(
     (saved: SheetSaveSnapshot) => {
-      queryClient.setQueryData<Sheet>(sheetKey(sheetId), (current) =>
-        current === undefined ? current : { ...current, data: saved.data, dice: saved.dice },
-      );
+      const current = queryClient.getQueryData<Sheet>(sheetKey(sheetId));
+      if (current === undefined) {
+        return;
+      }
+      const raw = saved.delta === undefined ? null : valueAtPath(saved.delta, 'identity.name');
+      const nextName = typeof raw === 'string' && raw.trim() !== '' ? raw.trim() : current.name;
+      const updated: Sheet = { ...current, name: nextName, data: saved.data, dice: saved.dice };
+      queryClient.setQueryData(sheetKey(sheetId), updated);
+      if (nextName === current.name) {
+        return;
+      }
+      void cacheSheet(storePort, updated);
+      void queryClient.invalidateQueries({ queryKey: ['sheets', 'owned'] });
+      void queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEY });
+      if (current.campaignId !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: campaignKey(current.campaignId) });
+      }
     },
-    [queryClient, sheetId],
+    [queryClient, sheetId, storePort],
   );
   const editStore = useMemo(
     () =>

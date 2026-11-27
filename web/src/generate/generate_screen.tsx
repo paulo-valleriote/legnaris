@@ -6,6 +6,7 @@ import { DomainFailure } from '../api/errors';
 import type { Generation } from '../api/models/generation';
 import type { SheetKind } from '../api/models/plan';
 import type { TemplateDetail } from '../api/models/template';
+import { valueAtPath } from '../api/models/sheet';
 import { useApiClient } from '../app/providers';
 import { PLAN_QUERY_KEY, usePlanUsage, useTemplateDetail } from '../catalog/queries';
 import { setPathValue } from '../engine/sheet_defaults';
@@ -623,6 +624,11 @@ export function GenerateScreen() {
   );
 }
 
+function generatedIdentityName(values: Record<string, unknown>): string {
+  const raw = valueAtPath(values, 'identity.name');
+  return typeof raw === 'string' ? raw.trim() : '';
+}
+
 function ReviewSection({
   preview,
   fields,
@@ -640,7 +646,13 @@ function ReviewSection({
   readonly onAccept: (name: string) => void;
   readonly onRegenerate: () => void;
 }) {
-  const name = preview.nameTouched ? preview.sheetName : preview.suggestedName;
+  const generatedName = generatedIdentityName(preview.values);
+  const name =
+    generatedName !== ''
+      ? generatedName
+      : preview.nameTouched
+        ? preview.sheetName
+        : preview.suggestedName;
   const trimmed = name.trim();
 
   return (
@@ -664,6 +676,8 @@ function ReviewSection({
         label={message('sheet.nameLabel')}
         id="generate-sheet-name"
         value={name}
+        hint={generatedName === '' ? undefined : message('generate.nameFromCharacter')}
+        readOnly={generatedName !== ''}
         required
         onChange={onName}
       />

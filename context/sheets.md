@@ -145,7 +145,11 @@ A new edit clears the preview marks. An offline save or preview writes the pendi
 draft immediately; the normal cadence is 60 seconds. A successful save and an applied reset also
 replace the cached `['sheet', id]` data with the new baseline, so leaving and reopening a Sheet in
 the same session draws the saved values; the screen seeds its edit store once, so that cache write
-never resets the open form.
+never resets the open form. A save whose delta carries a non-empty `identity.name` also stores it
+as the Sheet's top-level name; the server keeps the previous name when the value is cleared. The
+screen writes name, data and Dice to the cache, updates the local library record and invalidates
+the owned-sheet and campaign queries, so the library, the campaign list and the linked character
+refetch the new name.
 
 ### Rest → reset action
 

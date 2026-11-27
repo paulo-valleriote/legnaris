@@ -106,6 +106,7 @@ export interface SheetEditSeed {
 export interface SheetSaveSnapshot {
   readonly data: Record<string, unknown>;
   readonly dice: DiceBlock;
+  readonly delta?: Record<string, unknown>;
 }
 
 export interface SheetEditDeps {
@@ -696,7 +697,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
           saveErrorKind: undefined,
           previewMarks: undefined,
         });
-        deps.onSaved?.({ data: defaults, dice: savedDice });
+        deps.onSaved?.({ data: defaults, dice: savedDice, delta });
         confirmSaved();
         await bestEffort(() => deps.store.deleteDraft(seed.sheet.id));
       } catch (error) {
