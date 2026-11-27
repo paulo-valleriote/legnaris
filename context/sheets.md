@@ -969,9 +969,11 @@ are `--lg-size-control` tall on a phone, it slides in unless `prefers-reduced-mo
 to, and one polite, debounced live region announces the change summary once typing settles instead
 of on every committed edit. Escape never discards pending edits; `Ctrl+S`/`Cmd+S` saves. The bar appears while a value or a Dice formula differs from the saved baseline and hides on Save
 or Discard, or when every edit is reverted; a failed save or preview keeps it and shows the mapped
-failure copy. A successful save shows a brief `Saved` status in the same polite region and moves
-focus to the header's Edit sheet / Done editing button, so the card can disappear without dropping
-focus to the page body; the status clears after two seconds or on the next edit. The bar is also the roll result's floor: the result panel sits fully above it and moves
+failure copy. A successful save, from the card's Save button or `Ctrl+S`/`Cmd+S`, shows a brief `Saved` status in
+the same polite region; the button path also moves focus to the header's Edit sheet / Done editing
+button, so the card can disappear without dropping focus to the page body, while the shortcut keeps
+the caret in the field. The status clears after two seconds or on the next edit. The generic footer
+reads the same signal for its `Saved` label. The bar is also the roll result's floor: the result panel sits fully above it and moves
 with it. Dice changes are summarised as one `Dice formulas changed` line. A field reverted to its old
 value while a save is in flight stays pending after that save resolves.
 

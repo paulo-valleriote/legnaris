@@ -71,6 +71,7 @@ export function createDemoEditStore(
     savedDice: seededDice,
     dice: seededDice,
     isSaving: false,
+    justSaved: false,
     saveError: undefined,
     revision: 0,
     previewedRevision: undefined,
