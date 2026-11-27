@@ -1,5 +1,4 @@
 import type { ComponentType } from 'react';
-import type { SheetKind } from '../../api/models/plan';
 import type { MessageKey } from '../../l10n/strings';
 
 export interface PresetSection {
@@ -16,11 +15,6 @@ export interface PresetColumnsBlock {
 }
 
 export type PresetLayoutBlock = PresetSectionBlock | PresetColumnsBlock;
-
-export interface PresetStatBlock {
-  readonly when: (kind: SheetKind | undefined) => boolean;
-  readonly Body: ComponentType;
-}
 
 export interface PresetHeaderProps {
   readonly level?: 1 | 2;
@@ -39,8 +33,6 @@ export interface PresetSectionNav {
 export interface SheetPreset {
   readonly templateId: string;
   readonly Header: ComponentType<PresetHeaderProps>;
-  readonly statBlock?: PresetStatBlock;
-  readonly Vitals?: ComponentType;
   readonly sections: readonly PresetSection[];
   readonly layout?: readonly PresetLayoutBlock[];
   readonly narrowLayout?: readonly PresetLayoutBlock[];

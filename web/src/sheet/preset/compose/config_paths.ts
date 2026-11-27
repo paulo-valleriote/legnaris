@@ -100,10 +100,18 @@ function piecePaths(piece: PresetPiece): readonly string[] {
       return [piece.list, ...columnPaths(piece)];
     case 'resetBar':
       return piece.actions;
+    case 'xpBar':
+      return [piece.level, piece.xp];
     case 'rollMode':
+    case 'diceFormulas':
       return [];
     case 'textFields':
       return piece.fields.map((field) => field.path);
+    case 'fields':
+      return [
+        ...piece.fields.map((field) => field.path),
+        ...(piece.summary === undefined ? [] : [piece.summary]),
+      ];
   }
 }
 

@@ -161,14 +161,18 @@ describe('numeric input: negative and in-progress text', () => {
     expect(onEmit).not.toHaveBeenCalled();
   });
 
-  it('Edge: clearing the field emits null, also from a negative number', async () => {
+  it('Edge: clearing the field emits nothing, also from a negative number', async () => {
     const { onEmit, input } = setup(-4);
     expect(input).toHaveValue('-4');
 
     await userEvent.clear(input);
 
     expect(input).toHaveValue('');
-    expect(onEmit).toHaveBeenLastCalledWith(null);
+    expect(onEmit).not.toHaveBeenCalled();
+
+    await userEvent.tab();
+
+    expect(input).toHaveValue('-4');
   });
 
   it('Edge: an external value change replaces a pending "-"', async () => {
@@ -191,8 +195,8 @@ describe('numeric input: negative and in-progress text', () => {
 
     await userEvent.tab();
 
-    expect(input).toHaveValue('');
-    expect(onEmit).toHaveBeenLastCalledWith(null);
+    expect(input).toHaveValue('5');
+    expect(onEmit).not.toHaveBeenCalled();
   });
 
   it('Edge: leaving the field with a pending "-" over an unchanged value restores that value', async () => {
@@ -214,10 +218,11 @@ describe('numeric input: negative and in-progress text', () => {
     expect(input).toHaveValue('-3');
   });
 
-  it('Edge: an inert field draws no sign toggle', () => {
+  it('Edge: an inert field draws no sign toggle and stays read-only', () => {
     render(<SheetFieldControl path="stats.dexterity" schema={NUMBER_SCHEMA} value={-3} />);
 
-    expect(screen.getByRole('textbox', { name: 'Dexterity' })).toBeDisabled();
+    expect(screen.getByRole('textbox', { name: 'Dexterity' })).toHaveAttribute('readonly');
+    expect(screen.getByRole('textbox', { name: 'Dexterity' })).not.toBeDisabled();
     expect(screen.queryByRole('button', { hidden: true })).not.toBeInTheDocument();
   });
 

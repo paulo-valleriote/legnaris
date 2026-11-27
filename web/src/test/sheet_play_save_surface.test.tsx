@@ -1,3 +1,4 @@
+import { startEditing } from './start_editing';
 import { editName } from './dice_names';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -12,7 +13,11 @@ import {
   PENDING_CARD_SPACE_CLASS,
   PENDING_CARD_SPACE_PROPERTY,
 } from '../sheet/preset/pending_card';
-import { FANTASY_SHEET_ID, fantasySheetPayload, fantasyTemplatePayload } from './fantasy_fixtures';
+import {
+  FIFTH_CHARACTER_SHEET_ID,
+  fifthCharacterSheetPayload,
+  fifthCharacterTemplatePayload,
+} from './fifth_fixtures';
 import type { FakeOutcome } from './fake_transport';
 import { createFakeTransport, errorOutcome, successOutcome } from './fake_transport';
 import { renderApp } from './render';
@@ -29,22 +34,37 @@ interface OpenOptions {
   readonly save?: FakeOutcome;
 }
 
-async function openFantasy(options: OpenOptions = {}) {
+async function openFifth(options: OpenOptions = {}) {
   const fake = createFakeTransport(
-    successOutcome(fantasySheetPayload()),
-    successOutcome(fantasyTemplatePayload()),
+    successOutcome(fifthCharacterSheetPayload()),
+    successOutcome(fifthCharacterTemplatePayload()),
     options.save ?? successOutcome({}),
   );
   const user = userEvent.setup();
-  renderApp(`/sheets/${FANTASY_SHEET_ID}`, {
+  renderApp(`/sheets/${FIFTH_CHARACTER_SHEET_ID}`, {
     client: createApiClient({ baseUrl: BASE_URL, transport: fake.transport }),
   });
   await screen.findByTestId('sheet-name');
+  await startEditing();
   return { fake, user };
 }
 
-function levelStep(name: 'increase' | 'decrease') {
-  return screen.getByRole('button', { name: messageWith(`engine.${name}`, { label: 'Level' }) });
+function fieldRow(path: string): HTMLElement {
+  const row = document.querySelector<HTMLElement>(`[data-field-path="${path}"]`);
+  if (row === null) {
+    throw new Error(`missing field row ${path}`);
+  }
+  return row;
+}
+
+function levelInput() {
+  return within(fieldRow('identity.level')).getByRole('textbox');
+}
+
+async function setLevel(user: ReturnType<typeof userEvent.setup>, level: string) {
+  const input = levelInput();
+  await user.clear(input);
+  await user.type(input, level);
 }
 
 function card() {
@@ -70,9 +90,9 @@ function announcement() {
   return screen.getByTestId('sheet-pending-announcement');
 }
 
-describe('the Play save surface', () => {
-  it('Edge: Play with no pending changes renders no Preview or Save footer', async () => {
-    await openFantasy();
+describe('the preset save surface', () => {
+  it('Edge: a preset sheet with no pending changes renders no Preview or Save footer', async () => {
+    await openFifth();
 
     expect(card()).not.toBeInTheDocument();
     expect(footer()).toBeNull();
@@ -88,35 +108,51 @@ describe('the Play save surface', () => {
   });
 
   it('Edge: Escape with nothing pending sends no request and changes nothing', async () => {
-    const { fake, user } = await openFantasy();
+    const { fake, user } = await openFifth();
 
     await user.keyboard('{Escape}');
 
     expect(card()).not.toBeInTheDocument();
-    expect(screen.getByTestId('sheet-play-level')).toHaveTextContent(
-      messageWith('sheet.play.level', { count: 3 }),
-    );
+    expect(levelInput()).toHaveValue('5');
     expect(fake.requests.filter((request) => request.method === 'PATCH')).toHaveLength(0);
   });
 
   it('Edge: Escape inside an inline edit cancels only that edit and keeps other pending changes', async () => {
-    const { user } = await openFantasy();
-    await user.click(levelStep('increase'));
-    await user.click(screen.getByRole('button', { name: editName('Character name') }));
-    const input = screen.getByRole('textbox', { name: 'Character name' });
-    await user.clear(input);
-    await user.type(input, 'Brenna{Escape}');
-
-    expect(screen.queryByRole('textbox', { name: 'Character name' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: editName('Character name') })).toHaveTextContent(
-      'Aria',
+    const { user } = await openFifth();
+    await setLevel(user, '6');
+    await user.click(
+      within(screen.getByTestId('sheet-name')).getByRole('button', { name: editName('Name') }),
     );
+    const input = within(screen.getByTestId('sheet-name')).getByRole('textbox', { name: 'Name' });
+    await user.clear(input);
+    await user.type(input, 'Rune{Escape}');
+
+    expect(
+      within(screen.getByTestId('sheet-name')).queryByRole('textbox', { name: 'Name' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(screen.getByTestId('sheet-name')).getByRole('button', { name: editName('Name') }),
+    ).toHaveTextContent('Brenna');
     expect(card()).toBeInTheDocument();
-    expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent('Level 3 → 4');
+    expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent('Level 5 → 6');
+  });
+
+  it('Edge: Escape outside inputs keeps the pending changes', async () => {
+    const { fake, user } = await openFifth();
+    await setLevel(user, '6');
+
+    act(() => {
+      (document.activeElement as HTMLElement | null)?.blur();
+    });
+    await user.keyboard('{Escape}');
+
+    expect(card()).toBeInTheDocument();
+    expect(levelInput()).toHaveValue('6');
+    expect(savedData(fake)).toBeUndefined();
   });
 
   it('Edge: Ctrl+S with nothing pending sends no request and blocks the browser save dialog', async () => {
-    const { fake } = await openFantasy();
+    const { fake } = await openFifth();
 
     const event = new KeyboardEvent('keydown', {
       key: 's',
@@ -132,16 +168,16 @@ describe('the Play save surface', () => {
   });
 
   it('Edge: the card renders no table-sync pill', async () => {
-    const { user } = await openFantasy();
-    await user.click(levelStep('increase'));
+    const { user } = await openFifth();
+    await setLevel(user, '6');
 
     expect(screen.getByTestId('sheet-pending-card')).not.toHaveTextContent('Table sync soon');
     expect(screen.queryByTestId('sheet-pending-sync')).not.toBeInTheDocument();
   });
 
   it('Happy path: the visible card reserves its measured height on the sheet root', async () => {
-    const { user } = await openFantasy();
-    await user.click(levelStep('increase'));
+    const { user } = await openFifth();
+    await setLevel(user, '6');
 
     const root = screen.getByTestId('sheet-play');
     const cardElement = screen.getByTestId('sheet-pending-card');
@@ -161,8 +197,8 @@ describe('the Play save surface', () => {
   });
 
   it('Edge: hiding the card releases the reserved bottom space', async () => {
-    const { user } = await openFantasy();
-    await user.click(levelStep('increase'));
+    const { user } = await openFifth();
+    await setLevel(user, '6');
 
     const root = screen.getByTestId('sheet-play');
     expect(root).toHaveClass(PENDING_CARD_SPACE_CLASS);
@@ -176,11 +212,11 @@ describe('the Play save surface', () => {
   it('Edge: rapid edits settle into one debounced announcement, not one per edit', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
-      const { user } = await openFantasy();
-      await user.click(levelStep('increase'));
+      const { user } = await openFifth();
+      await setLevel(user, '6');
 
       expect(announcement()).toHaveTextContent('');
-      await user.click(levelStep('increase'));
+      await setLevel(user, '7');
       expect(announcement()).toHaveTextContent('');
 
       await act(async () => {
@@ -188,7 +224,7 @@ describe('the Play save surface', () => {
       });
 
       expect(announcement()).toHaveTextContent(
-        messageWith('sheet.pending.announce', { summary: 'Level 3 → 5' }),
+        messageWith('sheet.pending.announce', { summary: 'Level 5 → 7' }),
       );
     } finally {
       vi.useRealTimers();
@@ -196,10 +232,10 @@ describe('the Play save surface', () => {
   });
 
   it('Error: a failed save keeps the bar and shows the typed error', async () => {
-    const { user } = await openFantasy({
+    const { user } = await openFifth({
       save: errorOutcome('INTERNAL_ERROR', 'boom', 500),
     });
-    await user.click(levelStep('increase'));
+    await setLevel(user, '6');
 
     await user.click(cardButton('save'));
 
@@ -210,12 +246,12 @@ describe('the Play save surface', () => {
     );
     expect(card()).toBeInTheDocument();
     expect(footer()).toBeNull();
-    expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent('Level 3 → 4');
+    expect(screen.getByTestId('sheet-pending-changes')).toHaveTextContent('Level 5 → 6');
   });
 
   it('Happy path: pending changes render only the bar, with Discard, Preview and Save', async () => {
-    const { user } = await openFantasy();
-    await user.click(levelStep('increase'));
+    const { user } = await openFifth();
+    await setLevel(user, '6');
 
     expect(card()).toBeInTheDocument();
     expect(footer()).toBeNull();
@@ -227,39 +263,33 @@ describe('the Play save surface', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('Happy path: Escape outside inputs discards the pending changes', async () => {
-    const { fake, user } = await openFantasy();
-    await user.click(levelStep('increase'));
-
-    await user.keyboard('{Escape}');
-
-    expect(card()).not.toBeInTheDocument();
-    expect(screen.getByTestId('sheet-play-level')).toHaveTextContent(
-      messageWith('sheet.play.level', { count: 3 }),
-    );
-    expect(savedData(fake)).toBeUndefined();
-  });
-
   it('Happy path: Ctrl+S saves the pending changes', async () => {
-    const { fake, user } = await openFantasy();
-    await user.click(levelStep('increase'));
+    const { fake, user } = await openFifth();
+    await setLevel(user, '6');
 
     await user.keyboard('{Control>}s{/Control}');
 
-    await waitFor(() => expect(savedData(fake)).toEqual({ data: { identity: { level: 4 } } }));
+    await waitFor(() => expect(savedData(fake)).toEqual({ data: { identity: { level: 6 } } }));
     await waitFor(() => expect(card()).not.toBeInTheDocument());
   });
 
-  it('Happy path: Edit mode keeps the footer and hides the pending bar', async () => {
-    const { user } = await openFantasy();
-    await user.click(levelStep('increase'));
+  it('Edge: the change list starts closed and the count names how many are pending', async () => {
+    const { user } = await openFifth();
 
-    await user.click(screen.getByRole('button', { name: editName(message('sheet.mode.edit')) }));
+    await setLevel(user, '6');
 
-    expect(footer()).not.toBeNull();
-    expect(card()).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: editName(message('sheet.save')) })).toBeEnabled();
-    expect(screen.getByRole('button', { name: editName(message('sheet.preview')) })).toBeEnabled();
+    const toggle = within(card() as HTMLElement).getByRole('button', { expanded: false });
+    expect(toggle).toHaveTextContent(message('sheet.changeCountOne'));
+    expect(screen.getByTestId('sheet-pending-changes')).not.toBeVisible();
+
+    await user.click(toggle);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByTestId('sheet-pending-changes')).toBeVisible();
+
+    await user.click(toggle);
+
+    expect(screen.getByTestId('sheet-pending-changes')).not.toBeVisible();
   });
 
   it('Edge: the document declares viewport-fit=cover for the safe-area insets', () => {

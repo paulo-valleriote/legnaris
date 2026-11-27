@@ -161,7 +161,7 @@ sequenceDiagram
 ```
 
 A foreign Sheet and an unknown action are 404 before a malformed request id is 400, all before the
-write; a replay of the last applied id never reaches the write. The owner's Edit form draws one button per declared action
+write; a replay of the last applied id never reaches the write. The owner's generic form draws one button per declared action
 through `web/src/sheet/reset_actions.tsx`: one request id per tap is reused until that tap
 succeeds, so an offline retry or a 409 resends the same id safely, and a 409 first refreshes the
 Sheet. The bar is absent from `fantasy_v1`, from read-only campaign views and from Arrange mode.
@@ -256,8 +256,8 @@ without cloning; Campaign scope resolution filters that list with `Available` so
 only in development and Retired Templates always do.
 
 Every web view that draws a Template name draws its notice beside it through
-`web/src/catalog/template_name.tsx`: the owner Sheet in Play and Edit, the campaign read-only GM and
-NPC views, and the generation review. The name reads `5E Character · SRD 5.2.1` (the ` · `
+`web/src/catalog/template_name.tsx`: the owner Sheet on the owner screen, the campaign read-only GM and
+NPC views, and the generation review. The name reads `5E Character · SRD 5.2.1` (the `·`
 separator is copy from `web/src/l10n/strings.ts`, never a literal in the component), and the notice
 label is a router link to the Template's same-origin notice path. The link passes through the shell
 leave guard, so leaving a Sheet with unsaved work still asks first. A Template without a Game system
@@ -277,15 +277,15 @@ An empty value, `production`, `staging` or anything else fails closed; the produ
 deliberately carries no `APP_ENV` (only the worker sets `production`), so a bare `go run` without
 the variable hides Drafts, while `scripts/dev.sh` exports `development`.
 
-| Path | active | draft in development | draft elsewhere | retired |
-| --- | --- | --- | --- | --- |
-| `GET /templates` | listed | listed | omitted | omitted |
-| `GET /templates/:id`, `POST /templates/:id/preview` | yes | yes | 404 | yes |
-| `POST /sheets` | yes | yes | 400 | 400, or 201 from the catalog default template that accepts the kind, or 201 with an active Campaign that includes it |
-| `POST /generations` | yes | yes | 400 | 400 |
-| Accept a succeeded generation job | yes | yes | 400 | yes |
-| Duplicate an existing NPC or enemy | yes | yes | 400 | yes |
-| Read, edit, roll, layout or link an existing Sheet | yes | yes | yes | yes |
+| Path                                                | active | draft in development | draft elsewhere | retired                                                                                                              |
+| --------------------------------------------------- | ------ | -------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `GET /templates`                                    | listed | listed               | omitted         | omitted                                                                                                              |
+| `GET /templates/:id`, `POST /templates/:id/preview` | yes    | yes                  | 404             | yes                                                                                                                  |
+| `POST /sheets`                                      | yes    | yes                  | 400             | 400, or 201 from the catalog default template that accepts the kind, or 201 with an active Campaign that includes it |
+| `POST /generations`                                 | yes    | yes                  | 400             | 400                                                                                                                  |
+| Accept a succeeded generation job                   | yes    | yes                  | 400             | yes                                                                                                                  |
+| Duplicate an existing NPC or enemy                  | yes    | yes                  | 400             | yes                                                                                                                  |
+| Read, edit, roll, layout or link an existing Sheet  | yes    | yes                  | yes             | yes                                                                                                                  |
 
 A refused creation or generation is 400 `INVALID_REQUEST` before any plan slot, quota or daily-cap
 reservation, and the message names the reason: a Draft outside development says the Template is
@@ -505,7 +505,7 @@ and asserts `configPathErrors` is empty.
   Recharge 5-6 are entered as printed. `details.resistances|immunities|senses|languages` are
   text. Every Record list holds at most 50 Records.
 
-Both Templates also stay usable end to end through the generic Edit form: every Section draws with
+Both Templates also stay usable end to end through the generic form: every Section draws with
 its title, a `flag` leaf draws as a toggle, a skill rank draws as a number entry, each Record list
 draws as its table, and the Rows marked not a d20 test offer no Roll mode. The character's Edit
 form still draws the Reset action bar with `Long rest` and `Short rest`. Their wire contract is
@@ -522,17 +522,17 @@ updated_at}`. `kind` is `character`, `npc` or `enemy`. `layout` appears only whe
 always present (`{"section": {}, "row": {}}` when empty); `version` and `layout_version` are
 never exposed.
 
-| Method and path | Body | Success |
-| --- | --- | --- |
-| `POST /sheets` | `{template_id, kind, sheet_name, campaign_id?}` | 201 sheet |
-| `GET /sheets/owned?kind=character` | — | 200 array, oldest first |
-| `GET /sheets/:id` | — | 200 sheet |
-| `PATCH /sheets/:id` | `{data?, dice?}` | 200 cascade |
-| `POST /sheets/:id/preview` | `{data}` | 200 cascade, no write |
-| `POST /sheets/:id/resets/:actionId` | `{request_id}` | 200 cascade, one write |
-| `PUT /sheets/:id/layout` | `{layout}` | 200 `{layout}` |
-| `POST /sheets/:id/duplicate` | — | 201 sheet (NPC and enemy only) |
-| `DELETE /sheets/:id` | — | 204 |
+| Method and path                     | Body                                            | Success                        |
+| ----------------------------------- | ----------------------------------------------- | ------------------------------ |
+| `POST /sheets`                      | `{template_id, kind, sheet_name, campaign_id?}` | 201 sheet                      |
+| `GET /sheets/owned?kind=character`  | —                                               | 200 array, oldest first        |
+| `GET /sheets/:id`                   | —                                               | 200 sheet                      |
+| `PATCH /sheets/:id`                 | `{data?, dice?}`                                | 200 cascade                    |
+| `POST /sheets/:id/preview`          | `{data}`                                        | 200 cascade, no write          |
+| `POST /sheets/:id/resets/:actionId` | `{request_id}`                                  | 200 cascade, one write         |
+| `PUT /sheets/:id/layout`            | `{layout}`                                      | 200 `{layout}`                 |
+| `POST /sheets/:id/duplicate`        | —                                               | 201 sheet (NPC and enemy only) |
+| `DELETE /sheets/:id`                | —                                               | 204                            |
 
 Every JSON success is wrapped in `{"data": ...}`. A malformed id is 400; a missing sheet and a
 foreign sheet are both 404. Creating reserves a per-owner, per-kind plan slot and inserts in one
@@ -708,21 +708,21 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 
 ### Errors
 
-| Code | Status | Raised when |
-| --- | --- | --- |
-| `INVALID_JSON` | 400 | malformed body, wrong value type, unknown body key |
-| `INVALID_REQUEST` | 400 | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id, malformed Record id, non-numeric Record `position`, over-capacity list, invalid Record field value, missing or malformed Reset `request_id`, or a Template whose lifecycle state refuses the path |
-| `UNKNOWN_FIELD` | 400 | data key or group prefix absent from the DAG, or a Record Field absent from its shape |
-| `NOT_FOUND` | 404 | sheet or template missing, including a foreign sheet; unknown Reset action |
-| `CONFLICT` | 409 | value/Dice save lost the version race; `Retry-After: 1` |
-| `SHEET_LIMIT_REACHED` | 409 | create would exceed the plan; details carry `kind` and `limit` |
-| `PLAN_LIMIT_REACHED` | 403 | duplicate would exceed the plan |
-| `SHEET_KIND_MISMATCH` | 422 | duplicate of a character sheet |
-| `RATE_LIMITED` | 429 | shared per-user budget (`USER_RATE_LIMIT_*`, 80 per minute) |
+| Code                  | Status | Raised when                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_JSON`        | 400    | malformed body, wrong value type, unknown body key                                                                                                                                                                                                                                                                                                                                                                                    |
+| `INVALID_REQUEST`     | 400    | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id, malformed Record id, non-numeric Record `position`, over-capacity list, invalid Record field value, missing or malformed Reset `request_id`, or a Template whose lifecycle state refuses the path |
+| `UNKNOWN_FIELD`       | 400    | data key or group prefix absent from the DAG, or a Record Field absent from its shape                                                                                                                                                                                                                                                                                                                                                 |
+| `NOT_FOUND`           | 404    | sheet or template missing, including a foreign sheet; unknown Reset action                                                                                                                                                                                                                                                                                                                                                            |
+| `CONFLICT`            | 409    | value/Dice save lost the version race; `Retry-After: 1`                                                                                                                                                                                                                                                                                                                                                                               |
+| `SHEET_LIMIT_REACHED` | 409    | create would exceed the plan; details carry `kind` and `limit`                                                                                                                                                                                                                                                                                                                                                                        |
+| `PLAN_LIMIT_REACHED`  | 403    | duplicate would exceed the plan                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `SHEET_KIND_MISMATCH` | 422    | duplicate of a character sheet                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `RATE_LIMITED`        | 429    | shared per-user budget (`USER_RATE_LIMIT_*`, 80 per minute)                                                                                                                                                                                                                                                                                                                                                                           |
 
-### Record lists in the Edit form
+### Record lists in the generic form
 
-A Template list draws in the generic Edit form as one table inside its Section: a header naming the
+A Template list draws in the generic form as one table inside its Section: a header naming the
 columns, then one Row per Record keyed `<list>.<id>`, ordered by the stored `position` and then the
 id. The columns are the list's declared `columns` first and any remaining shape Field after them;
 an exclusive group collapses into one choice cell, a `flag` leaf draws the toggle, and a derived
@@ -746,9 +746,9 @@ Without the record seam the same table is drawn with no Add, Move or Remove cont
 sheet draws the same columns through `ReadOnlyRecordTable` as plain values with no input or action,
 and the generation review reuses the data-mode form.
 
-### Reset actions in the Edit form
+### Reset actions in the generic form
 
-The owner's generic Edit form draws one `outline` button per declared action, in Template order, in a
+The owner's generic form draws one `outline` button per declared action, in Template order, in a
 `role="group"` bar above the Sections. The bar is not drawn when the Template declares no action
 (`fantasy_v1`), in a read-only view or in Arrange mode. Each tap mints one request id
 (`crypto.randomUUID`) and keeps it until that tap succeeds: a retry after a network failure reuses it,
@@ -760,20 +760,28 @@ the query cache; the edit store is reseeded from it, so both its baseline and th
 take the cascade without marking the Sheet unsaved. One polite live region announces `<label> applied`.
 A failure shows the mapped copy (muted for offline) and one retry control.
 
-### Play and Edit presentation
+### Sheet presentation
 
-A sheet whose template id has a preset opens in **Play**; every other template opens in **Edit**,
-today's form. The preset registry maps a template id to a header component, an optional
-kind-selected stat block and ordered section slots, so later gameplay surfaces are additions to the
-preset rather than branches in the screen.
+A sheet has one layout: every editable value is edited where it is drawn and every derived value is
+read-only. A preset sheet opens locked; the header `Edit sheet` / `Done editing` button unlocks the
+build values in place, without moving anything. While locked, current and temporary hit points,
+Damage and Heal, every pip track, conditions, the Record columns a piece lists as `playColumns`,
+rolls and rests stay live. The lock is screen state: it is never stored or sent, and pending edits
+survive it. While locked, a text or number build value is a read-only input with `aria-readonly`
+(focusable, selectable and copyable) drawn without the edit-mode box: no border or raised fill, and
+the text colour and placeholder stay the locked ones; a toggle stays disabled because a checkbox
+has no read-only state. The generic form has no lock. A Template id with a preset draws the preset body; every other
+Template (including the retired `fantasy_v1`) draws the generic form. The preset registry maps a
+template id to a header component and ordered section slots, so later gameplay surfaces are additions
+to the preset rather than branches in the screen.
 The composable library (`preset/compose/`) is the generic half of that registry. One data-only
 `PresetConfig` per Template carries its `templateId`, an identity `header` binding (the name Field
 path and an optional subtitle Field path), an ordered `pieces` list and the same `layout` /
 `narrowLayout` / `sectionNav` blocks as a `SheetPreset`; `presetFromConfig` marks its column blocks
-with `columnsClassName`, so Play lays the compose configs out with
-`repeat(auto-fit, minmax(20rem, 1fr))` rather than the fantasy preset's 200 px ability track. A piece carries a
+with `columnsClassName`, so the compose configs lay out with
+`repeat(auto-fit, minmax(20rem, 1fr))`. A piece carries a
 stable `key`, a `kind` and its Field-path bindings, and holds no React, no strings and no
-per-Template code. The eleven kinds are:
+per-Template code. The fourteen kinds are:
 
 - `statPills` — one labelled pill per bound leaf, passed through `RollableValue` (a Row without
   dice stays plain text); an optional `row` names the Row whose dice the pill reads. On a phone the
@@ -784,10 +792,12 @@ per-Template code. The eleven kinds are:
   has no slots; a sheet with no slot at all draws no row.
 - `pips` — the `count` leaf filled out of a `max` leaf path or a fixed number; each pip is a
   pressed toggle that commits through `usePresetCommit` and is named for what it does (a filled
-  pip offers to clear to its own index minus one), and a zero maximum draws nothing.
+  pip offers to clear to its own index minus one), and a zero maximum draws nothing. A track shows
+  its filled count, and may declare a group `heading`, a short visible `label` (accessible names keep
+  the field label) and `critical`.
 - `abilityGrid` — one cell per bound `score`/`modifier` pair, the signed modifier rolled inside an
-  accent ring and the score edited through `InlineEdit` as small text with its pencil always shown,
-  so the roll target and the edit target never look alike.
+  accent ring and the score edited through the boxed `InlineEdit`, so the roll target and the edit
+  target never look alike.
 - `saveList` — one row per bound `proficiency`/`total` pair, its flag a pressed toggle that
   commits `0`/`1` and its signed total rolled; the group header names the list and carries the
   filled-dot `Proficient` legend, and the toggle's accessible name states `Proficient` or
@@ -797,34 +807,48 @@ per-Template code. The eleven kinds are:
   the signed total rolls. Its header names the list and explains the filled-dot `Proficient` and
   two-dot `Expertise` marks (expertise only when the ceiling is at least two), and the rank
   control's accessible name states the same meaning.
-- `hitPoints` — the bound `current`, `max` and optional `temp` leaves, a meter and one amount
-  entry; Damage lets the temp leaf absorb first and floors the current at zero, Heal clamps to the
-  maximum and never lowers a current already at or above it (a zero maximum heals nothing), and a
-  derived maximum stays read-only. Damage and Heal stay disabled until the amount parses as a
-  positive whole number. The card is compact (at most 36rem wide): a `Hit points` caption over the
-  large current value and the muted maximum (its schema label kept for screen readers only) sits on
-  one row with a 5rem amount field (visually unlabelled, `HP` placeholder) and Damage/Heal; the
-  meter follows, and under it the temporary hit points share a line with the Undo entry. At 360px
-  and below the amount row drops under the numbers.
+- `hitPoints` — the bound `current`, `max` and optional `temp` leaves, one row of quick changes
+  (−5, −1, +1, +5, each applied at once and undoable), a meter and a labelled `Amount` entry; Damage
+  lets the temp leaf absorb first and floors the current at zero, Heal clamps to the maximum and
+  never lowers a current already at or above it (a zero maximum heals nothing), and a derived maximum
+  stays read-only. Damage and Heal stay disabled until the amount parses as a positive whole number.
+  When the piece declares `downNotice` and the current value is zero under a positive maximum, the
+  card turns to the danger tone, a polite status line says so, and `critical` pip tracks follow.
 - `conditions` — numeric flags as toggle chips that commit `0`/`1` (the part before the first
   colon stays the chip, the rest is its accessible description), under a `Conditions` heading
   whose `Show all` / `Show active only` toggle (`aria-expanded`) starts collapsed: only active
   chips render (inactive ones are `hidden`), with `No active conditions` when none is on plus an optional exhaustion track
   (`level`, a fixed or bound `max`, an optional derived `penalty`) that reuses the pips.
 - `recordTable` — a bound Record list's chosen `columns` as editable `SheetFieldControl` cells
-  plus Add and Remove through the edit store's list operations (each guarded by the store method
-  it needs), a visible level-2 heading with the list label, one shared column header per run of
+  plus Add, Move up/down (focus follows the moved Record and a live region announces the position;
+  drawn only when the store can move and there are two or more Records) and an icon-only Remove
+  named for the Record through the edit store's list operations (each guarded by the store method it
+  needs), a visible level-2 heading with the list label, one shared column header per run of
   Records aligned to the cells by a grid template the table publishes as `--lg-record-template`
   (text fields take two shares, selects 1.25 with an 8.5rem floor, numbers and toggles one with a
   6.5rem floor) with the per-cell labels returning only
-  on a phone, a `RollableValue` on the Record Row when the list declares Row default dice, and
+  on a phone, a d20 `RollableValue` on the To hit value when the piece names its `nameColumn`,
+  `rollColumn` and `damageColumn` and the list declares Row dice (its accessible name carries the
+  attack name and modifier), a damage cell that holds a dice expression drawn as its own damage
+  roll, otherwise a `RollableValue` on the Record Row when the list declares Row default dice, and
   the shared empty and at-capacity copy. Every cell subscribes to its own path.
 - `resetBar` — `ResetActions` for its bound action ids over the provider's reset binding (the same
-  run, apply and refresh callbacks as the Edit screen, so there is no new request path).
+  run, apply and refresh callbacks as the generic form, so there is no new request path).
 - `rollMode` — a provider-held Normal / Advantage / Disadvantage choice that the next d20
   `RollableValue` roll applies and consumes, then returns to Normal; a non-d20 roll, an explicit
   Shift/Alt click, a dialog choice or a `not_d20` Row leaves it alone. It writes nothing to the
   Sheet.
+- `xpBar` — the bound `level` and `xp` leaves as a progress bar between the level floor and the next
+  threshold, with the floor-to-threshold total, a Gain XP form, Set XP through `InlineEdit` while
+  editing, and `Level up to N?` at the threshold; level 20 fills the bar and offers no next level.
+  On a locked sheet Gain XP and Level up stay live, like the other play actions.
+- `fields` — a closed `details` disclosure of bound leaves drawn with the engine controls
+  (`SheetFieldControl`, and one native select per exclusive group); derived leaves read as readouts
+  and the title row may show one derived `summary` value. It is the home of every editable leaf no
+  other piece draws (identity, armor, movement, hit-point and spellcasting setup, misc bonuses,
+  passive choice, coins).
+- `diceFormulas` — a closed disclosure that, once open, draws the generic form with no value
+  control, only the Row and Section dice actions, so a formula is edited or rolled without a mode.
 - `textFields` — bound text leaves with their original label, an inline text edit that commits
   through `usePresetCommit`, and the shared inline add copy when the value is blank.
 
@@ -841,9 +865,9 @@ row, and take an optional `row` for a Section expression that reads its Row's co
 formatting, integer score parse, proficiency toggle and clamped rank helpers, and
 `compose/hit_points.ts` the hit-point math.
 
-`registry.ts` keeps `PRESET_CONFIGS` beside the frozen `fantasyPreset` and resolves a Template id
-through `presetFor`; the registry holds `fifthCharacterConfig` and `fifthStatBlockConfig`, the
-fantasy preset wins its id, and a Template with no registered config still opens the generic form.
+`registry.ts` keeps `PRESET_CONFIGS` and resolves a Template id through `presetFor`; the registry
+holds `fifthCharacterConfig` and `fifthStatBlockConfig`, and a Template with no registered config
+opens the generic form.
 `configPathErrors(config, template)` is pure: it collects every header and piece binding and
 reports the paths absent from the Template's `buildSections(template.fields)` leaves, Record list
 paths and their column names, a score piece's `section` that names no Template Section, a `row`
@@ -857,219 +881,35 @@ Enter/Space operation and the reduced-motion CSS block.
 
 The `fifth_character_v1` config (`compose/configs/fifth_character.ts`) and the
 `fifth_stat_block_v1` config (`compose/configs/fifth_stat_block.ts`) are the two shipped data-only
-presets; both are described under Fifth-edition Templates. The character config draws every 5E
-character surface, and the stat block config opens an NPC or enemy in the compact Play body with
-no per-Template React. A regression suite (`preset_fantasy_regression.test.tsx`) pins the frozen
-`fantasy_v1` preset by registry identity, fixture Play surfaces, edit, roll and pending commit,
-and asserts the `/demo` route imports the 5E demo rather than the fantasy preset;
-`web/src/sheet/preset/fantasy/` stays byte-identical.
+presets; both are described under Fifth-edition Templates. Together their pieces bind every editable
+leaf of their Template, and neither needs per-Template React.
 
+A preset that declares `sectionNav` draws a section chip row (`preset/section_nav.tsx` over the pure
+`preset/section_nav_targets.ts`): chips are full `--lg-size-control` tab stops in a horizontally
+scrolling `nav`, tapping one scrolls its heading into view and focuses it, and the current Section
+follows the scroll. Every rollable total shares one affordance through `rollable_value.tsx`: text
+colour, a dashed underline and an accent fill on hover or focus, while every typeable value is a
+bordered box. A d20 rollable takes the roll mode: Shift-click rolls with advantage, Alt-click with
+disadvantage (Shift wins), and a long press, the Context Menu key or Shift+F10 opens a dialog with
+Normal, Advantage and Disadvantage. A Row or Section the Template marks `not_d20` offers no mode.
 
-The `fantasy_v1` preset draws the hero header, the combat strip, the attack cards, the
-ability medallions, the spellcasting panel and the table-rules disclosure. A preset declares an
-ordered body layout: full-width Section blocks and column blocks, plus an optional narrow layout. The
-fantasy body draws the combat strip across the top, then three columns (abilities / saving throws
-with skills / attacks with spells), then the table rules; the columns fall to two around 1100px and
-to one on a phone, without a horizontal scroll at 360px. In both narrower layouts an ability
-medallion stacks its name above the medal and lets the name wrap instead of ellipsising it, so no
-ability name is cut; the three-column desktop layout is unchanged. On a phone (`max-width: 40rem`,
-the same `NARROW_QUERY` as every preset media query) the narrow layout replaces the columns with a
-flat, mobile-first order — combat, attacks, spells, abilities, saves, skills, rules — so the DOM and
-the keyboard tab order follow the visual order; the 1440 and 1100 arrangements keep their columns.
-The narrow sections are wrapped in `data-preset-section` slots, and a Section that renders nothing
-(no spells, no attacks, no rules) leaves an empty slot that is not drawn. A preset that declares
-`sectionNav.after` (`combat` for `fantasy_v1`) also draws a phone-only section chip row under that
-slot (`preset/section_nav.tsx` over the pure `preset/section_nav_targets.ts`): it lists, in layout
-order, only the Sections that rendered a heading, leaving out the strip the player is already under.
-Each chip is a full `--lg-size-control` tab stop in a horizontally scrolling `nav`; tapping one
-scrolls its heading into view with `scroll-margin-block-start` (the vitals bar's own scroll padding
-is not stacked) and moves focus to the heading, which reduced motion lands instantly. A scroll and
-resize listener marks the Section whose heading last crossed the landing line, and marks the last
-Section once the page reaches the bottom, so a short final Section still marks itself. The ability
-Section grows a phone-only heading (hidden in the desktop columns) so it can be a jump target.
-On a phone the hero comes
-before the sheet action group (desktop keeps the actions above it), so the title starts within the
-first 80 px of a 390 px viewport. The title is
-`identity.characterName` with
-the sheet name as its empty fallback, then `ancestry`, `origin`, `Level N` with a stepper and
-`played by <player>` on one wrapping line (they share the row at 390px, and long values wrap inside
-the line instead of overflowing), then the proficiency badge (an inline edit clamped to 2–6 by the pure
-`fantasy/identity.ts`). The hero also carries the experience bar
-(`fantasy/xp_panel.tsx` over the pure `fantasy/xp_progress.ts`): a `progressbar` running from the
-current level's floor to the next 5e threshold, whose disclosure shows the `identity.xp` total as an
-inline edit and adds a positive gain to it in the pending delta (the total and the gain round to
-whole XP and floor at zero, with no upper cap); when the total reaches the threshold it offers
-`Level up to N?`, which writes the next `identity.level` in the pending delta. Level 20 draws a
-full bar and never offers a level. Under it the combat strip holds the armor class
-shield, the initiative and speed tiles and the hit-points card (below), then the six
-`stats.<ability>` scores render as medallions: the `modifiers.<ability>Mod`
-derived value is the large, read-only roll target through `rollable_value.tsx`,
-rolling the `stats.<ability>` Row through the Dice store and its sheet overrides, while the raw
-score sits in an `inline_edit.tsx` badge whose writes go to the pending delta; the two are separate
-targets. The `derived.passiveAwareness` pill closes the column. `RollableValue` and the `useRowRoll`
-hook it uses are the reusable roll surface for later gameplay sections. Every rollable total shares
-one affordance: text colour, a quiet dashed `--lg-color-border-strong` underline, and an accent fill
-with on-accent text on hover or focus. Filled accent is reserved for the proficiency dot and the primary
-action, so "proficient" and "rollable" never look alike; the style follows the value rather than its
-sign, so a zero or negative modifier keeps it. A d20 rollable also carries the roll mode: Shift-click
-rolls with advantage and Alt-click with disadvantage (Shift wins when both are held), while a long
-press, the Context Menu key or Shift+F10 opens one small dialog choosing Normal, Advantage or
-Disadvantage, so a phone and a keyboard reach the same choice. Only an expression with a d20 term
-reacts; a damage expression and every other non-d20 roll throws exactly its own dice. A Row or
-Section the Template marks `not_d20` offers no mode at all: no dialog, no popup semantics, Shift
-and Alt roll normally, and one die is thrown even through the Context Menu key or a long press;
-the marking survives a player override of that Row's expression. No Play label
-falls below `--lg-type-12` on any width (hero badge, HP, AC and combat chips, spellcasting, ability and skill
-labels). The attack cards, saving throws, skills, spellcasting panel and table-rules disclosure
-follow (see below). Edit keeps the generic form, Arrange and the pinned filter; Play ignores the
-layout and the view filters.
-
-The combat strip (`fantasy/combat_strip.tsx`) is the container later gameplay cards extend; it
-holds the armor class shield, the initiative tile, the speed tile and the hit-points card
-(`fantasy/hp_card.tsx`) at the top of the Play view and is sticky on a desktop only (a media
-query turns it static and the strip into a three-column grid on a phone, with the card across
-all three). The shield (`fantasy/ac_breakdown.tsx`) reads `derived.armorClass` and opens a
-breakdown popover with `role="dialog"`: the base armor (`combat.baseArmorClass`) as an inline
-edit clamped to 1–30 and a 44px target on a phone, the AC ability as DEX/CON segmented buttons
-that write the
-`armorClassAbility` exclusive group through `setExclusive` (`config.acUsesDex` /
-`config.acUsesCon`, exactly one non-zero member in the delta), that ability's
-`modifiers.<ability>Mod` and the derived total. It closes on Escape, on an outside click and on
-its close button, returns focus to the shield and keeps focus in the panel while open; the
-derived value itself only changes after Preview, since the client evaluates no formula. On a
-phone the same panel is a fixed bottom sheet so a scrolling container cannot clip it. The
-initiative tile is the large, read-only roll target over the `combat.initiative` Row, drawing a
-decorative d20 beside the signed total at all times, with the accessible name and title
-`Roll initiative, <signed value>`; its inline edit pencil waits for hover or focus on a desktop, is
-a full `--lg-size-control` target on a phone and is named `Edit initiative` (the inline editor keeps
-the field label as its name). The rollable total's dashed underline uses a tighter
-`text-underline-offset` than a text link, so it stays inside the value's line box and clear of the
-label under it. The
-speed tile inline-edits `combat.speed` (clamped to 0–120). `fantasy/armor_class.ts` owns the
-paths, the 1–30 / 0–120 / −5–20 parsing and the exactly-one-ability selector. The hit-points card reads
-`combat.hitPoints`, `combat.hitPointsMax` and `combat.hitPointsTemp`, draws the bar as a
-`role="meter"` with
-`aria-valuemin`/`aria-valuemax`/`aria-valuenow`, colours the fill by percentage (green above 50,
-amber at 25–50, red under 25), adds a temporary-points segment and offers an amount input with
-Damage and Heal; the three values are themselves inline edits (`parseHitPointsCurrent`,
-`parseHitPointsMaximum`, `parseHitPointsTemp`). Each rounds to a whole number and floors at zero
-(the maximum at 1); a larger typed value is kept rather than silently capped, and the parsers share
-the pure `parse_number.ts` clamp with the other Play edits, as does the amount input (a fractional
-amount rounds to a whole one). The card draws every value clamped to the maximum: an inline current
-above it is written back as the maximum, and committing a maximum below the current value also
-writes `current = max`. Damage and Heal call the pure `fantasy/hit_points.ts` with that clamped
-current, so `10 / 10 → max 6 → 2 damage` leaves `4 / 6`: damage spends temporary
-points first and floors the current value at zero, healing caps at the maximum, and a zero,
-negative or unreadable amount changes nothing. The two writes go to the pending delta through
-`setPath` without a save; until the baseline advances the bar draws the difference as a hatched
-segment, red for a loss and green for a gain, and the card spells the change out as
-`<before> → <after> (<signed delta>)`, with a second `temp …` line whenever the temporary points
-move (a loss that stays inside them lists only that line). The pure `hitPointsPreview` decides
-each changed line and the overall direction, and `formatHitPointsDelta` writes the sign (`+5`,
-`−7`). Pressing Enter in the amount field applies damage, and an empty or zero amount does
-nothing.
-
-Above the amount field the card offers the quick actions `−5`, `−1`, `+1`, `+5` and `+ Temp`, one
-tap through the same pending flow. The four signed buttons apply their amount to the current
-values and leave the amount field alone, so repeated taps accumulate into one pending line; damage
-spends temporary points first and healing caps at the maximum, exactly like the named actions.
-`+ Temp` takes its value from the amount field (disabled while that is empty or zero, cleared once
-applied) and writes the higher of the current temporary points and the amount, so a lower value
-never reduces them; it writes only `combat.hitPointsTemp` and never rewrites the current value.
-Each button states its effect as its accessible name (`Damage 5`, `Heal 1`, `Add temporary hit
-points`), and the signed buttons repeat it as a tooltip; the amount field shows an `HP` placeholder. The Damage and Heal buttons and the quick strip sit on `--lg-size-control-compact` on a
-desktop and `--lg-size-control` at phone widths, the quick buttons as 44px squares, in the combat
-strip and in the stat block alike. On a phone the actions sit in one full-width,
-min-width-zero track, so the quick strip and the amount/Damage/Heal row wrap and stay inside the
-card at 320 and 390 instead of running past its right edge, and both rows start on the same left
-edge. The stat block folds the card into one
-row (numbers, bar, then a 74px amount field with Damage and Heal under the quick strip, with any
-pending line across the full width), so the vitals band stays compact; on a phone the actions drop
-to their own row under the numbers. `hit_points.ts`
-also owns the percentage
-and band helpers, and both the card and the math are exported for the NPC and enemy stat block.
-
-The phone keeps those vitals reachable once the strip leaves the viewport. `fantasy/vitals_bar.tsx`
-is registered as the preset's optional `Vitals` and draws a fixed bar under the top safe-area inset
-(about `--lg-space-48` tall) with AC, current/maximum hit points and a thin bar, plus one
-`Damage or heal` disclosure that opens the amount field and 44px Damage/Heal actions. It exists only
-at phone widths and measures the strip's `data-vitals-anchor` rect on scroll and resize, so it
-appears once the strip has passed the top edge and hides when it returns; a zero-height or missing
-anchor keeps it hidden, and a short sheet that never scrolls the strip out never shows it. AC comes
-from `derived.armorClass`. The bar reuses `fantasy/hit_points_view.ts` (`useHitPointsView`), the
-shared view over the pure hit-point math that the card also uses, so damage, healing, temporary
-points, the amount field and the pending delta follow exactly the card's flow. A pending change adds
-one line spelling out `<before> → <after> (<delta>)` in the danger or success tone, with the same
-hatched segment on the bar. The hatch is one shared `.lg-pending-stripe` class (`preset.css`) that
-both the bar and the hit-points card take, so the danger and success stripes are declared once.
-Escape closes the disclosure only. The bar's height is reserved through
-`scroll-padding-block-start`, so a focused field scrolls clear of it, and reduced motion drops its
-slide-in.
-
-Saving throws and skills follow as two card sections (`saves_skills.tsx`). On a phone each row draws
-at 36px while its proficiency dot, rollable total and bonus edit keep a 44px square target; the two
-lists carry an `--lg-space-8` row gap, so every row sits on a 44px pitch and the targets of a
-row touch their neighbours without overlapping. The targets of a row stay apart horizontally,
-and the drawn proficiency mark stays a 14px dot inside its 44px target. Each panel header carries a
-first-time legend: the saving throws title repeats
-the row dot (the same `lg-prof-dot__mark` mark, filled through the `--on` modifier) beside
-`proficient`, and the skills title says
-`Tap a number to roll`; both strings resolve through `sheet.play.proficient` /
-`sheet.play.rollHint` and sit in the shared `.lg-play-section__note` at the label floor (11px
-desktop, 12px phone). The panels exist only in Play, so Edit draws neither legend. Each row draws a
-proficiency dot: one control-sized toggle with `aria-pressed` whose `setPath` writes 1 or 0 to the
-matching `config.save<A>Prof` / `config.skill<S>Prof` leaf in the pending delta. The toggle changes
-the filled dot only; the total's rollable style is independent of proficiency. Preview stays
-explicit: the toggle does not call it, so the derived total updates when the player asks for
-Preview (the Preview throttle and the pending card still apply). The save row shows the template label and a rollable `saves.<ability>` total over the
-`saves` Section dice; the skill row shows its name, its ability abbreviation, an inline-editable
-`skills.<skill>.bonus` and a rollable `skills.<skill>.total` over the `skills` Section dice. The
-skill name comes from the template group (falling back to the key). The config Section itself is
-never drawn in Play mode; the pure `saves_skills_data.ts` holds the skill-to-ability table, the path
-builders, the abbreviation keys and the bonus parser that clamps to the template range.
-The row grammar `skills.<skill>` is the table Row key the Dice store resolves.
-
-Attack cards follow (`fantasy/attacks.tsx`). The four `attacks.attack1..4` table Rows draw only
-while their `name` is non-empty (the pure `attackFilled` trims it) or the player has revealed the
-slot, so a slot carrying only a note stays empty. Play draws `+ Add attack (N free)`, which reveals
-one empty slot at a time and counts the slots still hidden; a revealed slot names its rolls by the
-template label (`Attack N`) until a name is written. The stat block asks the same component for
-`showAdd={false}`, so a creature adds attacks in Edit only. Edit's generic form shows every slot of
-the template, with the attack table's Notes column as the place to write a note that is not shown
-yet. Each card carries an inline-editable name, a rollable bonus and a rollable damage expression.
-An optional `attacks.attackN.notes` text leaf (60 characters) draws as a muted subtitle under the
-name, editable in place; an empty note draws nothing at all, not an invitation, so Play never pads a
-card. The to-hit pill draws a decorative d20 (`aria-hidden`) beside
-the signed bonus, so it reads as an attack roll rather than a bare number; its accessible name and
-title are `Attack roll, <attack name>, <signed bonus>`. The damage pill stays the dice expression,
-with the matching `Damage roll, <attack name>, <expression>` name and title. The bonus is the
-attack Row through the `attacks` Section dice and the preset `1d20 + @.bonus` default, so it shares
-the Dice panel and per-sheet overrides. Damage is a literal expression validated by the pure
-`fantasy/attacks_data.ts` (`parseAttackDamage`: at least one die, no field reference) and rolled
-through `useExpressionRoll` (`dice_row.tsx`), which keeps the Dice panel, saved/draft values and
-result copy while leaving the attack Row's own dice setting alone; it takes no roll mode, so the
-advantage/disadvantage modifiers never touch a damage roll. Bonus edits clamp to the
-template range; name, bonus and damage write the pending delta. On a phone the to-hit and damage
-pills and both edit pencils are full 44px targets.
-
-The mode is component state for the open screen, local to the viewer, never persisted and never
-sent. The switch sits in the header's one action group with `Duplicate`, `Help` and `Arrange`; below
-`40rem` that group takes the sheet content width edge to edge with equal, centred segments, and from
-`40rem` it stays compact at the trailing edge. Preset edits go through the same edit store (`setPath`), so Preview, Save, the draft cadence
-and both guards behave exactly as in Edit. The reusable inline-edit control (`inline_edit.tsx`)
+Preset edits go through the same edit store (`setPath`), so Preview, Save, the draft cadence and
+both guards behave exactly as in the generic form. The header holds one action group (`Duplicate`
+for an NPC or enemy, `Help`, and `Arrange` on the generic form only: a layout orders the generic
+form, so a preset sheet has no Arrange mode or pins). The reusable inline-edit control (`inline_edit.tsx`)
 opens on click or Enter, commits on Enter or blur, cancels on Escape, writes one dotted path and
 shows `Add <label>` while the value is empty; its accessible name is the template's field label,
-and an optional display node can replace the shown value (the attack cards and the initiative tile
-use a pencil trigger) with an optional `editLabel` naming that trigger separately. On one column (`max-width: 40rem`, the single exported `NARROW_QUERY` that
+an optional display node can replace the shown value and an optional `editLabel` names the trigger
+separately. On one column (`max-width: 40rem`, the single exported `NARROW_QUERY` that
 every preset CSS media query matches) the same control keeps its trigger and
-opens a bottom-sheet `Dialog` instead: the input takes `type` and `inputMode` from the field schema
+opens a bottom-sheet `Dialog` instead, portalled to the document body: the input takes `type` and `inputMode` from the field schema
 (`number`/`numeric` for numbers), Enter commits, and Escape or the close button cancels without
 writing. The narrow check reads `matchMedia` through `useNarrowViewport`; a browser without it edits
-inline. The hit points and experience bars animate their width and the roll toast animates in, and
+inline. The hit points bar animates its width and the roll toast animates in, and
 every one of those animations is switched off under `prefers-reduced-motion`; on a phone the roll
 toast is flush with the bottom edge. The roll result floats above the current bottom surface: the
-sticky footer in Edit, or the pending bar in Play, which carries the same floor marker as the
-footer. A panel already open lifts or drops when that surface appears or disappears, through the
+sticky footer on the generic form, or the pending bar on a preset, which carries the same floor
+marker as the footer. A panel already open lifts or drops when that surface appears or disappears, through the
 floor observer, so the bar never covers the total, the parts or the `role="status"` announcement.
 The panel keeps the last three rolls of the session (`dice_history.ts`, `rememberRoll`), newest
 first: a fourth roll evicts the oldest, only the newest is announced through the one polite live
@@ -1084,16 +924,17 @@ accessible name when the name does not already contain it as a whole token
 0`), so voice control can target what is on screen (WCAG 2.5.3). Compose group and table titles
 render through `GroupTitle`, at h2 by default and h3 under the `/demo` page's h2 character heading
 (`PresetProvider` `groupHeadingLevel`); the section nav anchors on either level. The temporary hit
-points value and each ability score keep a 28px hit area (44px on a coarse pointer).
+points value and each ability score keep at least a 40px hit area (44px on a coarse pointer).
 
 The 5E Character header names `rollMode` as its `trailing` piece: the adapter draws that piece at
 the far end of the identity header (wrapping under the name on a phone) as a pill segmented
-control, and leaves it out of the Play sections. Its `narrowLayout` opens on hit points, then the death-save and hit-dice pips, then
-the vitals and identity pills, with the section chip row after identity, so the phone's first
-screen carries a playable control. On wide screens the identity and vitals pills come first, then three columns in paper-sheet
-order: the ability grid (two cells per row from 64rem) with the saving throws, the skills, and a
-combat column with hit points, the death-save and hit-dice pips and the conditions. On every width the
-Spell slots group sits directly above the Spells table. Pips drawn as
+control, and leaves it out of the body sections. Its `narrowLayout` opens on hit points, the death-save and hit-dice pips and the conditions, then the
+vitals, the three setup disclosures, identity and the rest, so the phone's first screen carries the
+table-play controls. On wide screens identity comes first, then a wide column with the vitals above
+hit points beside a bordered column with the pips and conditions, then the armor, movement and
+hit-point setup disclosures at full width, and two columns with abilities and saving throws beside
+skills. On every width the Spell slots group
+sits directly above the Spells table. Pips drawn as
 their own section are compact rows (label then marks, start-aligned, a hairline under each) and
 consecutive pip sections drop the column gap between them.
 
@@ -1109,10 +950,11 @@ Given a `pendingAction`, it wraps the sheet in `PendingCardOverrideProvider`
 (`pending_card.tsx`): the pending card keeps Discard but replaces Preview and Save with that action
 and `not saved yet` with the override note, so the demo never offers a save it cannot keep.
 
-Any Play-mode value edit also floats the pending-changes bar (`pending_card.tsx`, fed by the pure
-`pending_changes.ts`): the only save surface in Play, because the screen draws no footer there.
-It lists each changed field as `<label> <old> → <new>`, the `not saved yet` copy, and Discard,
-Preview and Save wired to the same edit store. The bar clears the phone home indicator
+Any unsaved value or Dice edit on a preset floats the pending-changes bar (`pending_card.tsx`, fed by the pure
+`pending_changes.ts`): the only save surface of a preset sheet, which draws no footer.
+It is a compact pop-up: a toggle showing the change count and `not saved yet`, with Discard,
+Preview and Save wired to the same edit store; opening the toggle lists each changed field as
+`<label> <old> → <new>`. The bar clears the phone home indicator
 (`viewport-fit=cover` plus `env(safe-area-inset-bottom)`); while it is shown it marks the Play root
 with `lg-preset--pending-card` and publishes `--lg-pending-card-space` (its measured height plus its
 distance from the viewport bottom), which the root turns into bottom padding, so the last content
@@ -1120,92 +962,13 @@ scrolls fully above it; hiding the bar removes both. On `/demo` the phone card a
 the sticky sign-up bar instead of covering it. Its actions
 are `--lg-size-control` tall on a phone, it slides in unless `prefers-reduced-motion` asks it not
 to, and one polite, debounced live region announces the change summary once typing settles instead
-of on every committed edit. Escape discards outside a text entry, a dialog or the dice panel;
-`Ctrl+S`/`Cmd+S` saves. The bar appears while the edited values differ from the saved baseline and
-hides on Save or Discard, or when every edit is reverted; a failed save or preview keeps it and
-shows the mapped failure copy. In Play the bar is also the roll result's floor: the result panel
-sits fully above it and moves with it when it appears, changes height or leaves. Only value edits
-are summarised: a Dice-only change still counts as unsaved work for the leave guard but draws no bar.
-
-The spellcasting panel (`preset/fantasy/spells.tsx`) reads the decoded template instead of fixed
-paths. It shows the `spellcastingAbility` exclusive group as one compact native select beside the
-spell attack and save DC tiles, showing the chosen ability and naming the group as its label: a
-choice writes 1 to the chosen member and 0 to every sibling in one `setExclusive` call, so exactly
-one member is non-zero. Edit keeps the generic form's own exclusive-group control. The derived spell
-attack bonus carries the Row's dice action with the preset row default `1d20 + @`, so a roll shares
-the Dice store, pendings and result panel; the save DC is a plain derived readout. The at-will and
-prepared lists use the same one-path inline editor in its quiet variant: Play draws no dashed input
-edge until hover or focus, while Edit keeps the generic form's input affordance. One slot row is
-drawn per level whose total is
-non-zero: `total` pips with the remaining ones first, each a `--lg-size-control` target that writes
-`spells.slotN.expended` (a remaining pip spends one, a spent pip recovers one), and the total stays
-inline-editable through the engine's numeric guard. On a phone each pip and the rollable spell
-attack keep the same 44px target, and the pip keeps its 14px diamond so the drawn mark stays compact
-inside the target. `preset/fantasy/slot_pips.ts` is pure
-(`slotPool`, `spendSlot`, `recoverSlot`, `slotPips`): a missing, non-numeric or negative count reads
-as zero, fractional counts truncate, `expended` clamps to the total, and spend or recover at a cap
-returns the same pool. A level stays visible while its total is being edited, and hides once a saved
-total of zero is the stored value. A quiet footnote under the rows names every hidden level as a
-range or a list (`preset/fantasy/hidden_levels.ts` sorts and deduplicates them and draws one range
-per contiguous run); it is absent when no level is hidden, and it names only the levels the template
-carries. The panel has two variants: the default `panel` for the character sheet and the `compact`
-one the stat block asks for (below). `preset/fantasy/rules.tsx` draws the four `rules.*` leaves as a
-disclosure collapsed by default, editable through the same numeric guard when opened; its chevron
-points right while closed and rotates down while open (a class modifier off the open state), and
-reduced motion drops the transition.
-
-An NPC or enemy sheet (`sheet.kind` `npc` / `enemy`) of `fantasy_v1` swaps the character preset for
-the compact stat block (`preset/fantasy/stat_block.tsx`): the preset carries an optional `statBlock`
-with a `when(kind)` predicate and a body; the screen header keeps only its actions. The body draws
-one centred card whose sections are separated by hairlines with no nested panel borders, and the
-card's own header carries the name, a subtitle and the kind badge. The card is capped at 44rem
-until a wide viewport and fills the sheet content width from 1100px (`68.75rem`). The name is the
-same `identity.characterName` inline edit with the sheet name as fallback; the subtitle joins the
-non-empty parts of `identity.ancestry`, `identity.origin` and `identity.level` (through the pure
-`statBlockSubtitleParts`) and disappears when all are empty; the badge reads `NPC` or `Enemy`
-(`kind.npc` / `kind.enemy`) and the enemy badge takes the danger role. The body opens with one
-vitals band under the header: a compact 56px armor class shield that still opens its breakdown, the
-inline rollable initiative beside it (the same d20, `Roll initiative, <signed value>` name and
-hover-or-focus `Edit initiative` pencil, with the inline edit clamped to −5–20 by `armor_class.ts`) and
-the one-row hit-points card (`hit_points.ts`), with its
-amount field and Damage and Heal actions on the same line. Below the band the body splits into two
-equal columns from 1100px: attacks and spells in the combat column, the ability medallions and
-trait prose in the traits column. Below 1100px it stays one column with attacks and spells ahead
-of the traits, so a phone shows armor class, hit points and the first attack row without scrolling.
-An empty combat or traits column collapses and the other fills the card. The attack cards carry no
-add control (attacks are added in Edit) and keep the same note subtitle under each name. The
-spellcasting panel draws its `compact` variant: one
-summary line holds the ability select beside the rollable spell attack and the save DC, one slot row
-is drawn per level that has slots (level, pips, remaining), and the at-will and spell lists read as
-one prose line each with the template label as its term. Empty spell lists draw no line, and a
-creature with no spellcasting at all (no slot and no list text, per the pure `hasSpellCast` in
-`spells_data.ts`) draws no spells section; the hidden-levels footnote appears only beside at least
-one drawn slot row. The traits column reuses the ability medallions (without the passive pill) and
-adds a short prose block from the
-`config.save<A>Prof` / `config.skill<S>Prof` leaves: one line per list,
-"Saves Dex +4 · Wis +2" and "Skills Stealth +6 · Perception +6", each naming the save abbreviation
-or skill and its rollable total and nothing else (the `skills.<skill>.bonus` base stays editable
-only in Edit mode's generic form). A list with no proficient member draws no line. The same block
-ends with one movement line, "Speed 30 ft · Passive 16": the template `combat.speed` with the
-`sheet.play.feet` unit and the derived `derived.passiveAwareness`, either side left out when it has
-no value, the whole line and the block omitted when nothing is left (`statMovementParts` /
-`statProseText` are pure). The lines wrap between parts, never inside a name and its total, on
-`--lg-size-control` roll targets.
-Every value keeps its pending-delta path, so the stat block saves, previews and drafts like the full
-sheet. A character sheet, or a sheet with no kind, keeps the full preset. `stat_block.css` draws
-body text at `--lg-type-15` with every control on a `--lg-size-control` target; the vitals band is
-sticky under the top safe-area inset at every width, and its controls carry a scroll margin so a
-focused edit lands below it; on a phone the band
-puts armor class and initiative on one row with the full-width hit-points card below and
-control-sized 44px Damage and Heal actions; the dashed underline is drawn by the value text
-itself (`text-decoration`) rather than by a control's border, so each underline hugs its value
-while the icon-only initiative pencil draws none, the body pads at `--lg-space-12` and the trait
-prose reads at `--lg-type-13`, keeping a sample enemy inside its 900px (1440) and 1200px (390)
-height budgets. At every width the six abilities sit in a three-column grid of two rows with
-their score pill under the medallion, so no ability name has to truncate; the labels read
-`--lg-type-11` on a desktop and `--lg-type-12` on a phone. `e2e/responsive.spec.ts` records the
-height at both widths, the two-column split at 1100px, the first-phone-screen contents and the
-lack of horizontal overflow at 360px, and that no ability name is cut at 1440 and 1100.
+of on every committed edit. Escape never discards pending edits; `Ctrl+S`/`Cmd+S` saves. The bar appears while a value or a Dice formula differs from the saved baseline and hides on Save
+or Discard, or when every edit is reverted; a failed save or preview keeps it and shows the mapped
+failure copy. A successful save shows a brief `Saved` status in the same polite region and moves
+focus to the header's Edit sheet / Done editing button, so the card can disappear without dropping
+focus to the page body; the status clears after two seconds or on the next edit. The bar is also the roll result's floor: the result panel sits fully above it and moves
+with it. Dice changes are summarised as one `Dice formulas changed` line. A field reverted to its old
+value while a save is in flight stays pending after that save resolves.
 
 ### Web local records
 
@@ -1276,42 +1039,18 @@ Web:
   and marks; `record_table.tsx` — the read-only Record table of the Campaign GM sheet.
 - `web/src/sheet/sheet_open.ts` — open situation; `sheet_edit.ts` — edit store, delta, marks,
   Record add/remove/move, throttle and restore; `save_retry.ts` — 409 retry;
-  `reset_actions.tsx` — the declared Reset action bar of the Edit form (per-tap request id,
+  `reset_actions.tsx` — the declared Reset action bar of the generic form (per-tap request id,
   refresh-and-retry, cascade merged into the cached Sheet).
-- `web/src/sheet/sheet_screen.tsx` — mounted screen, the template line (name plus notice) in Play
-  and Edit, the Edit-only footer, the Play discard shortcut and the guards;
+- `web/src/sheet/sheet_screen.tsx` — mounted screen, the template line (name plus notice), the
+  generic-form footer and the guards;
   `layout_store.ts` — committed/staged layout, commit and backup.
-- `web/src/sheet/preset/` — template-id registry and the `fantasy_v1` Play preset (`Header`, the
-  optional kind-selected `statBlock`, the optional `Vitals` bar, ordered section slots, the wide
-  column layout, the mobile-first narrow layout and the optional phone section nav);
-  `compose/` — the data-only `PresetConfig` contract, its `presetFromConfig` adapter, the pure
-  `configPathErrors` validation and the generic identity-header, stat-pill, pips, hit-point-track
-  and conditions pieces;
-  `section_nav.tsx` — the phone-only section chips and scrollspy; `section_nav_targets.ts` — its
-  pure target discovery and active-Section resolution;
-  `fantasy/` — the hero, the combat strip, the attack cards, the ability medallions, the
-  saving-throw/skill rows, the spellcasting panel and the table-rules disclosure, with the pure
-  `hit_points.ts`, `identity.ts`, `saves_skills_data.ts`, `attacks_data.ts`, `slot_pips.ts`,
-  `spells_data.ts` (the spell paths and the presence rule), `hidden_levels.ts`, `parse_number.ts`
-  (the shared clamped-integer and percent helpers) and `xp_progress.ts` helpers and the hero
-  experience bar in `xp_panel.tsx`; `fantasy/stat_block.tsx` —
-  the compact NPC/enemy stat block card and its inner header, reusing the combat shield, hit-points
-  card, ability medallions and attack cards and asking the spellcasting panel for its `compact`
-  variant; `fantasy/stat_block_data.ts` — its
-  kind selection and subtitle parts;
-  `fantasy/combat_strip.tsx` — the combat strip container and the vitals anchor; `fantasy/vitals_bar.tsx`
-  — the phone-only fixed vitals bar and its strip measurement; `fantasy/hit_points_view.ts` — the
-  shared React view over the hit-point math (amount, commits, pending preview geometry) used by both
-  cards; `fantasy/ac_breakdown.tsx` — the armor
-  class shield and its breakdown with the DEX/CON segmented exclusive choice;
-  `fantasy/armor_class.ts` — the AC/speed paths, the exactly-one-ability selector and the clamped
-  parsing; `fantasy/hp_card.tsx` — the hit-points card; `fantasy/attacks.tsx` — the attack cards;
-  `rollable_value.tsx` — the
-  reusable roll target and its one affordance style (`useRowRoll` in `dice_row.tsx`), with an
-  optional explicit accessible name and title (the attack cards) and a leading decorative icon slot; `pending_card.tsx`, `pending_changes.ts` —
-  the floating Play save bar, its debounced announcement and its pure summary; `mode_toggle.tsx` —
-  the local Play/Edit switch; `inline_edit.tsx` — the reusable single-path inline editor (inline on
-  a wide viewport, a schema-typed bottom sheet on a phone).
+- `web/src/sheet/preset/` — template-id registry, `play_view.tsx` (ordered section slots, column
+  and narrow layouts, optional section nav), `rollable_value.tsx` (the reusable roll target),
+  `pending_card.tsx` and `pending_changes.ts` (the preset save bar and its pure summary),
+  `section_nav.tsx` with `section_nav_targets.ts`; `compose/` — the data-only `PresetConfig`
+  contract, its `presetFromConfig` adapter, the pure `configPathErrors` validation and the generic
+  pieces; `inline_edit.tsx` — the reusable single-path inline editor (inline on a wide viewport, a
+  schema-typed bottom sheet on a phone, with Cancel and Save actions beside Return and Escape).
 - `web/src/sheet/view_store.ts`, `sheet_view.tsx`, `section_index.tsx` — local view state,
   collapse/filter and section strip; `dice_store.ts`, `dice_row.tsx`, `dice_panel.tsx`,
   `dice_history.ts`, `dice_view.ts` — Dice choices over the edit store and the recent-roll
@@ -1339,13 +1078,13 @@ Web:
 - No sheet import or export endpoint exists; the server is the only backup.
 - Record lists store editable Fields and their derived Fields: a shape formula is compiled at boot
   and evaluated per Record, and Sheet aggregates read the list. A derived Field is still refused as
-  a write (the server computes it). The web client draws a list in the generic Edit form and in a
-  Template without a preset; the frozen `fantasy_v1` preset draws no list.
+  a write (the server computes it). The web client draws a list in the generic form and in a
+  preset's record tables.
 - Users cannot create or edit templates; the registry is frozen at boot. The two fifth-edition
   Templates are `active` and `fifth_character_v1` is the default, `fantasy_v1` is retired, and
-  only the `fifth` Game system ships. Both 5E Templates play through their composable presets and
+  only the `fifth` Game system ships. Both 5E Templates draw through their composable presets and
   read their declared generation metadata (see Fifth-edition Templates); a Template without a
-  config keeps the generic Edit form and its footer with no Play/Edit toggle. A template change
+  config keeps the generic form and its footer. A template change
   requires a deploy and, if incompatible, a new ID, and a Template bound to a Game system keeps it
   for the life of its slug.
 - No offline open: the IndexedDB sheet copy is written and evicted but never read as a fallback,
@@ -1366,22 +1105,14 @@ Web:
   there is no pin cap.
 - A Reset action only assigns numeric leaves and list Fields, evaluates no text expression and
   stores only the last applied request id: replaying an older id after a newer rest applies again.
-  The Edit form cannot preview a rest; the 5E Character preset draws the Reset bar in Play, while
-  the frozen fantasy preset draws none.
+  The generic form cannot preview a rest; the 5E Character preset draws its own Reset bar.
 - Collapsed Sections and the pinned filter are local to one browser profile and one sheet; they
   are not part of the layout and are not exported.
 - The landing demo's cascade is local to `web/src/landing/demo_store.ts` and
   `template_derivation.ts`; it evaluates the demo Template's own formulas but is not the server
   engine, and it is not a second template registry.
-- Play mode presents the Template's preset. The 5E Character composable config draws the identity
-  header, stat pills, hit-point track, ability grid, saves and skills, conditions and rest pips,
-  the Record tables and the Reset bar, with the pending-changes save bar as the only save surface;
-  the 5E Stat Block config draws the compact NPC/enemy body. A `fantasy_v1` Sheet keeps the frozen
-  fantasy preset with its hero header, combat strip, attack cards, ability medallions, saving
-  throws and skills, spellcasting panel and table-rules disclosure. Play draws no footer, and a
-  template without a preset always keeps the generic form and its footer.
-- A Dice-only change has no visible save surface in Play (the bar summarises value edits only) even
-  though it counts as unsaved work: save it with `Ctrl+S`/`Cmd+S` or switch to Edit.
+- A preset sheet has no Arrange mode, pins, section collapse or pinned filter, and ignores a stored
+  layout. Collapsed `fields` disclosures hide their controls but not the pending bar.
 - `GET /sheets` still returns one arbitrary owned sheet for the legacy `/your-sheet` surface; the
   catalog uses `GET /sheets/owned` with an explicit kind.
 - Character sheets cannot be duplicated; only NPCs and enemies can. Campaign-linked sheets are

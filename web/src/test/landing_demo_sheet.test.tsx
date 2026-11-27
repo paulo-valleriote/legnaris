@@ -220,12 +220,12 @@ describe('the landing 5E demo sheet', () => {
     expect(screen.queryByTestId('sheet-pending-card')).toBeNull();
   });
 
-  it('Happy path: an ability score shows its edit pencil next to the rollable modifier', () => {
+  it('Happy path: an ability score draws a bordered edit control beside its rollable modifier', () => {
     render(<FifthDemoSheet />);
 
     const score = within(wisdomCell()).getByRole('button', { name: editName('Wisdom') });
-    expect(score).toHaveClass('lg-inline-edit--affordance');
-    expect(score.querySelector('.lg-inline-edit__pencil')).not.toBeNull();
+    expect(score).toHaveClass('lg-inline-edit');
+    expect(score.querySelector('.lg-inline-edit__pencil')).toBeNull();
   });
   it('Happy path: the hit-point card keeps temporary hit points under the meter', () => {
     render(<FifthDemoSheet />);

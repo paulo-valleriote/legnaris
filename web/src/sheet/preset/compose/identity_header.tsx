@@ -4,6 +4,7 @@ import {
   usePresetCommit,
   usePresetContext,
   usePresetLabel,
+  usePresetSchema,
   usePresetValue,
 } from '../preset_context';
 import { textValue } from '../values';
@@ -17,13 +18,15 @@ export interface IdentityHeaderProps {
 }
 
 export function IdentityHeader({ header, level = 1, trailing }: IdentityHeaderProps) {
-  const { sheet } = usePresetContext();
+  const { sheet, editing } = usePresetContext();
   const name = textValue(usePresetValue(header.name));
   const subtitle = textValue(usePresetValue(header.subtitle ?? header.name));
   const nameLabel = usePresetLabel(header.name);
   const subtitleLabel = usePresetLabel(header.subtitle ?? header.name);
   const commitName = usePresetCommit(header.name);
   const commitSubtitle = usePresetCommit(header.subtitle ?? header.name);
+  const nameSchema = usePresetSchema(header.name);
+  const subtitleSchema = usePresetSchema(header.subtitle ?? header.name);
   const Heading = level === 2 ? 'h2' : 'h1';
 
   return (
@@ -34,9 +37,10 @@ export function IdentityHeader({ header, level = 1, trailing }: IdentityHeaderPr
             className="lg-compose-header__title"
             label={nameLabel}
             path={header.name}
+            schema={nameSchema}
             value={name}
             fallback={sheet.name}
-            showPencil
+            locked={!editing}
             onCommit={commitName}
           />
         </Heading>
@@ -46,8 +50,9 @@ export function IdentityHeader({ header, level = 1, trailing }: IdentityHeaderPr
               className="lg-compose-header__subtitle-item"
               label={subtitleLabel}
               path={header.subtitle}
+              schema={subtitleSchema}
               value={subtitle}
-              showPencil
+              locked={!editing}
               onCommit={commitSubtitle}
             />
           </p>

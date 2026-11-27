@@ -1,14 +1,19 @@
+import { startEditing } from './start_editing';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, screen, waitFor } from '@testing-library/react';
+import { cleanup, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createApiClient } from '../api/client';
-import { message, messageWith } from '../l10n/strings';
+import { message } from '../l10n/strings';
 import { FLOATING_FLOOR_ATTRIBUTE } from '../sheet/dice_panel';
-import { initiativeRollName } from './dice_names';
-import { FANTASY_SHEET_ID, fantasySheetPayload, fantasyTemplatePayload } from './fantasy_fixtures';
+import {
+  FIFTH_CHARACTER_SHEET_ID,
+  fifthCharacterSheetData,
+  fifthCharacterSheetPayload,
+  fifthCharacterTemplatePayload,
+} from './fifth_fixtures';
 import type { FakeTransport } from './fake_transport';
 import { createFakeTransport, successOutcome } from './fake_transport';
 import { renderApp } from './render';
@@ -20,20 +25,30 @@ const BAR_LIFT = 120;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const diceCss = readFileSync(path.resolve(here, '../sheet/dice.css'), 'utf8');
 
-async function openFantasy(): Promise<{
+function sheetData(): Record<string, unknown> {
+  const base = fifthCharacterSheetData();
+  const combat = base.combat as Record<string, unknown>;
+  return {
+    ...base,
+    combat: { ...combat, initiative: { alert: 0, misc: 0, total: 3 } },
+  };
+}
+
+async function openPreset(): Promise<{
   readonly fake: FakeTransport;
   readonly user: ReturnType<typeof userEvent.setup>;
 }> {
   const fake = createFakeTransport(
-    successOutcome(fantasySheetPayload()),
-    successOutcome(fantasyTemplatePayload()),
+    successOutcome(fifthCharacterSheetPayload({ data: sheetData() })),
+    successOutcome(fifthCharacterTemplatePayload()),
     successOutcome({}),
   );
   const user = userEvent.setup();
-  renderApp(`/sheets/${FANTASY_SHEET_ID}`, {
+  renderApp(`/sheets/${FIFTH_CHARACTER_SHEET_ID}`, {
     client: createApiClient({ baseUrl: BASE_URL, transport: fake.transport }),
   });
   await screen.findByTestId('sheet-name');
+  await startEditing();
   return { fake, user };
 }
 
@@ -49,14 +64,20 @@ function card(): HTMLElement | null {
   return screen.queryByTestId('sheet-pending-card');
 }
 
-function levelStep(): HTMLElement {
-  return screen.getByRole('button', {
-    name: messageWith('engine.increase', { label: 'Level' }),
-  });
+function levelInput(): HTMLElement {
+  return within(
+    document.querySelector<HTMLElement>('[data-field-path="identity.level"]') as HTMLElement,
+  ).getByRole('textbox');
+}
+
+async function raiseLevel(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  const input = levelInput();
+  await user.clear(input);
+  await user.type(input, '6');
 }
 
 async function roll(user: ReturnType<typeof userEvent.setup>): Promise<void> {
-  await user.click(screen.getByRole('button', { name: initiativeRollName('+3') }));
+  await user.click(screen.getByRole('button', { name: /^Roll Initiative/ }));
   await waitFor(() => expect(document.querySelector('.lg-dice-panel')).not.toBeNull());
 }
 
@@ -75,9 +96,9 @@ function stubBarRect(): () => void {
 
 afterEach(cleanup);
 
-describe('the roll result above the Play pending bar', () => {
+describe('the roll result above the preset pending bar', () => {
   it('Edge: with no pending bar the result keeps its viewport-edge position', async () => {
-    const { user } = await openFantasy();
+    const { user } = await openPreset();
 
     await roll(user);
 
@@ -86,12 +107,12 @@ describe('the roll result above the Play pending bar', () => {
   });
 
   it('Edge: a bar appearing after a result is shown lifts it without a scroll or resize', async () => {
-    const { user } = await openFantasy();
+    const { user } = await openPreset();
     await roll(user);
     expect(panel().style.getPropertyValue('--dice-floor')).toBe('0px');
     const restore = stubBarRect();
     try {
-      await user.click(levelStep());
+      await raiseLevel(user);
 
       await waitFor(() =>
         expect(panel().style.getPropertyValue('--dice-floor')).toBe(`${BAR_LIFT}px`),
@@ -102,10 +123,10 @@ describe('the roll result above the Play pending bar', () => {
   });
 
   it('Edge: saving while a result is shown returns it to the viewport edge', async () => {
-    const { fake, user } = await openFantasy();
+    const { fake, user } = await openPreset();
     const restore = stubBarRect();
     try {
-      await user.click(levelStep());
+      await raiseLevel(user);
       await roll(user);
       expect(panel().style.getPropertyValue('--dice-floor')).toBe(`${BAR_LIFT}px`);
 
@@ -120,10 +141,10 @@ describe('the roll result above the Play pending bar', () => {
   });
 
   it('Happy path: a pending bar before the roll keeps the total, parts and one status fully above it', async () => {
-    const { user } = await openFantasy();
+    const { user } = await openPreset();
     const restore = stubBarRect();
     try {
-      await user.click(levelStep());
+      await raiseLevel(user);
       expect(card()).not.toBeNull();
       expect(card()?.hasAttribute(FLOATING_FLOOR_ATTRIBUTE)).toBe(true);
 
@@ -134,7 +155,7 @@ describe('the roll result above the Play pending bar', () => {
       );
       expect(document.querySelector('.lg-dice-panel__total-label')).toHaveTextContent('Initiative');
       expect(document.querySelector('.lg-dice-panel__parts')).toHaveTextContent('1d20');
-      expect(screen.getAllByRole('status')).toHaveLength(1);
+      expect(within(panel()).getAllByRole('status')).toHaveLength(1);
     } finally {
       restore();
     }

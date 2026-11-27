@@ -1,5 +1,10 @@
 import { message, messageWith } from '../../../l10n/strings';
-import { usePresetCommit, usePresetLabel, usePresetValue } from '../preset_context';
+import {
+  usePresetContext,
+  usePresetCommit,
+  usePresetLabel,
+  usePresetValue,
+} from '../preset_context';
 import { RollableValue } from '../rollable_value';
 import { numberValue } from '../values';
 import { ProficiencyLegend } from './proficiency_legend';
@@ -13,6 +18,7 @@ function SaveRow({ save, section }: { readonly save: PresetSave; readonly sectio
   const proficiency = usePresetValue(save.proficiency);
   const label = rowDisplayName(usePresetLabel(save.total), save.total);
   const commitProficiency = usePresetCommit(save.proficiency);
+  const { editing } = usePresetContext();
   const proficient = isProficient(proficiency);
   const state = message(
     proficient ? 'sheet.play.proficiencyProficient' : 'sheet.play.proficiencyNotProficient',
@@ -24,6 +30,7 @@ function SaveRow({ save, section }: { readonly save: PresetSave; readonly sectio
         type="button"
         className="lg-compose-flag"
         aria-pressed={proficient}
+        disabled={!editing}
         aria-label={messageWith('sheet.play.proficiencyForState', { label, state })}
         onClick={() => {
           commitProficiency(nextProficiency(proficiency));

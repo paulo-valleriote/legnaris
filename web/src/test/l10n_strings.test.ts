@@ -195,6 +195,8 @@ describe('the parameterized copy resolution', () => {
           position: 2,
           count: 5,
           list: 'Items',
+          record: 'Items',
+          field: 'Name',
           capacity: 2,
           dice: 'd20',
           rolls: '11',

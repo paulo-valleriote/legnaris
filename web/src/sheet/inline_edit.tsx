@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import type { FieldSchema } from '../api/models/template';
+import { createPortal } from 'react-dom';
 import { message, messageWith } from '../l10n/strings';
+import { Button } from '../ui/button';
 import { Dialog } from '../ui/dialog';
-import { PencilIcon } from '../ui/icons';
 
 export const NARROW_QUERY = '(max-width: 40rem)';
 
@@ -34,7 +35,7 @@ export interface InlineEditProps {
   readonly path?: string;
   readonly display?: ReactNode;
   readonly editLabel?: string;
-  readonly showPencil?: boolean;
+  readonly locked?: boolean;
 }
 
 export function nameWithVisibleText(name: string, visible: string): string {
@@ -64,7 +65,7 @@ export function InlineEdit({
   path,
   display,
   editLabel,
-  showPencil = false,
+  locked = false,
 }: InlineEditProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -99,13 +100,18 @@ export function InlineEdit({
   const classes = ['lg-inline-edit', className]
     .filter((entry): entry is string => !!entry)
     .join(' ');
-  const editClasses = [classes, showPencil ? 'lg-inline-edit--affordance' : undefined]
-    .filter((entry): entry is string => !!entry)
-    .join(' ');
-
   const shown =
     value.trim() === '' ? (fallback ?? messageWith('sheet.inlineAdd', { label })) : value;
   const sheetDraft = numeric ? draft.replace(/^\+/, '') : draft;
+
+  if (locked) {
+    return (
+      <span className={`${classes} lg-inline-edit--locked`} data-edit-path={path}>
+        <span className="lg-visually-hidden">{messageWith('sheet.lockedValue', { label })}</span>
+        {display ?? (value.trim() === '' ? (fallback ?? message('sheet.play.noValue')) : value)}
+      </span>
+    );
+  }
 
   if (editing && narrow) {
     return (
@@ -120,35 +126,53 @@ export function InlineEdit({
         >
           {display ?? shown}
         </button>
-        <Dialog
-          open
-          title={label}
-          placement="bottom"
-          closeLabel={message('common.close')}
-          onClose={() => finish(false)}
-          initialFocusRef={inputRef}
-          className="lg-inline-edit__sheet"
-        >
-          <input
-            ref={inputRef}
-            className={`${classes} lg-inline-edit--sheet-input`}
-            aria-label={label}
-            data-edit-path={path}
-            type={numeric ? 'number' : 'text'}
-            inputMode={numeric ? 'numeric' : 'text'}
-            value={sheetDraft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault();
-                finish(true);
-              } else if (event.key === 'Escape') {
-                event.preventDefault();
-                finish(false);
-              }
-            }}
-          />
-        </Dialog>
+        {createPortal(
+          <Dialog
+            open
+            title={label}
+            placement="bottom"
+            closeLabel={message('common.close')}
+            onClose={() => finish(false)}
+            initialFocusRef={inputRef}
+            className="lg-inline-edit__sheet"
+            actions={
+              <>
+                <Button
+                  variant="secondary"
+                  label={message('common.cancel')}
+                  onClick={() => finish(false)}
+                />
+                <Button
+                  variant="primary"
+                  label={message('common.save')}
+                  onClick={() => finish(true)}
+                />
+              </>
+            }
+          >
+            <input
+              ref={inputRef}
+              className={`${classes} lg-inline-edit--sheet-input`}
+              aria-label={label}
+              data-edit-path={path}
+              type={numeric ? 'number' : 'text'}
+              inputMode={numeric ? 'numeric' : 'text'}
+              maxLength={numeric ? undefined : schema?.maxLength}
+              value={sheetDraft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  finish(true);
+                } else if (event.key === 'Escape') {
+                  event.preventDefault();
+                  finish(false);
+                }
+              }}
+            />
+          </Dialog>,
+          document.body,
+        )}
       </>
     );
   }
@@ -161,6 +185,7 @@ export function InlineEdit({
         aria-label={label}
         data-edit-path={path}
         inputMode={inputMode}
+        maxLength={numeric ? undefined : schema?.maxLength}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}
         onBlur={() => finish(true)}
@@ -180,20 +205,13 @@ export function InlineEdit({
   return (
     <button
       type="button"
-      className={editClasses}
+      className={classes}
       aria-label={nameWithVisibleText(editLabel ?? label, display === undefined ? shown : '')}
       data-edit-path={path}
       data-empty={value.trim() === '' && fallback === undefined ? '' : undefined}
       onClick={begin}
     >
-      {showPencil ? (
-        <>
-          <span className="lg-inline-edit__text">{display ?? shown}</span>
-          <PencilIcon className="lg-inline-edit__pencil" />
-        </>
-      ) : (
-        (display ?? shown)
-      )}
+      {display ?? shown}
     </button>
   );
 }

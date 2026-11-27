@@ -1,6 +1,7 @@
 import { message } from '../../../l10n/strings';
 import { InlineEdit } from '../../inline_edit';
 import {
+  usePresetContext,
   usePresetCommit,
   usePresetLabel,
   usePresetSchema,
@@ -25,6 +26,7 @@ function AbilityCell({
   const modifierLabel = usePresetLabel(ability.modifier);
   const scoreSchema = usePresetSchema(ability.score);
   const commitScore = usePresetCommit(ability.score);
+  const { editing } = usePresetContext();
 
   return (
     <li className="lg-compose-ability" data-testid={`compose-ability-${ability.score}`}>
@@ -44,7 +46,7 @@ function AbilityCell({
         schema={scoreSchema}
         value={score === undefined ? '' : String(score)}
         inputMode="numeric"
-        showPencil
+        locked={!editing}
         onCommit={(text) => {
           const next = parseScore(text);
           if (next !== undefined) {

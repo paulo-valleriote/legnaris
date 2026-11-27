@@ -343,7 +343,7 @@ no display-scale heading.
   (desktop hero and the closing title) and `--lg-type-display-sm` (section titles), `--lg-line-display`
   and `--lg-tracking-display`. Section leads sit at `--lg-type-18`, one clear step above body text.
 - **Hero demo.** The static hero copy (one H1, the lead and the sign-up action) renders first;
-  below it a `Suspense` fallback reserves the stage and the real Fantasy Play preset mounts as a
+  below it a `Suspense` fallback reserves the stage and the real 5E Character preset mounts as a
   lazy chunk over the same in-memory sample character. Its character name is the demo's heading at
   level 2, under the page's one H1. A first edit or roll reveals the contextual sign-up action,
   and the demo's own live regions announce the changed values and dice results. A sticky sign-up
@@ -355,7 +355,7 @@ no display-scale heading.
   only; from the wide breakpoint they sit beside the derivation chain, which proves the section
   title: one typed source (Might, with lower and raise steppers) over three derived rows, each
   showing its formula.
-- **Proof, not claims.** The hero demo and the game moments mount the product's real Play
+- **Proof, not claims.** The hero demo and the game moments mount the product's real sheet
   components over invented values, with no network request; the moments are exactly level-up,
   damage and a spent slot, each with one action and a polite result line. The page carries no
   testimonial, statistic, price or customer claim.
@@ -364,7 +364,7 @@ no display-scale heading.
   A game-moment action shows only the real control's own value transition; a derivation-chain
   change fades each recalculated value from the accent back to the text colour. Everything is
   zeroed under `prefers-reduced-motion` and content is visible by default.
-- **Actions.** "Create your character sheet" leads to the Fantasy start intent and "Sign in" to
+- **Actions.** "Create your character sheet" leads to the 5E Character start intent and "Sign in" to
   `/sign-in`; both are links. Every conversion action (hero, contextual, sticky, close) carries the
   same start intent. Buttons keep `--lg-radius-md`, never a pill.
 - **Accessibility.** Landmarks are `header`, `main` and `footer`; the questions are native
@@ -433,26 +433,35 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   unchanged, and the sheet's `Help` explains the recessed readout once. A marked readout carries the
   "Recalculated" pill instead and no description. A marked readout keeps the accent on its border and
   pill only; its value stays text colour. A derived row's label is muted.
-- **Phone tap targets.** Play controls stay at least `--lg-size-control` (44 px) square at phone
+- **Phone tap targets.** Sheet controls stay at least `--lg-size-control` (44 px) square at phone
   widths, however compact their drawing. A save or skill row still draws at 36 px tall: its
   proficiency dot, rollable total and base-bonus edit keep the full 44 px target on a 44 px row
   pitch (an 8 px row gap), so the list stays dense without shrinking what the finger hits and
-  adjacent targets never overlap. Attack to-hit and damage pills and the attack edit pencils, the
-  spell-slot pips (whose drawn diamond stays compact) and the armor-class and initiative edit
-  targets are the same 44 px.
-- **Rollable totals (Play).** A rollable total reads in `--lg-color-text` with a dashed
+  adjacent targets never overlap. Boxed edit targets, the spell-slot pips (whose drawn diamond
+  stays compact) and the Record row actions are the same 44 px.
+- **Rollable totals.** A rollable total reads in `--lg-color-text` with a dashed
   `--lg-color-link` underline; hover and focus fill it with `--lg-color-accent` and
   `--lg-color-accent-text`. Filled accent stays for the proficiency dot and the primary action, so
   "proficient" and "rollable" never share a shape. A d20 rollable takes a roll mode: Shift-click is
   advantage, Alt-click is disadvantage, and a long press or the Context Menu key / Shift+F10 opens one
   small dialog with Normal, Advantage and Disadvantage as full-width secondary buttons (the first
   takes focus). A Row or Section its Template marks as not a d20 test takes no mode at all, and a
-  non-d20 roll ignores all of it. Read-only Play text (the at-will and prepared
-  spell lists) draws no input edge until hover or focus, while Edit keeps the generic input
-  affordance. Initiative reads as a roll before hover: a decorative d20 sits beside its signed total
-  at all times, named `Roll initiative, <signed value>`, and its ghost pencil waits for hover or
-  focus on a desktop, is a full `--lg-size-control` target on a phone and is named
-  `Edit initiative`. No Play label renders below `--lg-type-11`, or below `--lg-type-12` on a phone.
+  non-d20 roll ignores all of it. No sheet label renders below `--lg-type-11`, or below
+  `--lg-type-12` on a phone.
+- **Edit in place.** One layout, never two. A preset sheet opens locked and reads clean; the header
+  `Edit sheet` button (pencil, then check and `Done editing`) turns the build values into boxes in
+  the same positions. Table-play controls (hit points, pips, conditions, resource use) are live in
+  both states, and the generic form is always live.
+- **Typed in place.** While editable, every value a person can type is a raised, bordered
+  box (`--lg-color-raised`, `--lg-color-border-strong`, `--lg-radius-sm`), including the
+  tap-to-edit values of a preset (name, class, ability scores, hit points, text lines); hover
+  strengthens the border and focus draws the shared ring. No pencil icon and no dashed underline
+  mark an editable value, because the dashed underline belongs to rolling.
+- **Setup disclosures.** The editable parts behind a derived total (armor, movement, hit points,
+  spellcasting, save and skill bonuses) sit next to that total in a closed disclosure: a hairline
+  title row on `--lg-size-control` with a chevron, the title and the derived result at the trailing
+  edge, over a grid of label-and-control lines. Never a card inside a card. Dice formulas are the
+  last disclosure of the sheet.
 - **Derived beside its input.** An editable number Row whose value directly feeds one or two derived
   leaves (`schema.dependsOn`, direct edges only; none or three and more draw nothing; a `config.*`
   switch, a text or a table cell never does) carries a second line inside the same Row, under the
@@ -467,22 +476,16 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   `--lg-color-text-muted`.
 - **Numbers lead.** Numeric values are `--lg-type-20` semibold (derived `--lg-type-24` bold),
   right-aligned with tabular figures.
-- **Hit point quick actions.** The hit-points card puts a strip of common changes (`−5`, `−1`, `+1`,
-  `+5`, `+ Temp`) above the amount field and Damage/Heal: ghost-weight `sm` buttons on a hairline
-  border with tabular figures, the damage pair in `--lg-color-danger-400` and the heal pair in
-  `--lg-success-400`. Each is named by its effect ("Damage 5"), and `+ Temp` stays disabled until the
-  amount is positive. They sit on `--lg-size-control-compact` on a desktop and a
-  `--lg-size-control` square on a phone, so a touch target never falls under 44 px.
-- **Compact vitals bar.** On a phone, once the character combat strip scrolls out of view, a fixed
-  bar about `--lg-space-48` tall under the top safe-area inset holds AC, the current and maximum hit
-  points with a 4 px bar, and one `Damage or heal` control on a `--lg-size-control` target; it hides
-  the moment the strip returns. Opening it reveals the amount field and the Damage/Heal actions on
-  the same `--lg-size-control` targets and through the same pending flow as the card. A pending
-  change adds one `--lg-type-12` line under the row (`10 → 6 (−4)`) in the danger or success tone,
-  with its hatched segment on the bar. It slides in with `--lg-motion-180` and drops the motion
-  under reduced motion. The page reserves its height with `scroll-padding-block-start`, so a focused
-  field scrolls clear of it rather than under it. The stat block's vitals band is the same promise
-  by other means: it is sticky under the safe-area inset at every width.
+- **Combat block.** Hit points is a bordered card: the value, a labelled `Amount` entry with Damage
+  and Heal, and four equal quick changes (`−5`, `−1` in danger text, `+1`, `+5` in success text) on
+  `--lg-size-control`. At zero the card border, the value, a one-line notice and the death-save
+  labels and empty pips take `--lg-color-danger`; colour is never the only signal because the notice
+  says it. Pips are `--lg-space-16` plus `--lg-space-4` rings with a `--lg-space-2` muted stroke and
+  a trailing count.
+- **Preset pending pop-up.** Unsaved changes on a preset sheet float as one compact pop-up at the
+  bottom trailing corner (full width with `--lg-space-8` side gaps on a phone): a toggle with the
+  change count and `not saved yet`, then `Discard`, `Preview` and `Save`. The change list is closed
+  until the toggle opens it, scrolls on its own and never pushes the actions away.
 - **Booleans are switches.** A toggle is a pill track (`--lg-radius-pill`) with a knob drawn on
   the native checkbox: accent track and `--lg-color-accent-text` knob when on, the knob position
   carrying the state as well as the colour. The touch area is at least `--lg-size-control` high: the native input itself is that tall, its track
@@ -491,11 +494,11 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   border; the row's "Modified" / "Recalculated" label is a small outlined pill. The pill sits on the
   Row's top hairline, out of the label's flow, so marking a Row never wraps its label or changes its
   height.
-- **Heading.** Above the sheet's name a small muted line names the template ("Fantasy Template"),
+- **Heading.** Above the sheet's name a small muted line names the template ("5E Character"),
   falling back to "Sheet" when the template has no name; a long name wraps. Preview (secondary) and
   Save (primary, the accent fill) are both `md` buttons in the sticky footer; `Arrange` stays a
   small outline button in the heading, so the footer carries the weight.
-- **Reset actions.** An Edit form whose Template declares Reset actions draws one `outline` `md`
+- **Reset actions.** A generic form whose Template declares Reset actions draws one `outline` `md`
   button per action in one wrapping bar above the Sections, a `role="group"` named "Reset actions"
   with `--lg-space-12` column gaps; every button keeps the `--lg-size-control` (44 px) target and the
   shared focus ring. A blocked action stays focusable with its reason as a small muted line under
@@ -533,9 +536,8 @@ and inputs (`src/engine/engine.css`, `src/sheet/sheet.css`; tokens only, none ad
   bounded group (hairline border, `--lg-radius-md`) of ghost text buttons divided by hairlines, each
   on a `--lg-size-control` target: `Help`, `Arrange` (pinning is part of Arrange mode). None is primary, because none is: Save stays the only one. Below
   `40rem` the group wraps under the name and takes the content width edge to edge, its segments
-  sharing it equally with centred labels (two for a character's `Play mode` / `Edit mode`, three
-  with `Duplicate` on an NPC or enemy); in Play the hero leads and the group follows it, so the
-  sheet title starts within the first 80 px of a 390 px viewport. From `40rem` the group stays
+  sharing it equally with centred labels (`Help`, `Duplicate` on an NPC or enemy, `Arrange` on the
+  generic form). From `40rem` the group stays
   compact and trailing. `Collapse all` is not a header action: it sits at the trailing edge of the
   sticky section strip, next to the links it acts on. There is no vitals strip and no card of pinned
   numbers above the Sections: pinned Rows rise to the top of their own Section.
@@ -760,7 +762,7 @@ Getting around a long sheet while playing (`src/sheet/section_index.*`, `src/she
   Row with dice keeps its value on the same guide as every other Row. The editor is the dialog: title, the Section note when editing a Section, the
   `Expression` field, the two quiet ghost alternatives (`Use the Template dice`, `No dice`), then a
   hairline and the commit pair (`Keep current dice` secondary, `Save dice` primary). The Roll result
-  floats at the bottom of the viewport above the sticky footer or the Play pending bar
+  floats at the bottom of the viewport above the sticky footer or the preset pending bar
   (`--lg-shadow-2`, raised, a short rise-in zeroed under reduced motion), moves with that surface
   when it appears, grows or leaves, names the rolled Row beside its total and lists every die and
   number; it keeps the last three results of the session, newest first, separating them with a

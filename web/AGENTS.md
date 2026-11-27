@@ -83,11 +83,12 @@ the per-field subscription and edit reporting through the seams (`controlBuilder
 
 **Numeric guard.** The numeric input seeds from its stored value, holds its display text
 locally, and reports an edit only when the whole text resolves to a finite number: an
-empty field clears the value, and a text that can never resolve (`abc`, `--3`, `3-`,
+empty field reports nothing, and a text that can never resolve (`abc`, `--3`, `3-`,
 `NaN`/`Infinity`/`1e999`) is rejected, leaving the stored value and the shown text unchanged.
 A sign or point typed so far (`-`, `.`, `-.`) is kept as display text and reports nothing, so
-`-3` can be typed key by key; `-0` reports `0`, never a negative zero. Leaving the field with
-only such a pending text restores the text of the last reported value. The iOS decimal pad has
+`-3` can be typed key by key; `-0` reports `0`, never a negative zero. Leaving the field empty or
+with only such a pending text restores the text of the last reported value, so a number is never
+cleared to `null`. A text leaf with a served `max_length` caps its input at that length. The iOS decimal pad has
 no minus key, so a focus-only sign toggle (`Toggle sign of <label>`, not a tab stop) flips the
 leading minus through the same path.
 
@@ -124,7 +125,7 @@ the F2 client and the F4 engine and owns no wire model.
   `useSyncExternalStore` and binds no listener itself.
 - `src/sheet/sheet_screen.tsx` — the mounted screen: header, the F4 form in builder mode,
   the sticky footer and the one guard modal.
-- `src/sheet/reset_actions.tsx` — the bar of declared Reset actions on the Edit form: one button
+- `src/sheet/reset_actions.tsx` — the bar of declared Reset actions on the generic form: one button
   per action, one request id per tap reused until that tap succeeds, disabled with its reason
   while the draft is unsaved or the store is busy, a 409 offering a refresh and retry, and a
   success merging the cascade into the query cache so the reseeded baseline and the local cached
@@ -147,20 +148,19 @@ the F2 client and the F4 engine and owns no wire model.
   it against the modes (the filter reads off while arranging or pinning and Sections draw open while
   arranging, the state untouched); `section_index.tsx` / `use_active_section.ts` are the sticky strip (roving `nav`, not
   tabs) and its scrollspy, which announces through the sheet's polite live region.
-- `src/sheet/preset/` — the template-id Play preset registry and the `fantasy_v1` preset.
-  Working rules: a preset is chosen by template id (no preset keeps the generic form); Play draws the
-  preset body, Edit keeps the generic form, Arrange and the pinned filter; a preset composes the
-  shared edit store, Dice context and decoded template through `preset_context.tsx` and owns no wire
-  model, state or request; one file per Play section, so a new panel is one `sections` entry; every
+- `src/sheet/preset/` — the template-id preset registry and the data-only 5E configs. Working
+  rules: there is no separate Play/Edit layout (a preset sheet is locked until `Edit sheet`, read
+  through `usePresetContext().editing`; table-play controls ignore the lock); a preset is chosen by template id (no preset keeps the generic
+  form with Arrange and the pinned filter); every editable leaf of a preset's Template is bound by
+  some piece and drawn as a bordered control, and every derived value is boxless; a preset composes
+  the shared edit store, Dice context and decoded template through `preset_context.tsx` and owns no
+  wire model, state or request; one piece per section, so a new panel is one `pieces` entry; every
   string resolves through `src/l10n/strings.ts`, every visual value is a `--lg-*` token and data is
-  rendered as text; every rollable total draws through `rollable_value.tsx` (text colour, dashed
-  accent underline, accent hover/focus fill) and filled accent stays reserved for the proficiency
-  dot and the primary action; a d20 rollable takes advantage/disadvantage from Shift-click,
-  Alt-click, a long press or the Context Menu key / Shift+F10 through `src/sheet/roll_mode.tsx`, and
-  the result panel shows both dice with the kept one marked; a Row or Section the Template marks as
-  not a d20 test offers no mode and throws one die; an NPC/enemy sheet may swap the body
-  through the optional kind-selected
-  `statBlock`. Section-by-section detail, the pure helpers and their tests live in
+  rendered as text; every rollable total draws through `rollable_value.tsx` (dashed underline,
+  accent hover/focus fill), so rolling and typing never share a shape; a d20 rollable takes
+  advantage/disadvantage from Shift-click, Alt-click, a long press or the Context Menu key /
+  Shift+F10 through `src/sheet/roll_mode.tsx`; a Row or Section the Template marks as not a d20 test
+  offers no mode and throws one die. Piece-by-piece detail lives in
   [../context/sheets.md](../context/sheets.md).
 - `src/shell/shortcut_registry.ts` — the one action → key map (`Ctrl+S`/`Cmd+S` save, `F5`
   refresh), with the mounted screen registering and unregistering its handlers;
@@ -180,8 +180,8 @@ recalculated rows through the F4 `rowMarkBuilder`/`markLabel` seam. A Reset acti
 server write outside the draft: it is disabled while anything is pending or in flight, and its
 returned cascade is merged into the Sheet in the query cache, from which the store is reseeded.
 
-**Footer status and `revealRow`.** The footer has one status line (`FooterStatus`): `footerStatus(pending, count)` in `preview_summary.ts` merges the unsaved state and the cascade ("Unsaved, 3 recalculated"), derived from the store's `previewMarks`, so it clears whenever the marks clear. Jump (a ghost button) sits on the same line in Edit mode
-and is not drawn in Play, where the pending card owns the actions; the status line stays in both. The footer's polite live region announces only the cascade and the visible phrase is `aria-hidden` while a Preview shows (the Play-only pending card owns the value delta). The derived readout draws no "Calculated" caption: `ReadOnlyValue` keeps it as a visually hidden `aria-describedby` target. `reveal_row.ts` owns
+**Footer status and `revealRow`.** The footer has one status line (`FooterStatus`): `footerStatus(pending, count)` in `preview_summary.ts` merges the unsaved state and the cascade ("Unsaved, 3 recalculated"), derived from the store's `previewMarks`, so it clears whenever the marks clear. Jump (a ghost button) sits on the same line. A preset sheet
+draws no footer: its pending card owns the actions. The footer's polite live region announces only the cascade and the visible phrase is `aria-hidden` while a Preview shows. The derived readout draws no "Calculated" caption: `ReadOnlyValue` keeps it as a visually hidden `aria-describedby` target. `reveal_row.ts` owns
 bringing a Row or a Section into view by its `data-row-key` / `data-section-key` (`revealRow`,
 `revealSection`, `revealFirstRecalculated`); handed the view controls (`RevealView`), it first turns
 the pinned filter off and expands a collapsed Section, synchronously, so no caller does either. Auto-preview on

@@ -5,6 +5,7 @@ import { Button } from '../../../ui/button';
 import { Field } from '../../../ui/field';
 import { InlineEdit } from '../../inline_edit';
 import {
+  usePresetContext,
   usePresetCommit,
   usePresetLabel,
   usePresetSchema,
@@ -40,6 +41,13 @@ interface HitPointsUndo {
 
 const UNDO_TIMEOUT_MS = 8000;
 
+const QUICK_CHANGES = [
+  { short: 'sheet.play.damage5Short', amount: 5, heal: false },
+  { short: 'sheet.play.damage1Short', amount: 1, heal: false },
+  { short: 'sheet.play.heal1Short', amount: 1, heal: true },
+  { short: 'sheet.play.heal5Short', amount: 5, heal: true },
+] as const;
+
 function HitPointsTrackBody({
   piece,
   max,
@@ -48,6 +56,7 @@ function HitPointsTrackBody({
   maxEditable,
   commitMax,
 }: HitPointsTrackBodyProps) {
+  const { editing } = usePresetContext();
   const current = hitPointValue(usePresetValue(piece.current));
   const currentLabel = usePresetLabel(piece.current);
   const commitCurrent = usePresetCommit(piece.current);
@@ -69,15 +78,14 @@ function HitPointsTrackBody({
     return () => window.clearTimeout(timer);
   }, [undo]);
 
-  const apply = (heal: boolean) => {
-    const amount = parseHitPointsAmount(amountText);
+  const apply = (heal: boolean, amount: number | undefined) => {
     if (amount === undefined) {
-      return;
+      return false;
     }
     const hitPoints = { current, max, temp };
     const next = heal ? applyHeal(hitPoints, amount) : applyDamage(hitPoints, amount);
     if (next === undefined) {
-      return;
+      return false;
     }
     const tempChanged = piece.temp !== undefined && next.temp !== temp;
     if (tempChanged) {
@@ -87,9 +95,8 @@ function HitPointsTrackBody({
     if (currentChanged) {
       commitCurrent(next.current);
     }
-    setAmountText('');
     if (!tempChanged && !currentChanged) {
-      return;
+      return true;
     }
     setUndo({
       current,
@@ -97,7 +104,16 @@ function HitPointsTrackBody({
       amount,
       healed: heal,
     });
+    return true;
   };
+
+  const applyTyped = (heal: boolean) => {
+    if (apply(heal, parseHitPointsAmount(amountText))) {
+      setAmountText('');
+    }
+  };
+
+  const down = piece.downNotice !== undefined && max > 0 && current === 0;
 
   const undoApply = () => {
     if (undo === undefined) {
@@ -118,7 +134,10 @@ function HitPointsTrackBody({
   };
 
   return (
-    <div className="lg-compose-hp" data-testid="compose-hit-points">
+    <div
+      className={`lg-compose-hp${down ? ' lg-compose-hp--down' : ''}`}
+      data-testid="compose-hit-points"
+    >
       <div className="lg-compose-hp__top">
         <div className="lg-compose-hp__readout">
           <span className="lg-compose-hp__title" aria-hidden="true">
@@ -142,6 +161,7 @@ function HitPointsTrackBody({
                   className="lg-compose-hp__number lg-compose-hp__number--max"
                   label={maxLabel}
                   path={maxPath}
+                  locked={!editing}
                   value={String(max)}
                   inputMode="numeric"
                   onCommit={commitParsed(commitMax)}
@@ -179,7 +199,7 @@ function HitPointsTrackBody({
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault();
-                  apply(false);
+                  applyTyped(false);
                 }
               }}
             />
@@ -189,7 +209,7 @@ function HitPointsTrackBody({
             size="sm"
             label={message('sheet.play.damage')}
             disabled={!amountReady}
-            onClick={() => apply(false)}
+            onClick={() => applyTyped(false)}
           />
           <Button
             variant="secondary"
@@ -197,10 +217,33 @@ function HitPointsTrackBody({
             label={message('sheet.play.heal')}
             className="lg-compose-hp__heal"
             disabled={!amountReady}
-            onClick={() => apply(true)}
+            onClick={() => applyTyped(true)}
           />
         </div>
       </div>
+      <div
+        className="lg-compose-hp__quick"
+        role="group"
+        aria-label={message('sheet.play.damageOrHeal')}
+      >
+        {QUICK_CHANGES.map((change) => (
+          <Button
+            key={change.short}
+            variant="outline"
+            size="sm"
+            className={`lg-compose-hp__chip lg-compose-hp__chip--${change.heal ? 'heal' : 'damage'}`}
+            name={messageWith(change.heal ? 'sheet.play.healAmount' : 'sheet.play.damageAmount', {
+              count: change.amount,
+            })}
+            onClick={() => apply(change.heal, change.amount)}
+          >
+            {message(change.short)}
+          </Button>
+        ))}
+      </div>
+      <p className="lg-compose-hp__down" role="status">
+        {down && piece.downNotice !== undefined ? message(piece.downNotice) : ''}
+      </p>
       <div
         className="lg-compose-hp__bar"
         role="meter"

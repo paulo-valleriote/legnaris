@@ -621,6 +621,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         return;
       }
 
+      const sentPaths = [...state.editedPaths];
       saveWindow.record();
       scheduleThrottle();
       commit({ ...state, isSaving: true, saveError: undefined, saveErrorKind: undefined });
@@ -631,10 +632,19 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
           deps.saveRetry,
         );
         const current = state;
+        const data = mergeCascade(current.data, cascade);
+        const defaults = mergeCascade(mergeCascade(current.defaults, delta), cascade);
+        const editedPaths = new Set(current.editedPaths);
+        for (const path of sentPaths) {
+          if (!Object.is(readPath(data, path), readPath(defaults, path))) {
+            editedPaths.add(path);
+          }
+        }
         commit({
           ...current,
-          data: mergeCascade(current.data, cascade),
-          defaults: mergeCascade(mergeCascade(current.defaults, delta), cascade),
+          data,
+          defaults,
+          editedPaths,
           savedDice: dice ?? current.savedDice,
           isSaving: false,
           saveError: undefined,

@@ -27,9 +27,10 @@ export function HelpToggle({ open, onToggle, buttonRef }: HelpToggleProps) {
 
 export interface HelpPanelProps {
   readonly onDismiss: () => void;
+  readonly boxed?: boolean;
 }
 
-export function HelpPanel({ onDismiss }: HelpPanelProps) {
+export function HelpPanel({ onDismiss, boxed = false }: HelpPanelProps) {
   return (
     <div
       className="lg-sheet__help"
@@ -39,7 +40,9 @@ export function HelpPanel({ onDismiss }: HelpPanelProps) {
       data-testid="sheet-help"
     >
       <div className="lg-sheet__help-body">
-        <p className="lg-sheet__help-text">{message('sheet.helpDerived')}</p>
+        <p className="lg-sheet__help-text">
+          {message(boxed ? 'sheet.helpBoxed' : 'sheet.helpDerived')}
+        </p>
         <p className="lg-sheet__help-text">{message('sheet.helpPreview')}</p>
       </div>
       <Button

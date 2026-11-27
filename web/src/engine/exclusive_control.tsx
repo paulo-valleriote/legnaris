@@ -18,6 +18,7 @@ export interface SheetExclusiveControlProps {
   readonly mark?: SheetMark;
   readonly controlId?: string;
   readonly onSelect?: (signal: string) => void;
+  readonly label?: string;
 }
 
 export function SheetExclusiveControl({
@@ -26,8 +27,9 @@ export function SheetExclusiveControl({
   mark,
   controlId,
   onSelect,
+  label: shownLabel,
 }: SheetExclusiveControlProps) {
-  const label = groupDisplayName(group.id);
+  const label = shownLabel ?? groupDisplayName(group.id);
   const allowsNone = group.options.every((option) => option.schema.defaultValue === 0);
   const active =
     selectedPath !== undefined && group.options.some((option) => option.path === selectedPath)

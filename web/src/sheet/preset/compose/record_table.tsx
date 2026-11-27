@@ -1,4 +1,12 @@
-import { useCallback, useMemo, useSyncExternalStore, type CSSProperties } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+} from 'react';
 import { valueAtPath } from '../../../api/models/sheet';
 import type { FieldNode, FieldSchema } from '../../../api/models/template';
 import { EXCLUSIVE_NONE_VALUE, SheetExclusiveControl } from '../../../engine/exclusive_control';
@@ -14,10 +22,14 @@ import {
 import { listInfos, orderedRecords, recordRowKey } from '../../../engine/row_identity';
 import { message, messageWith } from '../../../l10n/strings';
 import { Button } from '../../../ui/button';
-import { CloseIcon, PlusIcon } from '../../../ui/icons';
+import { ChevronDownIcon, CloseIcon, PlusIcon } from '../../../ui/icons';
+import { DieIcon } from '../../die_icon';
+import { useExpressionRoll } from '../../dice_row';
 import { usePresetContext, usePresetValue } from '../preset_context';
+import { numberValue, textValue } from '../values';
 import { RollableValue } from '../rollable_value';
 import type { PresetRecordTablePiece } from './types';
+import { formatAttackModifier, parseDamageExpression } from './record_rolls';
 import { GroupTitle } from './group_title';
 import './compose.css';
 
@@ -106,7 +118,15 @@ function recordTemplate(columns: readonly ListColumn[]): CSSProperties {
   return { '--lg-record-template': columns.map(columnTrack).join(' ') } as CSSProperties;
 }
 
-function FieldCell({ path, schema }: { readonly path: string; readonly schema: FieldSchema }) {
+function FieldCell({
+  path,
+  schema,
+  live,
+}: {
+  readonly path: string;
+  readonly schema: FieldSchema;
+  readonly live: boolean;
+}) {
   const { store } = usePresetContext();
   const value = usePresetValue(path);
 
@@ -115,7 +135,7 @@ function FieldCell({ path, schema }: { readonly path: string; readonly schema: F
       path={path}
       schema={schema}
       value={value}
-      onChanged={(next) => store.setPath(path, next)}
+      onChanged={live ? (next) => store.setPath(path, next) : undefined}
     />
   );
 }
@@ -127,7 +147,7 @@ function ExclusiveCell({
   readonly recordKey: string;
   readonly column: Extract<ListColumn, { kind: 'exclusive' }>;
 }) {
-  const { store } = usePresetContext();
+  const { store, editing } = usePresetContext();
   const options = column.options.map((option) => ({
     path: `${recordKey}.${option.name}`,
     schema: option.schema,
@@ -141,28 +161,152 @@ function ExclusiveCell({
       group={{ id: column.id, options }}
       selectedPath={selected}
       controlId={`compose-${recordKey.replace(/[^a-zA-Z0-9_-]/g, '-')}-${column.id}`}
-      onSelect={(next) =>
-        store.setExclusive(
-          next === EXCLUSIVE_NONE_VALUE ? null : next,
-          options.map((option) => option.path),
-        )
+      onSelect={
+        editing
+          ? (next) =>
+              store.setExclusive(
+                next === EXCLUSIVE_NONE_VALUE ? null : next,
+                options.map((option) => option.path),
+              )
+          : undefined
       }
     />
+  );
+}
+
+interface AttackColumns {
+  readonly name: string;
+  readonly roll: string;
+  readonly damage: string;
+}
+
+function AttackRollValue({
+  recordKey,
+  rowKey,
+  sectionKey,
+  attack,
+  fallbackName,
+  label,
+}: {
+  readonly recordKey: string;
+  readonly rowKey: string;
+  readonly sectionKey: string;
+  readonly attack: AttackColumns;
+  readonly fallbackName: string;
+  readonly label: string;
+}) {
+  const storedName = textValue(usePresetValue(`${recordKey}.${attack.name}`)).trim();
+  const modifier = numberValue(usePresetValue(`${recordKey}.${attack.roll}`));
+  const name = storedName === '' ? fallbackName : storedName;
+  const value =
+    modifier === undefined ? message('sheet.play.noValue') : formatAttackModifier(modifier);
+  const accessibleName = messageWith('sheet.play.attackRoll', { name, value });
+
+  return (
+    <RollableValue
+      rowKey={rowKey}
+      sectionKey={sectionKey}
+      label={label}
+      text={value}
+      accessibleName={accessibleName}
+      icon={<DieIcon shape="d20" />}
+      className="lg-compose-record__roll"
+    />
+  );
+}
+
+function DamageValue({
+  recordKey,
+  rowKey,
+  attack,
+  fallbackName,
+  label,
+}: {
+  readonly recordKey: string;
+  readonly rowKey: string;
+  readonly attack: AttackColumns;
+  readonly fallbackName: string;
+  readonly label: string;
+}) {
+  const text = textValue(usePresetValue(`${recordKey}.${attack.damage}`));
+  const storedName = textValue(usePresetValue(`${recordKey}.${attack.name}`)).trim();
+  const attackName = storedName === '' ? fallbackName : storedName;
+  const roll = useExpressionRoll(rowKey, label);
+  const expression = useMemo(() => parseDamageExpression(text), [text]);
+  const damageRollName = messageWith('sheet.play.damageRoll', { name: attackName, value: text });
+
+  if (expression === undefined) {
+    return (
+      <span className="lg-rollable lg-rollable--still" data-rollable="false">
+        {text.trim() === '' ? message('sheet.play.noValue') : text}
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      className="lg-rollable lg-rollable--button lg-compose-record__roll"
+      aria-label={damageRollName}
+      title={damageRollName}
+      onClick={() => roll(expression)}
+    >
+      {text}
+    </button>
   );
 }
 
 function RecordCell({
   column,
   recordKey,
+  playColumns,
+  attack,
+  rowKey,
+  sectionKey,
+  fallbackName,
 }: {
   readonly column: ListColumn;
   readonly recordKey: string;
+  readonly playColumns: readonly string[];
+  readonly attack?: AttackColumns;
+  readonly rowKey: string;
+  readonly sectionKey: string;
+  readonly fallbackName: string;
 }) {
+  const { editing } = usePresetContext();
+
   if (column.kind === 'field') {
+    const isRoll = attack?.roll === column.name;
+    const isDamage = attack?.damage === column.name;
     return (
       <>
         <span className="lg-compose-record__label">{columnLabel(column)}</span>
-        <FieldCell path={`${recordKey}.${column.name}`} schema={column.schema} />
+        <span className="lg-compose-record__control">
+          {isRoll && attack !== undefined ? (
+            <AttackRollValue
+              recordKey={recordKey}
+              rowKey={rowKey}
+              sectionKey={sectionKey}
+              attack={attack}
+              fallbackName={fallbackName}
+              label={columnLabel(column)}
+            />
+          ) : isDamage && !editing && attack !== undefined ? (
+            <DamageValue
+              recordKey={recordKey}
+              rowKey={rowKey}
+              attack={attack}
+              fallbackName={fallbackName}
+              label={columnLabel(column)}
+            />
+          ) : (
+            <FieldCell
+              path={`${recordKey}.${column.name}`}
+              schema={column.schema}
+              live={editing || playColumns.includes(column.name)}
+            />
+          )}
+        </span>
       </>
     );
   }
@@ -182,6 +326,10 @@ interface RecordRowProps {
   readonly columns: readonly ListColumn[];
   readonly sectionKey: string;
   readonly rowDefault: boolean;
+  readonly count: number;
+  readonly playColumns: readonly string[];
+  readonly attack?: AttackColumns;
+  readonly onMove?: (recordID: string, direction: -1 | 1) => void;
 }
 
 function RecordRowView({
@@ -191,33 +339,76 @@ function RecordRowView({
   columns,
   sectionKey,
   rowDefault,
+  count,
+  playColumns,
+  attack,
+  onMove,
 }: RecordRowProps) {
-  const { store } = usePresetContext();
+  const { store, editing } = usePresetContext();
   const label = messageWith('record.rowLabel', { list: list.label, position });
   const key = recordRowKey(list.path, recordID);
+  const attackColumns = rowDefault ? attack : undefined;
 
   return (
     <div className="lg-compose-record__row" data-testid="compose-record-row" data-record-key={key}>
       <span className="lg-compose-record__lead">
-        {rowDefault ? (
+        {rowDefault && attackColumns === undefined ? (
           <RollableValue rowKey={key} sectionKey={sectionKey} label={label} text={label} />
         ) : (
           label
+        )}
+        {onMove === undefined || count < 2 ? null : (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg-compose-record__move lg-compose-record__move--up"
+              icon={<ChevronDownIcon />}
+              disabled={!editing || position === 1}
+              name={messageWith('record.moveUp', { label })}
+              onClick={() => onMove(recordID, -1)}
+            >
+              <span aria-hidden="true" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="lg-compose-record__move lg-compose-record__move--down"
+              icon={<ChevronDownIcon />}
+              disabled={!editing || position === count}
+              name={messageWith('record.moveDown', { label })}
+              onClick={() => onMove(recordID, 1)}
+            >
+              <span aria-hidden="true" />
+            </Button>
+          </>
         )}
         {store.removeRecord === undefined ? null : (
           <Button
             variant="ghost"
             size="sm"
+            className="lg-compose-record__remove"
+            disabled={!editing}
             icon={<CloseIcon />}
-            label={messageWith('record.remove', { label })}
+            name={messageWith('record.remove', { label })}
             onClick={() => store.removeRecord?.(list.path, recordID)}
-          />
+          >
+            <span aria-hidden="true" />
+          </Button>
         )}
       </span>
       <span className="lg-compose-record__cells">
         {columns.map((column, index) => (
           <span className={cellClass(column)} key={`${column.kind}-${index}`}>
-            <RecordCell column={column} recordKey={key} />
+            <RecordCell
+              column={column}
+              recordKey={key}
+              playColumns={playColumns}
+              attack={attackColumns}
+              rowKey={key}
+              sectionKey={sectionKey}
+              fallbackName={label}
+            />
           </span>
         ))}
       </span>
@@ -241,13 +432,39 @@ function RecordHeader({ columns }: { readonly columns: readonly ListColumn[] }) 
 }
 
 export function RecordTable({ piece }: { readonly piece: PresetRecordTablePiece }) {
-  const { template, store } = usePresetContext();
+  const { template, store, editing } = usePresetContext();
   const list = useMemo(() => sheetList(template.fields, piece.list), [template, piece.list]);
   const info = useMemo(
     () => listInfos(template.fields).find((entry) => entry.path === piece.list),
     [template, piece.list],
   );
   const recordIDs = useRecordIDs(piece.list);
+  const root = useRef<HTMLDivElement>(null);
+  const pendingFocus = useRef<{ readonly key: string; readonly direction: -1 | 1 } | null>(null);
+  const [notice, setNotice] = useState('');
+  const move = useCallback(
+    (recordID: string, direction: -1 | 1) => {
+      const position = store.moveRecord?.(piece.list, recordID, direction);
+      if (position !== undefined) {
+        pendingFocus.current = { key: recordRowKey(piece.list, recordID), direction };
+        setNotice(messageWith('record.moved', { position }));
+      }
+    },
+    [store, piece.list],
+  );
+
+  useEffect(() => {
+    const target = pendingFocus.current;
+    if (target === null) {
+      return;
+    }
+    pendingFocus.current = null;
+    const row = root.current?.querySelector(`[data-record-key="${target.key}"]`);
+    const [preferred, other] = target.direction === -1 ? ['up', 'down'] : ['down', 'up'];
+    const button = (name: string) =>
+      row?.querySelector<HTMLButtonElement>(`.lg-compose-record__move--${name}:not(:disabled)`);
+    (button(preferred) ?? button(other))?.focus();
+  });
 
   if (list === undefined) {
     return null;
@@ -256,6 +473,16 @@ export function RecordTable({ piece }: { readonly piece: PresetRecordTablePiece 
   const columns = chosenColumns(list, piece.columns);
   const sectionKey = info?.section ?? sectionKeyOfRow(list.path);
   const rowDefault = info?.dice !== undefined;
+  const attack =
+    piece.nameColumn === undefined ||
+    piece.rollColumn === undefined ||
+    piece.damageColumn === undefined
+      ? undefined
+      : {
+          name: piece.nameColumn,
+          roll: piece.rollColumn,
+          damage: piece.damageColumn,
+        };
   const addDisabledReason =
     recordIDs.length >= list.capacity
       ? messageWith('record.atCapacity', { count: recordIDs.length, capacity: list.capacity })
@@ -263,6 +490,7 @@ export function RecordTable({ piece }: { readonly piece: PresetRecordTablePiece 
 
   return (
     <div
+      ref={root}
       className="lg-compose-record"
       role="group"
       aria-label={list.label}
@@ -284,15 +512,23 @@ export function RecordTable({ piece }: { readonly piece: PresetRecordTablePiece 
               columns={columns}
               sectionKey={sectionKey}
               rowDefault={rowDefault}
+              count={recordIDs.length}
+              playColumns={piece.playColumns ?? []}
+              attack={attack}
+              onMove={store.moveRecord === undefined ? undefined : move}
             />
           ))}
         </>
       )}
+      <p className="lg-visually-hidden" role="status" aria-live="polite">
+        {notice}
+      </p>
       {store.addRecord === undefined ? null : (
         <div className="lg-compose-record__add">
           <Button
             variant="ghost"
             size="sm"
+            disabled={!editing}
             icon={<PlusIcon />}
             label={messageWith('record.add', { list: list.label })}
             disabledReason={addDisabledReason}

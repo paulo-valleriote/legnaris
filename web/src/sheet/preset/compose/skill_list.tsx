@@ -1,5 +1,10 @@
 import { message, messageWith, type MessageKey } from '../../../l10n/strings';
-import { usePresetCommit, usePresetLabel, usePresetValue } from '../preset_context';
+import {
+  usePresetContext,
+  usePresetCommit,
+  usePresetLabel,
+  usePresetValue,
+} from '../preset_context';
 import { RollableValue } from '../rollable_value';
 import { numberValue } from '../values';
 import { ProficiencyLegend } from './proficiency_legend';
@@ -38,6 +43,7 @@ function SkillRow({
   const name = rowDisplayName(rankLabel, skill.rank);
   const rollLabel = rowDisplayName(totalLabel, skill.total);
   const commitRank = usePresetCommit(skill.rank);
+  const { editing } = usePresetContext();
   const limit = rankLimit(max);
   const current = rankValue(rank, limit);
   const marks = Array.from({ length: limit }, (_, index) => index + 1);
@@ -49,6 +55,7 @@ function SkillRow({
         <button
           type="button"
           className="lg-compose-rank"
+          disabled={!editing}
           aria-label={messageWith('preset.skill.rank', {
             label: name,
             count: current,

@@ -130,8 +130,12 @@ describe('the 5E Stat Block preset config', () => {
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Gray Ooze');
     expect(screen.getByText('Challenge rating')).toBeInTheDocument();
     expect(screen.getByText('Experience points')).toBeInTheDocument();
-    expect(screen.getByText('Armor class')).toBeInTheDocument();
-    expect(screen.getByText('Passive Perception')).toBeInTheDocument();
+    expect(screen.getAllByText('Armor class').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Passive Perception').length).toBeGreaterThan(0);
+    expect(screen.getByTestId('compose-fields-identity')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-fields-combatSetup')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-fields-hitPointsSetup')).toBeInTheDocument();
+    expect(screen.getByTestId('compose-dice-formulas')).toBeInTheDocument();
     expect(screen.getByTestId('compose-hit-points')).toBeInTheDocument();
     expect(screen.getByTestId('compose-ability-grid')).toBeInTheDocument();
     expect(screen.getByTestId('compose-save-list')).toBeInTheDocument();
@@ -219,12 +223,12 @@ describe('the 5E Stat Block preset config', () => {
     expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
   });
 
-  it('Happy path: an action Record rolls its to-hit', async () => {
+  it('Happy path: an action Record rolls its to-hit from the action name', async () => {
     const user = userEvent.setup();
     play();
 
     const actions = screen.getByRole('group', { name: 'Actions' });
-    const roll = within(actions).getByRole('button', { name: /^Roll/ });
+    const roll = within(actions).getByRole('button', { name: /^Attack roll, / });
     await user.click(roll);
 
     expect(document.querySelector('.lg-dice-panel')).not.toBeNull();
