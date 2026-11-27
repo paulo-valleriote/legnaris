@@ -1,19 +1,22 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { useMutation } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
-import type { JoinedCampaign } from '../api/models/campaign';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate, useParams } from 'react-router-dom';
+import type { Campaign } from '../api/models/campaign';
 import { failureCopy, failureKind } from '../api/error_mapper';
 import { useApiClient } from '../app/providers';
-import { message, messageWith } from '../l10n/strings';
+import { message } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { Field } from '../ui/field';
 import { PageHeader } from '../ui/page_header';
 import { ErrorState } from '../ui/state';
+import { CAMPAIGNS_QUERY_KEY, seedCampaign } from '../campaign/campaign_queries';
 import './join.css';
 
 export function JoinScreen() {
   const { code = '' } = useParams();
   const client = useApiClient();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [password, setPassword] = useState('');
   const [passwordRequired, setPasswordRequired] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
@@ -26,9 +29,17 @@ export function JoinScreen() {
     }
   }, [attempt, passwordRequired]);
 
-  const join = useMutation<JoinedCampaign, unknown, void>({
+  const join = useMutation<Campaign, unknown, void>({
     mutationFn: () =>
       client.joinCampaign({ code, password: passwordRequired ? password : undefined }),
+    onSuccess: (campaign) => {
+      seedCampaign(queryClient, campaign);
+      void queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEY });
+      navigate(`/campaigns/${encodeURIComponent(campaign.id)}`, {
+        replace: true,
+        state: { joinedName: campaign.name },
+      });
+    },
     onMutate: () => {
       setFailure(null);
     },
@@ -50,22 +61,6 @@ export function JoinScreen() {
     }
     join.mutate();
   };
-
-  if (join.isSuccess) {
-    return (
-      <section className="lg-join">
-        <PageHeader title={message('join.joinedTitle')} />
-        <p className="lg-join__message">{messageWith('join.joined', { name: join.data.name })}</p>
-        <Button
-          variant="secondary"
-          size="md"
-          className="lg-join__action"
-          label={message('join.backToSheets')}
-          to="/"
-        />
-      </section>
-    );
-  }
 
   const passwordMissing = passwordRequired && password === '';
   const showFailure = failure !== null && !passwordRequired;

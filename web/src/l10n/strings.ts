@@ -62,9 +62,6 @@ export const messages = {
   'join.submitNeedsPassword': 'Enter the campaign password first.',
   'join.submit': 'Join campaign',
   'join.submitting': 'Joining…',
-  'join.joinedTitle': 'You joined the campaign',
-  'join.joined': 'You are now a player in {name}.',
-  'join.backToSheets': 'Back to your sheets',
   'api.error.refundNotEligible':
     'This refund is no longer available. A refund covers your first payment, within 7 days, once per account.',
   'api.error.campaignNotFound': 'That campaign is no longer available. It may have been deleted.',
@@ -715,6 +712,7 @@ export const messages = {
     'You have reached the campaign limit of your plan. Delete a campaign you own to create another.',
   'campaigns.seePlans': 'Compare plans',
   'campaign.loading': 'Loading the campaign',
+  'campaign.joinedNotice': 'You joined {name}.',
   'campaign.notFound':
     'This campaign is not available to you. Check the link or go back to your campaigns.',
   'campaign.deleting': 'This campaign is being deleted. It will leave your list shortly.',
