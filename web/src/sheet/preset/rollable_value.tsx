@@ -27,7 +27,22 @@ export interface RollableValueProps {
   readonly icon?: ReactNode;
 }
 
-export function RollableValue({
+export function RollableValue(props: RollableValueProps) {
+  const { readOnly } = usePresetContext();
+  return readOnly ? <StillValue {...props} /> : <InteractiveRollableValue {...props} />;
+}
+
+function StillValue({ text, className, accessibleName, icon }: RollableValueProps) {
+  const classes = ['lg-rollable', className].filter((entry): entry is string => !!entry).join(' ');
+  return (
+    <span className={`${classes} lg-rollable--still`} data-rollable="false" title={accessibleName}>
+      {icon}
+      {text}
+    </span>
+  );
+}
+
+function InteractiveRollableValue({
   rowKey,
   sectionKey,
   label,

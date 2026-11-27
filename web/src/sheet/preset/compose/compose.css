@@ -157,12 +157,14 @@
   border-color: var(--lg-color-text);
 }
 
-.lg-compose-pip[aria-pressed='true'] .lg-compose-pip__mark {
+.lg-compose-pip[aria-pressed='true'] .lg-compose-pip__mark,
+.lg-compose-pip[data-on] .lg-compose-pip__mark {
   border-color: var(--lg-color-accent);
   background-color: var(--lg-color-accent);
 }
 
-.lg-compose-pip[aria-pressed='true']:hover .lg-compose-pip__mark {
+.lg-compose-pip[aria-pressed='true']:hover .lg-compose-pip__mark,
+.lg-compose-pip[data-on]:hover .lg-compose-pip__mark {
   border-color: var(--lg-color-accent-hover);
   background-color: var(--lg-color-accent-hover);
 }
@@ -418,12 +420,14 @@
   border-color: var(--lg-color-text-muted);
 }
 
-.lg-compose-flag[aria-pressed='true'] .lg-compose-flag__mark {
+.lg-compose-flag[aria-pressed='true'] .lg-compose-flag__mark,
+.lg-compose-flag[data-on] .lg-compose-flag__mark {
   border-color: var(--lg-color-accent);
   background-color: var(--lg-color-accent);
 }
 
-.lg-compose-flag[aria-pressed='true']:hover .lg-compose-flag__mark {
+.lg-compose-flag[aria-pressed='true']:hover .lg-compose-flag__mark,
+.lg-compose-flag[data-on]:hover .lg-compose-flag__mark {
   border-color: var(--lg-color-accent-hover);
   background-color: var(--lg-color-accent-hover);
 }
@@ -677,8 +681,8 @@
   color: var(--lg-color-text-muted);
 }
 
-.lg-compose-conditions:has(.lg-compose-condition[aria-pressed='true'])
-  .lg-compose-conditions__none {
+.lg-compose-conditions:has(.lg-compose-condition[aria-pressed='true']) .lg-compose-conditions__none,
+.lg-compose-conditions:has(.lg-compose-condition[data-on]) .lg-compose-conditions__none {
   display: none;
 }
 
@@ -728,13 +732,15 @@
   background-color: var(--lg-color-surface-hover);
 }
 
-.lg-compose-condition[aria-pressed='true'] {
+.lg-compose-condition[aria-pressed='true'],
+.lg-compose-condition[data-on] {
   border-color: var(--lg-color-accent);
   background-color: var(--lg-color-accent);
   color: var(--lg-color-accent-text);
 }
 
-.lg-compose-condition[aria-pressed='true']:hover {
+.lg-compose-condition[aria-pressed='true']:hover,
+.lg-compose-condition[data-on]:hover {
   border-color: var(--lg-color-accent-hover);
   background-color: var(--lg-color-accent-hover);
 }
@@ -1209,7 +1215,7 @@
 
 .lg-preset:has(.lg-compose-hp--down)
   .lg-compose-pips--critical
-  .lg-compose-pip[aria-pressed='false']
+  :is(.lg-compose-pip[aria-pressed='false'], .lg-compose-pip:not([aria-pressed]):not([data-on]))
   .lg-compose-pip__mark {
   border-color: var(--lg-color-danger);
 }

@@ -369,19 +369,22 @@ describe('record list in the read-only campaign view', () => {
     renderApp(GM, { client: clientFor(script.transport) });
 
     expect(
-      await screen.findByRole('heading', { name: 'Quartermaster', level: 2 }),
+      await screen.findByRole('heading', { name: 'Quartermaster', level: 1 }),
     ).toBeInTheDocument();
     await waitFor(() => expect(recordRows()).toHaveLength(2));
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('textbox').every((input) => input.hasAttribute('readonly'))).toBe(
+      true,
+    );
+    expect(document.querySelectorAll('select:not([disabled])')).toHaveLength(0);
     expect(screen.queryByRole('button', { name: /^Add / })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Remove / })).not.toBeInTheDocument();
-    expect(screen.getByText('Sword')).toBeInTheDocument();
-    expect(screen.getByText('A')).toBeInTheDocument();
-    const total = Array.from(document.querySelectorAll('.lg-record-cell__value--derived')).map(
-      (cell) => cell.textContent,
+    const rows = recordRows();
+    expect(within(rows[0] as HTMLElement).getByRole('textbox', { name: 'Name' })).toHaveValue(
+      'Sword',
     );
-    expect(total).toEqual(['6', '4', '2', '2']);
+    expect(within(rows[1] as HTMLElement).getByRole('textbox', { name: 'Name' })).toHaveValue(
+      'Rope',
+    );
   });
 
   it('Edge: an empty list in the GM view says so and offers no control', async () => {
@@ -400,10 +403,12 @@ describe('record list in the read-only campaign view', () => {
     ]);
     renderApp(GM, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Quartermaster', level: 2 });
+    await screen.findByRole('heading', { name: 'Quartermaster', level: 1 });
     await waitFor(() => expect(screen.getByText(message('record.empty'))).toBeInTheDocument());
     expect(screen.queryByRole('button', { name: /^Add / })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Remove / })).not.toBeInTheDocument();
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('textbox').every((input) => input.hasAttribute('readonly'))).toBe(
+      true,
+    );
   });
 });

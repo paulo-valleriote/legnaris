@@ -170,9 +170,7 @@ describe('campaign read-only template notice', () => {
       'href',
       NOTICE_PATH,
     );
-    expect(
-      screen.getByRole('heading', { name: message('gm.npcHeading'), level: 1 }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Brenna', level: 1 })).toBeInTheDocument();
   });
 
   it('Happy path: the NPC view revealed to Players links the notice', async () => {

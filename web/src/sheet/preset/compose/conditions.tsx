@@ -1,6 +1,11 @@
 import { useId, useState } from 'react';
 import { message } from '../../../l10n/strings';
-import { usePresetCommit, usePresetLabel, usePresetValue } from '../preset_context';
+import {
+  usePresetCommit,
+  usePresetContext,
+  usePresetLabel,
+  usePresetValue,
+} from '../preset_context';
 import { numberValue } from '../values';
 import { conditionIsOn, conditionLabelParts } from './condition_label';
 import { Pips } from './pips';
@@ -18,23 +23,37 @@ function ConditionChip({
   const label = usePresetLabel(flag.path);
   const value = usePresetValue(flag.path);
   const commit = usePresetCommit(flag.path);
+  const { readOnly } = usePresetContext();
   const ruleId = useId();
   const on = conditionIsOn(value);
   const { name, rule } = conditionLabelParts(label);
 
   return (
     <li className="lg-compose-conditions__item" hidden={collapsed && !on}>
-      <button
-        type="button"
-        className="lg-compose-condition"
-        aria-pressed={on}
-        aria-label={label}
-        aria-describedby={rule === undefined ? undefined : ruleId}
-        title={rule}
-        onClick={() => commit(on ? 0 : 1)}
-      >
-        <span aria-hidden="true">{name}</span>
-      </button>
+      {readOnly ? (
+        <span
+          className="lg-compose-condition"
+          role="img"
+          data-on={on ? '' : undefined}
+          aria-label={label}
+          aria-describedby={rule === undefined ? undefined : ruleId}
+          title={rule}
+        >
+          <span aria-hidden="true">{name}</span>
+        </span>
+      ) : (
+        <button
+          type="button"
+          className="lg-compose-condition"
+          aria-pressed={on}
+          aria-label={label}
+          aria-describedby={rule === undefined ? undefined : ruleId}
+          title={rule}
+          onClick={() => commit(on ? 0 : 1)}
+        >
+          <span aria-hidden="true">{name}</span>
+        </button>
+      )}
       {rule === undefined ? null : (
         <span id={ruleId} className="lg-visually-hidden">
           {rule}
