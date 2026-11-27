@@ -55,3 +55,15 @@ func TestEnsureIndexes_Generations(t *testing.T) {
 		assert.Equal(t, int32(0), indexExpireAfterSeconds(t, ttl))
 	})
 }
+
+func TestEnsureIndexes_GenerationSheetPeriod(t *testing.T) {
+	mdb := newIndexesTestDatabase(t)
+	require.NoError(t, db.EnsureIndexes(context.Background(), mdb))
+
+	gens := listIndexes(t, mdb, "generations")
+	idx, ok := gens["generations_sheet_id_created_at"]
+	require.True(t, ok, "the sheet/period index must exist, got %v", gens)
+	assert.Equal(t, []string{"sheet_id", "created_at"}, indexKeys(t, mdb, "generations", "generations_sheet_id_created_at"))
+	sparse, _ := idx["sparse"].(bool)
+	assert.True(t, sparse, "documents without a sheet_id stay out of the index")
+}

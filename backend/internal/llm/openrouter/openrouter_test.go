@@ -876,3 +876,23 @@ func TestGenerateEdgeConcurrentCallsAreSafe(t *testing.T) {
 		assert.NoError(t, err)
 	}
 }
+
+func TestGenerateUsesResponseModel(t *testing.T) {
+	t.Run("Happy path: the gateway model is returned", func(t *testing.T) {
+		client := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, `{"model":"actual/fallback-model",`+chatBody(t, `{"name":"Aria"}`)[1:])
+		})
+		resp, err := client.Generate(context.Background(), testRequest())
+		require.NoError(t, err)
+		assert.Equal(t, "actual/fallback-model", resp.Model)
+	})
+
+	t.Run("Edge: a missing gateway model falls back to the configured one", func(t *testing.T) {
+		client := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, chatBody(t, `{"name":"Aria"}`))
+		})
+		resp, err := client.Generate(context.Background(), testRequest())
+		require.NoError(t, err)
+		assert.Equal(t, testModel, resp.Model)
+	})
+}

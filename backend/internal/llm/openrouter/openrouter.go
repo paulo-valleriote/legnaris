@@ -283,8 +283,12 @@ func (c *Client) parse(ctx context.Context, raw []byte, latency time.Duration) (
 		TotalTokens:      body.Usage.TotalTokens,
 		ReasoningTokens:  body.Usage.CompletionTokensDetails.ReasoningTokens,
 	}
+	model := body.Model
+	if model == "" {
+		model = c.model
+	}
 	c.logger.Info(ctx, "llm generation completed", withGenerationID(ctx, []logger.Attribute{
-		{Key: "model", Value: c.model},
+		{Key: "model", Value: model},
 		{Key: "status", Value: strconv.Itoa(http.StatusOK)},
 		{Key: "latency_ms", Value: strconv.FormatInt(latency.Milliseconds(), 10)},
 		{Key: "reasoning_effort", Value: c.reasoningEffortLabel()},
@@ -294,7 +298,7 @@ func (c *Client) parse(ctx context.Context, raw []byte, latency time.Duration) (
 		{Key: "reasoning_tokens", Value: strconv.Itoa(usage.ReasoningTokens)},
 		{Key: "finish_reason", Value: body.finishReason()},
 	})...)
-	return llm.Response{Output: json.RawMessage(content), Usage: usage, FinishReason: body.finishReason()}, nil
+	return llm.Response{Output: json.RawMessage(content), Usage: usage, FinishReason: body.finishReason(), Model: model}, nil
 }
 
 func classifyCompletion(finish, content string) (string, error) {
@@ -387,6 +391,7 @@ type providerRouting struct {
 }
 
 type chatResponse struct {
+	Model   string `json:"model"`
 	Choices []struct {
 		Message struct {
 			Content string `json:"content"`

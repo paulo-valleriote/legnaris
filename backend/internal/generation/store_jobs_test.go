@@ -71,7 +71,7 @@ func TestMongoStore_ClaimQueued(t *testing.T) {
 			name: "Edge: a succeeded job is never claimed again",
 			setup: func(t *testing.T, s *generation.MongoStore, mdb *mongo.Database) {
 				runningDoc(t, s, mdb, jobA, jobStart.Add(time.Minute))
-				_, err := s.Complete(context.Background(), jobA, map[string]any{"name": "x"})
+				_, err := s.Complete(context.Background(), jobA, map[string]any{"name": "x"}, generation.Metadata{})
 				require.NoError(t, err)
 			},
 			id: jobA,
@@ -100,7 +100,7 @@ func TestMongoStore_Complete(t *testing.T) {
 		s, mdb := newStore(t)
 		runningDoc(t, s, mdb, jobA, jobStart.Add(time.Minute))
 
-		landed, err := s.Complete(context.Background(), jobA, values)
+		landed, err := s.Complete(context.Background(), jobA, values, generation.Metadata{})
 		require.NoError(t, err)
 		assert.True(t, landed)
 
@@ -120,7 +120,7 @@ func TestMongoStore_Complete(t *testing.T) {
 			name: "Edge: a second success write on a succeeded job does nothing",
 			setup: func(t *testing.T, s *generation.MongoStore, mdb *mongo.Database) {
 				runningDoc(t, s, mdb, jobA, jobStart.Add(time.Minute))
-				_, err := s.Complete(context.Background(), jobA, values)
+				_, err := s.Complete(context.Background(), jobA, values, generation.Metadata{})
 				require.NoError(t, err)
 			},
 			id: jobA,
@@ -151,7 +151,7 @@ func TestMongoStore_Complete(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s, mdb := newStore(t)
 			tc.setup(t, s, mdb)
-			landed, err := s.Complete(context.Background(), tc.id, values)
+			landed, err := s.Complete(context.Background(), tc.id, values, generation.Metadata{})
 			require.NoError(t, err)
 			assert.False(t, landed)
 		})
@@ -163,7 +163,7 @@ func TestMongoStore_FailRunning(t *testing.T) {
 		s, mdb := newStore(t)
 		runningDoc(t, s, mdb, jobA, jobStart.Add(time.Minute))
 
-		before, settled, err := s.FailRunning(context.Background(), jobA, generation.ErrorCodeProviderFailed)
+		before, settled, err := s.FailRunning(context.Background(), jobA, generation.ErrorCodeProviderFailed, generation.Metadata{})
 		require.NoError(t, err)
 		require.True(t, settled)
 		assert.Equal(t, generation.StatusRunning, before.Status)
@@ -184,7 +184,7 @@ func TestMongoStore_FailRunning(t *testing.T) {
 			name: "Edge: a failed job is not failed twice, so it is not refunded twice",
 			setup: func(t *testing.T, s *generation.MongoStore, mdb *mongo.Database) {
 				runningDoc(t, s, mdb, jobA, jobStart.Add(time.Minute))
-				_, _, err := s.FailRunning(context.Background(), jobA, generation.ErrorCodeProviderFailed)
+				_, _, err := s.FailRunning(context.Background(), jobA, generation.ErrorCodeProviderFailed, generation.Metadata{})
 				require.NoError(t, err)
 			},
 			id: jobA,
@@ -199,7 +199,7 @@ func TestMongoStore_FailRunning(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			s, mdb := newStore(t)
 			tc.setup(t, s, mdb)
-			_, settled, err := s.FailRunning(context.Background(), tc.id, generation.ErrorCodeProviderFailed)
+			_, settled, err := s.FailRunning(context.Background(), tc.id, generation.ErrorCodeProviderFailed, generation.Metadata{})
 			require.NoError(t, err)
 			assert.False(t, settled)
 		})
@@ -236,7 +236,7 @@ func TestMongoStore_FailExpired(t *testing.T) {
 			name: "Edge: a job already failed is not reaped twice",
 			setup: func(t *testing.T, s *generation.MongoStore, mdb *mongo.Database) {
 				runningDoc(t, s, mdb, jobA, jobStart.Add(time.Minute))
-				_, _, err := s.FailRunning(context.Background(), jobA, generation.ErrorCodeProviderFailed)
+				_, _, err := s.FailRunning(context.Background(), jobA, generation.ErrorCodeProviderFailed, generation.Metadata{})
 				require.NoError(t, err)
 			},
 			id:  jobA,

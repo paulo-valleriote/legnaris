@@ -17,21 +17,23 @@ const (
 )
 
 const (
-	fieldID           = "_id"
-	fieldUserID       = "user_id"
-	fieldStatus       = "status"
-	fieldActiveUser   = "active_user_id"
-	fieldCreatedAt    = "created_at"
-	fieldCount        = "count"
-	fieldExpiresAt    = "expires_at"
-	fieldPublishLease = "publish_lease_until"
-	fieldErrorCode    = "error_code"
-	fieldSheetID      = "sheet_id"
-	operatorSet       = "$set"
-	operatorUnset     = "$unset"
-	operatorInc       = "$inc"
-	operatorSetOnIns  = "$setOnInsert"
-	operatorLte       = "$lte"
+	fieldID            = "_id"
+	fieldUserID        = "user_id"
+	fieldStatus        = "status"
+	fieldActiveUser    = "active_user_id"
+	fieldCreatedAt     = "created_at"
+	fieldCount         = "count"
+	fieldExpiresAt     = "expires_at"
+	fieldPublishLease  = "publish_lease_until"
+	fieldErrorCode     = "error_code"
+	fieldSheetID       = "sheet_id"
+	fieldPromptVersion = "prompt_version"
+	fieldModel         = "model"
+	operatorSet        = "$set"
+	operatorUnset      = "$unset"
+	operatorInc        = "$inc"
+	operatorSetOnIns   = "$setOnInsert"
+	operatorLte        = "$lte"
 )
 
 type capRow struct {
@@ -86,6 +88,33 @@ func (s *MongoStore) FindOwned(ctx context.Context, userID, id string) (Document
 		return Document{}, fmt.Errorf("find generation: %w", err)
 	}
 	return doc, nil
+}
+
+func (s *MongoStore) ListBySheet(ctx context.Context, sheetID string, from, to time.Time) ([]Document, error) {
+	if sheetID == "" {
+		return nil, fmt.Errorf("list generations by sheet: sheet id is required")
+	}
+	filter := bson.D{{Key: fieldSheetID, Value: sheetID}}
+	if !from.IsZero() || !to.IsZero() {
+		rangeFilter := bson.D{}
+		if !from.IsZero() {
+			rangeFilter = append(rangeFilter, bson.E{Key: "$gte", Value: from})
+		}
+		if !to.IsZero() {
+			rangeFilter = append(rangeFilter, bson.E{Key: operatorLte, Value: to})
+		}
+		filter = append(filter, bson.E{Key: fieldCreatedAt, Value: rangeFilter})
+	}
+	cursor, err := s.generations.Find(ctx, filter,
+		options.Find().SetSort(bson.D{{Key: fieldCreatedAt, Value: 1}}))
+	if err != nil {
+		return nil, fmt.Errorf("list generations by sheet: %w", err)
+	}
+	var found []Document
+	if err := cursor.All(ctx, &found); err != nil {
+		return nil, fmt.Errorf("decode generations by sheet: %w", err)
+	}
+	return found, nil
 }
 
 func (s *MongoStore) MarkAccepted(ctx context.Context, userID, id, sheetID string) (bool, error) {

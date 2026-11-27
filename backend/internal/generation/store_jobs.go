@@ -36,10 +36,15 @@ func (s *MongoStore) ClaimQueued(ctx context.Context, id string, now time.Time, 
 	return doc, true, nil
 }
 
-func (s *MongoStore) Complete(ctx context.Context, id string, values map[string]any) (bool, error) {
+func (s *MongoStore) Complete(ctx context.Context, id string, values map[string]any, meta Metadata) (bool, error) {
 	filter := bson.D{{Key: fieldID, Value: id}, {Key: fieldStatus, Value: StatusRunning}}
 	update := bson.D{
-		{Key: operatorSet, Value: bson.D{{Key: fieldStatus, Value: StatusSucceeded}, {Key: fieldValues, Value: values}}},
+		{Key: operatorSet, Value: bson.D{
+			{Key: fieldStatus, Value: StatusSucceeded},
+			{Key: fieldValues, Value: values},
+			{Key: fieldPromptVersion, Value: meta.PromptVersion},
+			{Key: fieldModel, Value: meta.Model},
+		}},
 		{Key: operatorUnset, Value: releaseFields()},
 	}
 	res, err := s.generations.UpdateOne(ctx, filter, update)
@@ -49,9 +54,9 @@ func (s *MongoStore) Complete(ctx context.Context, id string, values map[string]
 	return res.MatchedCount == 1, nil
 }
 
-func (s *MongoStore) FailRunning(ctx context.Context, id, code string) (Document, bool, error) {
+func (s *MongoStore) FailRunning(ctx context.Context, id, code string, meta Metadata) (Document, bool, error) {
 	filter := bson.D{{Key: fieldID, Value: id}, {Key: fieldStatus, Value: StatusRunning}}
-	return s.failWhere(ctx, filter, code)
+	return s.failWhere(ctx, filter, code, meta)
 }
 
 func (s *MongoStore) FailExpired(ctx context.Context, id string, now time.Time, code string) (Document, bool, error) {
@@ -60,12 +65,17 @@ func (s *MongoStore) FailExpired(ctx context.Context, id string, now time.Time, 
 		{Key: fieldStatus, Value: StatusRunning},
 		{Key: fieldLeaseUntil, Value: bson.D{{Key: operatorLte, Value: now}}},
 	}
-	return s.failWhere(ctx, filter, code)
+	return s.failWhere(ctx, filter, code, Metadata{})
 }
 
-func (s *MongoStore) failWhere(ctx context.Context, filter bson.D, code string) (Document, bool, error) {
+func (s *MongoStore) failWhere(ctx context.Context, filter bson.D, code string, meta Metadata) (Document, bool, error) {
 	update := bson.D{
-		{Key: operatorSet, Value: bson.D{{Key: fieldStatus, Value: StatusFailed}, {Key: fieldErrorCode, Value: code}}},
+		{Key: operatorSet, Value: bson.D{
+			{Key: fieldStatus, Value: StatusFailed},
+			{Key: fieldErrorCode, Value: code},
+			{Key: fieldPromptVersion, Value: meta.PromptVersion},
+			{Key: fieldModel, Value: meta.Model},
+		}},
 		{Key: operatorUnset, Value: releaseFields()},
 	}
 	var before Document
