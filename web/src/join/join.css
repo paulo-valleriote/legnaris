@@ -6,6 +6,7 @@
 }
 
 .lg-join__card {
+  container-type: inline-size;
   inline-size: min(100%, 32rem);
   display: grid;
   gap: var(--lg-space-24);
@@ -64,6 +65,11 @@
   gap: var(--lg-space-8);
 }
 
+.lg-join__actions .lg-button,
+.lg-join__actions .lg-button__wrap {
+  inline-size: 100%;
+}
+
 .lg-join__footer {
   margin: 0;
 }
@@ -86,9 +92,17 @@
   .lg-join__title {
     font-size: var(--lg-type-30);
   }
+}
 
+@container (min-width: 28rem) {
   .lg-join__actions {
     flex-direction: row;
+    flex-wrap: wrap;
     justify-content: flex-end;
+  }
+
+  .lg-join__actions .lg-button,
+  .lg-join__actions .lg-button__wrap {
+    inline-size: auto;
   }
 }
