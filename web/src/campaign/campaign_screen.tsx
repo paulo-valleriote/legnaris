@@ -35,10 +35,11 @@ import {
   allowedKindsFor,
   canDeleteCampaign,
   canLinkCharacter,
-  eligibleSheetIds,
   hasLinkedCharacter,
   isDeleting,
   isSelf,
+  linkableSheetIds,
+  linkedCharacterSheet,
   memberActions,
   memberUsername,
   unlinkedNpcSheetIds,
@@ -122,9 +123,12 @@ function LinkCharacterForm({
 }) {
   const owned = useOwnedCharacterSheets(true);
   const [choice, setChoice] = useState('');
-  const eligible = owned.data === undefined ? [] : eligibleSheetIds(owned.data, campaign);
+  const sheets = owned.data ?? [];
+  const linked = linkedCharacterSheet(sheets, campaign.id);
+  const eligible = owned.data === undefined ? [] : linkableSheetIds(owned.data, campaign);
   const selected = eligible.includes(choice) ? choice : (eligible[0] ?? '');
-  const names = new Map((owned.data ?? []).map((sheet) => [sheet.id, sheet.name]));
+  const names = new Map(sheets.map((sheet) => [sheet.id, sheet.name]));
+  const showLink = eligible.length > 0 || linked === undefined;
 
   const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -137,7 +141,24 @@ function LinkCharacterForm({
     <section className="lg-campaign__section" aria-labelledby={`campaign-link-${campaign.id}`}>
       <SectionHeading id={`campaign-link-${campaign.id}`} label={message('campaign.linkHeading')} />
       {owned.isError ? <ErrorState message={failureCopy(owned.error)} /> : null}
-      {owned.data !== undefined && eligible.length === 0 ? (
+      {linked === undefined ? null : (
+        <ul className="lg-campaign__cards" aria-label={message('campaign.linkedCharacter')}>
+          <li className="lg-campaign__card">
+            <Link
+              className="lg-campaign__card-title"
+              to={`/sheets/${encodeURIComponent(linked.id)}`}
+              aria-label={messageWith('campaign.openCharacter', { name: linked.name })}
+            >
+              <span className="lg-campaign__card-name">{linked.name}</span>
+              <span className="lg-campaign__card-arrow">
+                <ChevronRightIcon />
+              </span>
+            </Link>
+            <span className="lg-campaign__meta">{message('campaign.linkedCharacterNote')}</span>
+          </li>
+        </ul>
+      )}
+      {owned.data !== undefined && linked === undefined && eligible.length === 0 ? (
         <EmptyState message={message('campaign.noEligibleSheets')} />
       ) : null}
       <form className="lg-campaign__form" onSubmit={submit} noValidate>
@@ -147,24 +168,29 @@ function LinkCharacterForm({
             id="campaign-character-sheet"
             value={selected}
             disabled={disabled || pending}
+            hint={linked === undefined ? undefined : message('campaign.linkHint')}
             options={eligible.map((id) => ({ value: id, label: names.get(id) ?? id }))}
             onChange={setChoice}
           />
         )}
         {error ? <ErrorState message={error} /> : null}
         <div className="lg-campaign__actions">
-          <Button
-            type="submit"
-            label={message('campaign.link')}
-            loading={pending}
-            disabled={disabled || selected === ''}
-          />
-          <Button
-            variant="outline"
-            label={message('campaign.unlink')}
-            disabled={disabled || pending}
-            onClick={onUnlink}
-          />
+          {showLink ? (
+            <Button
+              type="submit"
+              label={message(linked === undefined ? 'campaign.link' : 'campaign.replace')}
+              loading={pending}
+              disabled={disabled || selected === ''}
+            />
+          ) : null}
+          {linked === undefined ? null : (
+            <Button
+              variant="outline"
+              label={message('campaign.unlink')}
+              disabled={disabled || pending}
+              onClick={onUnlink}
+            />
+          )}
         </div>
       </form>
     </section>
@@ -483,16 +509,26 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
     void queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEY });
   };
 
+  const refreshCharacterLinks = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: ownedSheetsKey('character') }),
+      queryClient.invalidateQueries({ queryKey: campaignSheetsKey(campaign.id) }),
+    ]);
+
   const createAndLink = async (sheet: Sheet, kind: SheetKind) => {
-    void queryClient.invalidateQueries({ queryKey: ownedSheetsKey(kind) });
     if (kind === 'character') {
       const next = await client.linkCharacter(campaign.id, sheet.id);
       seedCampaign(queryClient, next);
-      await queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEY });
-      await queryClient.invalidateQueries({ queryKey: campaignSheetsKey(campaign.id) });
+      await Promise.all([
+        refreshCharacterLinks(),
+        queryClient.invalidateQueries({ queryKey: CAMPAIGNS_QUERY_KEY }),
+      ]);
     } else {
       await client.linkNpc(campaign.id, sheet.id);
-      await queryClient.invalidateQueries({ queryKey: npcLinksKey(campaign.id) });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ownedSheetsKey(kind) }),
+        queryClient.invalidateQueries({ queryKey: npcLinksKey(campaign.id) }),
+      ]);
     }
     void navigate(`/sheets/${encodeURIComponent(sheet.id)}`);
   };
@@ -544,10 +580,11 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
 
   const link = useMutation({
     mutationFn: (sheetId: string) => client.linkCharacter(campaign.id, sheetId),
-    onSuccess: (next) => {
+    onSuccess: async (next) => {
       setLinkError(undefined);
       setNotice(message('campaign.linked'));
       refreshCampaign(next);
+      await refreshCharacterLinks();
     },
     onError: (error) => {
       setNotice(undefined);
@@ -557,10 +594,11 @@ function CampaignBody({ campaign }: { campaign: Campaign }) {
 
   const unlink = useMutation({
     mutationFn: () => client.unlinkCharacter(campaign.id),
-    onSuccess: (next) => {
+    onSuccess: async (next) => {
       setLinkError(undefined);
       setNotice(message('campaign.unlinked'));
       refreshCampaign(next);
+      await refreshCharacterLinks();
     },
     onError: (error) => {
       setNotice(undefined);

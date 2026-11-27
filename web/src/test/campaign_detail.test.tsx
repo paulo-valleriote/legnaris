@@ -230,20 +230,43 @@ describe('campaign screen: character link (LGN-218)', () => {
     });
   });
 
-  it('Happy path: a player unlinks the character', async () => {
+  it('Happy path: a player unlinks the character and the owned list refreshes', async () => {
+    let unlinked = false;
     const script = scripted(
       detailRoutes(playerView(), [
-        { method: 'DELETE', path: `${DETAIL}/character`, respond: () => ok(playerView()) },
-      ]),
+        {
+          method: 'DELETE',
+          path: `${DETAIL}/character`,
+          respond: () => {
+            unlinked = true;
+            return ok(playerView());
+          },
+        },
+      ]).map((route) =>
+        route.path === '/sheets/owned'
+          ? {
+              ...route,
+              respond: () => ok([ownedSheet(unlinked ? {} : { campaign_id: CAMPAIGN_ID })]),
+            }
+          : route,
+      ),
     );
     const user = userEvent.setup();
     renderApp(DETAIL, { client: clientFor(script.transport) });
 
     await screen.findByText('tomas');
-    await user.click(screen.getByRole('button', { name: message('campaign.unlink') }));
+    await user.click(await screen.findByRole('button', { name: message('campaign.unlink') }));
 
     expect(await screen.findByText(message('campaign.unlinked'))).toBeInTheDocument();
     expect(script.calls('DELETE', `${DETAIL}/character`)).toHaveLength(1);
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: message('campaign.unlink') })).toBeNull(),
+    );
+    expect(
+      screen.queryByRole('link', {
+        name: messageWith('campaign.openCharacter', { name: 'Brenna' }),
+      }),
+    ).toBeNull();
   });
 
   it.each([
@@ -313,6 +336,96 @@ describe('campaign screen: character link (LGN-218)', () => {
     expect(
       screen.queryByRole('button', { name: `${message('campaign.remove')} tomas` }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("campaign screen: the player's linked character", () => {
+  function linkedRoutes(owned: unknown[], extra: Route[] = []): Route[] {
+    return [
+      ...detailRoutes(playerView(), extra).filter((route) => route.path !== '/sheets/owned'),
+      { method: 'GET', path: '/sheets/owned', respond: () => ok(owned) },
+    ];
+  }
+
+  it('Happy path: the linked character shows as a card that opens its sheet', async () => {
+    const script = scripted(linkedRoutes([ownedSheet({ campaign_id: CAMPAIGN_ID })]));
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    const link = await screen.findByRole('link', {
+      name: messageWith('campaign.openCharacter', { name: 'Brenna' }),
+    });
+    expect(link).toHaveAttribute('href', `/sheets/${SHEET_ID}`);
+    const card = link.closest('li') as HTMLElement;
+    expect(within(card).getByText(message('campaign.linkedCharacterNote'))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('campaign.unlink') })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: message('campaign.linkLabel') })).toBeNull();
+    expect(screen.queryByRole('button', { name: message('campaign.replace') })).toBeNull();
+  });
+
+  it('Edge: with nothing linked the section offers the free sheet and no unlink action', async () => {
+    const script = scripted(linkedRoutes([ownedSheet()]));
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    expect(
+      await screen.findByRole('combobox', { name: message('campaign.linkLabel') }),
+    ).toHaveValue(SHEET_ID);
+    expect(screen.getByRole('button', { name: message('campaign.link') })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: message('campaign.unlink') })).toBeNull();
+    expect(
+      screen.queryByRole('link', {
+        name: messageWith('campaign.openCharacter', { name: 'Brenna' }),
+      }),
+    ).toBeNull();
+  });
+
+  it('Edge: the linked character is not offered again and another one replaces it', async () => {
+    const script = scripted(
+      linkedRoutes([
+        ownedSheet({ campaign_id: CAMPAIGN_ID }),
+        ownedSheet({ id: OTHER_SHEET_ID, name: 'Rowan' }),
+      ]),
+    );
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    const select = await screen.findByRole('combobox', { name: message('campaign.linkLabel') });
+    expect(select).toHaveValue(OTHER_SHEET_ID);
+    expect(within(select).queryByRole('option', { name: 'Brenna' })).toBeNull();
+    expect(within(select).getByRole('option', { name: 'Rowan' })).toBeInTheDocument();
+    expect(screen.getByText(message('campaign.linkHint'))).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: message('campaign.replace') })).toBeInTheDocument();
+  });
+
+  it('Happy path: a link refreshes the owned list and the card appears without a reload', async () => {
+    let linked = false;
+    const script = scripted([
+      ...detailRoutes(playerView(), [
+        {
+          method: 'PUT',
+          path: `${DETAIL}/character`,
+          respond: () => {
+            linked = true;
+            return ok(playerView());
+          },
+        },
+      ]).filter((route) => route.path !== '/sheets/owned'),
+      {
+        method: 'GET',
+        path: '/sheets/owned',
+        respond: () => ok([ownedSheet(linked ? { campaign_id: CAMPAIGN_ID } : {})]),
+      },
+    ]);
+    const user = userEvent.setup();
+    renderApp(DETAIL, { client: clientFor(script.transport) });
+
+    await screen.findByText('tomas');
+    await user.click(screen.getByRole('button', { name: message('campaign.link') }));
+
+    expect(
+      await screen.findByRole('link', {
+        name: messageWith('campaign.openCharacter', { name: 'Brenna' }),
+      }),
+    ).toBeInTheDocument();
+    expect(script.calls('GET', '/sheets/owned').length).toBeGreaterThanOrEqual(2);
   });
 });
 

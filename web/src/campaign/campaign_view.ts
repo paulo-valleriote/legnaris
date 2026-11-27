@@ -116,6 +116,20 @@ export function eligibleSheetIds(
     .map((sheet) => sheet.id);
 }
 
+export function linkedCharacterSheet<
+  T extends { readonly id: string; readonly campaignId?: string },
+>(sheets: readonly T[], campaignId: string): T | undefined {
+  return sheets.find((sheet) => sheet.campaignId === campaignId);
+}
+
+export function linkableSheetIds(
+  sheets: readonly { id: string; templateId: string; campaignId?: string }[],
+  campaign: Pick<Campaign, 'id' | 'templateIds'>,
+): string[] {
+  const linked = linkedCharacterSheet(sheets, campaign.id);
+  return eligibleSheetIds(sheets, campaign).filter((id) => id !== linked?.id);
+}
+
 export function eligibleNpcSheetIds(
   sheets: readonly { id: string; templateId: string }[],
   campaign: Pick<Campaign, 'templateIds'>,
