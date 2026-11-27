@@ -1,5 +1,6 @@
 import type {
   Campaign,
+  CampaignInvite,
   CampaignSheet,
   CampaignSheetResult,
   CampaignSummary,
@@ -7,6 +8,7 @@ import type {
 } from './models/campaign';
 import {
   parseCampaign,
+  parseCampaignInvite,
   parseCampaignSheets,
   parseJoinedCampaign,
   parseCampaignSummaries,
@@ -52,6 +54,7 @@ export interface CreateSheetInput {
 export interface JoinCampaignInput {
   readonly code: string;
   readonly password?: string | undefined;
+  readonly sheetId?: string | undefined;
 }
 
 export type ApiClientOptions = CallerOptions;
@@ -112,6 +115,8 @@ export interface ApiClient {
     etag: string | undefined,
   ): Promise<CampaignSheetResult>;
   joinCampaign(input: JoinCampaignInput): Promise<Campaign>;
+  getCampaignInvite(code: string): Promise<CampaignInvite>;
+  previewCampaignInvite(code: string, password: string): Promise<CampaignInvite>;
   rotateInvite(campaignId: string): Promise<Campaign>;
   setCampaignPassword(campaignId: string, password: string): Promise<Campaign>;
   clearCampaignPassword(campaignId: string): Promise<Campaign>;
@@ -152,10 +157,16 @@ function saveBody(changeSet: Record<string, unknown>, dice: DiceBlock | undefine
     : diceBlockToWire(dice);
 }
 
-function joinBody(input: JoinCampaignInput): { code: string; password?: string } {
-  return input.password === undefined
-    ? { code: input.code }
-    : { code: input.code, password: input.password };
+function joinBody(input: JoinCampaignInput): {
+  code: string;
+  password?: string;
+  sheet_id?: string;
+} {
+  return {
+    code: input.code,
+    ...(input.password === undefined ? {} : { password: input.password }),
+    ...(input.sheetId === undefined ? {} : { sheet_id: input.sheetId }),
+  };
 }
 
 function createCampaignBody(input: CreateCampaignInput): object {
@@ -363,6 +374,20 @@ export function createApiClient(options: ApiClientOptions): ApiClient {
       ),
     joinCampaign: (input) =>
       caller.call('POST', '/campaigns/join', JSON.stringify(joinBody(input)), parseJoinedCampaign),
+    getCampaignInvite: (code) =>
+      caller.call(
+        'GET',
+        `/campaigns/invite/${encodeURIComponent(code)}`,
+        undefined,
+        parseCampaignInvite,
+      ),
+    previewCampaignInvite: (code, password) =>
+      caller.call(
+        'POST',
+        `/campaigns/invite/${encodeURIComponent(code)}/preview`,
+        JSON.stringify({ password }),
+        parseCampaignInvite,
+      ),
   };
 }
 

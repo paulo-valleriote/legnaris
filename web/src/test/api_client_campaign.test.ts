@@ -1,13 +1,23 @@
 import { describe, expect, it } from 'vitest';
 import { createApiClient } from '../api/client';
 import { DomainFailure } from '../api/errors';
-import { parseCampaign, parseJoinedCampaign } from '../api/models/campaign';
+import { parseCampaign, parseCampaignInvite, parseJoinedCampaign } from '../api/models/campaign';
 import { campaignView } from './campaign_helpers';
 import { createFakeTransport, errorOutcome, successOutcome } from './fake_transport';
 
 const CODE = 'Abcdefghijklmnopqrstuvwx';
 const CAMPAIGN_WIRE = campaignView();
 const CAMPAIGN = parseCampaign(CAMPAIGN_WIRE);
+const INVITE_WIRE = {
+  name: 'Ember Coast',
+  gm_username: 'mara',
+  scope_name: '5E',
+  template_ids: ['fifth_character_v1'],
+  template_id: 'fifth_character_v1',
+  password_required: false,
+  player_count: 2,
+  already_member: false,
+};
 
 function clientFor(...outcomes: Parameters<typeof createFakeTransport>) {
   const fake = createFakeTransport(...outcomes);
@@ -51,6 +61,37 @@ describe('api client: joinCampaign (LGN-200)', () => {
     await client.joinCampaign({ code: CODE, password: '' });
 
     expect(JSON.parse(fake.lastRequest?.body ?? '')).toEqual({ code: CODE, password: '' });
+  });
+
+  it('Happy path: sends the chosen sheet id with the join', async () => {
+    const { client, fake } = clientFor(successOutcome(CAMPAIGN_WIRE));
+
+    await client.joinCampaign({ code: CODE, sheetId: 'sheet-1' });
+
+    expect(JSON.parse(fake.lastRequest?.body ?? '')).toEqual({
+      code: CODE,
+      sheet_id: 'sheet-1',
+    });
+  });
+
+  it('Happy path: reads the invite preview from the invite route', async () => {
+    const { client, fake } = clientFor(successOutcome(INVITE_WIRE));
+
+    const invite = await client.getCampaignInvite(CODE);
+
+    expect(invite).toEqual(parseCampaignInvite(INVITE_WIRE));
+    expect(fake.lastRequest?.method).toBe('GET');
+    expect(fake.lastRequest?.url).toBe(`http://api.test/campaigns/invite/${CODE}`);
+  });
+
+  it('Happy path: posts the password to the invite preview route', async () => {
+    const { client, fake } = clientFor(successOutcome(INVITE_WIRE));
+
+    await client.previewCampaignInvite(CODE, 'correct horse');
+
+    expect(fake.lastRequest?.method).toBe('POST');
+    expect(fake.lastRequest?.url).toBe(`http://api.test/campaigns/invite/${CODE}/preview`);
+    expect(JSON.parse(fake.lastRequest?.body ?? '')).toEqual({ password: 'correct horse' });
   });
 
   it('Edge: an answer without a campaign id is a defensive parse failure', () => {

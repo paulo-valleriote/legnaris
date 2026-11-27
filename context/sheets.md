@@ -1044,7 +1044,7 @@ Backend:
 
 Web:
 
-- `web/src/catalog/catalog_screen.tsx`, `create_sheet_dialog.tsx`, `queries.ts` — catalog,
+- `web/src/catalog/catalog_screen.tsx`, `create_sheet_dialog.tsx`, `queries.ts` — catalog, create dialog (a caller that passes `onCreated` keeps it open and receives the created Sheet; otherwise it opens `/sheets/:id`),
   creation surface and query keys; the surface offers only the Template's `kinds`, preselects the
   first and shows a single kind without a choice, with the limit, Generate link and submit
   following the selected kind; a Template with a Game system shows its compatibility label as plain

@@ -1,22 +1,108 @@
 .lg-join {
-  max-width: var(--lg-size-narrow-max);
-  padding-bottom: var(--lg-space-48);
+  display: grid;
+  place-items: center;
+  min-block-size: calc(100dvh - 2 * var(--lg-space-48));
+  padding: var(--lg-space-24) var(--lg-space-16);
 }
 
-.lg-join__message {
-  margin: 0 0 var(--lg-space-24);
+.lg-join__card {
+  container-type: inline-size;
+  inline-size: min(100%, 32rem);
+  display: grid;
+  gap: var(--lg-space-24);
+  padding: var(--lg-space-24);
+  background: var(--lg-color-surface);
+  border: var(--lg-size-hairline) solid var(--lg-color-border);
+  border-radius: var(--lg-radius-lg);
+  box-shadow: var(--lg-shadow-2);
+}
+
+.lg-join__title {
+  margin: 0;
+  font-size: var(--lg-type-24);
+  line-height: var(--lg-line-tight);
+  color: var(--lg-color-text);
+  overflow-wrap: anywhere;
+}
+
+.lg-join__lead {
+  margin: 0;
   font-size: var(--lg-type-15);
   line-height: var(--lg-line-normal);
   color: var(--lg-color-text-muted);
 }
 
-.lg-join__form {
+.lg-join__meta {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  gap: var(--lg-space-2) var(--lg-space-8);
+  margin: 0;
+  font-size: var(--lg-type-13);
+  color: var(--lg-color-text-muted);
+}
+
+.lg-join__meta span + span::before {
+  content: '·';
+  margin-inline-end: var(--lg-space-8);
+}
+
+.lg-join__note {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  line-height: var(--lg-line-normal);
+  color: var(--lg-color-text-muted);
+  text-wrap: pretty;
+}
+
+.lg-join__form {
+  display: grid;
   gap: var(--lg-space-16);
 }
 
-.lg-join__action {
-  align-self: flex-start;
-  text-decoration: none;
+.lg-join__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--lg-space-8);
+}
+
+.lg-join__actions .lg-button,
+.lg-join__actions .lg-button__wrap {
+  inline-size: 100%;
+}
+
+.lg-join__footer {
+  margin: 0;
+}
+
+.lg-join__link {
+  color: var(--lg-color-link);
+  font-size: var(--lg-type-13);
+  text-underline-offset: var(--lg-space-2);
+}
+
+.lg-join__link:hover {
+  color: var(--lg-color-link-hover);
+}
+
+@media (min-width: 40rem) {
+  .lg-join__card {
+    padding: var(--lg-space-32);
+  }
+
+  .lg-join__title {
+    font-size: var(--lg-type-30);
+  }
+}
+
+@container (min-width: 27rem) {
+  .lg-join__actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .lg-join__actions .lg-button,
+  .lg-join__actions .lg-button__wrap {
+    inline-size: auto;
+  }
 }
