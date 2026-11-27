@@ -84,9 +84,9 @@ export function SheetFieldControl({
       <NumericControl
         value={value}
         label={label}
-        disabled={!interactive}
+        readOnly={!interactive}
         marked={marked}
-        steppable={labelId !== undefined}
+        steppable={interactive && labelId !== undefined}
         describedBy={describedBy}
         onChanged={onChanged}
       />
@@ -99,10 +99,11 @@ export function SheetFieldControl({
         type="text"
         className={`lg-field${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}
         aria-label={label}
+        aria-readonly={interactive ? undefined : true}
         placeholder={message('engine.notSet')}
         maxLength={schema.maxLength}
         value={formatFieldValue(value)}
-        disabled={!interactive}
+        readOnly={!interactive}
         onChange={(event) => onChanged?.(event.target.value)}
       />
     );
@@ -195,7 +196,7 @@ function ToggleControl({ schema, value, label, disabled, marked, onToggle }: Tog
 interface NumericControlProps {
   readonly value: unknown;
   readonly label: string;
-  readonly disabled: boolean;
+  readonly readOnly: boolean;
   readonly marked: boolean;
   readonly steppable: boolean;
   readonly describedBy?: string;
@@ -271,7 +272,7 @@ function stepNumericText(text: string, direction: StepDirection): number | null 
 function NumericControl({
   value,
   label,
-  disabled,
+  readOnly,
   marked,
   steppable,
   describedBy,
@@ -357,10 +358,10 @@ function NumericControl({
     <div className="lg-field__slot">
       <div
         className={`lg-field--numeric-wrapper${marked ? ` ${FIELD_MARKED_CLASS}` : ''}${
-          !disabled && steppable ? ' lg-field--steppable' : ''
+          !readOnly && steppable ? ' lg-field--steppable' : ''
         }`}
       >
-        {!disabled && (
+        {!readOnly && (
           <button
             type="button"
             className="lg-field__sign"
@@ -380,14 +381,15 @@ function NumericControl({
           className={`lg-field lg-field--numeric${marked ? ` ${FIELD_MARKED_CLASS}` : ''}`}
           aria-label={label}
           aria-describedby={describedBy}
+          aria-readonly={readOnly ? true : undefined}
           value={text}
-          disabled={disabled}
+          readOnly={readOnly}
           onChange={handleChange}
           onBlur={handleBlur}
           onFocus={handleFocus}
-          onKeyDown={disabled ? undefined : handleKeyDown}
+          onKeyDown={readOnly ? undefined : handleKeyDown}
         />
-        {!disabled && steppable && (
+        {!readOnly && steppable && (
           <>
             <button
               type="button"

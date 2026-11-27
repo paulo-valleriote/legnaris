@@ -1127,6 +1127,7 @@
 }
 
 .lg-preset--locked input.lg-field:disabled,
+.lg-preset--locked input.lg-field[readonly],
 .lg-preset--locked select.lg-field:disabled {
   border-color: transparent;
   background-color: transparent;
@@ -1136,7 +1137,8 @@
   -webkit-text-fill-color: currentcolor;
 }
 
-.lg-preset--locked input.lg-field:disabled::placeholder {
+.lg-preset--locked input.lg-field:disabled::placeholder,
+.lg-preset--locked input.lg-field[readonly]::placeholder {
   -webkit-text-fill-color: var(--lg-color-text-muted);
 }
 

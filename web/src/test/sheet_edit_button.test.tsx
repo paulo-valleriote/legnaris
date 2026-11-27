@@ -45,7 +45,9 @@ describe('the sheet edit button', () => {
   it('Edge: a preset sheet opens with every build value locked', async () => {
     await open();
 
-    expect(level()).toBeDisabled();
+    expect(level()).toHaveAttribute('readonly');
+    expect(level()).toHaveAttribute('aria-readonly', 'true');
+    expect(level()).not.toBeDisabled();
     expect(edited('identity.name').tagName).toBe('SPAN');
     expect(edited('abilities.strength.score').tagName).toBe('SPAN');
     for (const control of document.querySelectorAll('.lg-compose-flag, .lg-compose-rank')) {
@@ -69,7 +71,7 @@ describe('the sheet edit button', () => {
       expect(control).toBeEnabled();
     }
     for (const row of document.querySelectorAll('[data-record-key^="resources."]')) {
-      const live = row.querySelectorAll('input:not(:disabled)');
+      const live = row.querySelectorAll('input:not(:disabled):not([readonly])');
       expect(live).toHaveLength(1);
     }
   });
@@ -82,7 +84,8 @@ describe('the sheet edit button', () => {
     await user.type(level(), '7');
     await user.click(toggle('sheet.editDone'));
 
-    expect(level()).toBeDisabled();
+    expect(level()).toHaveAttribute('readonly');
+    expect(level()).not.toBeDisabled();
     expect(level()).toHaveValue('7');
     expect(screen.getByTestId('sheet-pending-card')).toBeInTheDocument();
   });
