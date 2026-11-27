@@ -133,6 +133,9 @@ describe('sheet footer, save and Ctrl+S', () => {
     deferred.resolve(successOutcome({ derived: { total: 5 } }));
 
     expect(await screen.findByRole('button', { name: message('sheet.saved') })).toBeInTheDocument();
+    expect(screen.getByTestId('sheet-saved-announcement')).toHaveTextContent(
+      message('sheet.saved'),
+    );
     expect(screen.queryByText(message('sheet.pendingEdits'))).not.toBeInTheDocument();
   });
 
@@ -172,6 +175,9 @@ describe('sheet footer, save and Ctrl+S', () => {
     });
     expect(screen.queryByText(message('sheet.pendingEdits'))).not.toBeInTheDocument();
     expect(await screen.findByRole('button', { name: message('sheet.saved') })).toBeInTheDocument();
+    expect(screen.getByTestId('sheet-saved-announcement')).toHaveTextContent(
+      message('sheet.saved'),
+    );
   });
 });
 

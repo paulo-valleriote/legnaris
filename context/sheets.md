@@ -968,7 +968,8 @@ failure copy. A successful save, from the card's Save button or `Ctrl+S`/`Cmd+S`
 the same polite region; the button path also moves focus to the header's Edit sheet / Done editing
 button, so the card can disappear without dropping focus to the page body, while the shortcut keeps
 the caret in the field. The status clears after two seconds or on the next edit. The generic footer
-reads the same signal for its `Saved` label. The bar is also the roll result's floor: the result panel sits fully above it and moves
+reads the same signal for its `Saved` label and announces it in its own polite live region, cleared
+with the label; the card and the footer never mount together, so one save produces one announcement. The bar is also the roll result's floor: the result panel sits fully above it and moves
 with it. Dice changes are summarised as one `Dice formulas changed` line. A field reverted to its old
 value while a save is in flight stays pending after that save resolves.
 

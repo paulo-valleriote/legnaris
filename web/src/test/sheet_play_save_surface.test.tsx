@@ -282,6 +282,7 @@ describe('the preset save surface', () => {
     const saved = await screen.findByTestId('sheet-pending-saved');
     expect(saved).toHaveTextContent(message('sheet.saved'));
     expect(within(saved).getByRole('status')).toHaveAttribute('aria-live', 'polite');
+    expect(screen.queryByTestId('sheet-saved-announcement')).not.toBeInTheDocument();
     expect(levelInput()).toHaveFocus();
   });
 

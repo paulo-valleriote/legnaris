@@ -313,6 +313,14 @@ function SheetFooter({ store, reveal }: SheetFooterProps) {
           </p>
         )}
       </FooterStatus>
+      <p
+        className="lg-visually-hidden"
+        role="status"
+        aria-live="polite"
+        data-testid="sheet-saved-announcement"
+      >
+        {showSaved ? message('sheet.saved') : ''}
+      </p>
       <div className="lg-sheet__actions">
         {changes > 0 && (
           <span className="lg-sheet__count" data-testid="sheet-change-count">
