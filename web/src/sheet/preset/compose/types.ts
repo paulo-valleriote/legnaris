@@ -114,6 +114,9 @@ export interface PresetRecordTablePiece {
   readonly list: string;
   readonly columns?: readonly string[];
   readonly playColumns?: readonly string[];
+  readonly nameColumn?: string;
+  readonly rollColumn?: string;
+  readonly damageColumn?: string;
 }
 
 export interface PresetResetBarPiece {

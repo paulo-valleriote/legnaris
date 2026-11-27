@@ -257,7 +257,7 @@ only in development and Retired Templates always do.
 
 Every web view that draws a Template name draws its notice beside it through
 `web/src/catalog/template_name.tsx`: the owner Sheet on the owner screen, the campaign read-only GM and
-NPC views, and the generation review. The name reads `5E Character · SRD 5.2.1` (the ` · `
+NPC views, and the generation review. The name reads `5E Character · SRD 5.2.1` (the `·`
 separator is copy from `web/src/l10n/strings.ts`, never a literal in the component), and the notice
 label is a router link to the Template's same-origin notice path. The link passes through the shell
 leave guard, so leaving a Sheet with unsaved work still asks first. A Template without a Game system
@@ -277,15 +277,15 @@ An empty value, `production`, `staging` or anything else fails closed; the produ
 deliberately carries no `APP_ENV` (only the worker sets `production`), so a bare `go run` without
 the variable hides Drafts, while `scripts/dev.sh` exports `development`.
 
-| Path | active | draft in development | draft elsewhere | retired |
-| --- | --- | --- | --- | --- |
-| `GET /templates` | listed | listed | omitted | omitted |
-| `GET /templates/:id`, `POST /templates/:id/preview` | yes | yes | 404 | yes |
-| `POST /sheets` | yes | yes | 400 | 400, or 201 from the catalog default template that accepts the kind, or 201 with an active Campaign that includes it |
-| `POST /generations` | yes | yes | 400 | 400 |
-| Accept a succeeded generation job | yes | yes | 400 | yes |
-| Duplicate an existing NPC or enemy | yes | yes | 400 | yes |
-| Read, edit, roll, layout or link an existing Sheet | yes | yes | yes | yes |
+| Path                                                | active | draft in development | draft elsewhere | retired                                                                                                              |
+| --------------------------------------------------- | ------ | -------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `GET /templates`                                    | listed | listed               | omitted         | omitted                                                                                                              |
+| `GET /templates/:id`, `POST /templates/:id/preview` | yes    | yes                  | 404             | yes                                                                                                                  |
+| `POST /sheets`                                      | yes    | yes                  | 400             | 400, or 201 from the catalog default template that accepts the kind, or 201 with an active Campaign that includes it |
+| `POST /generations`                                 | yes    | yes                  | 400             | 400                                                                                                                  |
+| Accept a succeeded generation job                   | yes    | yes                  | 400             | yes                                                                                                                  |
+| Duplicate an existing NPC or enemy                  | yes    | yes                  | 400             | yes                                                                                                                  |
+| Read, edit, roll, layout or link an existing Sheet  | yes    | yes                  | yes             | yes                                                                                                                  |
 
 A refused creation or generation is 400 `INVALID_REQUEST` before any plan slot, quota or daily-cap
 reservation, and the message names the reason: a Draft outside development says the Template is
@@ -522,17 +522,17 @@ updated_at}`. `kind` is `character`, `npc` or `enemy`. `layout` appears only whe
 always present (`{"section": {}, "row": {}}` when empty); `version` and `layout_version` are
 never exposed.
 
-| Method and path | Body | Success |
-| --- | --- | --- |
-| `POST /sheets` | `{template_id, kind, sheet_name, campaign_id?}` | 201 sheet |
-| `GET /sheets/owned?kind=character` | — | 200 array, oldest first |
-| `GET /sheets/:id` | — | 200 sheet |
-| `PATCH /sheets/:id` | `{data?, dice?}` | 200 cascade |
-| `POST /sheets/:id/preview` | `{data}` | 200 cascade, no write |
-| `POST /sheets/:id/resets/:actionId` | `{request_id}` | 200 cascade, one write |
-| `PUT /sheets/:id/layout` | `{layout}` | 200 `{layout}` |
-| `POST /sheets/:id/duplicate` | — | 201 sheet (NPC and enemy only) |
-| `DELETE /sheets/:id` | — | 204 |
+| Method and path                     | Body                                            | Success                        |
+| ----------------------------------- | ----------------------------------------------- | ------------------------------ |
+| `POST /sheets`                      | `{template_id, kind, sheet_name, campaign_id?}` | 201 sheet                      |
+| `GET /sheets/owned?kind=character`  | —                                               | 200 array, oldest first        |
+| `GET /sheets/:id`                   | —                                               | 200 sheet                      |
+| `PATCH /sheets/:id`                 | `{data?, dice?}`                                | 200 cascade                    |
+| `POST /sheets/:id/preview`          | `{data}`                                        | 200 cascade, no write          |
+| `POST /sheets/:id/resets/:actionId` | `{request_id}`                                  | 200 cascade, one write         |
+| `PUT /sheets/:id/layout`            | `{layout}`                                      | 200 `{layout}`                 |
+| `POST /sheets/:id/duplicate`        | —                                               | 201 sheet (NPC and enemy only) |
+| `DELETE /sheets/:id`                | —                                               | 204                            |
 
 Every JSON success is wrapped in `{"data": ...}`. A malformed id is 400; a missing sheet and a
 foreign sheet are both 404. Creating reserves a per-owner, per-kind plan slot and inserts in one
@@ -708,17 +708,17 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 
 ### Errors
 
-| Code | Status | Raised when |
-| --- | --- | --- |
-| `INVALID_JSON` | 400 | malformed body, wrong value type, unknown body key |
-| `INVALID_REQUEST` | 400 | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id, malformed Record id, non-numeric Record `position`, over-capacity list, invalid Record field value, missing or malformed Reset `request_id`, or a Template whose lifecycle state refuses the path |
-| `UNKNOWN_FIELD` | 400 | data key or group prefix absent from the DAG, or a Record Field absent from its shape |
-| `NOT_FOUND` | 404 | sheet or template missing, including a foreign sheet; unknown Reset action |
-| `CONFLICT` | 409 | value/Dice save lost the version race; `Retry-After: 1` |
-| `SHEET_LIMIT_REACHED` | 409 | create would exceed the plan; details carry `kind` and `limit` |
-| `PLAN_LIMIT_REACHED` | 403 | duplicate would exceed the plan |
-| `SHEET_KIND_MISMATCH` | 422 | duplicate of a character sheet |
-| `RATE_LIMITED` | 429 | shared per-user budget (`USER_RATE_LIMIT_*`, 80 per minute) |
+| Code                  | Status | Raised when                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INVALID_JSON`        | 400    | malformed body, wrong value type, unknown body key                                                                                                                                                                                                                                                                                                                                                                                    |
+| `INVALID_REQUEST`     | 400    | non-editable field, text longer than its `max_length`, invalid layout or dice, exclusive conflict or non-numeric member, nesting too deep, nothing to update, invalid kind or template/kind mismatch on create, malformed sheet id, malformed Record id, non-numeric Record `position`, over-capacity list, invalid Record field value, missing or malformed Reset `request_id`, or a Template whose lifecycle state refuses the path |
+| `UNKNOWN_FIELD`       | 400    | data key or group prefix absent from the DAG, or a Record Field absent from its shape                                                                                                                                                                                                                                                                                                                                                 |
+| `NOT_FOUND`           | 404    | sheet or template missing, including a foreign sheet; unknown Reset action                                                                                                                                                                                                                                                                                                                                                            |
+| `CONFLICT`            | 409    | value/Dice save lost the version race; `Retry-After: 1`                                                                                                                                                                                                                                                                                                                                                                               |
+| `SHEET_LIMIT_REACHED` | 409    | create would exceed the plan; details carry `kind` and `limit`                                                                                                                                                                                                                                                                                                                                                                        |
+| `PLAN_LIMIT_REACHED`  | 403    | duplicate would exceed the plan                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `SHEET_KIND_MISMATCH` | 422    | duplicate of a character sheet                                                                                                                                                                                                                                                                                                                                                                                                        |
+| `RATE_LIMITED`        | 429    | shared per-user budget (`USER_RATE_LIMIT_*`, 80 per minute)                                                                                                                                                                                                                                                                                                                                                                           |
 
 ### Record lists in the generic form
 
@@ -767,7 +767,10 @@ read-only. A preset sheet opens locked; the header `Edit sheet` / `Done editing`
 build values in place, without moving anything. While locked, current and temporary hit points,
 Damage and Heal, every pip track, conditions, the Record columns a piece lists as `playColumns`,
 rolls and rests stay live. The lock is screen state: it is never stored or sent, and pending edits
-survive it. The generic form has no lock. A Template id with a preset draws the preset body; every other
+survive it. While locked, a text or number build value is a read-only input with `aria-readonly`
+(focusable, selectable and copyable) drawn without the edit-mode box: no border or raised fill, and
+the text colour and placeholder stay the locked ones; a toggle stays disabled because a checkbox
+has no read-only state. The generic form has no lock. A Template id with a preset draws the preset body; every other
 Template (including the retired `fantasy_v1`) draws the generic form. The preset registry maps a
 template id to a header component and ordered section slots, so later gameplay surfaces are additions
 to the preset rather than branches in the screen.
@@ -818,12 +821,16 @@ per-Template code. The fourteen kinds are:
   (`level`, a fixed or bound `max`, an optional derived `penalty`) that reuses the pips.
 - `recordTable` — a bound Record list's chosen `columns` as editable `SheetFieldControl` cells
   plus Add, Move up/down (focus follows the moved Record and a live region announces the position;
-  drawn only when the store can move and there are two or more Records) and Remove through the edit store's list operations (each guarded by the store method
-  it needs), a visible level-2 heading with the list label, one shared column header per run of
+  drawn only when the store can move and there are two or more Records) and an icon-only Remove
+  named for the Record through the edit store's list operations (each guarded by the store method it
+  needs), a visible level-2 heading with the list label, one shared column header per run of
   Records aligned to the cells by a grid template the table publishes as `--lg-record-template`
   (text fields take two shares, selects 1.25 with an 8.5rem floor, numbers and toggles one with a
   6.5rem floor) with the per-cell labels returning only
-  on a phone, a `RollableValue` on the Record Row when the list declares Row default dice, and
+  on a phone, a d20 `RollableValue` on the To hit value when the piece names its `nameColumn`,
+  `rollColumn` and `damageColumn` and the list declares Row dice (its accessible name carries the
+  attack name and modifier), a damage cell that holds a dice expression drawn as its own damage
+  roll, otherwise a `RollableValue` on the Record Row when the list declares Row default dice, and
   the shared empty and at-capacity copy. Every cell subscribes to its own path.
 - `resetBar` — `ResetActions` for its bound action ids over the provider's reset binding (the same
   run, apply and refresh callbacks as the generic form, so there is no new request path).

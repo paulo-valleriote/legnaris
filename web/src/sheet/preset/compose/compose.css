@@ -819,6 +819,22 @@
   font-variant-numeric: tabular-nums;
 }
 
+.lg-compose-record__control {
+  display: flex;
+  align-items: center;
+  gap: var(--lg-space-4);
+  min-inline-size: 0;
+}
+
+.lg-compose-record__control > :first-child {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.lg-compose-record__roll {
+  flex: none;
+}
+
 .lg-compose-record__label {
   display: none;
   font-size: var(--lg-type-12);
@@ -1111,6 +1127,7 @@
 }
 
 .lg-preset--locked input.lg-field:disabled,
+.lg-preset--locked input.lg-field[readonly],
 .lg-preset--locked select.lg-field:disabled {
   border-color: transparent;
   background-color: transparent;
@@ -1120,7 +1137,8 @@
   -webkit-text-fill-color: currentcolor;
 }
 
-.lg-preset--locked input.lg-field:disabled::placeholder {
+.lg-preset--locked input.lg-field:disabled::placeholder,
+.lg-preset--locked input.lg-field[readonly]::placeholder {
   -webkit-text-fill-color: var(--lg-color-text-muted);
 }
 
