@@ -35,6 +35,7 @@ import { EmptyState, ErrorState, LoadingState } from '../ui/state';
 import { TemplateName } from '../catalog/template_name';
 import { useApiClient, useSheetStore } from '../app/providers';
 import {
+  sheetKey,
   templateDetailKey,
   PLAN_QUERY_KEY,
   seedCreatedSheet,
@@ -44,7 +45,13 @@ import { startDraftCadence } from '../library/draft_backup';
 import { cacheSheet, discardDraft, discardLayoutDraft } from '../library/sheet_library';
 import { registerLeaveGuard, requestLeave } from '../shell/leave_guard';
 import { useSheetShortcuts } from '../shell/shortcut_registry';
-import type { PendingDiceKeys, PreviewMarks, SheetEditState, SheetEditStore } from './sheet_edit';
+import type {
+  PendingDiceKeys,
+  PreviewMarks,
+  SheetEditState,
+  SheetEditStore,
+  SheetSaveSnapshot,
+} from './sheet_edit';
 import {
   canPreview,
   canSave,
@@ -494,16 +501,23 @@ function LoadedSheet({ sheet, template }: LoadedSheetProps) {
   const storePort = useSheetStore();
   const queryClient = useQueryClient();
   const sheetId = sheet.id;
-  const sheetData = sheet.data;
-  const sheetDice = sheet.dice;
+  const [seed] = useState(() => ({ data: sheet.data, dice: sheet.dice }));
   const [committedLayout] = useState(sheet.layout);
+  const rememberSaved = useCallback(
+    (saved: SheetSaveSnapshot) => {
+      queryClient.setQueryData<Sheet>(sheetKey(sheetId), (current) =>
+        current === undefined ? current : { ...current, data: saved.data, dice: saved.dice },
+      );
+    },
+    [queryClient, sheetId],
+  );
   const editStore = useMemo(
     () =>
       createSheetEditStore(
-        { template, sheet: { id: sheetId, data: sheetData, dice: sheetDice } },
-        { client, store: storePort },
+        { template, sheet: { id: sheetId, data: seed.data, dice: seed.dice } },
+        { client, store: storePort, onSaved: rememberSaved },
       ),
-    [client, storePort, sheetId, sheetData, sheetDice, template],
+    [client, storePort, sheetId, seed, template, rememberSaved],
   );
   const preset = useMemo(() => presetFor(template), [template]);
   const generic = preset === undefined;

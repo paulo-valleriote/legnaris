@@ -43,6 +43,8 @@ const KIND_BY_CODE: Readonly<Record<string, FailureKind>> = {
   SHEET_KIND_MISMATCH: 'sheetKindMismatch',
   PLAN_LIMIT_REACHED: 'planLimitReached',
   PASSWORD_REQUIRED: 'passwordRequired',
+  SHEET_NAME_INVALID: 'invalidSheetName',
+  SHEET_NAME_TOO_LONG: 'sheetNameTooLong',
 };
 
 const KIND_BY_GENERATION_ERROR: Readonly<Record<string, FailureKind>> = {
@@ -91,6 +93,8 @@ const KEY_BY_KIND: Readonly<Record<FailureKind, MessageKey>> = {
   sheetKindMismatch: 'api.error.sheetKindMismatch',
   planLimitReached: 'api.error.planLimitReached',
   passwordRequired: 'api.error.passwordRequired',
+  invalidSheetName: 'sheet.nameRequired',
+  sheetNameTooLong: 'sheet.nameTooLong',
 };
 
 export function apperrKind(code: string): FailureKind {

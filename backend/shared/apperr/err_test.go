@@ -50,6 +50,7 @@ func TestNewError_StatusMapping(t *testing.T) {
 		{CodePasswordRequired, 403},
 		{CodeTemplateMismatch, 422},
 		{CodeSheetKindMismatch, 422},
+		{CodeSheetNameInvalid, 422},
 		{CodeSheetAlreadyLinked, 409},
 		{CodePlanLimitReached, 403},
 	}

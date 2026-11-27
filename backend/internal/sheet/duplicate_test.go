@@ -3,6 +3,7 @@ package sheet_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"legnaris/backend/internal/events"
@@ -78,6 +79,34 @@ func TestService_Duplicate(t *testing.T) {
 		{
 			name:   "Happy path: an NPC is copied with its values, layout and dice",
 			source: source,
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindNPC, 2).Return(nil).Once()
+				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+			},
+			wantSheet:  true,
+			wantStatus: 201,
+		},
+		{
+			name: "Edge: a padded source name is trimmed in the copy",
+			source: func() sheet.Sheet {
+				cp := duplicateSource(t)
+				cp.Name = "  Brom  "
+				return cp
+			}(),
+			setup: func(repo *mocks.MockRepository) {
+				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindNPC, 2).Return(nil).Once()
+				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
+			},
+			wantSheet:  true,
+			wantStatus: 201,
+		},
+		{
+			name: "Edge: a blank legacy name copies as (copy)",
+			source: func() sheet.Sheet {
+				cp := duplicateSource(t)
+				cp.Name = "   "
+				return cp
+			}(),
 			setup: func(repo *mocks.MockRepository) {
 				repo.EXPECT().ReserveSlot(mock.Anything, ownerUserID, plan.KindNPC, 2).Return(nil).Once()
 				repo.EXPECT().Create(mock.Anything, mock.Anything).Return(nil).Once()
@@ -215,7 +244,7 @@ func TestService_Duplicate(t *testing.T) {
 			assert.Equal(t, tc.source.OwnerID, copied.OwnerID)
 			assert.Equal(t, tc.source.TemplateID, copied.TemplateID)
 			assert.Equal(t, tc.source.Kind, copied.Kind)
-			assert.Equal(t, tc.source.Name+" (copy)", copied.Name)
+			assert.Equal(t, strings.TrimSpace(strings.TrimSpace(tc.source.Name)+" (copy)"), copied.Name)
 			assert.Equal(t, tc.source.Data, copied.Data)
 			assert.Equal(t, tc.source.Layout, copied.Layout)
 			assert.Equal(t, tc.source.Dice, copied.Dice)

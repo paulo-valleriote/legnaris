@@ -3,6 +3,7 @@ package sheet
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"legnaris/backend/internal/plan"
@@ -23,6 +24,14 @@ const (
 	MsgPlanLimitReached      = "plan limit reached for this sheet kind"
 	duplicateNameSuffix      = " (copy)"
 )
+
+func duplicateSheetName(stored string) string {
+	base := strings.TrimSpace(stored)
+	if base == "" {
+		return "(copy)"
+	}
+	return base + duplicateNameSuffix
+}
 
 func (s *ServiceImpl) Duplicate(ctx context.Context, cmd DuplicateSheetCommand) (*Sheet, error) {
 	if err := requireOwner(cmd.OwnerID); err != nil {
@@ -66,7 +75,7 @@ func (s *ServiceImpl) Duplicate(ctx context.Context, cmd DuplicateSheetCommand) 
 		TemplateID: stored.TemplateID,
 		OwnerID:    stored.OwnerID,
 		Kind:       stored.Kind,
-		Name:       stored.Name + duplicateNameSuffix,
+		Name:       duplicateSheetName(stored.Name),
 		Data:       maputils.DeepCopy(stored.Data),
 		Layout:     stored.Layout.Clone(),
 		Dice:       stored.Dice.Clone(),

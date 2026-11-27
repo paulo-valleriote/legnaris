@@ -1189,7 +1189,7 @@ func TestService_Create(t *testing.T) {
 	cmd := sheet.CreateSheetCommand{
 		Kind:       string(plan.KindCharacter),
 		TemplateID: "test",
-		SheetName:  "New Character",
+		SheetName:  "  New Character  ",
 		OwnerID:    ownerUserID,
 	}
 
