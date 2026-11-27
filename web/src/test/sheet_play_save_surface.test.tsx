@@ -18,6 +18,7 @@ import {
   fifthCharacterSheetPayload,
   fifthCharacterTemplatePayload,
 } from './fifth_fixtures';
+import type { HttpRequest, HttpResponse, Transport } from '../api/transport';
 import type { FakeOutcome } from './fake_transport';
 import { createFakeTransport, errorOutcome, successOutcome } from './fake_transport';
 import { renderApp } from './render';
@@ -88,6 +89,36 @@ function savedData(fake: ReturnType<typeof createFakeTransport>) {
 
 function announcement() {
   return screen.getByTestId('sheet-pending-announcement');
+}
+
+interface DeferredFifth {
+  readonly transport: Transport;
+  readonly requests: HttpRequest[];
+  resolve(response: HttpResponse): void;
+}
+
+function deferredFifth(): DeferredFifth {
+  let settle: ((response: HttpResponse) => void) | undefined;
+  const requests: HttpRequest[] = [];
+  const transport: Transport = (request) => {
+    requests.push(request);
+    if (request.method === 'PATCH') {
+      return new Promise<HttpResponse>((resolve) => {
+        settle = resolve;
+      });
+    }
+    if (request.url.includes('/templates/')) {
+      return Promise.resolve(successOutcome(fifthCharacterTemplatePayload()));
+    }
+    return Promise.resolve(successOutcome(fifthCharacterSheetPayload()));
+  };
+  return {
+    transport,
+    requests,
+    resolve(response) {
+      settle?.(response);
+    },
+  };
 }
 
 describe('the preset save surface', () => {
@@ -284,6 +315,39 @@ describe('the preset save surface', () => {
     expect(within(saved).getByRole('status')).toHaveAttribute('aria-live', 'polite');
     expect(screen.queryByTestId('sheet-saved-announcement')).not.toBeInTheDocument();
     expect(levelInput()).toHaveFocus();
+  });
+
+  it('Error: a failed save shows the error and no Saved confirmation', async () => {
+    const { user } = await openFifth({ save: errorOutcome('INTERNAL_ERROR', 'boom', 500) });
+    await setLevel(user, '6');
+
+    await user.click(cardButton('save'));
+
+    expect(await screen.findByTestId('sheet-pending-error')).toHaveTextContent(
+      message('api.error.serverError'),
+    );
+    expect(screen.queryByTestId('sheet-pending-saved')).not.toBeInTheDocument();
+    expect(card()).toBeInTheDocument();
+  });
+
+  it('Happy path: an edit made during the save stays pending without a Saved confirmation', async () => {
+    const deferred = deferredFifth();
+    const user = userEvent.setup();
+    renderApp(`/sheets/${FIFTH_CHARACTER_SHEET_ID}`, {
+      client: createApiClient({ baseUrl: BASE_URL, transport: deferred.transport }),
+    });
+    await screen.findByTestId('sheet-name');
+    await startEditing();
+
+    await setLevel(user, '6');
+    await user.click(cardButton('save'));
+    await setLevel(user, '7');
+    deferred.resolve(successOutcome({}));
+
+    await waitFor(() => expect(cardButton('save')).toBeEnabled());
+    expect(card()).toHaveTextContent(message('sheet.changeCountOne'));
+    expect(screen.queryByTestId('sheet-pending-saved')).not.toBeInTheDocument();
+    expect(levelInput()).toHaveValue('7');
   });
 
   it('Edge: the change list starts closed and the count names how many are pending', async () => {
