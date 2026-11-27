@@ -140,7 +140,7 @@ describe('reset actions on the generic form', () => {
       client: clientFor(script.transport),
     });
 
-    await screen.findByRole('heading', { name: 'Quartermaster', level: 2 });
+    await screen.findByRole('heading', { name: 'Quartermaster', level: 1 });
     expect(screen.queryByRole('button', { name: CAPABILITIES_ACTION_LABEL })).toBeNull();
     expect(screen.queryByTestId('sheet-reset-actions')).toBeNull();
   });

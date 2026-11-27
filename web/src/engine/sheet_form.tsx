@@ -590,10 +590,17 @@ export function SheetForm({
   );
 
   const renderAddRow = (list: SheetList): ReactNode => {
-    if (onlyPinned || recordActions === undefined) {
+    if (onlyPinned) {
       return null;
     }
     const count = recordRows?.[list.path]?.length ?? 0;
+    if (recordActions === undefined) {
+      return count === 0 ? (
+        <div className="lg-record-add" key={`add-${list.path}`}>
+          <p className="lg-record-empty">{message('record.empty')}</p>
+        </div>
+      ) : null;
+    }
     return (
       <div className="lg-record-add" key={`add-${list.path}`}>
         {count === 0 && <p className="lg-record-empty">{message('record.empty')}</p>}

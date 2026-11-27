@@ -763,7 +763,7 @@ operations (`addRecord`, `removeRecord`, `moveRecord`), and its draft filter acc
 `position` and removal paths, so a restored draft keeps added Records, a Discard restores removed
 ones and drops added ones, and a 409 keeps the whole pending list.
 
-Without the record seam the same table is drawn with no Add, Move or Remove control. The Campaign GM
+Without the record seam the same table is drawn with no Add, Move or Remove control and, when empty, says `No records yet.`. The Campaign GM
 sheet draws the same columns through `ReadOnlyRecordTable` as plain values with no input or action,
 and the generation review reuses the data-mode form.
 
