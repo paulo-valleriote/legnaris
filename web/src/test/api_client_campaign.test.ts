@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createApiClient } from '../api/client';
 import { DomainFailure } from '../api/errors';
-import { parseJoinedCampaign } from '../api/models/campaign';
+import { parseCampaign, parseJoinedCampaign } from '../api/models/campaign';
+import { campaignView } from './campaign_helpers';
 import { createFakeTransport, errorOutcome, successOutcome } from './fake_transport';
 
 const CODE = 'Abcdefghijklmnopqrstuvwx';
-const CAMPAIGN = { id: '01900000-0000-7000-8000-0000000000cc', name: 'Curse of Strahd' };
+const CAMPAIGN_WIRE = campaignView();
+const CAMPAIGN = parseCampaign(CAMPAIGN_WIRE);
 
 function clientFor(...outcomes: Parameters<typeof createFakeTransport>) {
   const fake = createFakeTransport(...outcomes);
@@ -15,7 +17,7 @@ function clientFor(...outcomes: Parameters<typeof createFakeTransport>) {
 
 describe('api client: joinCampaign (LGN-200)', () => {
   it('Happy path: posts the code to /campaigns/join and returns the joined campaign', async () => {
-    const { client, fake } = clientFor(successOutcome(CAMPAIGN));
+    const { client, fake } = clientFor(successOutcome(CAMPAIGN_WIRE));
 
     await expect(client.joinCampaign({ code: CODE })).resolves.toEqual(CAMPAIGN);
 
@@ -25,7 +27,7 @@ describe('api client: joinCampaign (LGN-200)', () => {
   });
 
   it('Happy path: sends the password alongside the code when one is given', async () => {
-    const { client, fake } = clientFor(successOutcome(CAMPAIGN));
+    const { client, fake } = clientFor(successOutcome(CAMPAIGN_WIRE));
 
     await client.joinCampaign({ code: CODE, password: 'correct horse' });
 
@@ -36,7 +38,7 @@ describe('api client: joinCampaign (LGN-200)', () => {
   });
 
   it('Edge: an undefined password is omitted from the body rather than sent as null', async () => {
-    const { client, fake } = clientFor(successOutcome(CAMPAIGN));
+    const { client, fake } = clientFor(successOutcome(CAMPAIGN_WIRE));
 
     await client.joinCampaign({ code: CODE, password: undefined });
 
@@ -44,7 +46,7 @@ describe('api client: joinCampaign (LGN-200)', () => {
   });
 
   it('Edge: an empty password is sent as given, so the server can refuse it', async () => {
-    const { client, fake } = clientFor(successOutcome(CAMPAIGN));
+    const { client, fake } = clientFor(successOutcome(CAMPAIGN_WIRE));
 
     await client.joinCampaign({ code: CODE, password: '' });
 
@@ -52,10 +54,10 @@ describe('api client: joinCampaign (LGN-200)', () => {
   });
 
   it('Edge: an answer without a campaign id is a defensive parse failure', () => {
-    expect(() => parseJoinedCampaign({ name: 'No id' })).toThrow();
-    expect(() => parseJoinedCampaign({ id: '', name: 'Empty id' })).toThrow();
-    expect(() => parseJoinedCampaign({ id: CAMPAIGN.id })).toThrow();
-    expect(() => parseJoinedCampaign(null)).toThrow();
+    expect(() => parseCampaign({ name: 'No id' })).toThrow();
+    expect(() => parseJoinedCampaign({ ...CAMPAIGN_WIRE, id: '' })).toThrow();
+    expect(() => parseCampaign({ ...CAMPAIGN_WIRE, members: 'not-a-list' })).toThrow();
+    expect(() => parseCampaign(null)).toThrow();
   });
 
   it.each([
