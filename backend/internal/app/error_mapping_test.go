@@ -770,3 +770,27 @@ func TestErrorMapping_PatchVersionConflictReturns409(t *testing.T) {
 		assert.Equal(t, "CONFLICT", body.Error.Code)
 	})
 }
+
+func TestErrorMapping_BlankSheetNameIs422(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+	}{
+		{name: "Error: an empty sheet name is a 422", body: `{"template_id":"fantasy_v1","kind":"character","sheet_name":""}`},
+		{name: "Error: a whitespace-only sheet name is a 422", body: `{"template_id":"fantasy_v1","kind":"character","sheet_name":"   "}`},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			h, _ := newSheetErrorRouter(t, mocks.NewMockRepository(t), newErrorTestDAG(t))
+
+			rec := doRequest(t, h, http.MethodPost, "/sheets", tc.body)
+			require.Equal(t, http.StatusUnprocessableEntity, rec.Code)
+
+			var body response.ErrorResponse
+			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+			assert.Equal(t, string(apperr.CodeSheetNameInvalid), body.Error.Code)
+			assert.Equal(t, sheet.MsgSheetNameRequired, body.Error.Message)
+		})
+	}
+}

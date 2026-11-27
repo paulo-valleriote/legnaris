@@ -164,8 +164,11 @@ and `failed_total`, labelled by queue, are the operational contract.
 - **Errors** — services and controllers produce `apperr.Error` with a settled
   `Code`, a user-facing message and either no cause or a lower-layer typed
   error. The handler maps the code to the status, defaults an unmapped code to
-  500, and keeps `RetryAfter` on the response. Repositories, engine, json, db
-  and idgen declare their own sentinels and do not import `apperr`.
+  500, and keeps `RetryAfter` on the response. A new code joins the status
+  switch in `shared/apperr` and the generated `testdata/apperr/codes.json`
+  artifact; 422 examples are `TEMPLATE_MISMATCH`, `SHEET_KIND_MISMATCH` and
+  `SHEET_NAME_INVALID`. Repositories, engine, json, db and idgen declare their
+  own sentinels and do not import `apperr`.
 - **IDs** — every server-generated ID is a canonical lowercase UUID v7 from
   `shared/idgen`. Client-provided ids pass `idgen.Validate` before the first
   repository call and map to a 400. Client-supplied request ids pass

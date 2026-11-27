@@ -303,20 +303,21 @@ func TestAccept(t *testing.T) {
 	acceptedNPC := generation.Document{ID: jobID, UserID: userID, Kind: "npc", Status: generation.StatusAccepted, SheetID: sheetID}
 
 	tests := []struct {
-		name       string
-		cmd        generation.AcceptCommand
-		stored     *generation.Document
-		storedErr  error
-		sheetErr   error
-		race       bool
-		sheetKind  string
-		wantCreate bool
-		wantSheet  string
-		wantCode   apperr.Code
-		wantStatus int
+		name          string
+		cmd           generation.AcceptCommand
+		stored        *generation.Document
+		storedErr     error
+		sheetErr      error
+		race          bool
+		sheetKind     string
+		wantCreate    bool
+		wantSheet     string
+		wantCode      apperr.Code
+		wantStatus    int
+		wantSheetName string
 	}{
 		{name: "Error: a malformed id is refused", cmd: generation.AcceptCommand{UserID: userID, ID: "x", SheetName: "Hero", Values: heroValues}, wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
-		{name: "Error: a blank sheet name is refused", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "   "}, wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
+		{name: "Error: a blank sheet name is refused", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "   "}, wantCode: apperr.CodeSheetNameInvalid, wantStatus: 422},
 		{name: "Error: missing values are refused before the generation is read", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero"}, wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
 		{name: "Error: empty values are refused before the generation is read", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: map[string]any{}}, wantCode: apperr.CodeInvalidRequest, wantStatus: 400},
 		{name: "Error: a foreign or expired generation is 404", cmd: generation.AcceptCommand{UserID: otherUser, ID: jobID, SheetName: "Hero", Values: heroValues}, storedErr: generation.ErrNotFound, wantCode: apperr.CodeNotFound, wantStatus: 404},
@@ -328,6 +329,7 @@ func TestAccept(t *testing.T) {
 		{name: "Error: a value the DAG refuses is a 400", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &succeeded,
 			sheetErr: apperr.NewError(apperr.CodeUnknownField, "field does not exist", nil), wantCode: apperr.CodeUnknownField, wantStatus: 400},
 		{name: "Happy path: a succeeded generation becomes a Sheet", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &succeeded, wantCreate: true, wantSheet: sheetID},
+		{name: "Happy path: a padded sheet name is trimmed before creation", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "  Hero  ", Values: heroValues}, stored: &succeeded, wantCreate: true, wantSheet: sheetID, wantSheetName: "Hero"},
 		{name: "Happy path: an NPC generation becomes an NPC Sheet", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Villager", Values: heroValues}, stored: &succeededNPC, sheetKind: "npc", wantCreate: true, wantSheet: sheetID},
 		{name: "Happy path: an enemy generation becomes an enemy Sheet", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Wolf", Values: heroValues}, stored: &succeededEnemy, sheetKind: "enemy", wantCreate: true, wantSheet: sheetID},
 		{name: "Edge: a repeat accept answers the same Sheet with no new creation", cmd: generation.AcceptCommand{UserID: userID, ID: jobID, SheetName: "Hero", Values: heroValues}, stored: &accepted, wantSheet: sheetID},
@@ -359,7 +361,11 @@ func TestAccept(t *testing.T) {
 					func(ctx context.Context, cmd sheet.CreateWithValuesCommand, hook sheet.AfterInsertHook) (*sheet.Sheet, error) {
 						assert.Equal(t, templateID, cmd.TemplateID)
 						assert.Equal(t, kind, cmd.Kind)
-						assert.Equal(t, tc.cmd.SheetName, cmd.SheetName)
+						expectedName := tc.cmd.SheetName
+						if tc.wantSheetName != "" {
+							expectedName = tc.wantSheetName
+						}
+						assert.Equal(t, expectedName, cmd.SheetName)
 						if tc.sheetErr != nil {
 							return nil, tc.sheetErr
 						}

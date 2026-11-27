@@ -80,7 +80,7 @@ func TestService_Create_EmitsSheetCreated(t *testing.T) {
 			}
 
 			svc := sheet.NewService(repo, tmplSvc, sheettest.DAGMap{eventsCreateTemplateID: dag}, testLog, pub, limitOpts(t))
-			created, err := svc.Create(ctx, sheet.CreateSheetCommand{TemplateID: eventsCreateTemplateID, Kind: string(plan.KindCharacter), OwnerID: ownerUserID})
+			created, err := svc.Create(ctx, sheet.CreateSheetCommand{TemplateID: eventsCreateTemplateID, Kind: string(plan.KindCharacter), SheetName: "Hero", OwnerID: ownerUserID})
 			if tc.wantEvents == 0 {
 				require.Error(t, err)
 				assert.Empty(t, *got)
