@@ -154,7 +154,7 @@ describe('join route (LGN-200, LGN-502)', () => {
 
     await waitFor(() => expect(password).toHaveAttribute('aria-invalid', 'true'));
     expect(document.getElementById('join-password-error')).toHaveTextContent(
-      message('api.error.invalidInvite'),
+      message('join.passwordWrong'),
     );
     expect(screen.queryByText('Ember Coast')).not.toBeInTheDocument();
 
@@ -194,7 +194,7 @@ describe('join route (LGN-200, LGN-502)', () => {
     const user = userEvent.setup();
 
     await screen.findByRole('heading', { name: 'Ember Coast' });
-    expect(screen.getByText(message('join.noEligible'))).toBeInTheDocument();
+    expect(await screen.findByText(message('join.noEligible'))).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: message('join.createSheet') }));
     await user.type(await screen.findByLabelText(message('sheet.nameLabel')), 'Brenna');
@@ -214,7 +214,7 @@ describe('join route (LGN-200, LGN-502)', () => {
     const user = userEvent.setup();
 
     await screen.findByRole('heading', { name: 'Ember Coast' });
-    expect(screen.getByText(message('join.planLimit'))).toBeInTheDocument();
+    expect(await screen.findByText(message('join.planLimit'))).toBeInTheDocument();
     expect(screen.getByRole('link', { name: message('campaigns.seePlans') })).toHaveAttribute(
       'href',
       '/plans',

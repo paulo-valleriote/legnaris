@@ -16,7 +16,6 @@ import { message, messageWith } from '../l10n/strings';
 import { Button } from '../ui/button';
 import { ErrorState, LoadingState } from '../ui/state';
 import { Field } from '../ui/field';
-import { Notice } from '../ui/notice';
 import { Select } from '../ui/select';
 import './join.css';
 
@@ -28,13 +27,13 @@ interface JoinCardProps {
 
 function JoinCard({ children, title, lead }: JoinCardProps) {
   return (
-    <main className="lg-join">
+    <div className="lg-join">
       <section className="lg-join__card" aria-label={message('join.title')}>
         {title === undefined ? null : <h1 className="lg-join__title">{title}</h1>}
         {lead === undefined ? null : <p className="lg-join__lead">{lead}</p>}
         {children}
       </section>
-    </main>
+    </div>
   );
 }
 
@@ -78,6 +77,7 @@ export function JoinScreen() {
   );
   const templateId = invite?.templateId ?? invite?.templateIds[0];
   const characterLimit = isSheetLimitReached(plan.data, 'character');
+  const sheetsLoading = owned.isPending || plan.isPending;
 
   const preview = useMutation<CampaignInvite, unknown, string>({
     mutationFn: (value) => client.previewCampaignInvite(code, value),
@@ -86,7 +86,9 @@ export function JoinScreen() {
       setPasswordError(undefined);
     },
     onError: (error) => {
-      setPasswordError(failureCopy(error));
+      setPasswordError(
+        failureKind(error) === 'invalidInvite' ? message('join.passwordWrong') : failureCopy(error),
+      );
     },
   });
 
@@ -176,7 +178,11 @@ export function JoinScreen() {
           <span>{playerCount(invite.playerCount)}</span>
         </p>
         {joinError === undefined ? null : <ErrorState message={joinError} />}
-        {eligibleSheets.length > 0 ? (
+        {sheetsLoading ? (
+          <p className="lg-join__note" role="status">
+            {message('join.sheetsLoading')}
+          </p>
+        ) : eligibleSheets.length > 0 ? (
           <form className="lg-join__form" onSubmit={submitJoin}>
             <Select
               label={message('join.sheetLabel')}
@@ -203,25 +209,31 @@ export function JoinScreen() {
               />
             </div>
           </form>
-        ) : (
+        ) : characterLimit ? (
           <>
-            <Notice tone={characterLimit ? 'warning' : 'info'}>
-              {characterLimit ? message('join.planLimit') : message('join.noEligible')}
-            </Notice>
-            {characterLimit ? (
-              <Link className="lg-join__link" to="/plans">
-                {message('campaigns.seePlans')}
-              </Link>
-            ) : null}
+            <p className="lg-join__note">{message('join.planLimit')}</p>
             <div className="lg-join__actions">
+              <Button
+                variant="secondary"
+                size="md"
+                fullWidth
+                label={message('campaigns.seePlans')}
+                to="/plans"
+              />
               <Button
                 variant="primary"
                 size="md"
                 fullWidth
-                label={message('join.createSheet')}
-                disabled={join.isPending || templateId === undefined}
-                onClick={() => setCreateOpen(true)}
+                loading={join.isPending}
+                label={join.isPending ? message('join.submitting') : message('join.joinWithout')}
+                onClick={() => join.mutate({ password: password === '' ? undefined : password })}
               />
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="lg-join__note">{message('join.noEligible')}</p>
+            <div className="lg-join__actions">
               <Button
                 variant="secondary"
                 size="md"
@@ -229,6 +241,14 @@ export function JoinScreen() {
                 loading={join.isPending}
                 label={join.isPending ? message('join.submitting') : message('join.joinWithout')}
                 onClick={() => join.mutate({ password: password === '' ? undefined : password })}
+              />
+              <Button
+                variant="primary"
+                size="md"
+                fullWidth
+                label={message('join.createSheet')}
+                disabled={join.isPending || templateId === undefined}
+                onClick={() => setCreateOpen(true)}
               />
             </div>
           </>
@@ -266,7 +286,6 @@ export function JoinScreen() {
             type="password"
             autoComplete="off"
             value={password}
-            hint={message('join.passwordHint')}
             error={passwordError}
             onChange={setPassword}
           />
@@ -293,7 +312,6 @@ export function JoinScreen() {
   if (invalidInvite) {
     return (
       <JoinCard title={message('join.invalidTitle')} lead={message('join.invalidBody')}>
-        <ErrorState message={failureCopy(inviteQuery.error)} />
         <p className="lg-join__footer">
           <Link className="lg-join__link" to="/campaigns">
             {message('campaign.back')}
