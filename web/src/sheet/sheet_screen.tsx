@@ -225,18 +225,24 @@ interface FooterStatusProps {
   readonly pending: boolean;
   readonly marks: PreviewMarks | undefined;
   readonly reveal: RevealView;
+  readonly saved?: boolean;
   readonly children?: ReactNode;
 }
 
-function FooterStatus({ pending, marks, reveal, children }: FooterStatusProps) {
+function FooterStatus({ pending, marks, reveal, saved = false, children }: FooterStatusProps) {
   const count = marks === undefined ? undefined : recalculatedCount(marks);
   const summary = count === undefined ? '' : recalculatedSummary(count);
   const status = footerStatus(pending, count);
 
   return (
     <>
-      <p className="lg-visually-hidden" aria-live="polite" aria-atomic="true">
-        {summary}
+      <p
+        className="lg-visually-hidden"
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="sheet-saved-announcement"
+      >
+        {saved ? message('sheet.saved') : summary}
       </p>
       <div className="lg-sheet__status">
         {status !== '' && (
@@ -293,7 +299,7 @@ function SheetFooter({ store, reveal }: SheetFooterProps) {
       className={`lg-sheet__footer ${quiet ? 'lg-sheet__footer--clean' : 'lg-sheet__footer--dirty'}`}
       {...{ [FLOATING_FLOOR_ATTRIBUTE]: '' }}
     >
-      <FooterStatus pending={pending} marks={state.previewMarks} reveal={reveal}>
+      <FooterStatus pending={pending} marks={state.previewMarks} reveal={reveal} saved={showSaved}>
         {state.previewError !== undefined && (
           <p
             className={errorClass(state.previewErrorKind)}
@@ -313,14 +319,6 @@ function SheetFooter({ store, reveal }: SheetFooterProps) {
           </p>
         )}
       </FooterStatus>
-      <p
-        className="lg-visually-hidden"
-        role="status"
-        aria-live="polite"
-        data-testid="sheet-saved-announcement"
-      >
-        {showSaved ? message('sheet.saved') : ''}
-      </p>
       <div className="lg-sheet__actions">
         {changes > 0 && (
           <span className="lg-sheet__count" data-testid="sheet-change-count">
