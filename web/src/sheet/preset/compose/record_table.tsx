@@ -273,7 +273,7 @@ function RecordCell({
   readonly sectionKey: string;
   readonly fallbackName: string;
 }) {
-  const { editing } = usePresetContext();
+  const { editing, readOnly } = usePresetContext();
 
   if (column.kind === 'field') {
     const isRoll = attack?.roll === column.name;
@@ -291,7 +291,7 @@ function RecordCell({
               fallbackName={fallbackName}
               label={columnLabel(column)}
             />
-          ) : isDamage && !editing && attack !== undefined ? (
+          ) : isDamage && !editing && !readOnly && attack !== undefined ? (
             <DamageValue
               recordKey={recordKey}
               rowKey={rowKey}
@@ -303,7 +303,7 @@ function RecordCell({
             <FieldCell
               path={`${recordKey}.${column.name}`}
               schema={column.schema}
-              live={editing || playColumns.includes(column.name)}
+              live={!readOnly && (editing || playColumns.includes(column.name))}
             />
           )}
         </span>
@@ -344,7 +344,7 @@ function RecordRowView({
   attack,
   onMove,
 }: RecordRowProps) {
-  const { store, editing } = usePresetContext();
+  const { store, editing, readOnly } = usePresetContext();
   const label = messageWith('record.rowLabel', { list: list.label, position });
   const key = recordRowKey(list.path, recordID);
   const attackColumns = rowDefault ? attack : undefined;
@@ -383,7 +383,7 @@ function RecordRowView({
             </Button>
           </>
         )}
-        {store.removeRecord === undefined ? null : (
+        {readOnly || store.removeRecord === undefined ? null : (
           <Button
             variant="ghost"
             size="sm"
@@ -432,7 +432,7 @@ function RecordHeader({ columns }: { readonly columns: readonly ListColumn[] }) 
 }
 
 export function RecordTable({ piece }: { readonly piece: PresetRecordTablePiece }) {
-  const { template, store, editing } = usePresetContext();
+  const { template, store, editing, readOnly } = usePresetContext();
   const list = useMemo(() => sheetList(template.fields, piece.list), [template, piece.list]);
   const info = useMemo(
     () => listInfos(template.fields).find((entry) => entry.path === piece.list),
@@ -515,7 +515,7 @@ export function RecordTable({ piece }: { readonly piece: PresetRecordTablePiece 
               count={recordIDs.length}
               playColumns={piece.playColumns ?? []}
               attack={attack}
-              onMove={store.moveRecord === undefined ? undefined : move}
+              onMove={readOnly || store.moveRecord === undefined ? undefined : move}
             />
           ))}
         </>
@@ -523,7 +523,7 @@ export function RecordTable({ piece }: { readonly piece: PresetRecordTablePiece 
       <p className="lg-visually-hidden" role="status" aria-live="polite">
         {notice}
       </p>
-      {store.addRecord === undefined ? null : (
+      {readOnly || store.addRecord === undefined ? null : (
         <div className="lg-compose-record__add">
           <Button
             variant="ghost"

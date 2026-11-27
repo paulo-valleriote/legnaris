@@ -438,6 +438,15 @@ func TestRootDomainServesAdsTxtAndRedirectsToWeb(t *testing.T) {
 		assert.True(t, redirect.Permanent)
 	})
 
+	t.Run("Edge: www has its own router, so its certificate cannot block the apex one", func(t *testing.T) {
+		router, ok := routes.HTTP.Routers["root-www"]
+		require.True(t, ok, "root-www router must exist")
+		assert.Equal(t, "Host(`www.{{ env \"ROOT_DOMAIN\" }}`)", router.Rule)
+		assert.Equal(t, "web", router.Service)
+		assert.Equal(t, []string{"root-to-web"}, router.Middlewares)
+		assert.NotContains(t, routes.HTTP.Routers["root"].Rule, "www.")
+	})
+
 	t.Run("Edge: the ads.txt route outranks the catch-all redirect", func(t *testing.T) {
 		raw, err := os.ReadFile(dynamicFile)
 		require.NoError(t, err)

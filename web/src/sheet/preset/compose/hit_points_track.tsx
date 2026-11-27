@@ -56,7 +56,7 @@ function HitPointsTrackBody({
   maxEditable,
   commitMax,
 }: HitPointsTrackBodyProps) {
-  const { editing } = usePresetContext();
+  const { editing, readOnly } = usePresetContext();
   const current = hitPointValue(usePresetValue(piece.current));
   const currentLabel = usePresetLabel(piece.current);
   const commitCurrent = usePresetCommit(piece.current);
@@ -149,6 +149,7 @@ function HitPointsTrackBody({
                 className="lg-compose-hp__number"
                 label={currentLabel}
                 path={piece.current}
+                locked={readOnly}
                 value={String(current)}
                 inputMode="numeric"
                 onCommit={commitParsed(commitCurrent)}
@@ -161,7 +162,7 @@ function HitPointsTrackBody({
                   className="lg-compose-hp__number lg-compose-hp__number--max"
                   label={maxLabel}
                   path={maxPath}
-                  locked={!editing}
+                  locked={!editing || readOnly}
                   value={String(max)}
                   inputMode="numeric"
                   onCommit={commitParsed(commitMax)}
@@ -187,60 +188,64 @@ function HitPointsTrackBody({
             </span>
           </p>
         </div>
-        <div className="lg-compose-hp__entry">
-          <div className="lg-compose-hp__amount">
-            <Field
-              label={message('sheet.play.amount')}
-              placeholder={message('sheet.play.amountPlaceholder')}
-              inputMode="numeric"
-              numeric
-              value={amountText}
-              onChange={setAmountText}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  applyTyped(false);
-                }
-              }}
+        {readOnly ? null : (
+          <div className="lg-compose-hp__entry">
+            <div className="lg-compose-hp__amount">
+              <Field
+                label={message('sheet.play.amount')}
+                placeholder={message('sheet.play.amountPlaceholder')}
+                inputMode="numeric"
+                numeric
+                value={amountText}
+                onChange={setAmountText}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    applyTyped(false);
+                  }
+                }}
+              />
+            </div>
+            <Button
+              variant="danger"
+              size="sm"
+              label={message('sheet.play.damage')}
+              disabled={!amountReady}
+              onClick={() => applyTyped(false)}
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              label={message('sheet.play.heal')}
+              className="lg-compose-hp__heal"
+              disabled={!amountReady}
+              onClick={() => applyTyped(true)}
             />
           </div>
-          <Button
-            variant="danger"
-            size="sm"
-            label={message('sheet.play.damage')}
-            disabled={!amountReady}
-            onClick={() => applyTyped(false)}
-          />
-          <Button
-            variant="secondary"
-            size="sm"
-            label={message('sheet.play.heal')}
-            className="lg-compose-hp__heal"
-            disabled={!amountReady}
-            onClick={() => applyTyped(true)}
-          />
+        )}
+      </div>
+      {readOnly ? null : (
+        <div
+          className="lg-compose-hp__quick"
+          role="group"
+          aria-label={message('sheet.play.damageOrHeal')}
+        >
+          {QUICK_CHANGES.map((change) => (
+            <Button
+              key={change.short}
+              variant="outline"
+              size="sm"
+              className={`lg-compose-hp__chip lg-compose-hp__chip--${change.heal ? 'heal' : 'damage'}`}
+              name={messageWith(change.heal ? 'sheet.play.healAmount' : 'sheet.play.damageAmount', {
+                count: change.amount,
+              })}
+              onClick={() => apply(change.heal, change.amount)}
+            >
+              {message(change.short)}
+            </Button>
+          ))}
         </div>
-      </div>
-      <div
-        className="lg-compose-hp__quick"
-        role="group"
-        aria-label={message('sheet.play.damageOrHeal')}
-      >
-        {QUICK_CHANGES.map((change) => (
-          <Button
-            key={change.short}
-            variant="outline"
-            size="sm"
-            className={`lg-compose-hp__chip lg-compose-hp__chip--${change.heal ? 'heal' : 'damage'}`}
-            name={messageWith(change.heal ? 'sheet.play.healAmount' : 'sheet.play.damageAmount', {
-              count: change.amount,
-            })}
-            onClick={() => apply(change.heal, change.amount)}
-          >
-            {message(change.short)}
-          </Button>
-        ))}
-      </div>
+      )}
       <p className="lg-compose-hp__down" role="status">
         {down && piece.downNotice !== undefined ? message(piece.downNotice) : ''}
       </p>
@@ -266,29 +271,32 @@ function HitPointsTrackBody({
               className="lg-compose-hp__number"
               label={tempLabel}
               path={piece.temp}
+              locked={readOnly}
               value={String(temp)}
               inputMode="numeric"
               onCommit={commitParsed(commitTemp)}
             />
           </span>
         )}
-        <div className="lg-compose-hp__undo" aria-live="polite">
-          {undo === undefined ? null : (
-            <>
-              <span>
-                {messageWith(undo.healed ? 'sheet.play.healed' : 'sheet.play.tookDamage', {
-                  count: undo.amount,
-                })}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                label={message('sheet.play.hpUndo')}
-                onClick={undoApply}
-              />
-            </>
-          )}
-        </div>
+        {readOnly ? null : (
+          <div className="lg-compose-hp__undo" aria-live="polite">
+            {undo === undefined ? null : (
+              <>
+                <span>
+                  {messageWith(undo.healed ? 'sheet.play.healed' : 'sheet.play.tookDamage', {
+                    count: undo.amount,
+                  })}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  label={message('sheet.play.hpUndo')}
+                  onClick={undoApply}
+                />
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
