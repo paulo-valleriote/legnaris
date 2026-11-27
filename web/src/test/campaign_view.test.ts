@@ -11,6 +11,8 @@ import {
   hasLinkedCharacter,
   isDeleting,
   isSelf,
+  linkableSheetIds,
+  linkedCharacterSheet,
   memberActions,
   memberUsername,
   unlinkedNpcSheetIds,
@@ -135,6 +137,42 @@ describe('campaign view rules (LGN-218)', () => {
 
   it('Edge: no sheets gives an empty choice', () => {
     expect(eligibleSheetIds([], { id: 'c1', templateIds: ['fantasy_v1'] })).toEqual([]);
+  });
+
+  it('Happy path: the linked character is the owned sheet that carries this Campaign', () => {
+    const sheets = [
+      { id: 's-free', name: 'Free', templateId: 'fantasy_v1' },
+      { id: 's-elsewhere', name: 'Elsewhere', templateId: 'fantasy_v1', campaignId: 'c2' },
+      { id: 's-here', name: 'Here', templateId: 'fantasy_v1', campaignId: 'c1' },
+    ];
+    expect(linkedCharacterSheet(sheets, 'c1')).toEqual(sheets[2]);
+  });
+
+  it('Edge: no owned sheet carries the Campaign, so there is no linked character', () => {
+    expect(linkedCharacterSheet([], 'c1')).toBeUndefined();
+    expect(
+      linkedCharacterSheet([{ id: 's-free', name: 'Free', campaignId: undefined }], 'c1'),
+    ).toBeUndefined();
+  });
+
+  it('Happy path: the linked character leaves the choice while free sheets stay', () => {
+    const campaign = { id: 'c1', templateIds: ['fantasy_v1'] };
+    const sheets = [
+      { id: 's-here', templateId: 'fantasy_v1', campaignId: 'c1' },
+      { id: 's-free', templateId: 'fantasy_v1' },
+      { id: 's-elsewhere', templateId: 'fantasy_v1', campaignId: 'c2' },
+    ];
+    expect(linkableSheetIds(sheets, campaign)).toEqual(['s-free']);
+  });
+
+  it('Edge: a linked character with no free sheet leaves nothing to link', () => {
+    expect(
+      linkableSheetIds([{ id: 's-here', templateId: 'fantasy_v1', campaignId: 'c1' }], {
+        id: 'c1',
+        templateIds: ['fantasy_v1'],
+      }),
+    ).toEqual([]);
+    expect(linkableSheetIds([], { id: 'c1', templateIds: ['fantasy_v1'] })).toEqual([]);
   });
 
   it('Happy path: NPC and Enemy sheets of the Campaign scope are eligible, even if linked elsewhere', () => {

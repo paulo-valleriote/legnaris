@@ -142,6 +142,8 @@ Only one guard is registered at a time. The screen owns the modal, so the refres
 
 Demo and Play strings added: `demo.endIdle`, `demo.actionsLabel` (the `/demo` end block and header actions), `demo.pendingNote` (the demo pending card; `demo.headerCtaCompact` was removed) and `sheet.play.hpUndo`, `sheet.play.tookDamage`, `sheet.play.healed` (the hit-point Undo line).
 
+The campaign player's linked-character controls read `campaign.linkLabel` (now the visible `Character sheet`), the empty first choice `campaign.chooseSheet`, the replacement hint `campaign.linkHint`, the `campaign.replace` action, and the linked card's `campaign.linkedCharacter` label and `campaign.openCharacter` name. The catalog still owns every user-facing string there; the screen supplies only the sheet name.
+
 ## Code map
 
 | Path | What it owns |

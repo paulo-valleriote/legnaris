@@ -173,6 +173,33 @@ describe('campaign screen: create and link a new sheet (LGN-403)', () => {
     });
   });
 
+  it('Happy path: create-then-link refreshes the owned list after the link lands', async () => {
+    const view = playerView();
+    const script = scripted(
+      campaignRoutes(view, [
+        { method: 'POST', path: CREATE, respond: () => ok(createdSheet(), 201) },
+        { method: 'PUT', path: CHARACTER, respond: () => ok(view) },
+      ]),
+    );
+    const user = userEvent.setup();
+    renderCampaign(script);
+
+    await user.click(await screen.findByRole('button', newCharacter()));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(message('sheet.nameLabel')), 'New Hero');
+    await user.click(within(dialog).getByRole('button', { name: message('sheet.create') }));
+
+    expect(await screen.findByTestId('sheet-name')).toHaveTextContent('New Hero');
+    const ownedReads = script.exchanges.flatMap((exchange, index) =>
+      exchange.method === 'GET' && exchange.path === '/sheets/owned' ? [index] : [],
+    );
+    const linkAt = script.exchanges.findIndex(
+      (exchange) => exchange.method === 'PUT' && exchange.path === CHARACTER,
+    );
+    expect(ownedReads.length).toBeGreaterThanOrEqual(2);
+    expect(ownedReads[ownedReads.length - 1]).toBeGreaterThan(linkAt);
+  });
+
   it('Happy path: a GM creates an NPC with only NPC and Enemy kinds and links it as an NPC', async () => {
     const view = gmView();
     const script = scripted(
