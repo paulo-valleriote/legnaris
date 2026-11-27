@@ -41,6 +41,17 @@ func (t *Template) SuggestName(values map[string]any) string {
 	return strings.TrimSpace(name)
 }
 
+func (t *Template) NameMaxLength() int {
+	if t.NameLeaf == "" {
+		return 0
+	}
+	node, ok := lookupNode(t.Fields, strings.Split(t.NameLeaf, pathSeparator))
+	if !ok || node.Schema == nil || node.Schema.MaxLength == nil {
+		return 0
+	}
+	return *node.Schema.MaxLength
+}
+
 func lookupNode(group FieldGroup, segments []string) (FieldNode, bool) {
 	node, ok := group[segments[0]]
 	if !ok {

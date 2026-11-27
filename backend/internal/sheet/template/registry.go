@@ -57,6 +57,7 @@ func buildRegistry(eng *engine.FormulaEngine, templates []Template, opts ...Regi
 		if err != nil {
 			return nil, err
 		}
+		dag.nameLeaf = stored.NameLeaf
 
 		if err := ValidateDiceDefaults(stored); err != nil {
 			return nil, fmt.Errorf("template %q: %w", stored.ID, err)
