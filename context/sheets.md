@@ -767,7 +767,10 @@ read-only. A preset sheet opens locked; the header `Edit sheet` / `Done editing`
 build values in place, without moving anything. While locked, current and temporary hit points,
 Damage and Heal, every pip track, conditions, the Record columns a piece lists as `playColumns`,
 rolls and rests stay live. The lock is screen state: it is never stored or sent, and pending edits
-survive it. The generic form has no lock. A Template id with a preset draws the preset body; every other
+survive it. While locked, a text or number build value is a read-only input with `aria-readonly`
+(focusable, selectable and copyable) drawn without the edit-mode box: no border or raised fill, and
+the text colour and placeholder stay the locked ones; a toggle stays disabled because a checkbox
+has no read-only state. The generic form has no lock. A Template id with a preset draws the preset body; every other
 Template (including the retired `fantasy_v1`) draws the generic form. The preset registry maps a
 template id to a header component and ordered section slots, so later gameplay surfaces are additions
 to the preset rather than branches in the screen.
@@ -818,8 +821,9 @@ per-Template code. The thirteen kinds are:
   (`level`, a fixed or bound `max`, an optional derived `penalty`) that reuses the pips.
 - `recordTable` — a bound Record list's chosen `columns` as editable `SheetFieldControl` cells
   plus Add, Move up/down (focus follows the moved Record and a live region announces the position;
-  drawn only when the store can move and there are two or more Records) and Remove through the edit store's list operations (each guarded by the store method
-  it needs), a visible level-2 heading with the list label, one shared column header per run of
+  drawn only when the store can move and there are two or more Records) and an icon-only Remove
+  named for the Record through the edit store's list operations (each guarded by the store method it
+  needs), a visible level-2 heading with the list label, one shared column header per run of
   Records aligned to the cells by a grid template the table publishes as `--lg-record-template`
   (text fields take two shares, selects 1.25 with an 8.5rem floor, numbers and toggles one with a
   6.5rem floor) with the per-cell labels returning only

@@ -390,9 +390,11 @@ function RecordRowView({
             className="lg-compose-record__remove"
             disabled={!editing}
             icon={<CloseIcon />}
-            label={messageWith('record.remove', { label })}
+            name={messageWith('record.remove', { label })}
             onClick={() => store.removeRecord?.(list.path, recordID)}
-          />
+          >
+            <span aria-hidden="true" />
+          </Button>
         )}
       </span>
       <span className="lg-compose-record__cells">
