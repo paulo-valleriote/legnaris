@@ -695,6 +695,63 @@ func (_c *MockService_ListNpcLinks_Call) RunAndReturn(run func(context.Context, 
 	return _c
 }
 
+// PreviewInvite provides a mock function with given fields: ctx, cmd
+func (_m *MockService) PreviewInvite(ctx context.Context, cmd campaign.PreviewInviteCommand) (campaign.InvitePreview, error) {
+	ret := _m.Called(ctx, cmd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for PreviewInvite")
+	}
+
+	var r0 campaign.InvitePreview
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.PreviewInviteCommand) (campaign.InvitePreview, error)); ok {
+		return rf(ctx, cmd)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, campaign.PreviewInviteCommand) campaign.InvitePreview); ok {
+		r0 = rf(ctx, cmd)
+	} else {
+		r0 = ret.Get(0).(campaign.InvitePreview)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, campaign.PreviewInviteCommand) error); ok {
+		r1 = rf(ctx, cmd)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockService_PreviewInvite_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PreviewInvite'
+type MockService_PreviewInvite_Call struct {
+	*mock.Call
+}
+
+// PreviewInvite is a helper method to define mock.On call
+//   - ctx context.Context
+//   - cmd campaign.PreviewInviteCommand
+func (_e *MockService_Expecter) PreviewInvite(ctx interface{}, cmd interface{}) *MockService_PreviewInvite_Call {
+	return &MockService_PreviewInvite_Call{Call: _e.mock.On("PreviewInvite", ctx, cmd)}
+}
+
+func (_c *MockService_PreviewInvite_Call) Run(run func(ctx context.Context, cmd campaign.PreviewInviteCommand)) *MockService_PreviewInvite_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(campaign.PreviewInviteCommand))
+	})
+	return _c
+}
+
+func (_c *MockService_PreviewInvite_Call) Return(_a0 campaign.InvitePreview, _a1 error) *MockService_PreviewInvite_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockService_PreviewInvite_Call) RunAndReturn(run func(context.Context, campaign.PreviewInviteCommand) (campaign.InvitePreview, error)) *MockService_PreviewInvite_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Promote provides a mock function with given fields: ctx, cmd
 func (_m *MockService) Promote(ctx context.Context, cmd campaign.RoleCommand) (campaign.View, error) {
 	ret := _m.Called(ctx, cmd)
