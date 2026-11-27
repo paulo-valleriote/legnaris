@@ -40,6 +40,20 @@ describe('nginx caching rules for the static host', () => {
     expect(block).toMatch(/try_files\s+\$uri\s+=404\s*;/);
   });
 
+  it('Happy path: /robots.txt is revalidated and never the SPA shell', () => {
+    const block = locationBlock('= /robots.txt');
+    expect(block).not.toBeNull();
+    expect(block).toMatch(/add_header\s+Cache-Control\s+"no-cache"\s*;/);
+    expect(block).toMatch(/try_files\s+\$uri\s+=404\s*;/);
+  });
+
+  it('Edge: the shipped robots.txt blocks no crawler from any path', () => {
+    const robots = readFileSync(path.resolve(here, '../../public/robots.txt'), 'utf8');
+    expect(robots).toMatch(/^User-agent: \*$/m);
+    expect(robots).toMatch(/^Allow: \/$/m);
+    expect(robots).not.toMatch(/^Disallow:/m);
+  });
+
   it('Happy path: the existing rules keep their caching (hashed assets immutable, shell and manifest no-cache)', () => {
     expect(locationBlock('/assets/')).toMatch(/max-age=31536000, immutable/);
     for (const selector of [
