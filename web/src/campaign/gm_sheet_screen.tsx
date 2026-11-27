@@ -98,7 +98,7 @@ function GmSheetPage({ campaignId, heading, sheet, unavailable }: GmSheetPagePro
   return (
     <div className="lg-campaign">
       <PageHeader
-        title={heading}
+        title={unavailable === undefined ? (sheet.data?.sheet.name ?? heading) : heading}
         backTo={`/campaigns/${campaignId}`}
         backLabel={message('campaign.back')}
         meta={templateLabel === undefined ? undefined : <span>{templateLabel}</span>}
@@ -120,7 +120,6 @@ function GmSheetPage({ campaignId, heading, sheet, unavailable }: GmSheetPagePro
       ) : null}
       {sheet.data === undefined || unavailable ? null : (
         <>
-          <h2 className="lg-campaign__heading">{sheet.data.sheet.name}</h2>
           <p className="lg-campaign__caption">{message('gm.caption')}</p>
           <SheetBody template={template} sheet={sheet.data.sheet} />
         </>

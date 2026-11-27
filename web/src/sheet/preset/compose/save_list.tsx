@@ -29,6 +29,7 @@ function SaveRow({ save, section }: { readonly save: PresetSave; readonly sectio
       {readOnly ? (
         <span
           className="lg-compose-flag"
+          role="img"
           data-on={proficient ? '' : undefined}
           aria-label={messageWith('sheet.play.proficiencyForState', { label, state })}
         >

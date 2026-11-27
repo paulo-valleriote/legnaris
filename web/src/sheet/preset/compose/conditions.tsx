@@ -33,6 +33,7 @@ function ConditionChip({
       {readOnly ? (
         <span
           className="lg-compose-condition"
+          role="img"
           data-on={on ? '' : undefined}
           aria-label={label}
           aria-describedby={rule === undefined ? undefined : ruleId}

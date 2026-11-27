@@ -54,6 +54,7 @@ function SkillRow({
       {limit === 0 ? null : readOnly ? (
         <span
           className="lg-compose-rank"
+          role="img"
           aria-label={messageWith('preset.skill.rank', {
             label: name,
             count: current,

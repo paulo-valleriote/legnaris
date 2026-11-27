@@ -75,7 +75,7 @@ describe('GM read-only sheet view (LGN-218)', () => {
     const script = scripted(sheetRoutes([() => freshSheet(ETAG_A)]));
     renderApp(GM, { client: clientFor(script.transport) });
 
-    expect(await screen.findByRole('heading', { name: 'Brenna', level: 2 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Brenna', level: 1 })).toBeInTheDocument();
     expect(screen.getByText(message('gm.caption'))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: message('gm.refresh') })).toBeEnabled();
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
@@ -91,9 +91,7 @@ describe('GM read-only sheet view (LGN-218)', () => {
       'href',
       `/campaigns/${CAMPAIGN_ID}`,
     );
-    expect(
-      screen.getByRole('heading', { name: message('gm.heading'), level: 1 }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Brenna', level: 1 })).toBeInTheDocument();
   });
 
   it('Edge: the template slug stands in for the name only while the template loads', async () => {
@@ -109,7 +107,7 @@ describe('GM read-only sheet view (LGN-218)', () => {
     renderApp(GM, { client: clientFor(script.transport) });
 
     expect(await screen.findByText(templateLine(TEMPLATE))).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'Brenna', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Brenna', level: 1 })).toBeInTheDocument();
   });
 
   it('Happy path: the generic template keeps the sheet layout with no editable control', async () => {
@@ -133,7 +131,7 @@ describe('GM read-only sheet view (LGN-218)', () => {
     const script = scripted(sheetRoutes([() => freshSheet(ETAG_A)]));
     renderApp(GM, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Brenna', level: 2 });
+    await screen.findByRole('heading', { name: 'Brenna', level: 1 });
     await screen.findByText(firstLeaf().label);
     expect(document.body.textContent).not.toContain('{"');
   });
@@ -151,12 +149,12 @@ describe('GM read-only sheet view (LGN-218)', () => {
     const user = userEvent.setup();
     renderApp(GM, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Brenna', level: 2 });
+    await screen.findByRole('heading', { name: 'Brenna', level: 1 });
     await user.click(screen.getByRole('button', { name: message('gm.refresh') }));
 
     await waitFor(() => expect(script.calls('GET', GM)).toHaveLength(2));
     expect(script.calls('GET', GM)[1]?.request.headers).toEqual({ 'if-none-match': ETAG_A });
-    expect(screen.getByRole('heading', { name: 'Brenna', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Brenna', level: 1 })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -171,10 +169,10 @@ describe('GM read-only sheet view (LGN-218)', () => {
     const user = userEvent.setup();
     renderApp(GM, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Brenna', level: 2 });
+    await screen.findByRole('heading', { name: 'Brenna', level: 1 });
     await user.click(screen.getByRole('button', { name: message('gm.refresh') }));
     expect(
-      await screen.findByRole('heading', { name: 'Brenna the Bold', level: 2 }),
+      await screen.findByRole('heading', { name: 'Brenna the Bold', level: 1 }),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: message('gm.refresh') }));
@@ -187,14 +185,14 @@ describe('GM read-only sheet view (LGN-218)', () => {
     const script = scripted(sheetRoutes([() => freshSheet(ETAG_A), () => notModified]));
     renderApp(GM, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Brenna', level: 2 });
+    await screen.findByRole('heading', { name: 'Brenna', level: 1 });
     await act(async () => {
       vi.advanceTimersByTime(60_000);
     });
 
     await waitFor(() => expect(script.calls('GET', GM)).toHaveLength(2));
     expect(script.calls('GET', GM)[1]?.request.headers).toEqual({ 'if-none-match': ETAG_A });
-    expect(screen.getByRole('heading', { name: 'Brenna', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Brenna', level: 1 })).toBeInTheDocument();
   });
 
   it('Edge: a hidden tab does not poll, and becoming visible again refreshes once', async () => {
@@ -202,7 +200,7 @@ describe('GM read-only sheet view (LGN-218)', () => {
     const script = scripted(sheetRoutes([() => freshSheet(ETAG_A), () => notModified]));
     renderApp(GM, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Brenna', level: 2 });
+    await screen.findByRole('heading', { name: 'Brenna', level: 1 });
     setVisibility('hidden');
     await act(async () => {
       vi.advanceTimersByTime(180_000);
@@ -217,7 +215,7 @@ describe('GM read-only sheet view (LGN-218)', () => {
     const script = scripted(sheetRoutes([() => freshSheet(ETAG_A)]));
     renderApp(GM, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Brenna', level: 2 });
+    await screen.findByRole('heading', { name: 'Brenna', level: 1 });
     expect(script.calls('GET', GM)[0]?.request.headers['if-none-match']).toBeUndefined();
   });
 
@@ -226,7 +224,7 @@ describe('GM read-only sheet view (LGN-218)', () => {
     const user = userEvent.setup();
     renderApp(GM, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Brenna', level: 2 });
+    await screen.findByRole('heading', { name: 'Brenna', level: 1 });
     await user.click(screen.getByRole('button', { name: message('gm.refresh') }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message('api.error.notFound'));
@@ -239,7 +237,7 @@ describe('GM read-only sheet view (LGN-218)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       message('api.error.campaignNotFound'),
     );
-    expect(screen.queryByRole('heading', { name: 'Brenna', level: 2 })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Brenna', level: 1 })).not.toBeInTheDocument();
   });
 
   it('Error: a player reading another player sheet is refused with the forbidden copy', async () => {

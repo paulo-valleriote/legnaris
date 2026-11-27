@@ -94,10 +94,8 @@ describe('player read-only NPC and Enemy view (LGN-205)', () => {
     const script = scripted(readRoutes([() => freshNpc(ETAG_A)]));
     renderApp(NPC, { client: clientFor(script.transport) });
 
-    expect(
-      await screen.findByRole('heading', { name: message('gm.npcHeading'), level: 1 }),
-    ).toBeInTheDocument();
-    expect(await screen.findByRole('heading', { name: 'Goblin', level: 2 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Goblin', level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Goblin', level: 1 })).toBeInTheDocument();
     expect(screen.getByText(message('gm.caption'))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: message('gm.refresh') })).toBeEnabled();
     expect(screen.queryAllByRole('textbox').every((input) => input.hasAttribute('readonly'))).toBe(
@@ -113,12 +111,12 @@ describe('player read-only NPC and Enemy view (LGN-205)', () => {
     const user = userEvent.setup();
     renderApp(NPC, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Goblin', level: 2 });
+    await screen.findByRole('heading', { name: 'Goblin', level: 1 });
     await user.click(screen.getByRole('button', { name: message('gm.refresh') }));
 
     await waitFor(() => expect(script.calls('GET', NPC)).toHaveLength(2));
     expect(script.calls('GET', NPC)[1]?.request.headers).toEqual({ 'if-none-match': ETAG_A });
-    expect(screen.getByRole('heading', { name: 'Goblin', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Goblin', level: 1 })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -133,10 +131,10 @@ describe('player read-only NPC and Enemy view (LGN-205)', () => {
     const user = userEvent.setup();
     renderApp(NPC, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Goblin', level: 2 });
+    await screen.findByRole('heading', { name: 'Goblin', level: 1 });
     await user.click(screen.getByRole('button', { name: message('gm.refresh') }));
     expect(
-      await screen.findByRole('heading', { name: 'Goblin the Bold', level: 2 }),
+      await screen.findByRole('heading', { name: 'Goblin the Bold', level: 1 }),
     ).toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: message('gm.refresh') }));
@@ -151,7 +149,7 @@ describe('player read-only NPC and Enemy view (LGN-205)', () => {
     );
     renderApp(NPC, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Goblin', level: 2 });
+    await screen.findByRole('heading', { name: 'Goblin', level: 1 });
     setVisibility('hidden');
     await act(async () => {
       vi.advanceTimersByTime(180_000);
@@ -167,11 +165,11 @@ describe('player read-only NPC and Enemy view (LGN-205)', () => {
     const user = userEvent.setup();
     renderApp(NPC, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Goblin', level: 2 });
+    await screen.findByRole('heading', { name: 'Goblin', level: 1 });
     await user.click(screen.getByRole('button', { name: message('gm.refresh') }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message('gm.npcUnavailable'));
-    expect(screen.queryByRole('heading', { name: 'Goblin', level: 2 })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Goblin', level: 1 })).not.toBeInTheDocument();
   });
 
   it('Edge: a hidden sheet stops polling after the not-available answer', async () => {
@@ -180,7 +178,7 @@ describe('player read-only NPC and Enemy view (LGN-205)', () => {
     const user = userEvent.setup();
     renderApp(NPC, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Goblin', level: 2 });
+    await screen.findByRole('heading', { name: 'Goblin', level: 1 });
     await user.click(screen.getByRole('button', { name: message('gm.refresh') }));
     await screen.findByRole('alert');
 
@@ -214,7 +212,7 @@ describe('player read-only NPC and Enemy view (LGN-205)', () => {
       }),
     );
 
-    expect(await screen.findByRole('heading', { name: 'Goblin', level: 2 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Goblin', level: 1 })).toBeInTheDocument();
     expect(screen.queryAllByRole('textbox').every((input) => input.hasAttribute('readonly'))).toBe(
       true,
     );

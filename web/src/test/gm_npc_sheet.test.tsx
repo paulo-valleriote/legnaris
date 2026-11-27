@@ -60,10 +60,8 @@ describe('GM read-only NPC and Enemy view (LGN-219)', () => {
     const script = scripted(npcRoutes([() => freshNpc(ETAG_A)]));
     renderApp(NPC, { client: clientFor(script.transport) });
 
-    expect(
-      await screen.findByRole('heading', { name: message('gm.npcHeading'), level: 1 }),
-    ).toBeInTheDocument();
-    expect(await screen.findByRole('heading', { name: 'Goblin', level: 2 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Goblin', level: 1 })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Goblin', level: 1 })).toBeInTheDocument();
     expect(screen.getByText(message('gm.caption'))).toBeInTheDocument();
     expect(screen.queryAllByRole('textbox').every((input) => input.hasAttribute('readonly'))).toBe(
       true,
@@ -78,12 +76,12 @@ describe('GM read-only NPC and Enemy view (LGN-219)', () => {
     const user = userEvent.setup();
     renderApp(NPC, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Goblin', level: 2 });
+    await screen.findByRole('heading', { name: 'Goblin', level: 1 });
     await user.click(screen.getByRole('button', { name: message('gm.refresh') }));
 
     await waitFor(() => expect(script.calls('GET', NPC)).toHaveLength(2));
     expect(script.calls('GET', NPC)[1]?.request.headers).toEqual({ 'if-none-match': ETAG_A });
-    expect(screen.getByRole('heading', { name: 'Goblin', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Goblin', level: 1 })).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
@@ -94,14 +92,14 @@ describe('GM read-only NPC and Enemy view (LGN-219)', () => {
     );
     renderApp(NPC, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Goblin', level: 2 });
+    await screen.findByRole('heading', { name: 'Goblin', level: 1 });
     await act(async () => {
       vi.advanceTimersByTime(60_000);
     });
 
     await waitFor(() => expect(script.calls('GET', NPC)).toHaveLength(2));
     expect(script.calls('GET', NPC)[1]?.request.headers).toEqual({ 'if-none-match': ETAG_A });
-    expect(screen.getByRole('heading', { name: 'Goblin', level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Goblin', level: 1 })).toBeInTheDocument();
   });
 
   it('Error: a link that is gone or hidden shows the unavailable copy', async () => {
@@ -109,6 +107,6 @@ describe('GM read-only NPC and Enemy view (LGN-219)', () => {
     renderApp(NPC, { client: clientFor(script.transport) });
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message('gm.npcUnavailable'));
-    expect(screen.queryByRole('heading', { name: 'Goblin', level: 2 })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Goblin', level: 1 })).not.toBeInTheDocument();
   });
 });
