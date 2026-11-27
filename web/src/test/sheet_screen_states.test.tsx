@@ -155,6 +155,32 @@ describe('sheet footer, save and Ctrl+S', () => {
       failureMessage('serverError'),
     );
     expect(screen.getByText(message('sheet.pendingEdits'))).toBeInTheDocument();
+    expect(screen.getByTestId('sheet-saved-announcement')).toBeEmptyDOMElement();
+    expect(screen.queryByRole('button', { name: message('sheet.saved') })).not.toBeInTheDocument();
+  });
+
+  it('Happy path: an edit made during the save stays pending without the Saved confirmation', async () => {
+    const deferred = createDeferredTransport();
+    const user = userEvent.setup();
+    renderApp(SHEET_URL, { client: clientWith(deferred.transport) });
+    deferred.resolve(successOutcome(sheetPayload()));
+    expect(await screen.findByText(message('sheet.templateLoading'))).toBeInTheDocument();
+    deferred.resolve(successOutcome(templateDetailPayload()));
+
+    const level = await screen.findByRole('textbox', { name: 'Level' });
+    await user.clear(level);
+    await user.type(level, '4');
+    await user.click(screen.getByRole('button', { name: message('sheet.save') }));
+    await user.clear(level);
+    await user.type(level, '5');
+    deferred.resolve(successOutcome({}));
+
+    const save = await screen.findByRole('button', { name: /^(Save|Saved|Saving)$/ });
+    await waitFor(() => expect(save).not.toHaveAttribute('aria-busy', 'true'));
+    expect(screen.queryByRole('button', { name: message('sheet.saved') })).not.toBeInTheDocument();
+    expect(screen.getByText(message('sheet.pendingEdits'))).toBeInTheDocument();
+    expect(screen.getByTestId('sheet-saved-announcement')).toBeEmptyDOMElement();
+    expect(screen.getByRole('textbox', { name: 'Level' })).toHaveValue('5');
   });
 
   it('Happy path: Ctrl+S runs the same save as the footer action', async () => {
