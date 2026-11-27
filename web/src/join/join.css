@@ -94,7 +94,7 @@
   }
 }
 
-@container (min-width: 28rem) {
+@container (min-width: 27rem) {
   .lg-join__actions {
     flex-direction: row;
     flex-wrap: wrap;
