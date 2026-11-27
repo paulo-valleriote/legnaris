@@ -142,7 +142,10 @@ sequenceDiagram
 ```
 
 A new edit clears the preview marks. An offline save or preview writes the pending delta to the
-draft immediately; the normal cadence is 60 seconds.
+draft immediately; the normal cadence is 60 seconds. A successful save and an applied reset also
+replace the cached `['sheet', id]` data with the new baseline, so leaving and reopening a Sheet in
+the same session draws the saved values; the screen seeds its edit store once, so that cache write
+never resets the open form.
 
 ### Rest → reset action
 
