@@ -167,6 +167,17 @@
   animation: lg-pending-card-in var(--lg-motion-240) var(--lg-ease-out);
 }
 
+.lg-pending-card--saved {
+  padding: var(--lg-space-8) var(--lg-space-12);
+}
+
+.lg-pending-card__saved {
+  margin: 0;
+  font-size: var(--lg-type-13);
+  font-weight: var(--lg-font-weight-medium);
+  color: var(--lg-color-success);
+}
+
 .lg-pending-card__row {
   display: flex;
   flex-wrap: wrap;
