@@ -30,6 +30,7 @@ type DAG struct {
 	listExclusiveGroups map[string]map[string][]string
 	actions             map[string]*compiledResetAction
 	formulaEngine       *engine.FormulaEngine
+	nameLeaf            string
 }
 
 type Node struct {
@@ -73,6 +74,21 @@ func (n Node) checkTextLength(value any) error {
 		return ErrTextTooLong(n.MapKey(), length, n.maxLength)
 	}
 	return nil
+}
+
+func (d *DAG) NameFrom(values map[string]any) string {
+	if d.nameLeaf == "" {
+		return ""
+	}
+	raw, ok := Path(strings.Split(d.nameLeaf, ".")).Get(values)
+	if !ok {
+		return ""
+	}
+	name, ok := raw.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(name)
 }
 
 func (d *DAG) HasNode(key string) bool {

@@ -114,3 +114,33 @@ func TestBuildRegistry_RejectsBrokenNameLeaf(t *testing.T) {
 		})
 	}
 }
+
+func TestDAG_NameFrom(t *testing.T) {
+	fields := FieldGroup{
+		"identity": {Children: FieldGroup{
+			"name": {Schema: &FieldSchema{Type: fieldTypeText, IsEditable: true}},
+		}},
+	}
+	dag, err := BuildDAG("name_from_test", fields, engine.NewFormulaEngine())
+	require.NoError(t, err)
+	dag.nameLeaf = "identity.name"
+
+	tests := []struct {
+		name   string
+		values map[string]any
+		want   string
+	}{
+		{name: "Happy path: a stored name is returned", values: map[string]any{"identity": map[string]any{"name": "Aria"}}, want: "Aria"},
+		{name: "Edge: surrounding spaces are trimmed", values: map[string]any{"identity": map[string]any{"name": "  Aria  "}}, want: "Aria"},
+		{name: "Edge: an empty name suggests nothing", values: map[string]any{"identity": map[string]any{"name": ""}}},
+		{name: "Edge: a missing name suggests nothing", values: map[string]any{"identity": map[string]any{}}},
+		{name: "Edge: a non-text name suggests nothing", values: map[string]any{"identity": map[string]any{"name": 3}}},
+		{name: "Edge: nil values suggest nothing", values: nil},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.want, dag.NameFrom(tc.values))
+		})
+	}
+}

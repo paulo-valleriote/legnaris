@@ -544,6 +544,17 @@ one transaction; deleting releases it. Free plans allow 1 character, 2 NPCs and 
 plans allow 10/50/50. Duplicating a character is 422 `SHEET_KIND_MISMATCH`; exceeding the plan on
 create is 409 `SHEET_LIMIT_REACHED` and on duplicate 403 `PLAN_LIMIT_REACHED`.
 
+When the Template declares a `NameLeaf` (the 5E Templates use `identity.name`), the stored
+`name` mirrors `TrimSpace(identity.name)`. Creation seeds `identity.name` from the validated
+`sheet_name`, so both start equal. A data PATCH with a non-empty `identity.name` updates the stored
+name in the same compare-and-swap; a blank or whitespace-only `identity.name` leaves the previous
+name untouched. The values path (generation accept) uses a non-empty `identity.name` when present
+and otherwise seeds it from `sheet_name`. Duplicate appends ` (copy)` to the copied
+`identity.name` and stores the same value as the name; when the result would exceed the
+`NameLeaf`'s `max_length`, the base name is truncated so the suffix still fits. A Template without
+a `NameLeaf` keeps the creation name and duplicate still appends the suffix to it. Names are always
+trimmed, and a name above the `NameLeaf`'s `max_length` is 422 `SHEET_NAME_TOO_LONG`.
+
 ### PATCH and preview
 
 `data` is a nested map of editable leaves, flattened to DAG dot-keys. An unknown key or group
@@ -722,7 +733,8 @@ copy. Because the version is hidden, two open tabs find a conflict only on save.
 | `SHEET_LIMIT_REACHED` | 409    | create would exceed the plan; details carry `kind` and `limit`                                                                                                                                                                                                                                                                                                                                                                        |
 | `PLAN_LIMIT_REACHED`  | 403    | duplicate would exceed the plan                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `SHEET_KIND_MISMATCH` | 422    | duplicate of a character sheet                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `SHEET_NAME_INVALID`  | 422    | blank or whitespace-only name on Sheet create or generation accept                                                                                                                                                                                                                                                                                                                                                                   |
+| `SHEET_NAME_INVALID`  | 422    | blank or whitespace-only name on Sheet create or generation accept                                                                                                                                                                                                                                                                                                                                                                     |
+| `SHEET_NAME_TOO_LONG` | 422    | name above the `NameLeaf` max_length; details carry `max_length`                                                                                                                                                                                                                                                                                                                                                                      |
 | `RATE_LIMITED`        | 429    | shared per-user budget (`USER_RATE_LIMIT_*`, 80 per minute)                                                                                                                                                                                                                                                                                                                                                                           |
 
 ### Record lists in the generic form

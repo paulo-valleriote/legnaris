@@ -6,7 +6,10 @@ import (
 	"legnaris/backend/shared/apperr"
 )
 
-const MsgSheetNameRequired = "sheet name is required"
+const (
+	MsgSheetNameRequired = "sheet name is required"
+	MsgSheetNameTooLong  = "sheet name is too long"
+)
 
 func ValidateSheetName(raw string) (string, error) {
 	name := strings.TrimSpace(raw)

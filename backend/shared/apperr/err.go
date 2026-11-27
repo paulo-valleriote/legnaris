@@ -45,6 +45,7 @@ const (
 	CodeTemplateMismatch     Code = "TEMPLATE_MISMATCH"
 	CodeSheetKindMismatch    Code = "SHEET_KIND_MISMATCH"
 	CodeSheetNameInvalid     Code = "SHEET_NAME_INVALID"
+	CodeSheetNameTooLong     Code = "SHEET_NAME_TOO_LONG"
 	CodeSheetAlreadyLinked   Code = "SHEET_ALREADY_LINKED"
 	CodePlanLimitReached     Code = "PLAN_LIMIT_REACHED"
 	CodePasswordRequired     Code = "PASSWORD_REQUIRED"
@@ -87,7 +88,7 @@ func NewError(code Code, message string, err error) *Error {
 	case CodeConflict, CodeSheetLimitReached, CodeGenerationInProgress, CodeAlreadySubscribed, CodeRefundNotEligible,
 		CodeCampaignFull, CodeSheetAlreadyLinked:
 		httpStatus = 409
-	case CodeTemplateMismatch, CodeSheetKindMismatch, CodeSheetNameInvalid:
+	case CodeTemplateMismatch, CodeSheetKindMismatch, CodeSheetNameInvalid, CodeSheetNameTooLong:
 		httpStatus = 422
 	case CodeRateLimited, CodeQuotaExceeded:
 		httpStatus = 429

@@ -51,6 +51,7 @@ func TestNewError_StatusMapping(t *testing.T) {
 		{CodeTemplateMismatch, 422},
 		{CodeSheetKindMismatch, 422},
 		{CodeSheetNameInvalid, 422},
+		{CodeSheetNameTooLong, 422},
 		{CodeSheetAlreadyLinked, 409},
 		{CodePlanLimitReached, 403},
 	}
