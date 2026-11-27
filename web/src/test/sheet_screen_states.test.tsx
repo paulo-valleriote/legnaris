@@ -175,7 +175,9 @@ describe('sheet footer, save and Ctrl+S', () => {
     await user.type(level, '5');
     deferred.resolve(successOutcome({}));
 
-    expect(await screen.findByRole('button', { name: message('sheet.save') })).toBeEnabled();
+    const save = await screen.findByRole('button', { name: /^(Save|Saved|Saving)$/ });
+    await waitFor(() => expect(save).not.toHaveAttribute('aria-busy', 'true'));
+    expect(screen.queryByRole('button', { name: message('sheet.saved') })).not.toBeInTheDocument();
     expect(screen.getByText(message('sheet.pendingEdits'))).toBeInTheDocument();
     expect(screen.getByTestId('sheet-saved-announcement')).toBeEmptyDOMElement();
     expect(screen.getByRole('textbox', { name: 'Level' })).toHaveValue('5');
