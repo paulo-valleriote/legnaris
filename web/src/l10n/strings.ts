@@ -300,6 +300,7 @@ export const messages = {
   'sheet.nameLabel': 'Sheet name',
   'sheet.namePlaceholder': 'Example: Aragorn, Ranger of the North',
   'sheet.nameRequired': 'A sheet name is required.',
+  'sheet.nameTooLong': 'Keep the sheet name to 60 characters or fewer.',
   'sheet.create': 'Create sheet',
   'sheet.creating': 'Creating sheet',
   'sheet.close': 'Close',

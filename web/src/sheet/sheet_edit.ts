@@ -103,7 +103,7 @@ export interface SheetEditSeed {
 export interface SheetSaveSnapshot {
   readonly data: Record<string, unknown>;
   readonly dice: DiceBlock;
-  readonly delta: Record<string, unknown>;
+  readonly delta?: Record<string, unknown>;
 }
 
 export interface SheetEditDeps {
@@ -580,10 +580,11 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
     },
 
     applyReset: (cascade) => {
+      const defaults = mergeCascade(state.defaults, cascade);
       commit({
         ...state,
         data: mergeCascade(state.data, cascade),
-        defaults: mergeCascade(state.defaults, cascade),
+        defaults,
         revision: state.revision + 1,
         previewedRevision: undefined,
         previewMarks: undefined,
@@ -592,6 +593,7 @@ export function createSheetEditStore(seed: SheetEditSeed, deps: SheetEditDeps): 
         previewError: undefined,
         previewErrorKind: undefined,
       });
+      deps.onSaved?.({ data: defaults, dice: state.savedDice });
     },
 
     refresh: async () => {

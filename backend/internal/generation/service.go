@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -226,8 +225,9 @@ func (s *Service) Accept(ctx context.Context, cmd AcceptCommand) (AcceptResult, 
 	if err := validateID(cmd.ID); err != nil {
 		return AcceptResult{}, err
 	}
-	if strings.TrimSpace(cmd.SheetName) == "" {
-		return AcceptResult{}, apperr.NewError(apperr.CodeInvalidRequest, MsgNameRequired, nil)
+	name, err := sheet.ValidateSheetName(cmd.SheetName)
+	if err != nil {
+		return AcceptResult{}, err
 	}
 	if len(cmd.Values) == 0 {
 		return AcceptResult{}, apperr.NewError(apperr.CodeInvalidRequest, MsgValuesRequired, nil)
@@ -246,7 +246,7 @@ func (s *Service) Accept(ctx context.Context, cmd AcceptCommand) (AcceptResult, 
 	created, err := s.deps.Sheets.CreateWithValues(ctx, sheet.CreateWithValuesCommand{
 		TemplateID: doc.TemplateID,
 		Kind:       documentKind(doc.Kind),
-		SheetName:  strings.TrimSpace(cmd.SheetName),
+		SheetName:  name,
 		OwnerID:    cmd.UserID,
 		Values:     cmd.Values,
 	}, s.markAccepted(cmd.UserID, cmd.ID))

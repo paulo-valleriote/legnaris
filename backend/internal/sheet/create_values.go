@@ -139,6 +139,11 @@ func (s *ServiceImpl) CreateWithValues(ctx context.Context, cmd CreateWithValues
 		return nil, err
 	}
 
+	name, err := ValidateSheetName(cmd.SheetName)
+	if err != nil {
+		return nil, err
+	}
+
 	base, err := s.resolveNewSheet(ctx, cmd.OwnerID, kind, cmd.TemplateID, "", (*template.Template).Available, false)
 	if err != nil {
 		return nil, err
@@ -163,7 +168,7 @@ func (s *ServiceImpl) CreateWithValues(ctx context.Context, cmd CreateWithValues
 		TemplateID: base.tmpl.ID,
 		OwnerID:    cmd.OwnerID,
 		Kind:       kind,
-		Name:       cmd.SheetName,
+		Name:       name,
 		Data:       data,
 		CreatedAt:  now,
 		UpdatedAt:  now,
