@@ -1,5 +1,10 @@
 import { message, messageWith } from '../../../l10n/strings';
-import { usePresetCommit, usePresetLabel, usePresetValue } from '../preset_context';
+import {
+  usePresetCommit,
+  usePresetContext,
+  usePresetLabel,
+  usePresetValue,
+} from '../preset_context';
 import { numberValue } from '../values';
 import { GroupTitle } from './group_title';
 import type { PresetPipsPiece } from './types';
@@ -34,6 +39,7 @@ function PipsBody({ countPath, max, label: shownLabel, decoration }: PipsBodyPro
   const label = shownLabel ?? fieldLabel;
   const value = usePresetValue(countPath);
   const commit = usePresetCommit(countPath);
+  const { readOnly } = usePresetContext();
   const limit = pipLimit(max);
   const count = pipCount(value, limit);
   const indexes = Array.from({ length: limit }, (_, index) => index + 1);
@@ -57,22 +63,33 @@ function PipsBody({ countPath, max, label: shownLabel, decoration }: PipsBodyPro
         role="group"
         aria-label={messageWith('preset.pips.group', { label, count, max: limit })}
       >
-        {indexes.map((index) => (
-          <button
-            key={index}
-            type="button"
-            className="lg-compose-pip"
-            aria-pressed={index <= count}
-            aria-label={
-              index <= count
-                ? messageWith('preset.pips.clear', { label, count: index - 1 })
-                : messageWith('preset.pips.set', { label, count: index })
-            }
-            onClick={() => commit(index <= count ? index - 1 : index)}
-          >
-            <span className="lg-compose-pip__mark" aria-hidden="true" />
-          </button>
-        ))}
+        {indexes.map((index) =>
+          readOnly ? (
+            <span
+              key={index}
+              className="lg-compose-pip"
+              data-on={index <= count ? '' : undefined}
+              aria-hidden="true"
+            >
+              <span className="lg-compose-pip__mark" />
+            </span>
+          ) : (
+            <button
+              key={index}
+              type="button"
+              className="lg-compose-pip"
+              aria-pressed={index <= count}
+              aria-label={
+                index <= count
+                  ? messageWith('preset.pips.clear', { label, count: index - 1 })
+                  : messageWith('preset.pips.set', { label, count: index })
+              }
+              onClick={() => commit(index <= count ? index - 1 : index)}
+            >
+              <span className="lg-compose-pip__mark" aria-hidden="true" />
+            </button>
+          ),
+        )}
       </div>
       <span className="lg-compose-pips__count" aria-hidden="true">
         {messageWith('preset.pips.count', { count, max: limit })}

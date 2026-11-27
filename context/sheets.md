@@ -785,7 +785,11 @@ A failure shows the mapped copy (muted for offline) and one retry control.
 
 A sheet has one layout: every editable value is edited where it is drawn and every derived value is
 read-only. A preset sheet opens locked; the header `Edit sheet` / `Done editing` button unlocks the
-build values in place, without moving anything. While locked, current and temporary hit points,
+build values in place, without moving anything. A campaign read-only view uses the same preset with
+the provider's `readOnly` flag and a no-op edit store: pip, condition and hit point controls render
+as static values, the XP panel, reset and roll mode bars are absent, every roll target is a plain
+value, and no pending card is drawn; a generic Template uses `SheetForm` data mode. Values stay
+focusable and copyable. While locked, current and temporary hit points,
 Damage and Heal, every pip track, conditions, the Record columns a piece lists as `playColumns`,
 rolls and rests stay live. The lock is screen state: it is never stored or sent, and pending edits
 survive it. While locked, a text or number build value is a read-only input with `aria-readonly`

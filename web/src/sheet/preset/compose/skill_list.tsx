@@ -43,7 +43,7 @@ function SkillRow({
   const name = rowDisplayName(rankLabel, skill.rank);
   const rollLabel = rowDisplayName(totalLabel, skill.total);
   const commitRank = usePresetCommit(skill.rank);
-  const { editing } = usePresetContext();
+  const { editing, readOnly } = usePresetContext();
   const limit = rankLimit(max);
   const current = rankValue(rank, limit);
   const marks = Array.from({ length: limit }, (_, index) => index + 1);
@@ -51,7 +51,26 @@ function SkillRow({
 
   return (
     <li className="lg-compose-skill" data-testid={`compose-skill-${skill.rank}`}>
-      {limit === 0 ? null : (
+      {limit === 0 ? null : readOnly ? (
+        <span
+          className="lg-compose-rank"
+          aria-label={messageWith('preset.skill.rank', {
+            label: name,
+            count: current,
+            max: limit,
+            state,
+          })}
+        >
+          {marks.map((index) => (
+            <span
+              key={index}
+              className="lg-compose-rank__mark"
+              data-filled={index <= current ? '' : undefined}
+              aria-hidden="true"
+            />
+          ))}
+        </span>
+      ) : (
         <button
           type="button"
           className="lg-compose-rank"

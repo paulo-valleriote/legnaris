@@ -94,7 +94,7 @@ function LayoutBlock({
 }
 
 export function PresetPlayView({ preset }: { readonly preset: SheetPreset }) {
-  const { editing } = usePresetContext();
+  const { editing, readOnly } = usePresetContext();
   const narrow = useNarrowViewport();
   const components = sectionComponents(preset);
   const layout = narrow && preset.narrowLayout !== undefined ? preset.narrowLayout : preset.layout;
@@ -133,7 +133,7 @@ export function PresetPlayView({ preset }: { readonly preset: SheetPreset }) {
           ))}
         </div>
       )}
-      <PendingChangesCard />
+      {readOnly ? null : <PendingChangesCard />}
     </div>
   );
 }

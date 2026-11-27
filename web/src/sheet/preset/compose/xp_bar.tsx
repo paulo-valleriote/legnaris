@@ -27,7 +27,7 @@ export function XpBar({ piece }: { readonly piece: PresetXpBarPiece }) {
   const [gain, setGain] = useState('');
   const panelId = useId();
   const gainId = useId();
-  const { editing } = usePresetContext();
+  const { editing, readOnly } = usePresetContext();
   const level = numberValue(usePresetValue(piece.level));
   const xp = usePresetValue(piece.xp);
   const xpLabel = usePresetLabel(piece.xp);
@@ -47,43 +47,55 @@ export function XpBar({ piece }: { readonly piece: PresetXpBarPiece }) {
     setGain('');
   };
 
+  const readout = (
+    <>
+      <span className="lg-xp__head">
+        <span className="lg-xp__label">{message('sheet.play.experience')}</span>
+        <span className="lg-xp__total">
+          {progress.nextThreshold === null
+            ? messageWith('sheet.play.xpTotal', { count: formatXp(progress.xp) })
+            : messageWith('sheet.play.xpProgress', {
+                count: formatXp(progress.xp),
+                next: formatXp(progress.nextThreshold),
+              })}
+        </span>
+      </span>
+      <span
+        className="lg-xp__bar"
+        role="progressbar"
+        aria-label={message('sheet.play.experience')}
+        aria-valuemin={progress.floor}
+        aria-valuemax={progress.nextThreshold ?? progress.floor}
+        aria-valuenow={progress.value}
+      >
+        <span
+          className="lg-xp__fill"
+          style={{ width: `${progress.percent}%` }}
+          aria-hidden="true"
+        />
+      </span>
+    </>
+  );
+
   return (
     <div className="lg-xp" data-testid="sheet-xp">
-      <button
-        type="button"
-        className="lg-xp__trigger"
-        data-testid="sheet-xp-trigger"
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <span className="lg-xp__head">
-          <span className="lg-xp__label">{message('sheet.play.experience')}</span>
-          <span className="lg-xp__total">
-            {progress.nextThreshold === null
-              ? messageWith('sheet.play.xpTotal', { count: formatXp(progress.xp) })
-              : messageWith('sheet.play.xpProgress', {
-                  count: formatXp(progress.xp),
-                  next: formatXp(progress.nextThreshold),
-                })}
-          </span>
-        </span>
-        <span
-          className="lg-xp__bar"
-          role="progressbar"
-          aria-label={message('sheet.play.experience')}
-          aria-valuemin={progress.floor}
-          aria-valuemax={progress.nextThreshold ?? progress.floor}
-          aria-valuenow={progress.value}
+      {readOnly ? (
+        <div className="lg-xp__trigger" data-testid="sheet-xp-readout">
+          {readout}
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="lg-xp__trigger"
+          data-testid="sheet-xp-trigger"
+          aria-expanded={open}
+          aria-controls={open ? panelId : undefined}
+          onClick={() => setOpen((value) => !value)}
         >
-          <span
-            className="lg-xp__fill"
-            style={{ width: `${progress.percent}%` }}
-            aria-hidden="true"
-          />
-        </span>
-      </button>
-      {open && (
+          {readout}
+        </button>
+      )}
+      {open && !readOnly && (
         <div
           id={panelId}
           className="lg-xp__panel"

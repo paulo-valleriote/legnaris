@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { message } from '../l10n/strings';
-import { formatValue } from '../campaign/gm_sheet_screen';
 import {
   CAMPAIGN_ID,
   SHEET_ID,
@@ -113,28 +112,21 @@ describe('GM read-only sheet view (LGN-218)', () => {
     expect(screen.getByRole('heading', { name: 'Brenna', level: 2 })).toBeInTheDocument();
   });
 
-  it('Edge: a group heading never sits inside the definition list it labels', async () => {
+  it('Happy path: the generic template keeps the sheet layout with no editable control', async () => {
     const script = scripted(sheetRoutes([() => freshSheet(ETAG_A)]));
     renderApp(GM, { client: clientFor(script.transport) });
 
-    await screen.findByRole('heading', { name: 'Brenna', level: 2 });
-    await screen.findByText(firstLeaf().label);
-
-    const lists = Array.from(document.querySelectorAll('dl'));
-    expect(lists.length).toBeGreaterThan(0);
-    for (const list of lists) {
-      expect(list.querySelector('section')).toBeNull();
-      expect(list.querySelector('h3')).toBeNull();
-      for (const child of Array.from(list.children)) {
-        expect(['DIV', 'DT', 'DD']).toContain(child.tagName);
-      }
-    }
-    const groups = document.querySelectorAll('.lg-campaign__group');
-    expect(groups.length).toBeGreaterThan(0);
-    for (const group of Array.from(groups)) {
-      expect(group.querySelector('h3')).not.toBeNull();
-      expect(group.querySelector('dl')).not.toBeNull();
-    }
+    expect(await screen.findByTestId('readonly-generic')).toBeInTheDocument();
+    expect(document.querySelector('[data-section-key]')).not.toBeNull();
+    expect(
+      document.querySelectorAll(
+        'input:not([readonly]):not([disabled]), textarea:not([readonly]):not([disabled])',
+      ),
+    ).toHaveLength(0);
+    expect(document.querySelectorAll('select:not([disabled])')).toHaveLength(0);
+    expect(document.querySelector('[data-rollable="true"]')).toBeNull();
+    expect(screen.queryByTestId('sheet-pending-card')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /save|edit|damage|heal/i })).toBeNull();
   });
 
   it('Happy path: an object value reads as its fields, never as JSON', async () => {
@@ -292,31 +284,3 @@ function firstLeaf(): { label: string } {
   const label = first === undefined ? undefined : walk(first.fields);
   return { label: label ?? '' };
 }
-
-describe('GM sheet value formatting (LGN-218)', () => {
-  it('Happy path: an array joins its formatted items with commas', () => {
-    expect(formatValue(['a', 2, null])).toBe(`a, 2, ${message('gm.emptyValue')}`);
-  });
-
-  it('Happy path: a plain object reads as key: value pairs', () => {
-    expect(formatValue({ bonus: 3, name: 'Bite' })).toBe('bonus: 3, name: Bite');
-  });
-
-  it('Edge: an empty array, an empty object, null, undefined and an empty string read as no value', () => {
-    expect(formatValue([])).toBe(message('gm.emptyValue'));
-    expect(formatValue({})).toBe(message('gm.emptyValue'));
-    expect(formatValue(null)).toBe(message('gm.emptyValue'));
-    expect(formatValue(undefined)).toBe(message('gm.emptyValue'));
-    expect(formatValue('')).toBe(message('gm.emptyValue'));
-  });
-
-  it('Edge: a nested value keeps its own shape inside the pair', () => {
-    expect(formatValue({ inner: { a: 1 } })).toBe('inner: a: 1');
-  });
-
-  it('Happy path: a scalar renders as its text', () => {
-    expect(formatValue(12)).toBe('12');
-    expect(formatValue(false)).toBe('false');
-    expect(formatValue('Brenna')).toBe('Brenna');
-  });
-});

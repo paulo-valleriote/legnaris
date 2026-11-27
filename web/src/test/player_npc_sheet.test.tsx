@@ -100,7 +100,9 @@ describe('player read-only NPC and Enemy view (LGN-205)', () => {
     expect(await screen.findByRole('heading', { name: 'Goblin', level: 2 })).toBeInTheDocument();
     expect(screen.getByText(message('gm.caption'))).toBeInTheDocument();
     expect(screen.getByRole('button', { name: message('gm.refresh') })).toBeEnabled();
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('textbox').every((input) => input.hasAttribute('readonly'))).toBe(
+      true,
+    );
     expect(script.calls('GET', NPC)).toHaveLength(1);
   });
 
@@ -213,7 +215,9 @@ describe('player read-only NPC and Enemy view (LGN-205)', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Goblin', level: 2 })).toBeInTheDocument();
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('textbox').every((input) => input.hasAttribute('readonly'))).toBe(
+      true,
+    );
 
     links = [];
     sheetAnswer = () => fail('NOT_FOUND', 404);

@@ -18,7 +18,7 @@ function SaveRow({ save, section }: { readonly save: PresetSave; readonly sectio
   const proficiency = usePresetValue(save.proficiency);
   const label = rowDisplayName(usePresetLabel(save.total), save.total);
   const commitProficiency = usePresetCommit(save.proficiency);
-  const { editing } = usePresetContext();
+  const { editing, readOnly } = usePresetContext();
   const proficient = isProficient(proficiency);
   const state = message(
     proficient ? 'sheet.play.proficiencyProficient' : 'sheet.play.proficiencyNotProficient',
@@ -26,18 +26,28 @@ function SaveRow({ save, section }: { readonly save: PresetSave; readonly sectio
 
   return (
     <li className="lg-compose-save" data-testid={`compose-save-${save.total}`}>
-      <button
-        type="button"
-        className="lg-compose-flag"
-        aria-pressed={proficient}
-        disabled={!editing}
-        aria-label={messageWith('sheet.play.proficiencyForState', { label, state })}
-        onClick={() => {
-          commitProficiency(nextProficiency(proficiency));
-        }}
-      >
-        <span className="lg-compose-flag__mark" aria-hidden="true" />
-      </button>
+      {readOnly ? (
+        <span
+          className="lg-compose-flag"
+          data-on={proficient ? '' : undefined}
+          aria-label={messageWith('sheet.play.proficiencyForState', { label, state })}
+        >
+          <span className="lg-compose-flag__mark" aria-hidden="true" />
+        </span>
+      ) : (
+        <button
+          type="button"
+          className="lg-compose-flag"
+          aria-pressed={proficient}
+          disabled={!editing}
+          aria-label={messageWith('sheet.play.proficiencyForState', { label, state })}
+          onClick={() => {
+            commitProficiency(nextProficiency(proficiency));
+          }}
+        >
+          <span className="lg-compose-flag__mark" aria-hidden="true" />
+        </button>
+      )}
       <span className="lg-compose-save__name" aria-hidden="true">
         {label}
       </span>

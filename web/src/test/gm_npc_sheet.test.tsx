@@ -65,7 +65,9 @@ describe('GM read-only NPC and Enemy view (LGN-219)', () => {
     ).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Goblin', level: 2 })).toBeInTheDocument();
     expect(screen.getByText(message('gm.caption'))).toBeInTheDocument();
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
+    expect(screen.queryAllByRole('textbox').every((input) => input.hasAttribute('readonly'))).toBe(
+      true,
+    );
     expect(script.calls('GET', NPC)).toHaveLength(1);
   });
 
