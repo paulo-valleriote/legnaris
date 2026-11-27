@@ -121,6 +121,6 @@ describe('the top-level sheet name', () => {
         queryClient.getQueryData<{ name: string }>(sheetKey(FIFTH_CHARACTER_SHEET_ID)),
       ).toMatchObject({ name: 'Rune' }),
     );
-    expect(screen.getByTestId('sheet-name')).toHaveTextContent('Rune');
+    await waitFor(() => expect(screen.getByTestId('sheet-name')).toHaveTextContent('Rune'));
   });
 });
