@@ -36,14 +36,15 @@ sequenceDiagram
   G->>A: POST /campaigns (creation) or /campaigns/{id}/invite/rotate
   A-->>G: Campaign view with the invite code
   G-->>P: shares /join/{code} (and the password when set)
-  P->>W: opens the link and submits
-  W->>A: POST /campaigns/join {code, password}
-  A->>C: check rate limits, code, password and player cap, then add a player
+  P->>W: opens the link
+  W->>A: GET /campaigns/invite/{code}
+  A-->>W: preview, or 403 PASSWORD_REQUIRED when protected
+  W->>A: POST /campaigns/invite/{code}/preview {password}
+  A-->>W: full preview with the name, GM, scope and player count
+  P->>W: selects sheet and submits
+  W->>A: POST /campaigns/join {code, password, sheet_id}
+  A->>C: check rate limits, code, password and player cap, then add the player and link the Sheet atomically
   A-->>W: 200 Campaign view as Player
-  P->>A: GET /sheets/owned?kind=character
-  P->>A: PUT /campaigns/{id}/character {sheet_id}
-  A->>C: unlink the player's old character, compare-and-set the new Sheet, bump version
-  A-->>P: 200 Campaign view with the character name in the member list
 ```
 
 ### Create and link from the Campaign screen
@@ -156,14 +157,16 @@ The web list at `/campaigns` orders owned Campaigns first, then GM roles, then P
 
 - **Ad slot on the campaign list.** The campaign list (`campaigns_screen.tsx`) ends with an `AdSlot` (`campaigns` surface) shown only to Free accounts; the campaign detail, play session and shared sheets never show ads (see web-client Ads).
 
-All routes are under `/campaigns` behind authentication, an active account and the per-user rate limit. `POST /campaigns/join` also has an IP limiter middleware.
+All routes are under `/campaigns` behind authentication, an active account and the per-user rate limit. `POST /campaigns/join`, `GET /campaigns/invite/:code` and `POST /campaigns/invite/:code/preview` also have an IP limiter middleware and share the per-Campaign join budget.
 
 | Method and path | Caller | Result |
 | --- | --- | --- |
 | `POST /campaigns` | any user | `201` Campaign view; name is 1–80 runes and exactly one of `game_system` or `template_id` is set |
 | `GET /campaigns` | any user | active Campaigns where the caller is a member, oldest first |
 | `GET /campaigns/:id` | member | `200` Campaign view; `404` when missing, deleting, dead or not a member |
-| `POST /campaigns/join` | any user | `200` Campaign view as Player; body `{code, password?}` |
+| `GET /campaigns/invite/:code` | any user | full invite preview when no password is set; `403 PASSWORD_REQUIRED` when a password is set |
+| `POST /campaigns/invite/:code/preview` | any user | body `{password?}`; full invite preview after the password check, or `403 PASSWORD_REQUIRED` / `404 INVALID_INVITE` |
+| `POST /campaigns/join` | any user | `200` Campaign view as Player; body `{code, password?, sheet_id?}`; with `sheet_id`, joins and links atomically; an existing member gets the current view unchanged |
 | `POST /campaigns/:id/leave` | non-owner member | `204`; unlinks the character and deletes the GM's NPC links |
 | `DELETE /campaigns/:id` | Owner | `202 {"status":"deleting"}` |
 | `POST /campaigns/:id/members/:userId/promote` | Owner | `200` Campaign view; Player becomes GM and loses the character link |
@@ -189,11 +192,13 @@ All routes are under `/campaigns` behind authentication, an active account and t
 - **Roles:** `gm` and `player`, mutually exclusive; exactly one GM carries `owner`. The Owner controls deletion, promotion, demotion and removal of GMs, and can remove any non-owner member. A GM can remove Players. The Owner cannot leave, be demoted, be removed or be promoted. Everyone else can leave. A GM has no character in a Campaign they run; a Player has at most one character per Campaign.
 - **Caps:** at most 3 GMs (Owner included) and 10 Players per Campaign, independent of Plan. A Plan limits owned Campaigns only: Free 1, Paid 5. Participation and links are not capped by Plan. `GET /plan` exposes `owned_campaigns {used, limit}` from the `campaign_owner_counts` collection.
 - **Invite:** the code is 24 URL-safe characters from 18 random bytes, unique and sparse-indexed, and never expires. The optional password is stored as an argon2id hash; when set, the join needs code and password. An unknown, rotated or inactive code and a wrong password all return `INVALID_INVITE`, and a failed lookup still runs a dummy password check to keep timing flat.
+- **Invite preview:** `GET /campaigns/invite/:code` returns `{name, gm_username, scope_name, template_ids, game_system?, template_id?, password_required, player_count, already_member}` for an open invite; it never returns the member list, invite code or password. A protected invite without a password returns `403 PASSWORD_REQUIRED` with no name, GM, scope or counters; `POST /campaigns/invite/:code/preview {password}` returns the same full shape after a correct password and `404 INVALID_INVITE` for a wrong one. Invalid, rotated and deleting codes are the same `404 INVALID_INVITE`; both routes use the join IP limiter, the per-user limiter and the per-Campaign join budget.
+- **Join with a character:** `POST /campaigns/join` accepts optional `sheet_id` and adds the Player and links the Sheet in one Campaign transaction. The link follows the `PUT /campaigns/:id/character` rules: own Sheet, kind `character`, Template in scope, not already linked; a refusal (422 `TEMPLATE_MISMATCH`, 409 `SHEET_ALREADY_LINKED`, 404 `NOT_FOUND`, 400 `INVALID_REQUEST`) rolls the join back, so the caller is never half-entered. Success publishes `campaign.member_joined` and, when a Sheet was linked, `campaign.sheet_linked`. An existing member is idempotent: the code and password still validate, then the current view is returned unchanged with no version bump, event or Sheet link.
 - **Character link:** own Sheet only, kind `character`, Template in the Campaign's `template_ids`, and not linked to another active Campaign. A `campaign_id` pointing at a missing or non-active Campaign is treated as unlinked. The write is a compare-and-set on the previous `campaign_id`, so two concurrent links cannot both win.
 - **NPC and Enemy link:** own Sheet only, kind `npc` or `enemy`, Template in the Campaign's `template_ids`, and only while the caller is a GM. One Sheet can be linked to many Campaigns; the pair `(campaign_id, sheet_id)` is unique. A new link is hidden. Reveal belongs to the link, not the Sheet. A Retired Template never affects a link.
 - **States:** a Campaign is `active`, `deleting` or `deletion_dead`. Campaign-scoped reads and writes return `CAMPAIGN_NOT_FOUND` for anything but `active`, and lists simply omit it. `deleting` is invisible and stops counting toward the Owner's limit at once. `deletion_dead` means the sweeper exhausted its retries; an operator must requeue it. A link is a document with a `revealed` boolean and no status of its own.
 - **Concurrency:** every Campaign mutation through the transaction helper writes with the expected `version` and increments it, including a link or unlink; deletion batches touch the version atomically. A stale write returns `CONFLICT`.
-- **Errors:** `INVALID_INVITE` 404; `PASSWORD_REQUIRED` 403; `CAMPAIGN_NOT_FOUND` 404; `CAMPAIGN_FULL` 409; `CAMPAIGN_FORBIDDEN` 403; `CONFLICT` 409 for an existing member or a stale version; `TEMPLATE_MISMATCH` 422; `SHEET_ALREADY_LINKED` 409; `SHEET_KIND_MISMATCH` 422 for a `character` sent to the NPC route; `NOT_FOUND` 404 for a Sheet the caller does not own or a hidden or unlinked NPC; `PLAN_LIMIT_REACHED` 403; `RATE_LIMITED` 429; `INVALID_REQUEST` 400 for a malformed id, an invalid name, a missing invite code, a password length outside the range, a creation scope that is missing, doubled or refused, and a `template_id` that is not a slug.
+- **Errors:** `INVALID_INVITE` 404; `PASSWORD_REQUIRED` 403; `CAMPAIGN_NOT_FOUND` 404; `CAMPAIGN_FULL` 409; `CAMPAIGN_FORBIDDEN` 403; `CONFLICT` 409 for a stale version; `TEMPLATE_MISMATCH` 422; `SHEET_ALREADY_LINKED` 409; `SHEET_KIND_MISMATCH` 422 for a `character` sent to the NPC route; `NOT_FOUND` 404 for a Sheet the caller does not own or a hidden or unlinked NPC; `PLAN_LIMIT_REACHED` 403; `RATE_LIMITED` 429; `INVALID_REQUEST` 400 for a malformed id, an invalid name, a missing invite code, a malformed `sheet_id`, a password length outside the range, a creation scope that is missing, doubled or refused, and a `template_id` that is not a slug.
 - **Events:** `campaign.created`, `campaign.member_joined`, `campaign.member_left` (`left` or `removed`), `campaign.role_changed`, `campaign.ownership_transferred`, `campaign.deleted`, `campaign.sheet_linked`, `campaign.sheet_unlinked` (`unlinked`, `owner_left` or `sheet_deleted`), `campaign.sheet_revealed` and `campaign.sheet_hidden`. Payloads carry ids, roles, kinds and the stored scope (`game_system` or `template_id`); never a name, password, invite code or Sheet value. Unlinking during Campaign deletion emits nothing because `campaign.deleted` covers it.
 - **Campaign view:** every member sees the name, `scope_name`, `template_ids`, `game_system` `{id, name}` when set, `template_id` only when stored, status, `version`, counters, their own role and owner flag, and the member list with username and character name. Only a GM also receives `invite_code` and `password_set`. A list summary carries the id, name, `scope_name`, `template_ids`, `game_system` when set, `template_id` only when stored, version, the viewer's role and owner flag, and `updated_at`, with neither code nor members. The web decoder accepts both the legacy `template_id`-only shape and the scoped shape, falling back to `template_id` for a missing `scope_name` and `[template_id]` for missing `template_ids`.
 - **Persisted shapes:** `campaigns` stores `_id`, `name`, exactly one of `game_system` or `template_id`, `status`, `invite_code`, `password_hash`, `version`, counters, `members[]`, timestamps and deletion bookkeeping (`deleting_at`, attempts, next attempt, lock, last error). `campaign_sheet_links` stores `_id`, `campaign_id`, `sheet_id`, `owner_id`, `revealed`, `linked_at`.

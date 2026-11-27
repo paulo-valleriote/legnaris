@@ -102,6 +102,7 @@ type Service interface {
 	ListNpcLinks(ctx context.Context, campaignID, viewerID string) ([]NpcLinkView, error)
 	ReadNpcSheet(ctx context.Context, q ReadNpcSheetQuery) (LinkedSheetResult, error)
 	JoinByCode(ctx context.Context, cmd JoinCommand) (View, error)
+	PreviewInvite(ctx context.Context, cmd PreviewInviteCommand) (InvitePreview, error)
 	RotateInviteCode(ctx context.Context, cmd InviteCommand) (View, error)
 	SetPassword(ctx context.Context, cmd PasswordCommand) (View, error)
 	ClearPassword(ctx context.Context, cmd InviteCommand) (View, error)
