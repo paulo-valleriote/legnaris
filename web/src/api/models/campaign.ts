@@ -217,6 +217,34 @@ export function parseJoinedCampaign(payload: unknown): Campaign {
   return campaign;
 }
 
+export interface CampaignInvite {
+  readonly name: string;
+  readonly gmUsername: string;
+  readonly gameSystem: CampaignGameSystem | undefined;
+  readonly templateId: string | undefined;
+  readonly scopeName: string;
+  readonly templateIds: readonly string[];
+  readonly passwordRequired: boolean;
+  readonly playerCount: number;
+  readonly alreadyMember: boolean;
+}
+
+export function parseCampaignInvite(payload: unknown): CampaignInvite {
+  const source = requireObject(payload, 'campaign invite');
+  const templateId = source['template_id'];
+  return {
+    name: requireString(source, 'name'),
+    gmUsername: optionalText(source, 'gm_username'),
+    gameSystem: parseGameSystem(source),
+    templateId: typeof templateId === 'string' && templateId !== '' ? templateId : undefined,
+    scopeName: requireString(source, 'scope_name'),
+    templateIds: parseTemplateIds(source) ?? [],
+    passwordRequired: requireBoolean(source, 'password_required'),
+    playerCount: requireNumber(source, 'player_count'),
+    alreadyMember: requireBoolean(source, 'already_member'),
+  };
+}
+
 export function parseCampaignSummaries(payload: unknown): CampaignSummary[] {
   if (!Array.isArray(payload)) {
     throw drift('campaign list is not an array');

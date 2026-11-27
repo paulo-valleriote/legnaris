@@ -195,7 +195,7 @@ export function CreateSheetDialog({
       .then((sheet) => {
         seedCreatedSheet(queryClient, sheet);
         void queryClient.invalidateQueries({ queryKey: PLAN_QUERY_KEY });
-        if (!campaignMode || onCreated === undefined) {
+        if (onCreated === undefined) {
           navigate(`/sheets/${encodeURIComponent(sheet.id)}`);
           return;
         }
