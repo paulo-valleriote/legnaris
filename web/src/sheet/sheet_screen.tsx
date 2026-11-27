@@ -269,25 +269,14 @@ function FooterStatus({ pending, marks, reveal, children }: FooterStatusProps) {
 
 function SheetFooter({ store, reveal }: SheetFooterProps) {
   const state = useEditState(store);
-  const [savedRevision, setSavedRevision] = useState<number | undefined>(undefined);
   const pending = isPending(state);
   const changes = pendingCount(state);
   const savable = canSave(state);
   const previewable = canPreview(state);
-  const showSaved =
-    savedRevision !== undefined &&
-    savedRevision === state.revision &&
-    !state.isSaving &&
-    !state.isPreviewing &&
-    !pending;
+  const showSaved = state.justSaved && !state.isSaving && !state.isPreviewing && !pending;
 
   const runSave = useCallback(async () => {
-    setSavedRevision(undefined);
     await store.save();
-    const after = store.getState();
-    if (after.saveError === undefined && !isPending(after)) {
-      setSavedRevision(after.revision);
-    }
   }, [store]);
 
   const quiet =
