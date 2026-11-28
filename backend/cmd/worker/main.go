@@ -15,6 +15,7 @@ import (
 	"legnaris/backend/internal/email/amqp"
 	"legnaris/backend/internal/email/factory"
 	"legnaris/backend/internal/email/worker"
+	"legnaris/backend/internal/generation"
 	"legnaris/backend/internal/platform/metrics"
 	"legnaris/backend/shared/env"
 	"legnaris/backend/shared/logger"
@@ -33,7 +34,7 @@ type dependencies struct {
 	newSender     func(cfg env.Env) (email.Sender, error)
 	dialBroker    func(cfg env.Env) (brokerClient, error)
 	serveMetrics  func(addr string, handler http.Handler) (func(ctx context.Context) error, error)
-	newGeneration func(cfg env.Env) (generationRunner, func(), error)
+	newGeneration func(cfg env.Env, observer generation.WorkerObserver) (generationRunner, func(), error)
 }
 
 func main() {
@@ -59,9 +60,11 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 		return err
 	}
 
+	workerMetrics := metrics.New()
+
 	var generation generationRunner
 	if cfg.Variables.GenerationEnabled {
-		runner, cleanup, err := deps.newGeneration(cfg)
+		runner, cleanup, err := deps.newGeneration(cfg, workerMetrics)
 		if err != nil {
 			return err
 		}
@@ -84,7 +87,6 @@ func run(ctx context.Context, cfg env.Env, deps dependencies) error {
 		return err
 	}
 
-	workerMetrics := metrics.New()
 	shutdown, err := deps.serveMetrics(cfg.Variables.EmailWorkerMetricsAddr, workerMetrics.Handler())
 	if err != nil {
 		return err

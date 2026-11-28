@@ -101,3 +101,29 @@ func TestResponseCarriesModel(t *testing.T) {
 	response := llm.Response{Model: "deepseek/deepseek-v4.1-flash"}
 	assert.Equal(t, "deepseek/deepseek-v4.1-flash", response.Model)
 }
+
+func TestUsageCost(t *testing.T) {
+	known := 0.001234
+	zero := 0.0
+	negative := -0.01
+
+	tests := []struct {
+		name      string
+		usage     llm.Usage
+		want      float64
+		wantKnown bool
+	}{
+		{name: "Happy path: a provider-reported cost is known", usage: llm.Usage{CostUSD: &known}, want: 0.001234, wantKnown: true},
+		{name: "Edge: a zero cost is a known zero", usage: llm.Usage{CostUSD: &zero}, want: 0, wantKnown: true},
+		{name: "Edge: a missing cost is unknown", usage: llm.Usage{}, want: 0, wantKnown: false},
+		{name: "Edge: a negative cost is unknown", usage: llm.Usage{CostUSD: &negative}, want: 0, wantKnown: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cost, known := tc.usage.Cost()
+			assert.Equal(t, tc.wantKnown, known)
+			assert.InDelta(t, tc.want, cost, 1e-12)
+		})
+	}
+}

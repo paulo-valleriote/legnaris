@@ -1,0 +1,257 @@
+{
+  "uid": "llm-generation",
+  "title": "LLM generation",
+  "description": "Provider latency, tokens, cost, invalid output, schema retries and the circuit breaker for character generation. Every panel names the series it reads.",
+  "tags": [
+    "legnaris",
+    "generation",
+    "llm"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 40,
+  "version": 1,
+  "editable": false,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Provider breaker open",
+      "description": "Reads legnaris_gen_ai_breaker_open from the worker: 1 while the provider circuit breaker is open and generation fails fast, else 0.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "max(legnaris_gen_ai_breaker_open{job=\"legnaris-worker\"}) or vector(0)",
+          "legendFormat": "open"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Breaker openings (24h)",
+      "description": "Reads legnaris_gen_ai_breaker_opened_total from the worker: times the provider breaker opened after consecutive outages in the last 24 hours.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum(increase(legnaris_gen_ai_breaker_opened_total{job=\"legnaris-worker\"}[24h]))",
+          "legendFormat": "openings"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Calls without a reported cost (1h)",
+      "description": "Reads legnaris_gen_ai_cost_unknown_total from the worker: calls whose provider response carried no cost and were never counted as zero, in the last hour.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum(increase(legnaris_gen_ai_cost_unknown_total{job=\"legnaris-worker\"}[1h])) or vector(0)",
+          "legendFormat": "unknown"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Invalid output share (15m)",
+      "description": "Reads legnaris_gen_ai_invalid_output_total and legnaris_gen_ai_client_operation_duration_seconds_count from the worker: rejected outputs over successful provider calls in the last 15 minutes.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum(rate(legnaris_gen_ai_invalid_output_total{job=\"legnaris-worker\"}[15m])) / clamp_min(sum(rate(legnaris_gen_ai_client_operation_duration_seconds_count{job=\"legnaris-worker\", result=\"success\"}[15m])), 0.000001)",
+          "legendFormat": "invalid"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Provider latency p95 by model and prompt version",
+      "description": "Reads legnaris_gen_ai_client_operation_duration_seconds_bucket from the worker: 95th percentile of successful provider call latency, split by response model and prompt version.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le, gen_ai_response_model, prompt_version) (rate(legnaris_gen_ai_client_operation_duration_seconds_bucket{job=\"legnaris-worker\", result=\"success\"}[5m])))",
+          "legendFormat": "{{gen_ai_response_model}} {{prompt_version}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Tokens per minute",
+      "description": "Reads legnaris_gen_ai_client_token_usage_sum from the worker: input and output tokens per minute across successful calls.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum by (gen_ai_token_type) (rate(legnaris_gen_ai_client_token_usage_sum{job=\"legnaris-worker\"}[5m])) * 60",
+          "legendFormat": "{{gen_ai_token_type}}"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Provider cost per hour (USD)",
+      "description": "Reads legnaris_gen_ai_cost_usd_total from the worker: cost reported by the provider, in US dollars per hour.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum(rate(legnaris_gen_ai_cost_usd_total{job=\"legnaris-worker\"}[5m])) * 3600",
+          "legendFormat": "USD/h"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Schema retries per second",
+      "description": "Reads legnaris_gen_ai_schema_retry_total from the worker: retries scheduled after an invalid output, by response model.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "refId": "A",
+          "expr": "sum by (gen_ai_response_model) (rate(legnaris_gen_ai_schema_retry_total{job=\"legnaris-worker\"}[15m]))",
+          "legendFormat": "{{gen_ai_response_model}}"
+        }
+      ]
+    }
+  ]
+}

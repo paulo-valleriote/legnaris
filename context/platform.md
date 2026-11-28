@@ -162,7 +162,9 @@ so Drafts stay hidden.
   fails closed, the worker sets `production`, and `scripts/dev.sh` exports
   `development`; a bare `go run` hides Drafts. `LLM_TIMEOUT` defaults to 120 s in
   `backend/shared/env/env.go`, and the worker derives its job budget and claim
-  lease from it.
+  lease from it. `LLM_BREAKER_THRESHOLD` (default 5) and
+  `LLM_BREAKER_PROBE_INTERVAL` (default 60 s) must be positive and configure the
+  generation provider circuit breaker.
 - **Home funnel metrics (LGN-346).** `POST /funnel/home` takes
   `{"event":"visit"}` or `{"event":"cta_click"}` and answers 204; it is public
   and IP rate limited through the same public limiter settings as
@@ -177,6 +179,7 @@ so Drafts stay hidden.
   account in `deleting` or `deletion_dead` is excluded. Those three are gauges
   of the current database, so deleting an account lowers them. The dashboard is
   `deploy/grafana/dashboards/legnaris-funnel.json`.
+- **Generation metrics (LGN-448).** `backend/internal/platform/metrics` implements `generation.WorkerObserver`: each `llm.Client.Generate` call records `legnaris_gen_ai_client_operation_duration_seconds` and, on success, `legnaris_gen_ai_client_token_usage`; the provider-reported cost feeds `legnaris_gen_ai_cost_usd_total`, and a missing or negative cost increments `legnaris_gen_ai_cost_unknown_total` instead of adding zero. Invalid outputs and scheduled schema retries have their own counters, and the worker's breaker exports `legnaris_gen_ai_breaker_open` and `..._breaker_opened_total`. Labels are the response model, prompt version, result and token type only, never a sheet or user id. The worker serves them on its own listener; the dashboard is `deploy/grafana/dashboards/llm-generation.json`, and the dev Prometheus scrapes the local worker on port 9101.
 - **No credential in the repository.** The only repository secret is none: the
   pipeline uses the automatic `GITHUB_TOKEN` (`packages: write` on the image
   job, push events only) plus the deploy environment secrets above, and a job

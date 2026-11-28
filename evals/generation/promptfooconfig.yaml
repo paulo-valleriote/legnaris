@@ -1,0 +1,16 @@
+description: Legnaris generation evals
+prompts:
+  - '{{concept}}'
+providers:
+  - id: 'exec: ./exec-provider.sh'
+    label: legnaris-generation
+tests: file://dataset.json
+defaultTest:
+  assert:
+    - type: is-json
+    - type: javascript
+      value: file://assertions/sheet.js
+evaluateOptions:
+  cache: false
+  maxConcurrency: 1
+  timeoutMs: 420000

@@ -180,6 +180,7 @@ packages:
       Quota: {}
       Transactor: {}
       CapObserver: {}
+      WorkerObserver: {}
   legnaris/backend/internal/llm:
     config:
       dir: backend/internal/llm/mocks

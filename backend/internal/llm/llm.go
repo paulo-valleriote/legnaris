@@ -14,10 +14,11 @@ var ErrPermanent = errors.New("llm permanent failure")
 var ErrProviderUnavailable = fmt.Errorf("%w: no eligible provider", ErrTransient)
 
 type Request struct {
-	System    string
-	Prompt    string
-	Schema    json.RawMessage
-	MaxTokens int
+	System      string
+	Prompt      string
+	Schema      json.RawMessage
+	MaxTokens   int
+	Temperature *float64
 }
 
 type Usage struct {
@@ -25,6 +26,14 @@ type Usage struct {
 	CompletionTokens int
 	TotalTokens      int
 	ReasoningTokens  int
+	CostUSD          *float64
+}
+
+func (u Usage) Cost() (float64, bool) {
+	if u.CostUSD == nil || *u.CostUSD < 0 {
+		return 0, false
+	}
+	return *u.CostUSD, true
 }
 
 type Response struct {

@@ -138,7 +138,8 @@ and `failed_total`, labelled by queue, are the operational contract.
   llm and plan) plus shared primitives; `sheet/template` imports `engine`;
   `engine`, `dice` and `plan` are leaves. `shared/*` imports no domain package,
   and `platform` imports a domain package only to implement an interface that
-  domain declares (metrics implements the auth, billing and sweeper observers).
+  domain declares (metrics implements the auth, billing, sweeper and generation
+  observers).
   No production code under `internal/` imports `internal/app` or `cmd`.
 - **Composition root** — each command builds its infrastructure and adapters in
   `main`/`run`: the API through `app.NewModules` and `app.NewRouter`, the relay

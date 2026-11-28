@@ -282,6 +282,7 @@ func (c *Client) parse(ctx context.Context, raw []byte, latency time.Duration) (
 		CompletionTokens: body.Usage.CompletionTokens,
 		TotalTokens:      body.Usage.TotalTokens,
 		ReasoningTokens:  body.Usage.CompletionTokensDetails.ReasoningTokens,
+		CostUSD:          body.Usage.Cost,
 	}
 	model := body.Model
 	if model == "" {
@@ -334,9 +335,10 @@ func (c *Client) buildRequest(req llm.Request) chatRequest {
 	messages = append(messages, message{Role: "user", Content: req.Prompt})
 
 	request := chatRequest{
-		Model:     c.model,
-		MaxTokens: req.MaxTokens,
-		Messages:  messages,
+		Model:       c.model,
+		MaxTokens:   req.MaxTokens,
+		Temperature: req.Temperature,
+		Messages:    messages,
 		ResponseFormat: responseFormat{
 			Type: "json_schema",
 			JSONSchema: jsonSchema{
@@ -359,6 +361,7 @@ func (c *Client) buildRequest(req llm.Request) chatRequest {
 type chatRequest struct {
 	Model          string           `json:"model"`
 	MaxTokens      int              `json:"max_tokens"`
+	Temperature    *float64         `json:"temperature,omitempty"`
 	Messages       []message        `json:"messages"`
 	ResponseFormat responseFormat   `json:"response_format"`
 	Provider       providerRouting  `json:"provider"`
@@ -399,9 +402,10 @@ type chatResponse struct {
 		FinishReason string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage struct {
-		PromptTokens            int `json:"prompt_tokens"`
-		CompletionTokens        int `json:"completion_tokens"`
-		TotalTokens             int `json:"total_tokens"`
+		PromptTokens            int      `json:"prompt_tokens"`
+		CompletionTokens        int      `json:"completion_tokens"`
+		TotalTokens             int      `json:"total_tokens"`
+		Cost                    *float64 `json:"cost"`
 		CompletionTokensDetails struct {
 			ReasoningTokens int `json:"reasoning_tokens"`
 		} `json:"completion_tokens_details"`

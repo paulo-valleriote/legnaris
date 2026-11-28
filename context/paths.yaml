@@ -102,6 +102,12 @@ paths:
   - target: backend/shared/response
     kind: directory
     context: architecture
+  - target: backend/cmd/geneval
+    kind: directory
+    context: generation
+  - target: evals/generation
+    kind: directory
+    context: generation
   - target: web/src/account
     kind: directory
     context: auth
@@ -319,6 +325,10 @@ env:
   - key: LLM_API_KEY
     context: generation
   - key: LLM_BASE_URL
+    context: generation
+  - key: LLM_BREAKER_PROBE_INTERVAL
+    context: generation
+  - key: LLM_BREAKER_THRESHOLD
     context: generation
   - key: LLM_MODEL
     context: generation

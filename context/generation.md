@@ -195,9 +195,47 @@ and field list), never the player's concept. A text change therefore changes the
 `N` was not bumped; bump `N` deliberately when the change is semantic. The model comes from the
 provider response of the settling attempt (the successful one, or the last invalid one), not from
 configuration, so a gateway fallback is visible. Queued/publish-failed and old documents may have
-empty values. `MongoStore.ListBySheet(sheetID, from, to)` returns the non-user-facing documents for
+empty values.
+
+Every provider call records `legnaris_gen_ai_client_operation_duration_seconds`,
+`legnaris_gen_ai_client_token_usage` and, on success, the provider-reported cost.
+The worker labels them by the response model and prompt version, never by sheet,
+user or generation, so the series stay bounded.
+Tokens come from the provider's `usage.prompt_tokens` and `usage.completion_tokens`;
+cost is the `usage.cost` the provider returns, and a response without it increments
+`legnaris_gen_ai_cost_unknown_total` instead of adding zero. Invalid outputs and the
+schema retries scheduled after them have their own counters, so their share is
+readable against the successful calls. The circuit breaker opens after
+`LLM_BREAKER_THRESHOLD` consecutive outages (default 5), admits one probe after
+`LLM_BREAKER_PROBE_INTERVAL` (default 60 s) and closes on its success; while open,
+generation fails fast with `provider_unavailable`. It exports
+`legnaris_gen_ai_breaker_open` and `legnaris_gen_ai_breaker_opened_total`. The
+dashboard is `deploy/grafana/dashboards/llm-generation.json`, provisioned by both the
+production stack and the dev observability stack.
+
+`MongoStore.ListBySheet(sheetID, from, to)` returns the non-user-facing documents for
 a Sheet and period; the compound sparse index `{sheet_id, created_at}` backs it. `GET
 /generations/{id}` and the rest of the user surface never expose either field.
+
+### Prompt evals
+
+`evals/generation` holds the prompt eval: a synthetic dataset of 60 concepts across classes,
+species, backgrounds, levels, multiclass, out-of-SRD, non-English and edge cases, the promptfoo
+configuration and assertions, and the `run.sh` wrapper. `backend/cmd/geneval` is the bridge: it
+loads the default Template, builds the same system prompt, output schema, validation and assembly
+as the worker, sends temperature 0 and prints the assembled sheet. It retries an invalid output
+twice with the problems, like production. The cost ledger records each call's `usage.cost`; a
+missing cost or a total above US$ 1.00 writes a block file and aborts the run, never treating
+unknown as zero. The gate requires 90% of the cases to pass the JSON, structural-coherence and
+per-case adherence assertions; the dataset states the expected class, species and background
+wherever the concept does, and always an expected level, defaulting to 1 when the concept names
+none. An execution with no cases fails. It runs only from
+`.github/workflows/prompt-evals.yml`, which is manual and nightly and never triggered by a pull
+request; the job summary shows the prompt version, model, counts, pass rate and cost. At the US$
+1.00 cap, a nightly run costs at most US$ 1 per day. Locally, export `LLM_API_KEY` (or put it in
+`.env`) and run `./evals/generation/run.sh`; `LLM_MODEL` overrides the model and
+`EVAL_MAX_COST_USD` the cap. The workflow reads the `OPENROUTER_API_KEY` secret and fails with a
+clear message when it is absent.
 
 ### Template metadata
 
@@ -207,7 +245,7 @@ A Record list carries `MaxRecords`, the generation cap that is separate from its
 
 ### Configuration and boot checks
 
-`GENERATION_ENABLED` (default false) is the kill switch: the API answers 503 `PROVIDER_UNAVAILABLE` before reserving anything, and the worker does not open the LLM consumer. `GENERATION_DAILY_CAP` (default 200) must not be negative. `LLM_PROVIDER` is `openrouter`; the other keys are `LLM_BASE_URL`, `LLM_API_KEY` (worker only), `LLM_MODEL` (default `deepseek/deepseek-v4.1-flash`), `LLM_TIMEOUT` (default 120 s, which also derives the job lease) and `LLM_REASONING_EFFORT` (empty for the provider default, or `none`, `minimal`, `low`, `medium`, `high`, `xhigh`). The environment check refuses a `:free` model, a negative cap and an unknown effort; building the worker client additionally refuses an unknown provider or a missing key, model or logger, a non-HTTP base URL and a non-positive timeout.
+`GENERATION_ENABLED` (default false) is the kill switch: the API answers 503 `PROVIDER_UNAVAILABLE` before reserving anything, and the worker does not open the LLM consumer. `GENERATION_DAILY_CAP` (default 200) must not be negative. `LLM_PROVIDER` is `openrouter`; the other keys are `LLM_BASE_URL`, `LLM_API_KEY` (worker only), `LLM_MODEL` (default `deepseek/deepseek-v4.1-flash`), `LLM_TIMEOUT` (default 120 s, which also derives the job lease), `LLM_REASONING_EFFORT` (empty for the provider default, or `none`, `minimal`, `low`, `medium`, `high`, `xhigh`), `LLM_BREAKER_THRESHOLD` (default 5 consecutive outages) and `LLM_BREAKER_PROBE_INTERVAL` (default 60 s). The environment check refuses a `:free` model, a non-positive breaker threshold or interval, a negative cap and an unknown effort; building the worker client additionally refuses an unknown provider or a missing key, model or logger, a non-HTTP base URL and a non-positive timeout.
 
 ## Code map
 
@@ -220,18 +258,20 @@ A Record list carries `MaxRecords`, the generation cap that is separate from its
 - `backend/internal/sheet` — `create_values.go` (accept) and `limits.go` (limit check and slot reservation).
 - `backend/internal/sheet/template` — generation metadata, name leaf, seeding and the registry.
 - `backend/internal/app` — `generation.go`, `llm_consent.go`, `plan.go`, `router.go` and `bootstrap.go`.
-- `backend/cmd/worker` — builds the LLM client, registry, worker and consumer when generation is enabled; `backend/cmd/relay` runs the sweeper queues.
+- `backend/cmd/worker` — builds the LLM client, registry, worker and consumer when generation is enabled; `backend/cmd/relay` runs the sweeper queues; `backend/cmd/geneval` is the prompt-eval bridge over the default Template.
+- `evals/generation` — synthetic concept dataset, promptfoo configuration and assertions, cost/report scripts and the eval wrapper.
 - `backend/shared/db/indexes.go`, `backend/shared/env/env.go`, `backend/shared/apperr/err.go` and `backend/internal/platform/{breaker,metrics}` — indexes, config, error codes, circuit breaker and cap gauges.
 - `web/src/generate` — concept screen, consent modal, polling, preview editing and accept; the review draws the Template name with its notice link through `web/src/catalog/template_name.tsx`; `generation_flow.ts` holds the pure length and wait rules; `web/src/api` holds the calls, models and error-kind mapping. A draft with a non-empty `identity.name` shows that name as the read-only Sheet name with the `generate.nameFromCharacter` hint, because accept uses it over the typed name; without one the typed or suggested name is used.
 - `deploy/.env.example`, `deploy/docker-compose.yml` and `deploy/prometheus/rules-f1a.yml` — keys, process placement and the 80% alert.
 
 ## Tools & dependencies
 
-- **OpenRouter** chat completions with strict `json_schema` response format; every request carries `provider.require_parameters` and `allow_fallbacks`, with no retention or provider filter. A plain `http.Client` applies `LLM_TIMEOUT`.
+- **OpenRouter** chat completions with strict `json_schema` response format; every request carries `provider.require_parameters` and `allow_fallbacks`, with no retention or provider filter. A plain `http.Client` applies `LLM_TIMEOUT`. The eval bridge adds temperature 0; production leaves it unset.
+- **promptfoo** 0.126.0 via `npx`, only in the manual/nightly eval workflow and the local wrapper.
 - **DeepSeek V4.1 Flash** (`deepseek/deepseek-v4.1-flash`), the pinned paid model.
 - **RabbitMQ** topic exchange `generation`, key `generation.<kind>.requested`, quorum queue `generation.requests`, dead-letter queue `generation.dead`, publisher confirms and unroutable detection.
 - **MongoDB** transactions for cap, quota and insert and for terminal failure plus refund; sparse unique and TTL indexes.
-- **Prometheus/Grafana** for `legnaris_generation_cap_used`, `..._cap_limit` and `..._cap_used_ratio`, feeding the 80% alert.
+- **Prometheus/Grafana** for `legnaris_generation_cap_used`, `..._cap_limit` and `..._cap_used_ratio`, feeding the 80% alert, and for the `legnaris_gen_ai_*` latency, token, cost, invalid-output, schema-retry and breaker series on the `llm-generation` dashboard.
 - **Web**: React Query for plan invalidation, the shared API client and the Field/Dialog/Notice primitives; consent copy is a bundled JSON import.
 
 ## Known limits
