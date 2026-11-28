@@ -255,13 +255,13 @@ func TestBreaker_ProbeOutcomes(t *testing.T) {
 		{
 			name:           "Edge: an outage on the probe reopens and restarts the interval",
 			probeOutcome:   OutcomeOutage,
-			wantTransition: TransitionNone,
+			wantTransition: TransitionOpened,
 			wantState:      breakerOpen,
 		},
 		{
 			name:           "Edge: a neutral probe result reopens instead of closing",
 			probeOutcome:   OutcomeNeutral,
-			wantTransition: TransitionNone,
+			wantTransition: TransitionOpened,
 			wantState:      breakerOpen,
 		},
 	}

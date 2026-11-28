@@ -119,7 +119,7 @@ func (b *Breaker) recordProbe(probe uint64, outcome Outcome) Transition {
 		return TransitionClosed
 	}
 	b.open()
-	return TransitionNone
+	return TransitionOpened
 }
 
 func (b *Breaker) Release(probe uint64) {
