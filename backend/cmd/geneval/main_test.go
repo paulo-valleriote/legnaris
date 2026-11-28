@@ -289,6 +289,17 @@ func TestRunCostGuard(t *testing.T) {
 		assert.Empty(t, client.requests)
 	})
 
+	t.Run("Error: a non-finite cap is refused before the provider call", func(t *testing.T) {
+		env := baseEnv(t)
+		env["EVAL_MAX_COST_USD"] = "NaN"
+		client := &fakeClient{results: []fakeResult{{resp: draftResponse(t, ptrFloat(0.01))}}}
+		code, _, stderr := runWithClient(t, env, client, "a druid")
+
+		require.NotZero(t, code)
+		assert.Contains(t, stderr, "must be a positive number")
+		assert.Empty(t, client.requests)
+	})
+
 	t.Run("Edge: a call that pushes the total over the cap blocks the eval", func(t *testing.T) {
 		env := baseEnv(t)
 		env["EVAL_MAX_COST_USD"] = "0.01"
