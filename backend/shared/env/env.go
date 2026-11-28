@@ -88,6 +88,8 @@ type Variables struct {
 	LLMModel                          string
 	LLMReasoningEffort                string
 	LLMTimeout                        time.Duration
+	LLMBreakerThreshold               int
+	LLMBreakerProbeInterval           time.Duration
 	GenerationEnabled                 bool
 	GenerationDailyCap                int
 	GenerationCreateRateLimitAttempts int
@@ -157,6 +159,8 @@ const (
 	defaultLLMProvider             = "openrouter"
 	defaultLLMBaseURL              = "https://openrouter.ai/api/v1"
 	defaultLLMModel                = "deepseek/deepseek-v4.1-flash"
+	defaultLLMBreakerThreshold     = 5
+	defaultLLMBreakerProbeInterval = 60 * time.Second
 	DefaultLLMTimeout              = 120 * time.Second
 
 	defaultGenerationEnabled         = false
@@ -178,14 +182,16 @@ const (
 )
 
 const (
-	keyDatabaseURI        = "DATABASE_URI"
-	keyJWTSecret          = "JWT_SECRET"
-	keyEmailCodeSecret    = "EMAIL_CODE_SECRET"
-	keyTrustedProxyCIDRs  = "TRUSTED_PROXY_CIDRS"
-	keyRedisURL           = "REDIS_URL"
-	keyAppEnv             = "APP_ENV"
-	keyDisposableEmail    = "AUTH_DISPOSABLE_EMAIL_CHECK"
-	keyLLMReasoningEffort = "LLM_REASONING_EFFORT"
+	keyDatabaseURI         = "DATABASE_URI"
+	keyJWTSecret           = "JWT_SECRET"
+	keyEmailCodeSecret     = "EMAIL_CODE_SECRET"
+	keyTrustedProxyCIDRs   = "TRUSTED_PROXY_CIDRS"
+	keyRedisURL            = "REDIS_URL"
+	keyAppEnv              = "APP_ENV"
+	keyDisposableEmail     = "AUTH_DISPOSABLE_EMAIL_CHECK"
+	keyLLMReasoningEffort  = "LLM_REASONING_EFFORT"
+	keyLLMBreakerThreshold = "LLM_BREAKER_THRESHOLD"
+	keyLLMBreakerInterval  = "LLM_BREAKER_PROBE_INTERVAL"
 )
 
 func RequiredKeys() []string {
@@ -221,6 +227,12 @@ func (e Env) Validate() error {
 	}
 	if err := validateLLMReasoningEffort(e.Variables.LLMReasoningEffort); err != nil {
 		errs = append(errs, err)
+	}
+	if e.Variables.LLMBreakerThreshold <= 0 {
+		errs = append(errs, fmt.Errorf("%s must be positive", keyLLMBreakerThreshold))
+	}
+	if e.Variables.LLMBreakerProbeInterval <= 0 {
+		errs = append(errs, fmt.Errorf("%s must be positive", keyLLMBreakerInterval))
 	}
 	if e.Variables.GenerationDailyCap < 0 {
 		errs = append(errs, errors.New("GENERATION_DAILY_CAP must not be negative"))
@@ -346,6 +358,8 @@ func (e *Env) buildVariables() Variables {
 		LLMModel:                          e.lookupStringEnv("LLM_MODEL", defaultLLMModel),
 		LLMReasoningEffort:                e.lookupStringEnv(keyLLMReasoningEffort, ""),
 		LLMTimeout:                        e.lookupDurationEnv("LLM_TIMEOUT", DefaultLLMTimeout),
+		LLMBreakerThreshold:               e.lookupIntEnv(keyLLMBreakerThreshold, defaultLLMBreakerThreshold),
+		LLMBreakerProbeInterval:           e.lookupDurationEnv(keyLLMBreakerInterval, defaultLLMBreakerProbeInterval),
 		GenerationEnabled:                 e.lookupBoolEnv("GENERATION_ENABLED", defaultGenerationEnabled),
 		GenerationDailyCap:                e.lookupIntEnv("GENERATION_DAILY_CAP", defaultGenerationDailyCap),
 		GenerationCreateRateLimitAttempts: e.lookupIntEnv("GENERATION_CREATE_RATE_LIMIT_ATTEMPTS", defaultGenerationCreateAttempts),

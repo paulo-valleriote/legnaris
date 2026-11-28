@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"legnaris/backend/internal/llm"
 	"legnaris/backend/internal/plan"
 	"legnaris/backend/internal/sheet"
 	"legnaris/backend/internal/sheet/template"
@@ -60,6 +61,19 @@ type Transactor interface {
 type CapObserver interface {
 	GenerationCapUsage(used, limit int)
 }
+
+type WorkerObserver interface {
+	GenerationAttempt(model, promptVersion string, duration time.Duration, usage llm.Usage, result string)
+	GenerationInvalidOutput(model, promptVersion string)
+	GenerationSchemaRetry(model, promptVersion string)
+	GenerationBreakerState(open bool)
+	GenerationBreakerOpened()
+}
+
+const (
+	AttemptResultSuccess = "success"
+	AttemptResultError   = "error"
+)
 
 type JobStore interface {
 	ClaimQueued(ctx context.Context, id string, now time.Time, lease time.Duration) (Document, bool, error)

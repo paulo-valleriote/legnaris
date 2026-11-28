@@ -125,6 +125,37 @@ func TestBreaker_ClosedState(t *testing.T) {
 	}
 }
 
+func TestBreaker_IsOpen(t *testing.T) {
+	clock := newFakeClock()
+	b := New(2, testProbeInterval, clock.Now)
+	var halfOpenProbe uint64
+
+	t.Run("Happy path: a new breaker is closed", func(t *testing.T) {
+		assert.False(t, b.IsOpen())
+	})
+
+	t.Run("Edge: the breaker reports open after the threshold outage", func(t *testing.T) {
+		b.Record(0, OutcomeOutage)
+		assert.False(t, b.IsOpen())
+		require.Equal(t, TransitionOpened, b.Record(0, OutcomeOutage))
+		assert.True(t, b.IsOpen())
+	})
+
+	t.Run("Edge: a half-open breaker is not open while its probe is in flight", func(t *testing.T) {
+		clock.Advance(testProbeInterval)
+		probe := b.Admit()
+		require.True(t, probe.Proceed)
+		halfOpenProbe = probe.Probe
+		assert.False(t, b.IsOpen())
+	})
+
+	t.Run("Edge: a successful probe closes the breaker again", func(t *testing.T) {
+		require.NotZero(t, halfOpenProbe)
+		require.Equal(t, TransitionClosed, b.Record(halfOpenProbe, OutcomeSuccess))
+		assert.False(t, b.IsOpen())
+	})
+}
+
 func TestBreaker_OpenStateSchedule(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -224,13 +255,13 @@ func TestBreaker_ProbeOutcomes(t *testing.T) {
 		{
 			name:           "Edge: an outage on the probe reopens and restarts the interval",
 			probeOutcome:   OutcomeOutage,
-			wantTransition: TransitionNone,
+			wantTransition: TransitionOpened,
 			wantState:      breakerOpen,
 		},
 		{
 			name:           "Edge: a neutral probe result reopens instead of closing",
 			probeOutcome:   OutcomeNeutral,
-			wantTransition: TransitionNone,
+			wantTransition: TransitionOpened,
 			wantState:      breakerOpen,
 		},
 	}

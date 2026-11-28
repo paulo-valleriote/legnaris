@@ -11,6 +11,7 @@ import (
 	llmfactory "legnaris/backend/internal/llm/factory"
 	llmmocks "legnaris/backend/internal/llm/mocks"
 	"legnaris/backend/internal/llm/openrouter"
+	"legnaris/backend/internal/platform/breaker"
 	"legnaris/backend/shared/env"
 
 	"github.com/stretchr/testify/assert"
@@ -47,7 +48,7 @@ func TestRun_GenerationOffNeverBuildsTheConsumer(t *testing.T) {
 	broker.MockRepublisher.EXPECT().PublishTo(mock.Anything, mock.Anything, mock.Anything).Maybe()
 	built := false
 	deps := p.deps(broker, nil)
-	deps.newGeneration = func(env.Env) (generationRunner, func(), error) {
+	deps.newGeneration = func(env.Env, generation.WorkerObserver) (generationRunner, func(), error) {
 		built = true
 		return newFakeGeneration(), func() {}, nil
 	}
@@ -61,7 +62,7 @@ func TestRun_GenerationOffNeverBuildsTheConsumer(t *testing.T) {
 func TestRun_GenerationBuildFailureStopsBeforeConsuming(t *testing.T) {
 	p := &probe{}
 	deps := p.deps(newFakeBroker(t), nil)
-	deps.newGeneration = func(env.Env) (generationRunner, func(), error) {
+	deps.newGeneration = func(env.Env, generation.WorkerObserver) (generationRunner, func(), error) {
 		return nil, nil, openrouter.ErrMissingAPIKey
 	}
 
@@ -74,11 +75,11 @@ func TestRun_GenerationRunsBesideEmailAndCleansUp(t *testing.T) {
 	p := &probe{}
 	broker := newFakeBroker(t)
 	broker.MockRepublisher.EXPECT().PublishTo(mock.Anything, mock.Anything, mock.Anything).Maybe()
-	generation := newFakeGeneration()
+	runner := newFakeGeneration()
 	cleaned := make(chan struct{})
 	deps := p.deps(broker, nil)
-	deps.newGeneration = func(env.Env) (generationRunner, func(), error) {
-		return generation, func() { close(cleaned) }, nil
+	deps.newGeneration = func(env.Env, generation.WorkerObserver) (generationRunner, func(), error) {
+		return runner, func() { close(cleaned) }, nil
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -87,14 +88,14 @@ func TestRun_GenerationRunsBesideEmailAndCleansUp(t *testing.T) {
 
 	require.Eventually(t, func() bool { return broker.declared.Load() }, 5*time.Second, 5*time.Millisecond)
 	select {
-	case <-generation.started:
+	case <-runner.started:
 	case <-time.After(5 * time.Second):
 		t.Fatal("the generation consumer never started")
 	}
 	cancel()
 
 	require.NoError(t, <-done)
-	<-generation.stopped
+	<-runner.stopped
 	<-cleaned
 	assert.True(t, broker.closed)
 }
@@ -116,7 +117,7 @@ func TestBuildGeneration(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			cfg := generationEnv()
 			tc.mutate(&cfg)
-			runner, cleanup, err := buildGeneration(cfg)
+			runner, cleanup, err := buildGeneration(cfg, nil)
 			require.Error(t, err)
 			if tc.wantErr != nil {
 				require.ErrorIs(t, err, tc.wantErr, "got %v", err)
@@ -146,7 +147,7 @@ func TestBuildGenerationWorker_WiresTheConfiguredLLMTimeout(t *testing.T) {
 				Return(generation.Document{}, false, nil).
 				Once()
 
-			worker, err := buildGenerationWorker(cfg, jobs,
+			worker, err := buildGenerationWorker(cfg, nil, jobs,
 				generationmocks.NewMockCatalog(t), llmmocks.NewMockClient(t),
 				generationmocks.NewMockQuota(t), generationmocks.NewMockTransactor(t))
 			require.NoError(t, err)
@@ -169,7 +170,7 @@ func TestBuildGenerationWorker_RefusesANonPositiveLLMTimeout(t *testing.T) {
 			cfg := generationEnv()
 			cfg.Variables.LLMTimeout = tc.timeout
 
-			worker, err := buildGenerationWorker(cfg,
+			worker, err := buildGenerationWorker(cfg, nil,
 				generationmocks.NewMockJobStore(t), generationmocks.NewMockCatalog(t),
 				llmmocks.NewMockClient(t), generationmocks.NewMockQuota(t),
 				generationmocks.NewMockTransactor(t))
@@ -177,6 +178,29 @@ func TestBuildGenerationWorker_RefusesANonPositiveLLMTimeout(t *testing.T) {
 			assert.Nil(t, worker)
 		})
 	}
+}
+
+func TestNewGenerationBreaker_UsesTheConfiguredThresholdAndProbeInterval(t *testing.T) {
+	cfg := generationEnv()
+	cfg.Variables.LLMBreakerThreshold = 2
+	cfg.Variables.LLMBreakerProbeInterval = 30 * time.Second
+	now := time.Date(2026, 11, 28, 12, 0, 0, 0, time.UTC)
+	b := newGenerationBreaker(cfg, func() time.Time { return now })
+
+	t.Run("Happy path: the configured threshold opens the breaker", func(t *testing.T) {
+		require.False(t, b.IsOpen())
+		b.Record(0, breaker.OutcomeOutage)
+		assert.False(t, b.IsOpen())
+		b.Record(0, breaker.OutcomeOutage)
+		assert.True(t, b.IsOpen())
+	})
+
+	t.Run("Happy path: the configured probe interval admits the half-open probe", func(t *testing.T) {
+		now = now.Add(29 * time.Second)
+		assert.False(t, b.Admit().Proceed)
+		now = now.Add(time.Second)
+		assert.True(t, b.Admit().Proceed)
+	})
 }
 
 func TestRunConcurrently(t *testing.T) {

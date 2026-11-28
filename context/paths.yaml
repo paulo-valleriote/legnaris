@@ -320,6 +320,10 @@ env:
     context: generation
   - key: LLM_BASE_URL
     context: generation
+  - key: LLM_BREAKER_PROBE_INTERVAL
+    context: generation
+  - key: LLM_BREAKER_THRESHOLD
+    context: generation
   - key: LLM_MODEL
     context: generation
   - key: LLM_PROVIDER

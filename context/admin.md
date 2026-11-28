@@ -57,6 +57,8 @@ sequenceDiagram
 
 - **Generation timeout and lease (LGN-384).** `LLM_TIMEOUT` is an optional deploy key, commented in `deploy/.env.example` and defaulted to `120s` in `deploy/docker-compose.yml`. The worker refuses a non-positive value and derives the job budget and the claim lease from it — 751.5 s at the default — so the setting must cover the slowest accepted model's schema and transport retries.
 
+- **Generation breaker keys (LGN-448).** `LLM_BREAKER_THRESHOLD` (default 5) and `LLM_BREAKER_PROBE_INTERVAL` (default 60 s) are optional deploy keys, commented in `deploy/.env.example` and passed only to the worker. The environment check refuses non-positive values; the breaker opens after that many consecutive provider outages, admits one probe after the interval, closes on its success and fails a job fast as `provider_unavailable` while open.
+
 | Method | Path | Body | Success |
 | --- | --- | --- | --- |
 | GET | `/admin/users/{id}` | — | 200 consolidated view |
@@ -117,9 +119,7 @@ resolved client address. There is no update or delete path; boot indexes
   for the `admin_audit` indexes.
 - `backend/internal/billing` — `comp_expiry.go`, `refund.go`, `store_comp.go`,
   `store_refund.go`, `plan_sync.go`: the rules the backoffice reuses.
-- `deploy/grafana/dashboards/` — the provisioned API, load-test, email and
-  `legnaris-funnel` dashboards; the funnel one covers home visits, hero CTA
-  clicks and the 24-hour first-Sheet activation baseline.
+- `deploy/grafana/dashboards/` — the provisioned API, load-test, email, funnel and `llm-generation` dashboards; the funnel one covers home visits, hero CTA clicks and the 24-hour first-Sheet activation baseline, and `llm-generation` covers provider latency, tokens, cost, invalid output, schema retries and the breaker.
 - `.github/workflows/ci.yml` — the always-running `gate` job checks every
   tracked `.md` against `context/markdown-allowlist.txt` through
   `backend/cmd/markdown-check`; the same command backs the Claude Code

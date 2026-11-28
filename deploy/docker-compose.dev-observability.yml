@@ -3,7 +3,8 @@
 #
 # Usage (repo root): make dev-observability  /  make dev-observability-down
 #
-#   - Prometheus scrapes the API and accepts k6 remote writes. The API (`app`),
+#   - Prometheus scrapes the API, the local worker's metrics listener on port
+#     9101 and accepts k6 remote writes. The API (`app`),
 #     MongoDB and k6 live behind the `loadtest` profile (`make loadtest-dev`):
 #     everything shares one compose network, so no host port is exposed and it
 #     works the same on Linux, WSL and Docker Desktop. Rate limits are lifted.
