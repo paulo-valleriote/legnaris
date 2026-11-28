@@ -28,6 +28,13 @@ type Usage struct {
 	CostUSD          *float64
 }
 
+func (u Usage) Cost() (float64, bool) {
+	if u.CostUSD == nil || *u.CostUSD < 0 {
+		return 0, false
+	}
+	return *u.CostUSD, true
+}
+
 type Response struct {
 	Output       json.RawMessage
 	Usage        Usage

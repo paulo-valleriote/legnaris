@@ -579,11 +579,12 @@ func (m *Metrics) GenerationAttempt(model, promptVersion string, duration time.D
 	}
 	m.genAITokenUsage.WithLabelValues(model, promptVersion, genAITokenInput).Observe(float64(max(usage.PromptTokens, 0)))
 	m.genAITokenUsage.WithLabelValues(model, promptVersion, genAITokenOutput).Observe(float64(max(usage.CompletionTokens, 0)))
-	if usage.CostUSD == nil || *usage.CostUSD < 0 {
+	cost, known := usage.Cost()
+	if !known {
 		m.genAICostUnknown.WithLabelValues(model, promptVersion).Inc()
 		return
 	}
-	m.genAICost.WithLabelValues(model, promptVersion).Add(*usage.CostUSD)
+	m.genAICost.WithLabelValues(model, promptVersion).Add(cost)
 }
 
 func (m *Metrics) GenerationInvalidOutput(model, promptVersion string) {
