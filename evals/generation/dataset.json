@@ -5,7 +5,12 @@
       "concept": "A disciplined human fighter who served in a city guard, favors a longsword and shield, and keeps his armor in good repair."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Fighter",
+        "species": "Human",
+        "level": 1
+      }
     }
   },
   {
@@ -14,7 +19,12 @@
       "concept": "An elven wizard who studies ancient runes, carries a battered spellbook, and keeps a small owl familiar."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Wizard",
+        "species": "Elf",
+        "level": 1
+      }
     }
   },
   {
@@ -23,7 +33,12 @@
       "concept": "A halfling rogue and former circus acrobat who picks locks with wire and prefers to avoid a straight fight."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Rogue",
+        "species": "Halfling",
+        "level": 1
+      }
     }
   },
   {
@@ -32,7 +47,12 @@
       "concept": "A dwarven cleric of the forge who mends armor for her village and carries a heavy mace."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Cleric",
+        "species": "Dwarf",
+        "level": 1
+      }
     }
   },
   {
@@ -41,7 +61,12 @@
       "concept": "A human ranger who tracks game through the northern woods, wears worn leathers, and shoots a longbow."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Ranger",
+        "species": "Human",
+        "level": 1
+      }
     }
   },
   {
@@ -50,7 +75,12 @@
       "concept": "A dragonborn paladin sworn to protect travelers, armed with a greatsword and a polished breastplate."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Paladin",
+        "species": "Dragonborn",
+        "level": 1
+      }
     }
   },
   {
@@ -59,7 +89,12 @@
       "concept": "An orc barbarian who escaped a fighting pit, still carries a notched greataxe, and distrusts city walls."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Barbarian",
+        "species": "Orc",
+        "level": 1
+      }
     }
   },
   {
@@ -68,7 +103,12 @@
       "concept": "A gnome bard who tells exaggerated stories in taverns, plays a small lute, and collects gossip."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Bard",
+        "species": "Gnome",
+        "level": 1
+      }
     }
   },
   {
@@ -77,7 +117,12 @@
       "concept": "A human druid who tends a sacred grove, speaks to birds, and carries a gnarled wooden staff."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Druid",
+        "species": "Human",
+        "level": 1
+      }
     }
   },
   {
@@ -86,7 +131,12 @@
       "concept": "An elven monk trained in a mountain monastery who fights unarmed and keeps a strict daily routine."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Monk",
+        "species": "Elf",
+        "level": 1
+      }
     }
   },
   {
@@ -95,7 +145,12 @@
       "concept": "A tiefling sorcerer with draconic blood who channels fire through her hands and hides her scales under a cloak."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Sorcerer",
+        "species": "Tiefling",
+        "level": 1
+      }
     }
   },
   {
@@ -104,7 +159,12 @@
       "concept": "A human warlock bound to a fiend, whispering eldritch words and keeping a black iron focus."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Warlock",
+        "species": "Human",
+        "level": 1
+      }
     }
   },
   {
@@ -113,7 +173,12 @@
       "concept": "A dwarven fighter and champion of a mountain hold who fights with an axe and a shield."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Fighter",
+        "species": "Dwarf",
+        "level": 1
+      }
     }
   },
   {
@@ -122,7 +187,12 @@
       "concept": "A human rogue and thief who works the night markets, carries several daggers, and never shows her full hand."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Rogue",
+        "species": "Human",
+        "level": 1
+      }
     }
   },
   {
@@ -131,7 +201,12 @@
       "concept": "An elven ranger and hunter who moves silently through the canopy and fights with two short swords."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Ranger",
+        "species": "Elf",
+        "level": 1
+      }
     }
   },
   {
@@ -140,7 +215,12 @@
       "concept": "A human cleric of the life domain who runs a roadside infirmary and carries a mace and a healer's kit."
     },
     "metadata": {
-      "category": "classic"
+      "category": "classic",
+      "expected": {
+        "class": "Cleric",
+        "species": "Human",
+        "level": 1
+      }
     }
   },
   {
@@ -149,7 +229,12 @@
       "concept": "A dwarven wizard who studies stonework and magnetism, with a beard full of chalk dust."
     },
     "metadata": {
-      "category": "species"
+      "category": "species",
+      "expected": {
+        "class": "Wizard",
+        "species": "Dwarf",
+        "level": 1
+      }
     }
   },
   {
@@ -158,7 +243,12 @@
       "concept": "An elven paladin who guards an old road shrine and speaks softly to those who pass."
     },
     "metadata": {
-      "category": "species"
+      "category": "species",
+      "expected": {
+        "class": "Paladin",
+        "species": "Elf",
+        "level": 1
+      }
     }
   },
   {
@@ -167,7 +257,12 @@
       "concept": "A halfling druid who keeps bees, grows herbs, and turns into a small fox when scouting."
     },
     "metadata": {
-      "category": "species"
+      "category": "species",
+      "expected": {
+        "class": "Druid",
+        "species": "Halfling",
+        "level": 1
+      }
     }
   },
   {
@@ -176,7 +271,12 @@
       "concept": "A gnome rogue who dismantles traps for fun and keeps a tool roll on her belt."
     },
     "metadata": {
-      "category": "species"
+      "category": "species",
+      "expected": {
+        "class": "Rogue",
+        "species": "Gnome",
+        "level": 1
+      }
     }
   },
   {
@@ -185,7 +285,12 @@
       "concept": "A dragonborn sorcerer whose scales crackle with static when he is angry."
     },
     "metadata": {
-      "category": "species"
+      "category": "species",
+      "expected": {
+        "class": "Sorcerer",
+        "species": "Dragonborn",
+        "level": 1
+      }
     }
   },
   {
@@ -194,7 +299,12 @@
       "concept": "A tiefling rogue who works as a courier and hides messages in the lining of her coat."
     },
     "metadata": {
-      "category": "species"
+      "category": "species",
+      "expected": {
+        "class": "Rogue",
+        "species": "Tiefling",
+        "level": 1
+      }
     }
   },
   {
@@ -203,7 +313,12 @@
       "concept": "An orc cleric who tends wounded mercenaries and believes every scar tells a story."
     },
     "metadata": {
-      "category": "species"
+      "category": "species",
+      "expected": {
+        "class": "Cleric",
+        "species": "Orc",
+        "level": 1
+      }
     }
   },
   {
@@ -212,7 +327,12 @@
       "concept": "A goliath barbarian from a high plateau who wrestles avalanches in stories and carries a massive club."
     },
     "metadata": {
-      "category": "species"
+      "category": "species",
+      "expected": {
+        "class": "Barbarian",
+        "species": "Goliath",
+        "level": 1
+      }
     }
   },
   {
@@ -221,7 +341,12 @@
       "concept": "A human monk who left a city dojo to walk the roads and test her balance on rooftops."
     },
     "metadata": {
-      "category": "species"
+      "category": "species",
+      "expected": {
+        "class": "Monk",
+        "species": "Human",
+        "level": 1
+      }
     }
   },
   {
@@ -230,7 +355,12 @@
       "concept": "An elven fighter who served as a dueling instructor and carries a slender rapier."
     },
     "metadata": {
-      "category": "species"
+      "category": "species",
+      "expected": {
+        "class": "Fighter",
+        "species": "Elf",
+        "level": 1
+      }
     }
   },
   {
@@ -239,7 +369,12 @@
       "concept": "A young acolyte who left a temple library to tend the sick on the road, now a cleric."
     },
     "metadata": {
-      "category": "background"
+      "category": "background",
+      "expected": {
+        "class": "Cleric",
+        "background": "Acolyte",
+        "level": 1
+      }
     }
   },
   {
@@ -248,7 +383,12 @@
       "concept": "A former criminal who ran a smuggling ring and now uses those contacts as a rogue."
     },
     "metadata": {
-      "category": "background"
+      "category": "background",
+      "expected": {
+        "class": "Rogue",
+        "background": "Criminal",
+        "level": 1
+      }
     }
   },
   {
@@ -257,7 +397,12 @@
       "concept": "A sage who catalogued rare plants and turned to wizardry to understand the magic in them."
     },
     "metadata": {
-      "category": "background"
+      "category": "background",
+      "expected": {
+        "class": "Wizard",
+        "background": "Sage",
+        "level": 1
+      }
     }
   },
   {
@@ -266,7 +411,12 @@
       "concept": "A career soldier who led a small squad, keeps his kit immaculate, and fights with a warhammer."
     },
     "metadata": {
-      "category": "background"
+      "category": "background",
+      "expected": {
+        "class": "Fighter",
+        "background": "Soldier",
+        "level": 1
+      }
     }
   },
   {
@@ -275,7 +425,11 @@
       "concept": "A minor noble who took a paladin's oath after a border war and rides with a family blade."
     },
     "metadata": {
-      "category": "background"
+      "category": "background",
+      "expected": {
+        "class": "Paladin",
+        "level": 1
+      }
     }
   },
   {
@@ -284,7 +438,11 @@
       "concept": "A sailor who learned to read coastlines and now works as a ranger along the shore."
     },
     "metadata": {
-      "category": "background"
+      "category": "background",
+      "expected": {
+        "class": "Ranger",
+        "level": 1
+      }
     }
   },
   {
@@ -293,7 +451,11 @@
       "concept": "A hermit who lived alone in a bog for years and now speaks for the swamp as a druid."
     },
     "metadata": {
-      "category": "background"
+      "category": "background",
+      "expected": {
+        "class": "Druid",
+        "level": 1
+      }
     }
   },
   {
@@ -302,7 +464,11 @@
       "concept": "A traveling entertainer who juggles knives and turns every audience reaction into a song."
     },
     "metadata": {
-      "category": "background"
+      "category": "background",
+      "expected": {
+        "class": "Bard",
+        "level": 1
+      }
     }
   },
   {
@@ -311,7 +477,12 @@
       "concept": "A level 3 human fighter who just earned a place in a mercenary company and wields a longsword."
     },
     "metadata": {
-      "category": "level"
+      "category": "level",
+      "expected": {
+        "class": "Fighter",
+        "species": "Human",
+        "level": 3
+      }
     }
   },
   {
@@ -320,7 +491,12 @@
       "concept": "A level 5 elven wizard whose spellbook is bound in green leather and who specializes in illusions."
     },
     "metadata": {
-      "category": "level"
+      "category": "level",
+      "expected": {
+        "class": "Wizard",
+        "species": "Elf",
+        "level": 5
+      }
     }
   },
   {
@@ -329,7 +505,12 @@
       "concept": "A level 8 halfling rogue who runs a network of informants and never carries the same dagger twice."
     },
     "metadata": {
-      "category": "level"
+      "category": "level",
+      "expected": {
+        "class": "Rogue",
+        "species": "Halfling",
+        "level": 8
+      }
     }
   },
   {
@@ -338,7 +519,12 @@
       "concept": "A level 10 dwarven cleric who has rebuilt three shrines and carries a shield with a forge sigil."
     },
     "metadata": {
-      "category": "level"
+      "category": "level",
+      "expected": {
+        "class": "Cleric",
+        "species": "Dwarf",
+        "level": 10
+      }
     }
   },
   {
@@ -347,7 +533,12 @@
       "concept": "A level 12 dragonborn paladin who commands a small order of road wardens."
     },
     "metadata": {
-      "category": "level"
+      "category": "level",
+      "expected": {
+        "class": "Paladin",
+        "species": "Dragonborn",
+        "level": 12
+      }
     }
   },
   {
@@ -356,7 +547,12 @@
       "concept": "A level 15 human ranger who has mapped a dangerous frontier and trains younger trackers."
     },
     "metadata": {
-      "category": "level"
+      "category": "level",
+      "expected": {
+        "class": "Ranger",
+        "species": "Human",
+        "level": 15
+      }
     }
   },
   {
@@ -365,7 +561,12 @@
       "concept": "A level 17 goliath barbarian who once held a bridge alone against a raiding party."
     },
     "metadata": {
-      "category": "level"
+      "category": "level",
+      "expected": {
+        "class": "Barbarian",
+        "species": "Goliath",
+        "level": 17
+      }
     }
   },
   {
@@ -374,7 +575,12 @@
       "concept": "A level 20 elven druid who has watched a forest grow for centuries and speaks with its oldest trees."
     },
     "metadata": {
-      "category": "level"
+      "category": "level",
+      "expected": {
+        "class": "Druid",
+        "species": "Elf",
+        "level": 20
+      }
     }
   },
   {
@@ -383,7 +589,12 @@
       "concept": "A human who trained as a fighter and later studied wizardry, with the fighter as the dominant path."
     },
     "metadata": {
-      "category": "multiclass"
+      "category": "multiclass",
+      "expected": {
+        "class": "Fighter",
+        "species": "Human",
+        "level": 1
+      }
     }
   },
   {
@@ -392,7 +603,12 @@
       "concept": "A halfling who learned ranger craft in the wilds but earns a living as a rogue, with the rogue as the dominant path."
     },
     "metadata": {
-      "category": "multiclass"
+      "category": "multiclass",
+      "expected": {
+        "class": "Rogue",
+        "species": "Halfling",
+        "level": 1
+      }
     }
   },
   {
@@ -401,7 +617,12 @@
       "concept": "A dwarf who served a temple as a cleric and later took a paladin's oath, with the cleric as the dominant path."
     },
     "metadata": {
-      "category": "multiclass"
+      "category": "multiclass",
+      "expected": {
+        "class": "Cleric",
+        "species": "Dwarf",
+        "level": 1
+      }
     }
   },
   {
@@ -410,7 +631,12 @@
       "concept": "A tiefling born with sorcerous power who also made a warlock pact, with the warlock as the dominant path."
     },
     "metadata": {
-      "category": "multiclass"
+      "category": "multiclass",
+      "expected": {
+        "class": "Warlock",
+        "species": "Tiefling",
+        "level": 1
+      }
     }
   },
   {
@@ -419,7 +645,10 @@
       "concept": "A samurai sworn to a provincial lord, trained with a katana and a bow and bound by a strict code."
     },
     "metadata": {
-      "category": "nonsrd"
+      "category": "nonsrd",
+      "expected": {
+        "level": 1
+      }
     }
   },
   {
@@ -428,7 +657,10 @@
       "concept": "A cyberpunk netrunner who jacks into corporate systems and keeps a compact pistol under her jacket."
     },
     "metadata": {
-      "category": "nonsrd"
+      "category": "nonsrd",
+      "expected": {
+        "level": 1
+      }
     }
   },
   {
@@ -437,7 +669,10 @@
       "concept": "A steampunk inventor with brass goggles, a tool belt, and a backpack full of volatile gadgets."
     },
     "metadata": {
-      "category": "nonsrd"
+      "category": "nonsrd",
+      "expected": {
+        "level": 1
+      }
     }
   },
   {
@@ -446,7 +681,10 @@
       "concept": "A pirate captain who commands a small sloop, carries a cutlass, and keeps a parrot on the quarterdeck."
     },
     "metadata": {
-      "category": "nonsrd"
+      "category": "nonsrd",
+      "expected": {
+        "level": 1
+      }
     }
   },
   {
@@ -455,7 +693,10 @@
       "concept": "A viking raider from a cold fjord who fights with an axe and shield and sings before battle."
     },
     "metadata": {
-      "category": "nonsrd"
+      "category": "nonsrd",
+      "expected": {
+        "level": 1
+      }
     }
   },
   {
@@ -464,25 +705,38 @@
       "concept": "A desert nomad who reads dunes and stars, carries a curved blade, and guides caravans."
     },
     "metadata": {
-      "category": "nonsrd"
+      "category": "nonsrd",
+      "expected": {
+        "level": 1
+      }
     }
   },
   {
     "description": "language/01-portuguese-cleric",
     "vars": {
-      "concept": "Uma clériga anã de nível 4, devota da forja, que protege sua vila nas montanhas e carrega um martelo pesado."
+      "concept": "Uma cl\u00e9riga an\u00e3 de n\u00edvel 4, devota da forja, que protege sua vila nas montanhas e carrega um martelo pesado."
     },
     "metadata": {
-      "category": "language"
+      "category": "language",
+      "expected": {
+        "class": "Cleric",
+        "species": "Dwarf",
+        "level": 4
+      }
     }
   },
   {
     "description": "language/02-spanish-rogue",
     "vars": {
-      "concept": "Un pícaro mediano que trabaja como mensajero en una ciudad portuaria y lleva varias dagas escondidas."
+      "concept": "Un p\u00edcaro mediano que trabaja como mensajero en una ciudad portuaria y lleva varias dagas escondidas."
     },
     "metadata": {
-      "category": "language"
+      "category": "language",
+      "expected": {
+        "class": "Rogue",
+        "species": "Halfling",
+        "level": 1
+      }
     }
   },
   {
@@ -491,16 +745,26 @@
       "concept": "Un barde elfe qui raconte des histoires dans les tavernes et joue d'une petite harpe."
     },
     "metadata": {
-      "category": "language"
+      "category": "language",
+      "expected": {
+        "class": "Bard",
+        "species": "Elf",
+        "level": 1
+      }
     }
   },
   {
     "description": "language/04-german-fighter",
     "vars": {
-      "concept": "Ein menschlicher Kämpfer, der als Söldner an der Grenze dient und ein Langschwert trägt."
+      "concept": "Ein menschlicher K\u00e4mpfer, der als S\u00f6ldner an der Grenze dient und ein Langschwert tr\u00e4gt."
     },
     "metadata": {
-      "category": "language"
+      "category": "language",
+      "expected": {
+        "class": "Fighter",
+        "species": "Human",
+        "level": 1
+      }
     }
   },
   {
@@ -509,7 +773,10 @@
       "concept": "blacksmith"
     },
     "metadata": {
-      "category": "edge"
+      "category": "edge",
+      "expected": {
+        "level": 1
+      }
     }
   },
   {
@@ -518,7 +785,12 @@
       "concept": "A level 6 human ranger named Rowan who served as a border warden, travels with a grey wolf, favors a longbow, keeps a journal of animal tracks, and avoids crowded cities whenever possible."
     },
     "metadata": {
-      "category": "edge"
+      "category": "edge",
+      "expected": {
+        "class": "Ranger",
+        "species": "Human",
+        "level": 6
+      }
     }
   },
   {
@@ -527,7 +799,11 @@
       "concept": "A peaceful wizard who hates magic, refuses to cast spells, and would rather solve problems with tea and conversation."
     },
     "metadata": {
-      "category": "edge"
+      "category": "edge",
+      "expected": {
+        "class": "Wizard",
+        "level": 1
+      }
     }
   },
   {
@@ -536,7 +812,12 @@
       "concept": "An ancient elven archmage from a fallen tower who has studied for three hundred years but has never led an army."
     },
     "metadata": {
-      "category": "edge"
+      "category": "edge",
+      "expected": {
+        "class": "Wizard",
+        "species": "Elf",
+        "level": 1
+      }
     }
   }
 ]

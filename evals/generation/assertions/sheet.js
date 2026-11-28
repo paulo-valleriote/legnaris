@@ -21,7 +21,7 @@ function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-module.exports = (output) => {
+module.exports = (output, context) => {
   let sheet;
   try {
     sheet = JSON.parse(output);
@@ -61,6 +61,18 @@ module.exports = (output) => {
     const expectedSubclass = level >= 3 ? CLASSES[identity.class] : '';
     if (expectedSubclass !== undefined && identity.subclass !== expectedSubclass) {
       problems.push(`subclass ${JSON.stringify(identity.subclass)} should be ${JSON.stringify(expectedSubclass)}`);
+    }
+  }
+
+  const expected = context && context.test && isObject(context.test.metadata) ? context.test.metadata.expected : undefined;
+  if (isObject(expected)) {
+    for (const field of ['class', 'species', 'background']) {
+      if (expected[field] && identity[field] !== expected[field]) {
+        problems.push(`${field} ${JSON.stringify(identity[field])} should follow the concept as ${JSON.stringify(expected[field])}`);
+      }
+    }
+    if (Number.isInteger(expected.level) && identity.level !== expected.level) {
+      problems.push(`level ${identity.level} should follow the concept as ${expected.level}`);
     }
   }
 

@@ -43,6 +43,9 @@ const cost = known.reduce((sum, entry) => sum + entry.cost_usd, 0);
 const models = [...new Set(entries.map((entry) => entry.model).filter(Boolean))];
 const versions = [...new Set(entries.map((entry) => entry.prompt_version).filter(Boolean))];
 
+if (cases === 0) {
+  problems.push('the eval ran no cases');
+}
 if (unknown.length > 0) {
   problems.push(`${unknown.length} provider call(s) returned an unknown cost`);
 }

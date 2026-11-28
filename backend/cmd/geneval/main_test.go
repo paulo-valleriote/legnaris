@@ -346,7 +346,10 @@ func TestDataset(t *testing.T) {
 	var tests []struct {
 		Description string            `json:"description"`
 		Vars        map[string]string `json:"vars"`
-		Metadata    map[string]string `json:"metadata"`
+		Metadata    struct {
+			Category string         `json:"category"`
+			Expected map[string]any `json:"expected"`
+		} `json:"metadata"`
 	}
 	require.NoError(t, json.Unmarshal(data, &tests))
 
@@ -356,10 +359,12 @@ func TestDataset(t *testing.T) {
 	for _, test := range tests {
 		require.NotEmpty(t, test.Description)
 		require.NotEmpty(t, test.Vars["concept"])
-		require.NotEmpty(t, test.Metadata["category"])
+		require.NotEmpty(t, test.Metadata.Category)
+		require.NotNil(t, test.Metadata.Expected)
+		require.Contains(t, test.Metadata.Expected, "level")
 		require.False(t, seen[test.Description], "duplicate description %q", test.Description)
 		seen[test.Description] = true
-		categories[test.Metadata["category"]]++
+		categories[test.Metadata.Category]++
 	}
 	assert.Equal(t, 60, categories["classic"]+categories["species"]+categories["background"]+categories["level"]+categories["multiclass"]+categories["nonsrd"]+categories["language"]+categories["edge"])
 	assert.NotZero(t, categories["classic"])

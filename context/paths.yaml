@@ -102,6 +102,12 @@ paths:
   - target: backend/shared/response
     kind: directory
     context: architecture
+  - target: backend/cmd/geneval
+    kind: directory
+    context: generation
+  - target: evals/generation
+    kind: directory
+    context: generation
   - target: web/src/account
     kind: directory
     context: auth
