@@ -55,7 +55,7 @@ sequenceDiagram
 
 - **AdSense settings (LGN-335).** `ADSENSE_CLIENT` and `ADSENSE_SLOT_{CATALOG,CAMPAIGNS,LANDING}` are optional deploy env keys (commented in `deploy/.env.example`, so the CD key check never requires them) passed to the web container, which writes them into `/config.json` and publishes `/ads.txt`; empty or invalid values turn ads off. The Traefik `web-security-headers` CSP admits the Google ad and CMP origins (`script-src`, `connect-src`, `frame-src`, `img-src https:`) and must stay identical to `web/config/security_headers.ts`.
 
-- **Generation timeout and lease (LGN-384).** `LLM_TIMEOUT` is an optional deploy key, commented in `deploy/.env.example` and defaulted to `120s` in `deploy/docker-compose.yml`. The worker refuses a non-positive value and derives the job budget and the claim lease from it — 751.5 s at the default — so the setting must cover the slowest accepted model's schema and transport retries.
+- **Generation timeout and lease (LGN-384).** `LLM_MODEL` defaults to `z-ai/glm-5.3-flash` and `LLM_TIMEOUT` is an optional deploy key, commented in `deploy/.env.example` and defaulted to `120s` in `deploy/docker-compose.yml`. The worker refuses a non-positive value and derives the job budget and the claim lease from it — 751.5 s at the default — so the setting must cover the slowest accepted model's schema and transport retries.
 
 | Method | Path | Body | Success |
 | --- | --- | --- | --- |

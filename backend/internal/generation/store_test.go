@@ -305,14 +305,14 @@ func TestMongoStore_CompleteRecordsMetadata(t *testing.T) {
 
 	landed, err := s.Complete(context.Background(), jobA, map[string]any{"name": "Aria"}, generation.Metadata{
 		PromptVersion: "v1+123456789abc",
-		Model:         "deepseek/deepseek-v4.1-flash",
+		Model:         "z-ai/glm-5.3-flash",
 	})
 	require.NoError(t, err)
 	require.True(t, landed)
 
 	raw := readRaw(t, mdb, jobA)
 	assert.Equal(t, "v1+123456789abc", raw["prompt_version"])
-	assert.Equal(t, "deepseek/deepseek-v4.1-flash", raw["model"])
+	assert.Equal(t, "z-ai/glm-5.3-flash", raw["model"])
 }
 
 func TestMongoStore_OldDocumentsReadWithoutMetadata(t *testing.T) {

@@ -21,7 +21,7 @@ import (
 
 const (
 	DefaultBaseURL = "https://openrouter.ai/api/v1"
-	DefaultModel   = "deepseek/deepseek-v4.1-flash"
+	DefaultModel   = "z-ai/glm-5.3-flash"
 )
 
 var (

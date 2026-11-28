@@ -107,7 +107,7 @@ func TestBuildGeneration(t *testing.T) {
 	}{
 		{name: "Error: a missing LLM_API_KEY fails at boot", mutate: func(c *env.Env) { c.Variables.LLMAPIKey = "" }, wantErr: openrouter.ErrMissingAPIKey},
 		{name: "Error: a blank LLM_API_KEY fails at boot", mutate: func(c *env.Env) { c.Variables.LLMAPIKey = "   " }, wantErr: openrouter.ErrMissingAPIKey},
-		{name: "Error: a :free model is refused at boot", mutate: func(c *env.Env) { c.Variables.LLMModel = "deepseek/deepseek-v4.1-flash:free" }, wantErr: openrouter.ErrFreeModel},
+		{name: "Error: a :free model is refused at boot", mutate: func(c *env.Env) { c.Variables.LLMModel = "z-ai/glm-5.3-flash:free" }, wantErr: openrouter.ErrFreeModel},
 		{name: "Error: an invalid reasoning effort is refused at boot", mutate: func(c *env.Env) { c.Variables.LLMReasoningEffort = "turbo" }, wantErr: openrouter.ErrInvalidReasoningEffort},
 		{name: "Error: an unknown provider is refused at boot", mutate: func(c *env.Env) { c.Variables.LLMProvider = "carrier-pigeon" }, wantErr: llmfactory.ErrUnknownProvider},
 		{name: "Error: a missing database is refused after the LLM check", mutate: func(c *env.Env) { c.Variables.DatabaseURI = "" }, wantErr: nil},

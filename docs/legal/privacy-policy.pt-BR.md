@@ -2,9 +2,9 @@
   Política de privacidade da Legnaris (geral). Geração com IA: LGN-228, ADR 0008. Pagamentos: LGN-222, ADR 0009.
   Local: docs/legal/privacy-policy.pt-BR.md (português). Inglês: docs/legal/privacy-policy.en.md.
   As cópias web em web/src/legal/ devem permanecer idênticas byte a byte a estes arquivos.
-  O texto de consentimento de IA é docs/legal/llm-consent.json (versão "3"); a seção 6 deve permanecer consistente com ele.
+  O texto de consentimento de IA é docs/legal/llm-consent.json (versão "4"); a seção 6 deve permanecer consistente com ele.
   Suba a versão do consentimento apenas quando os operadores de IA, o modelo, a região, a retenção ou o caminho de revogação mudarem.
-  Status: FINAL (versão 4, 16/11/2026).
+  Status: FINAL (versão 5, 28/11/2026).
 -->
 
 # Política de privacidade
@@ -57,7 +57,7 @@ Quando você pede à Legnaris para gerar um personagem, o texto do conceito que 
 Para executar o recurso, usamos:
 
 - **OpenRouter**, um gateway de modelos que recebe sua requisição e a encaminha. Pessoa jurídica: OpenRouter, Inc., Estados Unidos.
-- **Provedores do modelo**, as empresas que executam o modelo DeepSeek V4.1 Flash, selecionadas pela OpenRouter para cada requisição. O provedor pode ser a API da DeepSeek ou outra empresa, localizada em países diferentes, inclusive na China. A OpenRouter publica a lista de provedores e suas localizações.
+- **Provedores do modelo**, as empresas que executam o modelo GLM-5.3 Flash, selecionadas pela OpenRouter para cada requisição. O provedor pode ser o fornecedor do modelo ou outra empresa, localizada em países diferentes, inclusive na China. A OpenRouter publica a lista de provedores e suas localizações.
 
 As requisições usam o roteamento padrão da OpenRouter, com alternativas entre provedores. O roteamento não é restrito por retenção de dados; portanto, um provedor que atenda a sua requisição pode reter prompts e resultados, ou usá-los em treinamento, conforme os termos próprios dele. A Legnaris não controla esses termos. Você pode consultá-los na documentação da OpenRouter e no site de cada provedor.
 

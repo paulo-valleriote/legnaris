@@ -98,6 +98,6 @@ func TestGenerationID(t *testing.T) {
 }
 
 func TestResponseCarriesModel(t *testing.T) {
-	response := llm.Response{Model: "deepseek/deepseek-v4.1-flash"}
-	assert.Equal(t, "deepseek/deepseek-v4.1-flash", response.Model)
+	response := llm.Response{Model: "z-ai/glm-5.3-flash"}
+	assert.Equal(t, "z-ai/glm-5.3-flash", response.Model)
 }

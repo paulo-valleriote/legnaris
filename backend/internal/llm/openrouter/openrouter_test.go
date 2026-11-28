@@ -28,7 +28,7 @@ import (
 
 const (
 	testAPIKey = "test-key"
-	testModel  = "deepseek/deepseek-v4.1-flash"
+	testModel  = "z-ai/glm-5.3-flash"
 	testPath   = "/api/v1/chat/completions"
 )
 
@@ -141,7 +141,7 @@ func TestNewConfigValidation(t *testing.T) {
 		{name: "Edge: missing API key fails at construction", mutate: func(c *openrouter.Config) { c.APIKey = "" }, wantErr: openrouter.ErrMissingAPIKey},
 		{name: "Edge: blank API key fails at construction", mutate: func(c *openrouter.Config) { c.APIKey = "   " }, wantErr: openrouter.ErrMissingAPIKey},
 		{name: "Edge: empty model fails at construction", mutate: func(c *openrouter.Config) { c.Model = "" }, wantErr: openrouter.ErrMissingModel},
-		{name: "Edge: :free model fails at construction", mutate: func(c *openrouter.Config) { c.Model = "deepseek/deepseek-v4.1-flash:free" }, wantErr: openrouter.ErrFreeModel},
+		{name: "Edge: :free model fails at construction", mutate: func(c *openrouter.Config) { c.Model = "z-ai/glm-5.3-flash:free" }, wantErr: openrouter.ErrFreeModel},
 		{name: "Edge: relative base URL fails", mutate: func(c *openrouter.Config) { c.BaseURL = "/api/v1" }, wantErr: openrouter.ErrInvalidBaseURL},
 		{name: "Edge: base URL without host fails", mutate: func(c *openrouter.Config) { c.BaseURL = "https://" }, wantErr: openrouter.ErrInvalidBaseURL},
 		{name: "Edge: zero timeout fails", mutate: func(c *openrouter.Config) { c.Timeout = 0 }, wantErr: openrouter.ErrInvalidTimeout},
@@ -895,4 +895,8 @@ func TestGenerateUsesResponseModel(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, testModel, resp.Model)
 	})
+}
+
+func TestDefaultModel(t *testing.T) {
+	assert.Equal(t, "z-ai/glm-5.3-flash", openrouter.DefaultModel)
 }

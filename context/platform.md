@@ -160,7 +160,7 @@ so Drafts stay hidden.
   Generation services, and only a trimmed, case-insensitive `development` lets
   Draft Templates through. The production API sets no `APP_ENV` and therefore
   fails closed, the worker sets `production`, and `scripts/dev.sh` exports
-  `development`; a bare `go run` hides Drafts. `LLM_TIMEOUT` defaults to 120 s in
+  `development`; a bare `go run` hides Drafts. `LLM_MODEL` defaults to `z-ai/glm-5.3-flash` and `LLM_TIMEOUT` defaults to 120 s in
   `backend/shared/env/env.go`, and the worker derives its job budget and claim
   lease from it.
 - **Home funnel metrics (LGN-346).** `POST /funnel/home` takes

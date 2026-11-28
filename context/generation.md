@@ -9,7 +9,7 @@ Generation turns a short free-text concept into a draft of values for a Template
 - **An asynchronous draft over a synchronous request:** reasoning takes 10–40 s, too long to hold a mobile request through proxies; the cost is a job state machine, a lease reaper, a republish sweep and a polling client.
 - **A draft over creating the Sheet immediately:** discarding or regenerating must not spend a Sheet slot or leave an unwanted Sheet; the cost is an accept step and an idempotent repeat accept.
 - **RabbitMQ over polling Mongo for work:** the broker is already deployed, confirms publishes and routes by kind; the cost is a second job mechanism, a dead-letter queue and a sweeper for lost publishes.
-- **OpenRouter over calling DeepSeek directly:** one OpenAI-compatible adapter, provider fallbacks and per-request routing without several integrations; the cost is an extra processor in the data path and a disclosure that names it.
+- **OpenRouter over calling the model vendor directly:** one OpenAI-compatible adapter, provider fallbacks and per-request routing without several integrations; the cost is an extra processor in the data path and a disclosure that names it.
 - **The paid, pinned model over a `:free` variant:** free endpoints may log or train on prompts; the cost is a higher price, and boot refuses a `:free` model.
 - **Default routing over a strict zero-retention filter:** the concept is free text the player chooses to send, not sensitive personal data; the cost is that each provider's retention and training terms apply and the request may be processed outside Brazil, including China. Consent discloses this, and a gateway, model or routing change is a consent change.
 - **A strict JSON Schema plus Go validation over trusting the prompt:** prompt injection cannot change the answer's shape, only its content; the cost is retries and an occasional terminal `invalid_output`.
@@ -122,7 +122,7 @@ Paid accounts spend 30 per UTC day. Only a paid Plan may generate: a Free reques
 
 ### Consent and legal copies
 
-The consent version is the constant `3`. `docs/legal/llm-consent.json` is the source of truth for the version and wording (English and pt-BR): OpenRouter as gateway, DeepSeek V4.1 Flash as model, transfer outside Brazil including China, 24 h retention in Legnaris, each provider's own retention and training terms, and how to revoke. Consent is offered and accepted only on a paid Plan: a Free account cannot record it and is never asked, because `llm_consent_required` is set only when the Plan can generate. A copy lives in `backend/internal/llmconsent/llm-consent.json` beside the version constant, and the web imports `web/src/generate/llm_consent.json`. Both copies must match the source: `TestVersionMatchesDisclosure` compares the backend copy byte-for-byte and the constant's version, while `llm_consent_sync.test.ts` compares the web copy's parsed JSON. Bump the version and all three copies whenever provider, model, region, retention or revocation changes. `docs/legal/privacy-policy.en.md` and `privacy-policy.pt-BR.md` are equally authoritative, with web copies pinned by `privacy_policy_sync.test.ts`.
+The consent version is the constant `4`. `docs/legal/llm-consent.json` is the source of truth for the version and wording (English and pt-BR): OpenRouter as gateway, GLM-5.3 Flash as model, transfer outside Brazil including China, 24 h retention in Legnaris, each provider's own retention and training terms, and how to revoke. Consent is offered and accepted only on a paid Plan: a Free account cannot record it and is never asked, because `llm_consent_required` is set only when the Plan can generate. A copy lives in `backend/internal/llmconsent/llm-consent.json` beside the version constant, and the web imports `web/src/generate/llm_consent.json`. Both copies must match the source: `TestVersionMatchesDisclosure` compares the backend copy byte-for-byte and the constant's version, while `llm_consent_sync.test.ts` compares the web copy's parsed JSON. Bump the version and all three copies whenever provider, model, region, retention or revocation changes. `docs/legal/privacy-policy.en.md` and `privacy-policy.pt-BR.md` are equally authoritative, with web copies pinned by `privacy_policy_sync.test.ts`.
 
 ### Prompt, schema and validation
 
@@ -207,7 +207,7 @@ A Record list carries `MaxRecords`, the generation cap that is separate from its
 
 ### Configuration and boot checks
 
-`GENERATION_ENABLED` (default false) is the kill switch: the API answers 503 `PROVIDER_UNAVAILABLE` before reserving anything, and the worker does not open the LLM consumer. `GENERATION_DAILY_CAP` (default 200) must not be negative. `LLM_PROVIDER` is `openrouter`; the other keys are `LLM_BASE_URL`, `LLM_API_KEY` (worker only), `LLM_MODEL` (default `deepseek/deepseek-v4.1-flash`), `LLM_TIMEOUT` (default 120 s, which also derives the job lease) and `LLM_REASONING_EFFORT` (empty for the provider default, or `none`, `minimal`, `low`, `medium`, `high`, `xhigh`). The environment check refuses a `:free` model, a negative cap and an unknown effort; building the worker client additionally refuses an unknown provider or a missing key, model or logger, a non-HTTP base URL and a non-positive timeout.
+`GENERATION_ENABLED` (default false) is the kill switch: the API answers 503 `PROVIDER_UNAVAILABLE` before reserving anything, and the worker does not open the LLM consumer. `GENERATION_DAILY_CAP` (default 200) must not be negative. `LLM_PROVIDER` is `openrouter`; the other keys are `LLM_BASE_URL`, `LLM_API_KEY` (worker only), `LLM_MODEL` (default `z-ai/glm-5.3-flash`), `LLM_TIMEOUT` (default 120 s, which also derives the job lease) and `LLM_REASONING_EFFORT` (empty for the provider default, or `none`, `minimal`, `low`, `medium`, `high`, `xhigh`). The environment check refuses a `:free` model, a negative cap and an unknown effort; building the worker client additionally refuses an unknown provider or a missing key, model or logger, a non-HTTP base URL and a non-positive timeout.
 
 ## Code map
 
@@ -228,7 +228,7 @@ A Record list carries `MaxRecords`, the generation cap that is separate from its
 ## Tools & dependencies
 
 - **OpenRouter** chat completions with strict `json_schema` response format; every request carries `provider.require_parameters` and `allow_fallbacks`, with no retention or provider filter. A plain `http.Client` applies `LLM_TIMEOUT`.
-- **DeepSeek V4.1 Flash** (`deepseek/deepseek-v4.1-flash`), the pinned paid model.
+- **GLM-5.3 Flash** (`z-ai/glm-5.3-flash`), the pinned paid model.
 - **RabbitMQ** topic exchange `generation`, key `generation.<kind>.requested`, quorum queue `generation.requests`, dead-letter queue `generation.dead`, publisher confirms and unroutable detection.
 - **MongoDB** transactions for cap, quota and insert and for terminal failure plus refund; sparse unique and TTL indexes.
 - **Prometheus/Grafana** for `legnaris_generation_cap_used`, `..._cap_limit` and `..._cap_used_ratio`, feeding the 80% alert.

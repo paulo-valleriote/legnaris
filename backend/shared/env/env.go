@@ -156,7 +156,7 @@ const (
 	defaultDisposableEmailCheck    = true
 	defaultLLMProvider             = "openrouter"
 	defaultLLMBaseURL              = "https://openrouter.ai/api/v1"
-	defaultLLMModel                = "deepseek/deepseek-v4.1-flash"
+	defaultLLMModel                = "z-ai/glm-5.3-flash"
 	DefaultLLMTimeout              = 120 * time.Second
 
 	defaultGenerationEnabled         = false

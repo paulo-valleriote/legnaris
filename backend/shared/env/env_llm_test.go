@@ -28,7 +28,7 @@ func TestInitVariablesLLMDefaults(t *testing.T) {
 	assert.Equal(t, "openrouter", vars.LLMProvider)
 	assert.Equal(t, "https://openrouter.ai/api/v1", vars.LLMBaseURL)
 	assert.Empty(t, vars.LLMAPIKey)
-	assert.Equal(t, "deepseek/deepseek-v4.1-flash", vars.LLMModel)
+	assert.Equal(t, "z-ai/glm-5.3-flash", vars.LLMModel)
 	assert.Empty(t, vars.LLMReasoningEffort)
 	assert.Equal(t, 120*time.Second, vars.LLMTimeout)
 }
@@ -37,7 +37,7 @@ func TestInitVariablesLLMOverrides(t *testing.T) {
 	t.Setenv("LLM_PROVIDER", "openrouter")
 	t.Setenv("LLM_BASE_URL", "https://gateway.example/api/v1")
 	t.Setenv("LLM_API_KEY", "key-value")
-	t.Setenv("LLM_MODEL", "deepseek/deepseek-v4.1-flash-1017")
+	t.Setenv("LLM_MODEL", "z-ai/glm-5.3-flash-1017")
 	t.Setenv("LLM_REASONING_EFFORT", "low")
 	t.Setenv("LLM_TIMEOUT", "15s")
 
@@ -45,7 +45,7 @@ func TestInitVariablesLLMOverrides(t *testing.T) {
 
 	assert.Equal(t, "https://gateway.example/api/v1", vars.LLMBaseURL)
 	assert.Equal(t, "key-value", vars.LLMAPIKey)
-	assert.Equal(t, "deepseek/deepseek-v4.1-flash-1017", vars.LLMModel)
+	assert.Equal(t, "z-ai/glm-5.3-flash-1017", vars.LLMModel)
 	assert.Equal(t, "low", vars.LLMReasoningEffort)
 	assert.Equal(t, 15*time.Second, vars.LLMTimeout)
 }
@@ -74,9 +74,9 @@ func TestValidateLLMModel(t *testing.T) {
 		model   string
 		wantErr bool
 	}{
-		{name: "Happy path: pinned paid model passes", model: "deepseek/deepseek-v4.1-flash", wantErr: false},
-		{name: "Happy path: dated paid variant passes", model: "deepseek/deepseek-v4.1-flash-1017", wantErr: false},
-		{name: "Edge: :free suffix is refused", model: "deepseek/deepseek-v4.1-flash:free", wantErr: true},
+		{name: "Happy path: pinned paid model passes", model: "z-ai/glm-5.3-flash", wantErr: false},
+		{name: "Happy path: dated paid variant passes", model: "z-ai/glm-5.3-flash-1017", wantErr: false},
+		{name: "Edge: :free suffix is refused", model: "z-ai/glm-5.3-flash:free", wantErr: true},
 		{name: "Edge: :free suffix on another vendor is refused", model: "meta/llama:free", wantErr: true},
 		{name: "Edge: free word without the suffix passes", model: "free/model", wantErr: false},
 		{name: "Edge: empty model passes the boot check and fails at the adapter", model: "", wantErr: false},
@@ -96,14 +96,14 @@ func TestValidateLLMModel(t *testing.T) {
 
 func TestEnvValidateRejectsFreeLLMModel(t *testing.T) {
 	e := newTestEnv()
-	e.Variables.LLMModel = "deepseek/deepseek-v4.1-flash:free"
+	e.Variables.LLMModel = "z-ai/glm-5.3-flash:free"
 
 	err := e.Validate()
 	require.Error(t, err, "boot must fail when LLM_MODEL is a :free variant")
 	assert.Contains(t, err.Error(), "LLM_MODEL must not be a :free model variant")
 	assert.NotContains(t, err.Error(), "ADR")
 
-	e.Variables.LLMModel = "deepseek/deepseek-v4.1-flash"
+	e.Variables.LLMModel = "z-ai/glm-5.3-flash"
 	require.NoError(t, e.Validate())
 }
 

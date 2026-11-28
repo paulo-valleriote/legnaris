@@ -1,6 +1,6 @@
 {
-  "_about": "Single source of the LLM consent disclosure (LGN-228). Location: docs/legal/llm-consent.json. Consumers: the backend consent constant (backend/internal/llmconsent/consent.go) must read the same `version`, and the web consent modal renders `locales.<lang>`. The backend embeds the file through //go:embed only from inside its own package, so the copy in backend/internal/llmconsent/llm-consent.json and web/src/generate/llm_consent.json must stay byte-identical to this file. Bump `version` (a string) whenever the disclosure changes: provider, model, region, retention or revocation path. Status: FINAL (version 3, 2026-11-15); all placeholders filled (LGN-228).",
-  "version": "3",
+  "_about": "Single source of the LLM consent disclosure (LGN-228). Location: docs/legal/llm-consent.json. Consumers: the backend consent constant (backend/internal/llmconsent/consent.go) must read the same `version`, and the web consent modal renders `locales.<lang>`. The backend embeds the file through //go:embed only from inside its own package, so the copy in backend/internal/llmconsent/llm-consent.json and web/src/generate/llm_consent.json must stay byte-identical to this file. Bump `version` (a string) whenever the disclosure changes: provider, model, region, retention or revocation path. Status: FINAL (version 4, 2026-11-28); all placeholders filled (LGN-228).",
+  "version": "4",
   "locales": {
     "en": {
       "title": "Send your concept to an AI model?",
@@ -12,7 +12,7 @@
         },
         {
           "heading": "Who receives it",
-          "body": "OpenRouter, which routes the request to a provider that runs the DeepSeek V4.1 Flash model. That provider may be the DeepSeek API or another company. OpenRouter and the provider receive the request to run it. How they keep and use data, including for training, is governed by their own terms."
+          "body": "OpenRouter, which routes the request to a provider that runs the GLM-5.3 Flash model. That provider may be the model vendor or another company. OpenRouter and the provider receive the request to run it. How they keep and use data, including for training, is governed by their own terms."
         },
         {
           "heading": "Where it is processed",
@@ -46,7 +46,7 @@
         },
         {
           "heading": "Quem recebe",
-          "body": "A OpenRouter, que encaminha a requisição a um provedor que executa o modelo DeepSeek V4.1 Flash. Esse provedor pode ser a API da DeepSeek ou outra empresa. A OpenRouter e o provedor recebem a requisição para executá-la. Como eles guardam e usam os dados, inclusive para treinamento, é regido pelos termos próprios de cada um."
+          "body": "A OpenRouter, que encaminha a requisição a um provedor que executa o modelo GLM-5.3 Flash. Esse provedor pode ser o fornecedor do modelo ou outra empresa. A OpenRouter e o provedor recebem a requisição para executá-la. Como eles guardam e usam os dados, inclusive para treinamento, é regido pelos termos próprios de cada um."
         },
         {
           "heading": "Onde é processado",

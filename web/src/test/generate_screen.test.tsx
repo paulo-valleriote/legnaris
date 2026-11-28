@@ -525,7 +525,7 @@ describe('generate consent (LGN-196)', () => {
 
     await waitFor(() => expect(countOf(fake.requests, 'POST', '/generations')).toBe(1));
     const consent = fake.requests.find((request) => request.method === 'PUT');
-    expect(JSON.parse(consent?.body ?? '{}')).toEqual({ version: '3' });
+    expect(JSON.parse(consent?.body ?? '{}')).toEqual({ version: '4' });
   });
 
   it('Edge: declining consent sends no request and keeps the concept', async () => {

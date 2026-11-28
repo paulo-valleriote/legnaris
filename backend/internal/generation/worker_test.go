@@ -790,9 +790,9 @@ func TestWorkerProcess_RecordsPromptVersionAndActualModel(t *testing.T) {
 		f := newWorkerFixture(t, 5)
 		f.expectTemplate(t)
 		f.expectClaim(dailyReservation)
-		f.generateResponse(llm.Response{Output: json.RawMessage(validOutput), Model: "deepseek/deepseek-v4.1-flash"}, nil)
+		f.generateResponse(llm.Response{Output: json.RawMessage(validOutput), Model: "z-ai/glm-5.3-flash"}, nil)
 		f.jobs.EXPECT().Complete(mock.Anything, jobID, mock.Anything, mock.MatchedBy(func(meta generation.Metadata) bool {
-			return strings.HasPrefix(meta.PromptVersion, "v1+") && meta.Model == "deepseek/deepseek-v4.1-flash"
+			return strings.HasPrefix(meta.PromptVersion, "v1+") && meta.Model == "z-ai/glm-5.3-flash"
 		})).Return(true, nil).Once()
 
 		require.NoError(t, f.worker.Process(context.Background(), jobID))

@@ -18,7 +18,7 @@ func validConfig() factory.Config {
 		Provider: factory.ProviderOpenRouter,
 		BaseURL:  "https://openrouter.example/api/v1",
 		APIKey:   "test-key",
-		Model:    "deepseek/deepseek-v4.1-flash",
+		Model:    "z-ai/glm-5.3-flash",
 		Timeout:  time.Second,
 		Logger:   logger.NewLogger(slog.LevelError),
 	}

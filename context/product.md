@@ -168,8 +168,8 @@ Every user has exactly one Plan, Free by default.
 - A Go REST API stores users, Sheets, Campaigns and billing state in MongoDB; RabbitMQ
   carries generation and email work.
 - Stripe hosts card payment, the customer portal and refunds (with no keys its endpoints
-  answer unavailable and the app stays Free); OpenRouter routes AI generation to the
-  pinned paid model after versioned consent.
+  answer unavailable and the app stays Free); OpenRouter routes AI generation to the pinned paid GLM-5.3 Flash model after
+  versioned consent.
 - Redis, when configured, shares rate limits across replicas; deployment is self-hosted
   behind Traefik with its own email, metrics and logging stack.
 

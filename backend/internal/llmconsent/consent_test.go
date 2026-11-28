@@ -76,7 +76,7 @@ func TestService_Grant(t *testing.T) {
 		{name: "Edge: a Free account is refused with PLAN_UPGRADE_REQUIRED", version: llmconsent.Version, plan: plan.Free, wantCode: apperr.CodePlanUpgradeRequired},
 		{name: "Edge: empty version is a validation error", version: "", plan: plan.Paid, wantCode: apperr.CodeValidation},
 		{name: "Edge: outdated version is a validation error", version: "0", plan: plan.Paid, wantCode: apperr.CodeValidation},
-		{name: "Edge: future version is a validation error", version: "4", plan: plan.Paid, wantCode: apperr.CodeValidation},
+		{name: "Edge: future version is a validation error", version: "5", plan: plan.Paid, wantCode: apperr.CodeValidation},
 		{name: "Edge: retired version 1 is a validation error", version: "1", plan: plan.Paid, wantCode: apperr.CodeValidation},
 		{name: "Error: a missing plan owner is not found", version: llmconsent.Version, plan: plan.Paid, planErr: user.ErrUserNotFound, wantCode: apperr.CodeNotFound},
 		{name: "Error: a plan lookup failure is returned", version: llmconsent.Version, plan: plan.Paid, planErr: errStore, wantErr: errStore},

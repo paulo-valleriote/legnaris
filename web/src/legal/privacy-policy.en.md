@@ -2,9 +2,9 @@
   Legnaris privacy policy (general). AI generation: LGN-228, ADR 0008. Payments: LGN-222, ADR 0009.
   Location: docs/legal/privacy-policy.en.md (English). Portuguese: docs/legal/privacy-policy.pt-BR.md.
   The web copies in web/src/legal/ must stay byte-identical to these files.
-  The AI consent disclosure is docs/legal/llm-consent.json (version "3"); section 6 must stay consistent with it.
+  The AI consent disclosure is docs/legal/llm-consent.json (version "4"); section 6 must stay consistent with it.
   Bump the consent version only when the AI processors, model, region, retention or revocation path change.
-  Status: FINAL (version 4, 2026-11-16).
+  Status: FINAL (version 5, 2026-11-28).
 -->
 
 # Privacy policy
@@ -57,7 +57,7 @@ When you ask Legnaris to generate a character, the concept text you type is sent
 To run the feature we use:
 
 - **OpenRouter**, a model gateway that receives your request and routes it. Legal entity: OpenRouter, Inc., United States.
-- **Model providers**, the companies that run the DeepSeek V4.1 Flash model that OpenRouter selects for your request. The provider is chosen per request and may be the DeepSeek API or another company, located in different countries, including China. OpenRouter publishes the list of providers and their locations.
+- **Model providers**, the companies that run the GLM-5.3 Flash model that OpenRouter selects for your request. The provider is chosen per request and may be the model vendor or another company, located in different countries, including China. OpenRouter publishes the list of providers and their locations.
 
 Requests use OpenRouter's default routing, with fallbacks between providers. Routing is not restricted by data retention, so a provider that serves your request may keep prompts and outputs, or use them for training, under its own terms. Legnaris does not control those terms. You can read them in OpenRouter's documentation and on each provider's website.
 

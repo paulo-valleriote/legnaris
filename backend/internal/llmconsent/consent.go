@@ -11,7 +11,7 @@ import (
 	"legnaris/backend/shared/apperr"
 )
 
-const Version = "3"
+const Version = "4"
 
 const (
 	MsgConsentRequired     = "llm consent is required"
