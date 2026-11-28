@@ -46,6 +46,7 @@ type workerFixture struct {
 	breaker *breaker.Breaker
 	worker  *generation.Worker
 	timeout time.Duration
+	now     func() time.Time
 }
 
 func (f workerFixture) lease() time.Duration {
@@ -64,6 +65,7 @@ func newWorkerFixture(t *testing.T, threshold int) workerFixture {
 		timeout: env.DefaultLLMTimeout,
 	}
 	fixedNow := time.Date(2026, 11, 14, 12, 0, 0, 0, time.UTC)
+	f.now = func() time.Time { return fixedNow }
 	worker, err := generation.NewWorker(generation.WorkerDeps{
 		Jobs:       f.jobs,
 		Catalog:    f.catalog,
@@ -72,12 +74,32 @@ func newWorkerFixture(t *testing.T, threshold int) workerFixture {
 		Quota:      f.quota,
 		Tx:         f.tx,
 		LLMTimeout: f.timeout,
-		Now:        func() time.Time { return fixedNow },
+		Now:        f.now,
 		Logger:     logger.NewLogger(slog.LevelDebug),
 	})
 	require.NoError(t, err)
 	f.worker = worker
 	return f
+}
+
+func (f *workerFixture) attachObserver(t *testing.T) *mocks.MockWorkerObserver {
+	t.Helper()
+	observer := mocks.NewMockWorkerObserver(t)
+	worker, err := generation.NewWorker(generation.WorkerDeps{
+		Jobs:       f.jobs,
+		Catalog:    f.catalog,
+		Client:     f.client,
+		Breaker:    f.breaker,
+		Quota:      f.quota,
+		Tx:         f.tx,
+		LLMTimeout: f.timeout,
+		Now:        f.now,
+		Logger:     logger.NewLogger(slog.LevelDebug),
+		Observer:   observer,
+	})
+	require.NoError(t, err)
+	f.worker = worker
+	return observer
 }
 
 func (f workerFixture) expectTemplate(t *testing.T) {

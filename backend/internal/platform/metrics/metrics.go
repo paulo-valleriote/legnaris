@@ -8,6 +8,8 @@ import (
 	"legnaris/backend/internal/auth"
 	"legnaris/backend/internal/billing"
 	"legnaris/backend/internal/funnel"
+	"legnaris/backend/internal/generation"
+	"legnaris/backend/internal/llm"
 	"legnaris/backend/internal/sweeper"
 
 	"github.com/labstack/echo/v5"
@@ -43,6 +45,14 @@ type Metrics struct {
 	generationCapUsed        prometheus.Gauge
 	generationCapLimit       prometheus.Gauge
 	generationCapUsedRatio   prometheus.Gauge
+	genAIOperationDuration   *prometheus.HistogramVec
+	genAITokenUsage          *prometheus.HistogramVec
+	genAICost                *prometheus.CounterVec
+	genAICostUnknown         *prometheus.CounterVec
+	genAIInvalidOutput       *prometheus.CounterVec
+	genAISchemaRetry         *prometheus.CounterVec
+	genAIBreakerOpen         prometheus.Gauge
+	genAIBreakerOpened       prometheus.Counter
 	billingCorrections       *prometheus.CounterVec
 	funnelHomeVisits         prometheus.Counter
 	funnelHomeCTAClicks      prometheus.Counter
@@ -62,6 +72,25 @@ const queueLabel = "queue"
 const billingSubsystem = "billing"
 
 const funnelSubsystem = "funnel"
+
+const genAISubsystem = "gen_ai"
+
+const (
+	genAIModelLabel         = "gen_ai_response_model"
+	genAITokenTypeLabel     = "gen_ai_token_type"
+	genAIPromptVersionLabel = "prompt_version"
+	genAIModelUnknown       = "unknown"
+	genAITokenInput         = "input"
+	genAITokenOutput        = "output"
+)
+
+var genAIDurationBuckets = []float64{
+	0.1, 0.25, 0.5, 1, 2.5, 5, 10, 20, 30, 60, 120,
+}
+
+var genAITokenBuckets = []float64{
+	1, 10, 50, 100, 250, 500, 1000, 2000, 4000, 8000, 16000, 32000,
+}
 
 const kindLabel = "kind"
 
@@ -246,6 +275,64 @@ func New() *Metrics {
 		Help:      "Share of the global daily generation cap in use, from 0 to 1; the 80% alert fires above 0.8.",
 	})
 
+	genAIOperationDuration := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: metricsNamespace,
+		Subsystem: genAISubsystem,
+		Name:      "client_operation_duration_seconds",
+		Help:      "LLM provider call latency in seconds, by model, prompt version and result.",
+		Buckets:   genAIDurationBuckets,
+	}, []string{genAIModelLabel, genAIPromptVersionLabel, resultLabel})
+
+	genAITokenUsage := prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Namespace: metricsNamespace,
+		Subsystem: genAISubsystem,
+		Name:      "client_token_usage",
+		Help:      "Tokens consumed per LLM call, by model, prompt version and token type (input or output).",
+		Buckets:   genAITokenBuckets,
+	}, []string{genAIModelLabel, genAIPromptVersionLabel, genAITokenTypeLabel})
+
+	genAICost := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: genAISubsystem,
+		Name:      "cost_usd_total",
+		Help:      "Provider-reported cost in US dollars, by model and prompt version.",
+	}, []string{genAIModelLabel, genAIPromptVersionLabel})
+
+	genAICostUnknown := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: genAISubsystem,
+		Name:      "cost_unknown_total",
+		Help:      "LLM calls whose provider response carried no cost, by model and prompt version; never counted as zero.",
+	}, []string{genAIModelLabel, genAIPromptVersionLabel})
+
+	genAIInvalidOutput := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: genAISubsystem,
+		Name:      "invalid_output_total",
+		Help:      "LLM outputs rejected by schema or domain validation, by model and prompt version.",
+	}, []string{genAIModelLabel, genAIPromptVersionLabel})
+
+	genAISchemaRetry := prometheus.NewCounterVec(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: genAISubsystem,
+		Name:      "schema_retry_total",
+		Help:      "Schema retries scheduled after an invalid output, by model and prompt version.",
+	}, []string{genAIModelLabel, genAIPromptVersionLabel})
+
+	genAIBreakerOpen := prometheus.NewGauge(prometheus.GaugeOpts{
+		Namespace: metricsNamespace,
+		Subsystem: genAISubsystem,
+		Name:      "breaker_open",
+		Help:      "1 while the generation provider breaker is open, else 0.",
+	})
+
+	genAIBreakerOpened := prometheus.NewCounter(prometheus.CounterOpts{
+		Namespace: metricsNamespace,
+		Subsystem: genAISubsystem,
+		Name:      "breaker_opened_total",
+		Help:      "Times the generation provider breaker opened after consecutive outages.",
+	})
+
 	billingCorrections := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: metricsNamespace,
 		Subsystem: billingSubsystem,
@@ -295,6 +382,8 @@ func New() *Metrics {
 		authOTPIssued, authOTPVerify, authOTPResend, authOTPCapBlocked,
 		sweeperOldestPending, sweeperFailed,
 		generationCapUsed, generationCapLimit, generationCapUsedRatio,
+		genAIOperationDuration, genAITokenUsage, genAICost, genAICostUnknown,
+		genAIInvalidOutput, genAISchemaRetry, genAIBreakerOpen, genAIBreakerOpened,
 		billingCorrections,
 		funnelHomeVisits, funnelHomeCTAClicks, funnelAccounts, funnelFirstSheetWithin24h, funnelFirstSheetRatio)
 
@@ -330,6 +419,14 @@ func New() *Metrics {
 		generationCapUsed:        generationCapUsed,
 		generationCapLimit:       generationCapLimit,
 		generationCapUsedRatio:   generationCapUsedRatio,
+		genAIOperationDuration:   genAIOperationDuration,
+		genAITokenUsage:          genAITokenUsage,
+		genAICost:                genAICost,
+		genAICostUnknown:         genAICostUnknown,
+		genAIInvalidOutput:       genAIInvalidOutput,
+		genAISchemaRetry:         genAISchemaRetry,
+		genAIBreakerOpen:         genAIBreakerOpen,
+		genAIBreakerOpened:       genAIBreakerOpened,
 		billingCorrections:       billingCorrections,
 		funnelHomeVisits:         funnelHomeVisits,
 		funnelHomeCTAClicks:      funnelHomeCTAClicks,
@@ -467,6 +564,53 @@ func (m *Metrics) GenerationCapUsage(used, limit int) {
 		ratio = float64(used) / float64(limit)
 	}
 	m.generationCapUsedRatio.Set(ratio)
+}
+
+var _ generation.WorkerObserver = (*Metrics)(nil)
+
+func (m *Metrics) GenerationAttempt(model, promptVersion string, duration time.Duration, usage llm.Usage, result string) {
+	model = genAIModel(model)
+	if result != generation.AttemptResultSuccess {
+		result = generation.AttemptResultError
+	}
+	m.genAIOperationDuration.WithLabelValues(model, promptVersion, result).Observe(duration.Seconds())
+	if result != generation.AttemptResultSuccess {
+		return
+	}
+	m.genAITokenUsage.WithLabelValues(model, promptVersion, genAITokenInput).Observe(float64(max(usage.PromptTokens, 0)))
+	m.genAITokenUsage.WithLabelValues(model, promptVersion, genAITokenOutput).Observe(float64(max(usage.CompletionTokens, 0)))
+	if usage.CostUSD == nil || *usage.CostUSD < 0 {
+		m.genAICostUnknown.WithLabelValues(model, promptVersion).Inc()
+		return
+	}
+	m.genAICost.WithLabelValues(model, promptVersion).Add(*usage.CostUSD)
+}
+
+func (m *Metrics) GenerationInvalidOutput(model, promptVersion string) {
+	m.genAIInvalidOutput.WithLabelValues(genAIModel(model), promptVersion).Inc()
+}
+
+func (m *Metrics) GenerationSchemaRetry(model, promptVersion string) {
+	m.genAISchemaRetry.WithLabelValues(genAIModel(model), promptVersion).Inc()
+}
+
+func (m *Metrics) GenerationBreakerState(open bool) {
+	if open {
+		m.genAIBreakerOpen.Set(1)
+		return
+	}
+	m.genAIBreakerOpen.Set(0)
+}
+
+func (m *Metrics) GenerationBreakerOpened() {
+	m.genAIBreakerOpened.Inc()
+}
+
+func genAIModel(model string) string {
+	if model == "" {
+		return genAIModelUnknown
+	}
+	return model
 }
 
 func (m *Metrics) HomeVisited() {

@@ -25,7 +25,7 @@ type generationRunner interface {
 	Run(ctx context.Context) error
 }
 
-func buildGeneration(cfg env.Env) (generationRunner, func(), error) {
+func buildGeneration(cfg env.Env, observer generation.WorkerObserver) (generationRunner, func(), error) {
 	vars := cfg.Variables
 	client, err := llmfactory.New(llmfactory.Config{
 		Provider:        vars.LLMProvider,
@@ -57,7 +57,7 @@ func buildGeneration(cfg env.Env) (generationRunner, func(), error) {
 	}
 
 	mdb := database.Client.Database(vars.DatabaseName)
-	worker, err := buildGenerationWorker(cfg,
+	worker, err := buildGenerationWorker(cfg, observer,
 		generation.NewMongoStore(mdb),
 		registry,
 		client,
@@ -78,6 +78,7 @@ func buildGeneration(cfg env.Env) (generationRunner, func(), error) {
 
 func buildGenerationWorker(
 	cfg env.Env,
+	observer generation.WorkerObserver,
 	jobs generation.JobStore,
 	catalog generation.Catalog,
 	client llm.Client,
@@ -88,13 +89,18 @@ func buildGenerationWorker(
 		Jobs:       jobs,
 		Catalog:    catalog,
 		Client:     client,
-		Breaker:    breaker.New(breaker.DefaultBreakerThreshold, breaker.DefaultBreakerProbeInterval, time.Now),
+		Breaker:    newGenerationBreaker(cfg, time.Now),
 		Quota:      quota,
 		Tx:         tx,
 		LLMTimeout: cfg.Variables.LLMTimeout,
 		Now:        time.Now,
 		Logger:     cfg.Logger,
+		Observer:   observer,
 	})
+}
+
+func newGenerationBreaker(cfg env.Env, now func() time.Time) *breaker.Breaker {
+	return breaker.New(cfg.Variables.LLMBreakerThreshold, cfg.Variables.LLMBreakerProbeInterval, now)
 }
 
 func runConcurrently(ctx context.Context, runners ...func(context.Context) error) error {

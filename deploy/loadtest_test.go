@@ -156,10 +156,11 @@ func TestDevObservabilityStack(t *testing.T) {
 				}
 			}
 		}},
-		{"Edge: the scrape target is the host API", func(t *testing.T) {
+		{"Edge: the scrape targets are the host API and worker", func(t *testing.T) {
 			scrape, err := os.ReadFile("dev-observability/prometheus.yml")
 			require.NoError(t, err)
 			assert.Contains(t, string(scrape), "host.docker.internal:8080")
+			assert.Contains(t, string(scrape), "host.docker.internal:9101")
 		}},
 	}
 	for _, tc := range tests {

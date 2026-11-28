@@ -97,7 +97,12 @@ func TestValidateGenerationDailyCap(t *testing.T) {
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := Env{Variables: Variables{GenerationDailyCap: tc.cap, LLMModel: "deepseek/deepseek-v4.1-flash"}}
+			cfg := Env{Variables: Variables{
+				GenerationDailyCap:      tc.cap,
+				LLMModel:                "deepseek/deepseek-v4.1-flash",
+				LLMBreakerThreshold:     5,
+				LLMBreakerProbeInterval: time.Minute,
+			}}
 			err := cfg.Validate()
 			if tc.wantErr {
 				require.Error(t, err)

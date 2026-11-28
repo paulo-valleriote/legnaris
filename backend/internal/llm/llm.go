@@ -25,6 +25,7 @@ type Usage struct {
 	CompletionTokens int
 	TotalTokens      int
 	ReasoningTokens  int
+	CostUSD          *float64
 }
 
 type Response struct {

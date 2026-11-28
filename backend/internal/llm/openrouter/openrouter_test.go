@@ -896,3 +896,24 @@ func TestGenerateUsesResponseModel(t *testing.T) {
 		assert.Equal(t, testModel, resp.Model)
 	})
 }
+
+func TestGenerateParsesUsageCost(t *testing.T) {
+	t.Run("Happy path: usage.cost is carried as a known cost", func(t *testing.T) {
+		client := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"{\"name\":\"Aria\"}"}}],"usage":{"prompt_tokens":11,"completion_tokens":7,"total_tokens":18,"cost":0.001234}}`)
+		})
+		resp, err := client.Generate(context.Background(), testRequest())
+		require.NoError(t, err)
+		require.NotNil(t, resp.Usage.CostUSD)
+		assert.InDelta(t, 0.001234, *resp.Usage.CostUSD, 1e-12)
+	})
+
+	t.Run("Edge: a response without usage.cost leaves it unknown", func(t *testing.T) {
+		client := newClient(t, func(w http.ResponseWriter, _ *http.Request) {
+			_, _ = io.WriteString(w, chatBody(t, `{"name":"Aria"}`))
+		})
+		resp, err := client.Generate(context.Background(), testRequest())
+		require.NoError(t, err)
+		assert.Nil(t, resp.Usage.CostUSD)
+	})
+}

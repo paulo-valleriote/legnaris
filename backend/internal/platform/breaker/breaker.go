@@ -59,6 +59,12 @@ func New(threshold int, probeInterval time.Duration, now func() time.Time) *Brea
 	return &Breaker{threshold: threshold, probeInterval: probeInterval, now: now}
 }
 
+func (b *Breaker) IsOpen() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.state == breakerOpen
+}
+
 func (b *Breaker) Admit() Admission {
 	b.mu.Lock()
 	defer b.mu.Unlock()

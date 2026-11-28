@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var llmEnvKeys = []string{"LLM_PROVIDER", "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_TIMEOUT", "LLM_REASONING_EFFORT"}
+var llmEnvKeys = []string{"LLM_PROVIDER", "LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL", "LLM_TIMEOUT", "LLM_REASONING_EFFORT", "LLM_BREAKER_THRESHOLD", "LLM_BREAKER_PROBE_INTERVAL"}
 
 func unsetLLMEnv(t *testing.T) {
 	t.Helper()
@@ -31,6 +31,8 @@ func TestInitVariablesLLMDefaults(t *testing.T) {
 	assert.Equal(t, "deepseek/deepseek-v4.1-flash", vars.LLMModel)
 	assert.Empty(t, vars.LLMReasoningEffort)
 	assert.Equal(t, 120*time.Second, vars.LLMTimeout)
+	assert.Equal(t, 5, vars.LLMBreakerThreshold)
+	assert.Equal(t, 60*time.Second, vars.LLMBreakerProbeInterval)
 }
 
 func TestInitVariablesLLMOverrides(t *testing.T) {
@@ -40,6 +42,8 @@ func TestInitVariablesLLMOverrides(t *testing.T) {
 	t.Setenv("LLM_MODEL", "deepseek/deepseek-v4.1-flash-1017")
 	t.Setenv("LLM_REASONING_EFFORT", "low")
 	t.Setenv("LLM_TIMEOUT", "15s")
+	t.Setenv("LLM_BREAKER_THRESHOLD", "3")
+	t.Setenv("LLM_BREAKER_PROBE_INTERVAL", "30s")
 
 	vars := initTestVariables()
 
@@ -48,6 +52,8 @@ func TestInitVariablesLLMOverrides(t *testing.T) {
 	assert.Equal(t, "deepseek/deepseek-v4.1-flash-1017", vars.LLMModel)
 	assert.Equal(t, "low", vars.LLMReasoningEffort)
 	assert.Equal(t, 15*time.Second, vars.LLMTimeout)
+	assert.Equal(t, 3, vars.LLMBreakerThreshold)
+	assert.Equal(t, 30*time.Second, vars.LLMBreakerProbeInterval)
 }
 
 func TestInitVariablesLLMInvalidTimeoutUsesDefault(t *testing.T) {
@@ -64,6 +70,84 @@ func TestInitVariablesLLMInvalidTimeoutUsesDefault(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Setenv("LLM_TIMEOUT", tc.value)
 			assert.Equal(t, 120*time.Second, initTestVariables().LLMTimeout)
+		})
+	}
+}
+
+func TestInitVariablesLLMBreakerInvalidValuesUseDefaults(t *testing.T) {
+	tests := []struct {
+		name  string
+		key   string
+		value string
+	}{
+		{name: "Edge: a non-integer threshold keeps the default", key: "LLM_BREAKER_THRESHOLD", value: "many"},
+		{name: "Edge: a zero threshold keeps the default", key: "LLM_BREAKER_THRESHOLD", value: "0"},
+		{name: "Edge: a negative threshold keeps the default", key: "LLM_BREAKER_THRESHOLD", value: "-1"},
+		{name: "Edge: an unparseable interval keeps the default", key: "LLM_BREAKER_PROBE_INTERVAL", value: "soon"},
+		{name: "Edge: a zero interval keeps the default", key: "LLM_BREAKER_PROBE_INTERVAL", value: "0s"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv(tc.key, tc.value)
+			vars := initTestVariables()
+			assert.Equal(t, 5, vars.LLMBreakerThreshold)
+			assert.Equal(t, 60*time.Second, vars.LLMBreakerProbeInterval)
+		})
+	}
+}
+
+func TestEnvValidateLLMBreaker(t *testing.T) {
+	valid := func() Env {
+		return Env{Variables: Variables{
+			LLMModel:                "deepseek/deepseek-v4.1-flash",
+			LLMBreakerThreshold:     5,
+			LLMBreakerProbeInterval: time.Minute,
+		}}
+	}
+
+	tests := []struct {
+		name    string
+		change  func(*Variables)
+		wantErr string
+	}{
+		{
+			name:   "Happy path: the defaults pass",
+			change: func(*Variables) {},
+		},
+		{
+			name:    "Error: a zero threshold fails the boot",
+			change:  func(v *Variables) { v.LLMBreakerThreshold = 0 },
+			wantErr: "LLM_BREAKER_THRESHOLD must be positive",
+		},
+		{
+			name:    "Error: a negative threshold fails the boot",
+			change:  func(v *Variables) { v.LLMBreakerThreshold = -3 },
+			wantErr: "LLM_BREAKER_THRESHOLD must be positive",
+		},
+		{
+			name:    "Error: a zero probe interval fails the boot",
+			change:  func(v *Variables) { v.LLMBreakerProbeInterval = 0 },
+			wantErr: "LLM_BREAKER_PROBE_INTERVAL must be positive",
+		},
+		{
+			name:    "Error: a negative probe interval fails the boot",
+			change:  func(v *Variables) { v.LLMBreakerProbeInterval = -time.Second },
+			wantErr: "LLM_BREAKER_PROBE_INTERVAL must be positive",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := valid()
+			tc.change(&cfg.Variables)
+			err := cfg.Validate()
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantErr)
 		})
 	}
 }

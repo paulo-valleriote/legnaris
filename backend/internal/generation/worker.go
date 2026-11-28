@@ -41,20 +41,22 @@ type WorkerDeps struct {
 	LLMTimeout time.Duration
 	Now        func() time.Time
 	Logger     logger.StructuredLogger
+	Observer   WorkerObserver
 }
 
 type Worker struct {
-	jobs    JobStore
-	catalog Catalog
-	client  llm.Client
-	breaker *breaker.Breaker
-	quota   Quota
-	tx      Transactor
-	lease   time.Duration
-	budget  time.Duration
-	now     func() time.Time
-	backoff time.Duration
-	logger  logger.StructuredLogger
+	jobs     JobStore
+	catalog  Catalog
+	client   llm.Client
+	breaker  *breaker.Breaker
+	quota    Quota
+	tx       Transactor
+	lease    time.Duration
+	budget   time.Duration
+	now      func() time.Time
+	backoff  time.Duration
+	logger   logger.StructuredLogger
+	observer WorkerObserver
 }
 
 func NewWorker(deps WorkerDeps) (*Worker, error) {
@@ -81,17 +83,18 @@ func NewWorker(deps WorkerDeps) (*Worker, error) {
 		now = time.Now
 	}
 	return &Worker{
-		jobs:    deps.Jobs,
-		catalog: deps.Catalog,
-		client:  deps.Client,
-		breaker: deps.Breaker,
-		quota:   deps.Quota,
-		tx:      deps.Tx,
-		lease:   LeaseDurationFor(deps.LLMTimeout),
-		budget:  jobBudgetFor(deps.LLMTimeout),
-		now:     now,
-		backoff: TransportBackoff,
-		logger:  deps.Logger,
+		jobs:     deps.Jobs,
+		catalog:  deps.Catalog,
+		client:   deps.Client,
+		breaker:  deps.Breaker,
+		quota:    deps.Quota,
+		tx:       deps.Tx,
+		lease:    LeaseDurationFor(deps.LLMTimeout),
+		budget:   jobBudgetFor(deps.LLMTimeout),
+		now:      now,
+		backoff:  TransportBackoff,
+		logger:   deps.Logger,
+		observer: workerObserver(deps.Observer),
 	}, nil
 }
 
@@ -144,7 +147,7 @@ func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, st
 			Schema:    schema,
 			MaxTokens: MaxOutputTokens,
 		}
-		resp, code := w.call(ctx, req)
+		resp, code := w.call(ctx, req, meta.PromptVersion)
 		if code != "" {
 			return nil, code, meta
 		}
@@ -167,6 +170,10 @@ func (w *Worker) generate(ctx context.Context, doc Document) (map[string]any, st
 			return nil, ErrorCodeTemplateUnavailable, meta
 		}
 		problems = problemsOf(err)
+		w.observer.GenerationInvalidOutput(resp.Model, meta.PromptVersion)
+		if attempt < MaxSchemaRetries {
+			w.observer.GenerationSchemaRetry(resp.Model, meta.PromptVersion)
+		}
 		w.logger.Info(ctx, "generation output rejected",
 			logger.Attribute{Key: attrGenerationID, Value: doc.ID},
 			logger.Attribute{Key: attrAttempts, Value: strconv.Itoa(attempt + 1)},
@@ -190,17 +197,21 @@ func (w *Worker) resolve(templateID string) (*template.Template, *template.DAG, 
 	return tmpl, dag, ""
 }
 
-func (w *Worker) call(ctx context.Context, req llm.Request) (llm.Response, string) {
+func (w *Worker) call(ctx context.Context, req llm.Request, promptVersion string) (llm.Response, string) {
 	probe, admitted := w.admit()
 	if !admitted {
 		return llm.Response{}, ErrorCodeProviderUnavailable
 	}
 	for transport := 0; ; transport++ {
+		started := time.Now()
 		resp, err := w.client.Generate(ctx, req)
+		duration := time.Since(started)
 		if err == nil {
+			w.observer.GenerationAttempt(resp.Model, promptVersion, duration, resp.Usage, AttemptResultSuccess)
 			w.report(ctx, probe, breaker.OutcomeSuccess)
 			return resp, ""
 		}
+		w.observer.GenerationAttempt("", promptVersion, duration, llm.Usage{}, AttemptResultError)
 		w.report(ctx, probe, classifyLLM(err))
 
 		switch {
@@ -225,8 +236,11 @@ func (w *Worker) admit() (uint64, bool) {
 }
 
 func (w *Worker) report(ctx context.Context, probe uint64, outcome breaker.Outcome) {
-	switch w.breaker.Record(probe, outcome) {
+	transition := w.breaker.Record(probe, outcome)
+	w.observer.GenerationBreakerState(w.breaker.IsOpen())
+	switch transition {
 	case breaker.TransitionOpened:
+		w.observer.GenerationBreakerOpened()
 		w.logger.Warn(ctx, "generation provider breaker opened")
 	case breaker.TransitionClosed:
 		w.logger.Info(ctx, "generation provider breaker closed")
@@ -315,4 +329,23 @@ func pause(ctx context.Context, d time.Duration) bool {
 	case <-timer.C:
 		return true
 	}
+}
+
+type noopWorkerObserver struct{}
+
+func (noopWorkerObserver) GenerationAttempt(string, string, time.Duration, llm.Usage, string) {}
+
+func (noopWorkerObserver) GenerationInvalidOutput(string, string) {}
+
+func (noopWorkerObserver) GenerationSchemaRetry(string, string) {}
+
+func (noopWorkerObserver) GenerationBreakerState(bool) {}
+
+func (noopWorkerObserver) GenerationBreakerOpened() {}
+
+func workerObserver(observer WorkerObserver) WorkerObserver {
+	if observer == nil {
+		return noopWorkerObserver{}
+	}
+	return observer
 }
