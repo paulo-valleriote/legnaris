@@ -14,10 +14,11 @@ var ErrPermanent = errors.New("llm permanent failure")
 var ErrProviderUnavailable = fmt.Errorf("%w: no eligible provider", ErrTransient)
 
 type Request struct {
-	System    string
-	Prompt    string
-	Schema    json.RawMessage
-	MaxTokens int
+	System      string
+	Prompt      string
+	Schema      json.RawMessage
+	MaxTokens   int
+	Temperature *float64
 }
 
 type Usage struct {

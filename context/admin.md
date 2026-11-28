@@ -124,6 +124,9 @@ resolved client address. There is no update or delete path; boot indexes
   tracked `.md` against `context/markdown-allowlist.txt` through
   `backend/cmd/markdown-check`; the same command backs the Claude Code
   `PreToolUse` hook in `.claude/settings.json`.
+- `.github/workflows/prompt-evals.yml` — the generation prompt eval, manual and
+  nightly only, never on a pull request; it reads the `OPENROUTER_API_KEY`
+  secret and fails when the 90% gate or the US$ 1.00 cost cap is not met.
 
 ## Tools & dependencies
 

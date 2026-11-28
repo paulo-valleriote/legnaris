@@ -335,9 +335,10 @@ func (c *Client) buildRequest(req llm.Request) chatRequest {
 	messages = append(messages, message{Role: "user", Content: req.Prompt})
 
 	request := chatRequest{
-		Model:     c.model,
-		MaxTokens: req.MaxTokens,
-		Messages:  messages,
+		Model:       c.model,
+		MaxTokens:   req.MaxTokens,
+		Temperature: req.Temperature,
+		Messages:    messages,
 		ResponseFormat: responseFormat{
 			Type: "json_schema",
 			JSONSchema: jsonSchema{
@@ -360,6 +361,7 @@ func (c *Client) buildRequest(req llm.Request) chatRequest {
 type chatRequest struct {
 	Model          string           `json:"model"`
 	MaxTokens      int              `json:"max_tokens"`
+	Temperature    *float64         `json:"temperature,omitempty"`
 	Messages       []message        `json:"messages"`
 	ResponseFormat responseFormat   `json:"response_format"`
 	Provider       providerRouting  `json:"provider"`

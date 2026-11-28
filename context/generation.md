@@ -217,6 +217,22 @@ production stack and the dev observability stack.
 a Sheet and period; the compound sparse index `{sheet_id, created_at}` backs it. `GET
 /generations/{id}` and the rest of the user surface never expose either field.
 
+### Prompt evals
+
+`evals/generation` holds the prompt eval: a synthetic dataset of 60 concepts across classes,
+species, backgrounds, levels, multiclass, out-of-SRD, non-English and edge cases, the promptfoo
+configuration and assertions, and the `run.sh` wrapper. `backend/cmd/geneval` is the bridge: it
+loads the default Template, builds the same system prompt, output schema, validation and assembly
+as the worker, sends temperature 0 and prints the assembled sheet. It retries an invalid output
+twice with the problems, like production. The cost ledger records each call's `usage.cost`; a
+missing cost or a total above US$ 1.00 writes a block file and aborts the run, never treating
+unknown as zero. The gate requires 90% of the cases to pass the JSON and coherence assertions. It
+runs only from `.github/workflows/prompt-evals.yml`, which is manual and nightly and never
+triggered by a pull request; the job summary shows the prompt version, model, counts, pass rate
+and cost. Locally, export `LLM_API_KEY` (or put it in `.env`) and run
+`./evals/generation/run.sh`; `LLM_MODEL` overrides the model and `EVAL_MAX_COST_USD` the cap. The
+workflow reads the `OPENROUTER_API_KEY` secret and fails with a clear message when it is absent.
+
 ### Template metadata
 
 `FieldSchema` carries `Generatable`, `GeneratableKinds`, `GenerationEnum`, `GenerationValues`, `NotGeneratable`, `PreferDefault`, `Min`, `Max` and `MaxLength`; `Template` carries `NameLeaf`, `GameSystemID`, the shared `PromptGuidance`, the per-kind `PromptGuidanceByKind`, an optional `ClassSubclass` rule (the class, subclass and level paths plus the first subclass level) and an optional `SaveProficiencies` rule (the flagged paths plus how many must be on). `GenerationEnum`, `GenerationValues`, `NotGeneratable`, `ClassSubclass` and `SaveProficiencies` are generation metadata and are not part of the client DTO. Boot (`BuildRegistry`, in API and worker) rejects a generatable leaf that is not editable, kinds on a non-generatable leaf or outside the known kinds, a `GenerationEnum` on a non-generatable or non-text leaf or with duplicate values, `GenerationValues` on a non-generatable or non-number leaf, with duplicates or outside the declared bounds, a `NotGeneratable` leaf that is also generatable, carries kinds or is not editable, `prefer_default` on a non-generatable leaf or outside its bounds, `Min > Max`, bounds on a non-number, a non-positive `MaxLength` and `MaxLength` on a non-text leaf; a class/subclass rule must resolve to generatable class and subclass text leaves with enums and a generatable number level, with a positive subclass level, and its class enum must equal the game system classes in order while its subclass enum must equal the game system subclasses plus the empty option, both the same length; a save-proficiency rule must ask for between one and all of its distinct paths, each path resolving to a generatable flagged number; a guidance entry must name a valid kind the Template accepts and carry text; a non-empty `NameLeaf` must resolve to a text leaf, and a non-empty `GameSystemID` must resolve to a registered Game system. In `fantasy_v1` every editable leaf is generatable except `rules.*` and `identity.playerName`; `level`, `xp` and `proficiencyBonus` prefer their defaults so a concept without a stated level yields a starting character. In the 5E Character the identity class, subclass, species and background are generatable with their enums and remain editable free text; `level` prefers 1 and `status.xp` prefers 0, the six save proficiencies are generated with exactly two on, the Hit Die is the value set 6/8/10/12, spell slot totals are generated with a zero minimum, and feature text is capped at 300 runes. The 5E Stat Block takes its challenge rating from the concept with no preferred default, and its trait, action, bonus-action, reaction and legendary-action text is capped at 300 runes.
@@ -238,14 +254,16 @@ A Record list carries `MaxRecords`, the generation cap that is separate from its
 - `backend/internal/sheet` — `create_values.go` (accept) and `limits.go` (limit check and slot reservation).
 - `backend/internal/sheet/template` — generation metadata, name leaf, seeding and the registry.
 - `backend/internal/app` — `generation.go`, `llm_consent.go`, `plan.go`, `router.go` and `bootstrap.go`.
-- `backend/cmd/worker` — builds the LLM client, registry, worker and consumer when generation is enabled; `backend/cmd/relay` runs the sweeper queues.
+- `backend/cmd/worker` — builds the LLM client, registry, worker and consumer when generation is enabled; `backend/cmd/relay` runs the sweeper queues; `backend/cmd/geneval` is the prompt-eval bridge over the default Template.
+- `evals/generation` — synthetic concept dataset, promptfoo configuration and assertions, cost/report scripts and the eval wrapper.
 - `backend/shared/db/indexes.go`, `backend/shared/env/env.go`, `backend/shared/apperr/err.go` and `backend/internal/platform/{breaker,metrics}` — indexes, config, error codes, circuit breaker and cap gauges.
 - `web/src/generate` — concept screen, consent modal, polling, preview editing and accept; the review draws the Template name with its notice link through `web/src/catalog/template_name.tsx`; `generation_flow.ts` holds the pure length and wait rules; `web/src/api` holds the calls, models and error-kind mapping. A draft with a non-empty `identity.name` shows that name as the read-only Sheet name with the `generate.nameFromCharacter` hint, because accept uses it over the typed name; without one the typed or suggested name is used.
 - `deploy/.env.example`, `deploy/docker-compose.yml` and `deploy/prometheus/rules-f1a.yml` — keys, process placement and the 80% alert.
 
 ## Tools & dependencies
 
-- **OpenRouter** chat completions with strict `json_schema` response format; every request carries `provider.require_parameters` and `allow_fallbacks`, with no retention or provider filter. A plain `http.Client` applies `LLM_TIMEOUT`.
+- **OpenRouter** chat completions with strict `json_schema` response format; every request carries `provider.require_parameters` and `allow_fallbacks`, with no retention or provider filter. A plain `http.Client` applies `LLM_TIMEOUT`. The eval bridge adds temperature 0; production leaves it unset.
+- **promptfoo** 0.126.0 via `npx`, only in the manual/nightly eval workflow and the local wrapper.
 - **DeepSeek V4.1 Flash** (`deepseek/deepseek-v4.1-flash`), the pinned paid model.
 - **RabbitMQ** topic exchange `generation`, key `generation.<kind>.requested`, quorum queue `generation.requests`, dead-letter queue `generation.dead`, publisher confirms and unroutable detection.
 - **MongoDB** transactions for cap, quota and insert and for terminal failure plus refund; sparse unique and TTL indexes.
