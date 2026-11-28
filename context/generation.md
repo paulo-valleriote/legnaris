@@ -227,8 +227,9 @@ as the worker, sends temperature 0 and prints the assembled sheet. It retries an
 twice with the problems, like production. The cost ledger records each call's `usage.cost`; a
 missing cost or a total above US$ 1.00 writes a block file and aborts the run, never treating
 unknown as zero. The gate requires 90% of the cases to pass the JSON, structural-coherence and
-per-case adherence assertions; the dataset states the expected class, species, background and
-level wherever the concept does, and an execution with no cases fails. It runs only from
+per-case adherence assertions; the dataset states the expected class, species and background
+wherever the concept does, and always an expected level, defaulting to 1 when the concept names
+none. An execution with no cases fails. It runs only from
 `.github/workflows/prompt-evals.yml`, which is manual and nightly and never triggered by a pull
 request; the job summary shows the prompt version, model, counts, pass rate and cost. At the US$
 1.00 cap, a nightly run costs at most US$ 1 per day. Locally, export `LLM_API_KEY` (or put it in
